@@ -6,7 +6,7 @@ type error
 val errorMessage : error -> string
 val errorType : error -> [ `Sort | `Kind | `Type ]
 
-type ('s, 't) checkResult = ('t, ('s, error) withSource) MResult.t
+type ('s, 't) checkResult = ('t, ('s, error) Source.annotate) MResult.t
 
 type 'v envEntry =
   { e : 'v

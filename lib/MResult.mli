@@ -4,7 +4,10 @@ type ('ok, 'err) t =
   | MOk of 'ok
   | Errors of 'err Non_empty_list.t
 
-include Monad.S2 with type ('ok, 'err) t := ('ok, 'err) t
+include
+  MonadWithError.S2
+    with type ('ok, 'err) t := ('ok, 'err) t
+    with type 'err error = 'err Non_empty_list.t
 
 val ofOption : 'ok option -> err:'err -> ('ok, 'err) t
 val err : 'err -> ('ok, 'err) t

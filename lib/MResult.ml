@@ -4,8 +4,18 @@ type ('ok, 'err) t =
   | MOk of 'ok
   | Errors of 'err Non_empty_list.t
 
-include Monad.Make2 (struct
-  type nonrec ('a, 'b) t = ('a, 'b) t
+type 'e error = 'e Non_empty_list.t
+
+let both a b =
+  match a, b with
+  | MOk a, MOk b -> MOk (a, b)
+  | MOk _, (Errors _ as errs) | (Errors _ as errs), MOk _ -> errs
+  | Errors errs1, Errors errs2 -> Errors (Non_empty_list.append errs1 errs2)
+;;
+
+include MonadWithError.Make2 (struct
+  type 'e error = 'e Non_empty_list.t
+  type nonrec ('a, 'e) t = ('a, 'e) t
 
   let bind x ~f =
     match x with
@@ -21,14 +31,16 @@ include Monad.Make2 (struct
 
   let map = `Custom map
   let return x = MOk x
-end)
 
-let both a b =
-  match a, b with
-  | MOk a, MOk b -> MOk (a, b)
-  | MOk _, (Errors _ as errs) | (Errors _ as errs), MOk _ -> errs
-  | Errors errs1, Errors errs2 -> Errors (Non_empty_list.append errs1 errs2)
-;;
+  let bindWithError x ~f ~error =
+    match bind x ~f with
+    | MOk success -> MOk success
+    | Errors errors ->
+      (match error errors with
+      | MOk () -> Errors errors
+      | Errors moreErrors -> Errors (Non_empty_list.append errors moreErrors))
+  ;;
+end)
 
 module Let_syntax = struct
   include Let_syntax

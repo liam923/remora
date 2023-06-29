@@ -14,20 +14,13 @@ module Sort = struct
   [@@deriving eq]
 end
 
-(*The 's found throughout this stands for the "source" type. The source
-     tracks where in the file the token was located*)
-type ('s, 't) withSource =
-  { elem : 't
-  ; source : 's
-  }
-
 module Untyped = struct
   type ('s, 't) param =
-    { binding : ('s, string) withSource
+    { binding : ('s, string) Source.annotate
     ; bound : 't
     }
 
-  type ('s, 't) paramList = ('s, ('s, 't) param) withSource list
+  type ('s, 't) paramList = ('s, ('s, 't) param) Source.annotate list
 
   module Index = struct
     type ref = string
@@ -43,7 +36,7 @@ module Untyped = struct
       | Add of 's add
       | Append of 's append
 
-    and 's t = ('s, 's raw) withSource
+    and 's t = ('s, 's raw) Source.annotate
   end
 
   module Type = struct
@@ -78,55 +71,55 @@ module Untyped = struct
       | Sigma of 's sigma
       | Tuple of 's tuple
 
-    and 's t = ('s, 's raw) withSource
+    and 's t = ('s, 's raw) Source.annotate
   end
 
   module Expr = struct
     type ref = string
 
     and 's arr =
-      { dimensions : ('s, ('s, int) withSource list) withSource
+      { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
       ; elements : 's t Non_empty_list.t
       }
 
     and 's emptyArr =
-      { dimensions : ('s, ('s, int) withSource list) withSource
+      { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
       ; elementType : 's Type.t
       }
 
     and 's frame =
-      { dimensions : ('s, ('s, int) withSource list) withSource
+      { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
       ; arrays : 's t Non_empty_list.t
       }
 
     and 's emptyFrame =
-      { dimensions : ('s, ('s, int) withSource list) withSource
+      { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
       ; arrayType : 's Type.t
       }
 
     and 's termApplication =
       { func : 's t
-      ; args : ('s, 's t list) withSource
+      ; args : ('s, 's t list) Source.annotate
       }
 
     and 's typeApplication =
       { tFunc : 's t
-      ; args : ('s, 's Type.t list) withSource
+      ; args : ('s, 's Type.t list) Source.annotate
       }
 
     and 's indexApplication =
       { iFunc : 's t
-      ; args : ('s, 's Index.t list) withSource
+      ; args : ('s, 's Index.t list) Source.annotate
       }
 
     and 's unboxParam =
-      { binding : ('s, string) withSource
-      ; bound : ('s, Sort.t) withSource option
+      { binding : ('s, string) Source.annotate
+      ; bound : ('s, Sort.t) Source.annotate option
       }
 
     and 's unbox =
-      { indexBindings : ('s, ('s, 's unboxParam) withSource list) withSource
-      ; valueBinding : ('s, string) withSource
+      { indexBindings : ('s, ('s, 's unboxParam) Source.annotate list) Source.annotate
+      ; valueBinding : ('s, string) Source.annotate
       ; box : 's t
       ; body : 's t
       }
@@ -147,26 +140,26 @@ module Untyped = struct
       }
 
     and 's boxElement =
-      { indices : ('s, 's Index.t list) withSource
+      { indices : ('s, 's Index.t list) Source.annotate
       ; body : 's t
       }
 
     and 's boxes =
       { params : ('s, Sort.t) paramList
       ; elementType : 's Type.t
-      ; dimensions : ('s, ('s, int) withSource list) withSource
-      ; elements : ('s, ('s, 's boxElement) withSource list) withSource
+      ; dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
+      ; elements : ('s, ('s, 's boxElement) Source.annotate list) Source.annotate
       }
 
     and 's let' =
-      { binding : ('s, string) withSource
+      { binding : ('s, string) Source.annotate
       ; bound : 's Type.t option
       ; value : 's t
       ; body : 's t
       }
 
     and 's tupleLet =
-      { bindings : ('s, ('s, string) withSource list) withSource
+      { bindings : ('s, ('s, string) Source.annotate list) Source.annotate
       ; bound : 's Type.t option
       ; value : 's t
       ; body : 's t
@@ -192,7 +185,7 @@ module Untyped = struct
       | TupleLet of 's tupleLet
       | Tuple of 's tuple
 
-    and 's t = ('s, 's raw) withSource
+    and 's t = ('s, 's raw) Source.annotate
   end
 end
 
