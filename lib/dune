@@ -1,0 +1,10 @@
+(library
+ (name remora)
+ (libraries base non_empty_list)
+ (preprocess
+  (pps ppx_jane ppx_deriving.eq)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -30))))

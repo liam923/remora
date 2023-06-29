@@ -1,0 +1,109 @@
+opam-version: "2.0"
+name: "remora"
+version: "~dev"
+synopsis: "A short synopsis"
+description: "A longer description"
+maintainer: "Maintainer Name"
+authors: "Author Name"
+license: "LICENSE"
+tags: ["topics" "to describe" "your" "project"]
+homepage: "https://github.com/username/reponame"
+doc: "https://url/to/documentation"
+bug-reports: "https://github.com/username/reponame/issues"
+depends: [
+  "astring" {= "0.8.5" & with-doc}
+  "base" {= "v0.15.1"}
+  "base-bigarray" {= "base"}
+  "base-threads" {= "base"}
+  "base-unix" {= "base"}
+  "base_bigstring" {= "v0.15.0"}
+  "base_quickcheck" {= "v0.15.0"}
+  "bin_prot" {= "v0.15.0"}
+  "cmdliner" {= "1.2.0" & with-doc}
+  "core" {= "v0.15.1"}
+  "cppo" {= "1.6.9" & with-doc}
+  "csexp" {= "1.5.2"}
+  "dune" {= "3.7.1"}
+  "dune-configurator" {= "3.7.1"}
+  "fieldslib" {= "v0.15.0"}
+  "fmt" {= "0.9.0" & with-doc}
+  "fpath" {= "0.7.3" & with-doc}
+  "gen" {= "1.1"}
+  "int_repr" {= "v0.15.0"}
+  "jane-street-headers" {= "v0.15.0"}
+  "jst-config" {= "v0.15.1"}
+  "num" {= "1.4"}
+  "ocaml" {= "4.14.1"}
+  "ocaml-base-compiler" {= "4.14.1"}
+  "ocaml-compiler-libs" {= "v0.12.4"}
+  "ocaml-config" {= "2"}
+  "ocaml-options-vanilla" {= "1"}
+  "ocamlbuild" {= "0.14.2" & with-doc}
+  "ocamlfind" {= "1.9.6"}
+  "odoc" {= "2.1.1" & with-doc}
+  "odoc-parser" {= "1.0.0" & with-doc}
+  "parsexp" {= "v0.15.0"}
+  "ppx_assert" {= "v0.15.0"}
+  "ppx_base" {= "v0.15.0"}
+  "ppx_bench" {= "v0.15.1"}
+  "ppx_bin_prot" {= "v0.15.0"}
+  "ppx_cold" {= "v0.15.0"}
+  "ppx_compare" {= "v0.15.0"}
+  "ppx_custom_printf" {= "v0.15.0"}
+  "ppx_derivers" {= "1.2.1"}
+  "ppx_disable_unused_warnings" {= "v0.15.0"}
+  "ppx_enumerate" {= "v0.15.0"}
+  "ppx_expect" {= "v0.15.1"}
+  "ppx_fields_conv" {= "v0.15.0"}
+  "ppx_fixed_literal" {= "v0.15.0"}
+  "ppx_hash" {= "v0.15.0"}
+  "ppx_here" {= "v0.15.0"}
+  "ppx_ignore_instrumentation" {= "v0.15.0"}
+  "ppx_inline_test" {= "v0.15.1"}
+  "ppx_jane" {= "v0.15.0"}
+  "ppx_let" {= "v0.15.0"}
+  "ppx_log" {= "v0.15.0"}
+  "ppx_module_timer" {= "v0.15.0"}
+  "ppx_optcomp" {= "v0.15.0"}
+  "ppx_optional" {= "v0.15.0"}
+  "ppx_pipebang" {= "v0.15.0"}
+  "ppx_sexp_conv" {= "v0.15.1"}
+  "ppx_sexp_message" {= "v0.15.0"}
+  "ppx_sexp_value" {= "v0.15.0"}
+  "ppx_stable" {= "v0.15.0"}
+  "ppx_string" {= "v0.15.0"}
+  "ppx_string_interpolation" {= "1.0.1"}
+  "ppx_typerep_conv" {= "v0.15.0"}
+  "ppx_variants_conv" {= "v0.15.0"}
+  "ppxlib" {= "0.29.1"}
+  "re" {= "1.10.4"}
+  "result" {= "1.5" & with-doc}
+  "sedlex" {= "3.1"}
+  "seq" {= "base"}
+  "sexplib" {= "v0.15.1"}
+  "sexplib0" {= "v0.15.1"}
+  "splittable_random" {= "v0.15.0"}
+  "stdio" {= "v0.15.0"}
+  "stdlib-shims" {= "0.3.0"}
+  "time_now" {= "v0.15.0"}
+  "topkg" {= "1.0.7" & with-doc}
+  "typerep" {= "v0.15.0"}
+  "tyxml" {= "4.5.0" & with-doc}
+  "uutf" {= "1.0.3" & with-doc}
+  "variantslib" {= "v0.15.0"}
+]
+build: [
+  ["dune" "subst"] {dev}
+  [
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    "@runtest" {with-test}
+    "@doc" {with-doc}
+  ]
+]
+dev-repo: "git+https://github.com/username/reponame.git"
