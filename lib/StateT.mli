@@ -37,6 +37,8 @@ module type S2 = sig
 
   val setF : ('s, 'e) m -> ('s, unit, 'e) t
   val returnF : ('a, 'e) m -> ('s, 'a, 'e) t
+  val make : f:('s -> 's * 'a) -> ('s, 'a, 'e) t
+  val makeF : f:('s -> ('s * 'a, 'e) m) -> ('s, 'a, 'e) t
 end
 
 module Make2 (M : Monad.S2) : S2 with type ('a, 'e) m = ('a, 'e) M.t
@@ -45,6 +47,7 @@ module type S2WithError = sig
   include S2
 
   val both : ('s, 'a, 'e) t -> ('s, 'b, 'e) t -> ('s, 'a * 'b, 'e) t
+  val allNE : ('s, 'ok, 'err) t Non_empty_list.t -> ('s, 'ok Non_empty_list.t, 'err) t
 end
 
 module Make2WithError (M : MonadWithError.S2) :

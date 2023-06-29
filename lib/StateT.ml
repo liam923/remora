@@ -17,6 +17,8 @@ module type S2 = sig
   val set : 's -> ('s, unit, 'e) t
   val setF : ('s, 'e) m -> ('s, unit, 'e) t
   val returnF : ('a, 'e) m -> ('s, 'a, 'e) t
+  val make : f:('s -> 's * 'a) -> ('s, 'a, 'e) t
+  val makeF : f:('s -> ('s * 'a, 'e) m) -> ('s, 'a, 'e) t
 end
 
 module Make2 (M : Monad.S2) = struct
@@ -70,12 +72,15 @@ module Make2 (M : Monad.S2) = struct
   let set state = M.return (fun _ -> M.return (state, ()))
   let setF stateF = M.return (fun _ -> M.map stateF ~f:(fun state -> state, ()))
   let returnF value = M.map value ~f:(fun value state -> M.return (state, value))
+  let make ~f = M.return (fun state -> M.return (f state))
+  let makeF ~f = M.return f
 end
 
 module type S2WithError = sig
   include S2
 
   val both : ('s, 'a, 'e) t -> ('s, 'b, 'e) t -> ('s, 'a * 'b, 'e) t
+  val allNE : ('s, 'ok, 'err) t Non_empty_list.t -> ('s, 'ok Non_empty_list.t, 'err) t
 end
 
 module Make2WithError (M : MonadWithError.S2) = struct
@@ -100,4 +105,20 @@ module Make2WithError (M : MonadWithError.S2) = struct
       let both = both
     end
   end
+
+  let all = function
+    | [] -> return []
+    | headR :: restL ->
+      let open Let_syntax in
+      let%map head = headR
+      and rest = all restL in
+      head :: rest
+  ;;
+
+  let allNE Non_empty_list.(headR :: restL) =
+    let open Let_syntax in
+    let%map head = headR
+    and rest = all restL in
+    Non_empty_list.(head :: rest)
+  ;;
 end

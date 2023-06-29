@@ -252,27 +252,40 @@ type env =
   ; types : Typed.Type.t envEntry Map.M(String).t
   }
 
-type state =
-  { env : env
-  ; idCounter : int
-  }
+type state = { idCounter : int }
 
-module Result = struct
+module CheckerStateT = struct
   include StateT.Make2WithError (MResult)
 
   let ok = return
   let err error = returnF (MResult.err error)
+  let errs errors = returnF (MResult.Errors errors)
 
-  let createId =
-    transform ~f:(fun state () ->
-        { state with idCounter = state.idCounter + 1 }, state.idCounter + 1)
+  let ofOption o ~err:error =
+    match o with
+    | Some v -> return v
+    | None -> err error
+  ;;
+
+  let require b error = if b then return () else err error
+
+  let traverseOpt = function
+    | Some r -> map r ~f:(fun e -> Some e)
+    | None -> return None
+  ;;
+
+  let createId name =
+    make ~f:(fun state ->
+        ( { idCounter = state.idCounter + 1 }
+        , Typed.Identifier.{ name; id = state.idCounter + 1 } ))
   ;;
 end
 
-open Result
-open Result.Let_syntax
+open CheckerStateT.Let_syntax
 
-type ('s, 't) result = (env, 't, ('s, error) Source.annotate) Result.t
+let ok = CheckerStateT.ok
+
+type ('s, 't) checkerStateT = (state, 't, ('s, error) Source.annotate) CheckerStateT.t
 
 let baseEnv =
   { sorts = Map.empty (module String)
@@ -292,45 +305,49 @@ type ('s, 't, 'u) paramsToMapResult =
   ; dups : 's Map.M(String).t
   }
 
-(** Extend the given environment with the bindings specified by the parameters,
+(** Extend the environment with the bindings specified by the parameters,
     and convert the untyped parameters into typed parameters. Any duplicate
     parameter names are detected and converted into erros via makeError *)
-let processParams env params ~makeError ~boundToEnvEntry =
+let processParams env params ~makeError ~boundToEnvEntry
+    : ('s, ('t, 'u) processedParams) checkerStateT
+  =
   (* Loops over the params, creating environment entries, converting into
       typed params, and detecting duplicates *)
   let rec collapseParams
       (params : ('s, 't) Untyped.paramList)
-      (acc : ('s, 't, 'u) paramsToMapResult)
-      : ('s, 't, 'u) paramsToMapResult
+      (acc : ('s, ('s, 't, 'u) paramsToMapResult) checkerStateT)
+      : ('s, ('s, 't, 'u) paramsToMapResult) checkerStateT
     =
     match params with
     | [] -> acc
     | { elem = { binding; bound }; source = _ } :: rest ->
       let name = binding.elem in
-      let { typedParamsReversed = oldParams; entries = oldEntries; dups = oldDups } =
+      let%bind { typedParamsReversed = oldParams; entries = oldEntries; dups = oldDups } =
         acc
       in
-      let typedParam : 't Typed.param = { binding = { name; id = createId () }; bound } in
+      let%bind id = CheckerStateT.createId name in
+      let typedParam : 't Typed.param = { binding = id; bound } in
       let newParams = typedParam :: oldParams in
       let entry = { e = boundToEnvEntry bound; id = typedParam.binding } in
       (match Map.add oldEntries ~key:name ~data:entry with
       | `Ok newEntries ->
         collapseParams
           rest
-          { typedParamsReversed = newParams; entries = newEntries; dups = oldDups }
+          (ok { typedParamsReversed = newParams; entries = newEntries; dups = oldDups })
       | `Duplicate ->
         let newDups = Map.set oldDups ~key:name ~data:binding.source in
         collapseParams
           rest
-          { typedParamsReversed = newParams; entries = oldEntries; dups = newDups })
+          (ok { typedParamsReversed = newParams; entries = oldEntries; dups = newDups }))
   in
-  let { typedParamsReversed; entries; dups } =
+  let%bind { typedParamsReversed; entries; dups } =
     collapseParams
       params
-      { typedParamsReversed = []
-      ; entries = Map.empty (module String)
-      ; dups = Map.empty (module String)
-      }
+      (ok
+         { typedParamsReversed = []
+         ; entries = Map.empty (module String)
+         ; dups = Map.empty (module String)
+         })
   in
   let typedParams = List.rev typedParamsReversed in
   match Non_empty_list.of_list (Map.to_alist dups) with
@@ -338,9 +355,9 @@ let processParams env params ~makeError ~boundToEnvEntry =
     let extendedEnv =
       Map.merge_skewed env entries ~combine:(fun ~key:_ _ newEntry -> newEntry)
     in
-    MOk { typedParams; extendedEnv }
+    ok { typedParams; extendedEnv }
   | Some dups ->
-    Errors
+    CheckerStateT.errs
       (Non_empty_list.map dups ~f:(fun (name, source) ->
            { elem = makeError name; source }))
 ;;
@@ -356,14 +373,14 @@ module SortChecker = struct
              match entry.e with
              | Sort.Dim -> T.Dimension (T.dimensionRef entry.id)
              | Sort.Shape -> T.Shape [ T.ShapeRef entry.id ])
-      |> MResult.ofOption ~err:{ source; elem = UnboundIndexVariable name }
-    | U.Dimension dim -> MOk (T.Dimension (T.dimensionConstant dim))
+      |> CheckerStateT.ofOption ~err:{ source; elem = UnboundIndexVariable name }
+    | U.Dimension dim -> ok (T.Dimension (T.dimensionConstant dim))
     | U.Shape indices ->
-      let%map indices = MResult.all (List.map indices ~f:(checkAndExpectDim env)) in
+      let%map indices = CheckerStateT.all (List.map indices ~f:(checkAndExpectDim env)) in
       T.Shape (List.map ~f:(fun d -> T.Add d) indices)
     | U.Add indices ->
       let%map indices =
-        MResult.allNE (Non_empty_list.map indices ~f:(checkAndExpectDim env))
+        CheckerStateT.allNE (Non_empty_list.map indices ~f:(checkAndExpectDim env))
       in
       let flattenedDimension =
         indices
@@ -382,16 +399,16 @@ module SortChecker = struct
         indices
         |> Non_empty_list.to_list
         |> List.map ~f:(checkAndExpectShape env)
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let indices = List.join nestedIndices in
       T.Shape indices
 
   and checkAndExpectDim env index =
     match%bind check env index with
-    | Typed.Index.Dimension d -> MOk d
+    | Typed.Index.Dimension d -> ok d
     | Typed.Index.Shape _ ->
-      MResult.err
+      CheckerStateT.err
         { source = index.source
         ; elem = UnexpectedSort { expected = Sort.Dim; actual = Sort.Shape }
         }
@@ -399,11 +416,11 @@ module SortChecker = struct
   and checkAndExpectShape env index =
     match%bind check env index with
     | Typed.Index.Dimension _ ->
-      MResult.err
+      CheckerStateT.err
         { source = index.source
         ; elem = UnexpectedSort { expected = Sort.Dim; actual = Sort.Shape }
         }
-    | Typed.Index.Shape s -> MOk s
+    | Typed.Index.Shape s -> ok s
   ;;
 
   let checkAndExpect sort env index =
@@ -424,14 +441,14 @@ module KindChecker = struct
              match entry.e with
              | Kind.Array -> T.Array (T.ArrayRef entry.id)
              | Kind.Atom -> T.Atom (T.AtomRef entry.id))
-      |> MResult.ofOption ~err:{ source; elem = UnboundTypeVariable name }
+      |> CheckerStateT.ofOption ~err:{ source; elem = UnboundTypeVariable name }
     | U.Arr { element; shape } ->
       let%map element = checkAndExpectAtom env element
       and shape = SortChecker.checkAndExpectShape env shape in
       T.Array (T.Arr { element; shape })
     | U.Func { parameters; return } ->
       let%map parameters =
-        parameters |> List.map ~f:(checkAndExpectArray env) |> MResult.all
+        parameters |> List.map ~f:(checkAndExpectArray env) |> CheckerStateT.all
       and return = checkAndExpectArray env return in
       T.Atom (T.Func { parameters; return })
     | U.Forall { parameters; body } ->
@@ -469,22 +486,22 @@ module KindChecker = struct
       T.Atom (T.Sigma { parameters; body })
     | U.Tuple elements ->
       let%map kindedElements =
-        elements |> List.map ~f:(checkAndExpectAtom env) |> MResult.all
+        elements |> List.map ~f:(checkAndExpectAtom env) |> CheckerStateT.all
       in
       T.Atom (T.Tuple kindedElements)
 
   and checkAndExpectArray env type' =
     let open Typed.Type in
     match%bind check env type' with
-    | Array array -> MOk array
-    | Atom atom -> MOk (Arr { element = atom; shape = [] })
+    | Array array -> ok array
+    | Atom atom -> ok (Arr { element = atom; shape = [] })
 
   and checkAndExpectAtom env type' =
     let open Typed.Type in
     match%bind check env type' with
-    | Atom atom -> MOk atom
+    | Atom atom -> ok atom
     | Array _ ->
-      MResult.err
+      CheckerStateT.err
         { source = type'.source
         ; elem = UnexpectedKind { expected = Kind.Atom; actual = Kind.Array }
         }
@@ -500,9 +517,9 @@ end
 module TypeChecker = struct
   let zipLists ~expected ~actual ~makeError =
     match List.zip expected actual with
-    | Ok zipped -> MOk zipped
+    | Ok zipped -> ok zipped
     | Unequal_lengths ->
-      MResult.err
+      CheckerStateT.err
         (makeError { expected = List.length expected; actual = List.length actual })
   ;;
 
@@ -690,51 +707,51 @@ module TypeChecker = struct
 
   let requireType ~expected ~actual ~makeError =
     if eqType expected actual
-    then MOk ()
-    else MResult.err (makeError { expected; actual })
+    then ok ()
+    else CheckerStateT.err (makeError { expected; actual })
   ;;
 
   let checkForArrType source type' =
     let open Typed.Type in
     match type' with
-    | Arr arr -> MOk arr
+    | Arr arr -> ok arr
     | ArrayRef _ ->
-      MResult.err { source; elem = ExpectedArrType { actual = Array type' } }
+      CheckerStateT.err { source; elem = ExpectedArrType { actual = Array type' } }
   ;;
 
   let checkForTupleType source type' =
     let open Typed.Type in
     match type' with
-    | Tuple tup -> MOk tup
-    | _ -> MResult.err { source; elem = ExpectedTupleType { actual = Atom type' } }
+    | Tuple tup -> ok tup
+    | _ -> CheckerStateT.err { source; elem = ExpectedTupleType { actual = Atom type' } }
   ;;
 
   let checkForSigmaType source type' =
     let open Typed.Type in
     match type' with
-    | Sigma sigma -> MOk sigma
-    | _ -> MResult.err { source; elem = ExpectedSigmaType { actual = Atom type' } }
+    | Sigma sigma -> ok sigma
+    | _ -> CheckerStateT.err { source; elem = ExpectedSigmaType { actual = Atom type' } }
   ;;
 
   let checkForFuncType source type' =
     let open Typed.Type in
     match type' with
-    | Func func -> MOk func
-    | _ -> MResult.err { source; elem = ExpectedFuncType { actual = Atom type' } }
+    | Func func -> ok func
+    | _ -> CheckerStateT.err { source; elem = ExpectedFuncType { actual = Atom type' } }
   ;;
 
   (* Check if an expr is a value. This corresponds to Val and Atval in the
    formal syntax definition *)
   let rec requireValue { elem = expr; source } =
     let open Untyped.Expr in
-    let err = MResult.err { elem = ExpectedValue; source } in
+    let err = CheckerStateT.err { elem = ExpectedValue; source } in
     match expr with
-    | Ref _ -> MOk ()
+    | Ref _ -> ok ()
     | Arr arr ->
       arr.elements
       |> Non_empty_list.map ~f:requireValue
-      |> MResult.allNE
-      |> MResult.ignore_m
+      |> CheckerStateT.allNE
+      |> CheckerStateT.ignore_m
     | EmptyArr _ -> err
     | Frame _ -> err
     | EmptyFrame _ -> err
@@ -742,17 +759,17 @@ module TypeChecker = struct
     | TypeApplication _ -> err
     | IndexApplication _ -> err
     | Unbox _ -> err
-    | TermLambda _ -> MOk ()
+    | TermLambda _ -> ok ()
     | TypeLambda tl -> requireValue tl.body
     | IndexLambda il -> requireValue il.body
     | Boxes boxes ->
       boxes.elements.elem
       |> List.map ~f:(fun b -> requireValue b.elem.body)
-      |> MResult.all_unit
+      |> CheckerStateT.all_unit
     | Let _ -> err
     | TupleLet _ -> err
     | Tuple elements ->
-      elements |> List.map ~f:requireValue |> MResult.all |> MResult.ignore_m
+      elements |> List.map ~f:requireValue |> CheckerStateT.all |> CheckerStateT.ignore_m
   ;;
 
   let subIndicesIntoDimIndex indices ({ const; refs } : Typed.Index.dimension) =
@@ -921,12 +938,12 @@ module TypeChecker = struct
              match entry.e with
              | Typed.Type.Array type' -> T.Array (T.ArrayRef { id = entry.id; type' })
              | Typed.Type.Atom type' -> T.Atom (T.AtomRef { id = entry.id; type' }))
-      |> MResult.ofOption ~err:{ source; elem = UnboundVariable name }
+      |> CheckerStateT.ofOption ~err:{ source; elem = UnboundVariable name }
     | U.Arr { dimensions; elements } ->
       let dimensions = dimensions.elem |> List.map ~f:(fun d -> d.elem) in
       let expectedElements = dimensions |> List.fold ~init:1 ~f:( * ) in
       let%bind () =
-        MResult.require
+        CheckerStateT.require
           (expectedElements = Non_empty_list.length elements)
           { source
           ; elem =
@@ -937,7 +954,7 @@ module TypeChecker = struct
         elements
         |> Non_empty_list.map ~f:(fun e ->
                checkAndExpectAtom env e >>| fun atom -> atom, e.source)
-        |> MResult.allNE
+        |> CheckerStateT.allNE
       in
       let elements = elementsWithSource |> Non_empty_list.map ~f:(fun (e, _) -> e) in
       let ((firstElement, _) :: restElementsWithSource) = elementsWithSource in
@@ -953,7 +970,7 @@ module TypeChecker = struct
                        ArrayTypeDisagreement
                          { firstElementType = expected; gotElementType = actual }
                    }))
-        |> MResult.all_unit
+        |> CheckerStateT.all_unit
       in
       let arrays =
         elements
@@ -972,7 +989,7 @@ module TypeChecker = struct
       let hasZero = List.find unwrappedDims ~f:(( = ) 0) |> Option.is_some in
       let expectedElements = List.fold unwrappedDims ~init:1 ~f:( * ) in
       let%bind () =
-        MResult.require
+        CheckerStateT.require
           hasZero
           { source = dimensions.source
           ; elem =
@@ -994,7 +1011,7 @@ module TypeChecker = struct
       let dimensions = dimensions.elem |> List.map ~f:(fun d -> d.elem) in
       let expectedArrays = dimensions |> List.fold ~init:1 ~f:( * ) in
       let%bind () =
-        MResult.require
+        CheckerStateT.require
           (expectedArrays = Non_empty_list.length arrays)
           { source
           ; elem =
@@ -1005,7 +1022,7 @@ module TypeChecker = struct
         arrays
         |> Non_empty_list.map ~f:(fun e ->
                checkAndExpectArray env e >>| fun atom -> atom, e.source)
-        |> MResult.allNE
+        |> CheckerStateT.allNE
       in
       let typedArrays = arraysWithSource |> Non_empty_list.map ~f:(fun (e, _) -> e) in
       let ((firstArray, _) :: restArraysWithSource) = arraysWithSource in
@@ -1024,7 +1041,7 @@ module TypeChecker = struct
                        FrameTypeDisagreement
                          { firstArrayType = expected; gotArrayType = actual }
                    }))
-        |> MResult.all_unit
+        |> CheckerStateT.all_unit
       in
       let shape =
         List.map dimensions ~f:(fun n ->
@@ -1043,7 +1060,7 @@ module TypeChecker = struct
       let hasZero = List.find unwrappedDims ~f:(( = ) 0) |> Option.is_some in
       let expectedElements = List.fold unwrappedDims ~init:1 ~f:( * ) in
       let%map () =
-        MResult.require
+        CheckerStateT.require
           hasZero
           { source = dimensions.source
           ; elem = WrongNumberOfArraysInFrame { expected = expectedElements; actual = 0 }
@@ -1070,7 +1087,9 @@ module TypeChecker = struct
         let%bind funcArrType = checkForArrType funcSource (T.arrayType func) in
         let%bind arrowType = checkForFuncType funcSource funcArrType.element in
         let%map paramTypes =
-          arrowType.parameters |> List.map ~f:(checkForArrType funcSource) |> MResult.all
+          arrowType.parameters
+          |> List.map ~f:(checkForArrType funcSource)
+          |> CheckerStateT.all
         and returnType = checkForArrType funcSource arrowType.return in
         func, paramTypes, returnType, funcArrType.shape
       and args =
@@ -1080,7 +1099,7 @@ module TypeChecker = struct
                let%bind arg = checkAndExpectArray env arg in
                let%map argType = checkForArrType argSource (T.arrayType arg) in
                arg, argType, argSource)
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let%bind zippedArgs =
         zipLists ~expected:paramTypes ~actual:args ~makeError:(fun ea ->
@@ -1125,13 +1144,15 @@ module TypeChecker = struct
                  let allShapeElementsAgree =
                    List.for_all zippedCellElements ~f:eqShapeElement
                  in
-                 let%map () = MResult.require allShapeElementsAgree cellDisagreementErr in
+                 let%map () =
+                   CheckerStateT.require allShapeElementsAgree cellDisagreementErr
+                 in
                  frame
                in
                let%map () = checkElementType
                and frame = checkCellAndGetFrame in
                { elem = frame; source = argSource })
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let getPrincipalFrame
           (headFrame :: restFrames :
@@ -1159,14 +1180,14 @@ module TypeChecker = struct
                  let allShapeElementsAgree =
                    List.for_all zippedShapeElements ~f:eqShapeElement
                  in
-                 MResult.require
+                 CheckerStateT.require
                    allShapeElementsAgree
                    { source = frameSource
                    ; elem =
                        PrincipalFrameDisagreement
                          { expected = principalFrame; actual = frame }
                    })
-          |> MResult.all_unit
+          |> CheckerStateT.all_unit
         in
         principalFrame
       in
@@ -1185,9 +1206,9 @@ module TypeChecker = struct
       let%bind tFuncType = checkForArrType tFunc.source (T.arrayType tFuncTyped) in
       let%bind tFuncForall =
         match tFuncType.element with
-        | Typed.Type.Forall forall -> MOk forall
+        | Typed.Type.Forall forall -> ok forall
         | _ as t ->
-          MResult.err
+          CheckerStateT.err
             { source = tFunc.source
             ; elem = ExpectedForall { actual = Typed.Type.Atom t }
             }
@@ -1202,7 +1223,7 @@ module TypeChecker = struct
         |> List.map ~f:(fun (arg, param) ->
                let%map typedArg = KindChecker.checkAndExpect param.bound env arg in
                param.binding, typedArg)
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let substitutions =
         Map.of_alist_reduce (module Typed.Identifier) substitutionsList ~f:(fun a _ -> a)
@@ -1221,9 +1242,9 @@ module TypeChecker = struct
       let%bind iFuncType = checkForArrType iFunc.source (T.arrayType iFuncTyped) in
       let%bind iFuncPi =
         match iFuncType.element with
-        | Typed.Type.Pi pi -> MOk pi
+        | Typed.Type.Pi pi -> ok pi
         | _ as t ->
-          MResult.err
+          CheckerStateT.err
             { source = iFunc.source
             ; elem = ExpectedForall { actual = Typed.Type.Atom t }
             }
@@ -1238,7 +1259,7 @@ module TypeChecker = struct
         |> List.map ~f:(fun (param, arg) ->
                let%map typedArg = SortChecker.checkAndExpect param.bound env arg in
                param.binding, typedArg)
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let substitutions =
         Map.of_alist_reduce (module Typed.Identifier) substitutionsList ~f:(fun a _ -> a)
@@ -1268,26 +1289,24 @@ module TypeChecker = struct
       let%bind indexBindingsRev, newSortEnvEntries, substitutions =
         List.fold
           zippedIndexBindings
-          ~init:(MOk ([], Map.empty (module String), Map.empty (module Typed.Identifier)))
+          ~init:(ok ([], Map.empty (module String), Map.empty (module Typed.Identifier)))
           ~f:(fun soFar (param, binding) ->
             let%bind bindingsSoFar, entriesSoFar, subsSoFar = soFar in
             let%bind () =
               match binding.elem.bound with
               | Some bound ->
                 if Sort.equal bound.elem param.bound
-                then MOk ()
+                then ok ()
                 else
-                  MResult.err
+                  CheckerStateT.err
                     { source = bound.source
                     ; elem =
                         UnexpectedSortBoundInUnbox
                           { expected = param.bound; actual = bound.elem }
                     }
-              | None -> MOk ()
+              | None -> ok ()
             in
-            let id : Typed.Identifier.t =
-              { name = binding.elem.binding.elem; id = createId () }
-            in
+            let%bind id = CheckerStateT.createId binding.elem.binding.elem in
             let%map entries =
               match
                 Map.add
@@ -1295,9 +1314,9 @@ module TypeChecker = struct
                   ~key:binding.elem.binding.elem
                   ~data:{ e = param.bound; id }
               with
-              | `Ok entries -> MOk entries
+              | `Ok entries -> ok entries
               | `Duplicate ->
-                MResult.err
+                CheckerStateT.err
                   { source = binding.elem.binding.source
                   ; elem = DuplicateParameterName binding.elem.binding.elem
                   }
@@ -1312,7 +1331,7 @@ module TypeChecker = struct
             bindings, entries, subs)
       in
       let%bind () =
-        MResult.require
+        CheckerStateT.require
           (Option.is_none (Map.find newSortEnvEntries valueBinding.elem))
           { source = valueBinding.source
           ; elem = DuplicateParameterName valueBinding.elem
@@ -1322,9 +1341,7 @@ module TypeChecker = struct
         Map.merge_skewed env.sorts newSortEnvEntries ~combine:(fun ~key:_ _ newEntry ->
             newEntry)
       in
-      let valueBindingTyped : Typed.Identifier.t =
-        { name = valueBinding.elem; id = createId () }
-      in
+      let%bind valueBindingTyped = CheckerStateT.createId valueBinding.elem in
       let extendedTypes =
         Map.set
           env.types
@@ -1340,8 +1357,9 @@ module TypeChecker = struct
       let%bind bodyType = checkForArrType bodySource (T.arrayType body) in
       let%map () =
         match findEscapingRefs env (Typed.Type.Array (Typed.Type.Arr bodyType)) with
-        | [] -> MOk ()
-        | ref :: _ -> MResult.err { source = bodySource; elem = EscapingRef ref.name }
+        | [] -> ok ()
+        | ref :: _ ->
+          CheckerStateT.err { source = bodySource; elem = EscapingRef ref.name }
       in
       T.Array
         (T.Unbox
@@ -1359,7 +1377,7 @@ module TypeChecker = struct
                let%map bound = KindChecker.checkAndExpectArray env bound in
                let param : ('s, Typed.Type.array) Untyped.param = { binding; bound } in
                { elem = param; source })
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let%bind { typedParams; extendedEnv = extendedTypesEnv } =
         processParams
@@ -1405,14 +1423,15 @@ module TypeChecker = struct
       let type' : Typed.Type.pi = { parameters = typedParams; body = T.arrayType body } in
       T.Atom (T.IndexLambda { params = typedParams; body; type' })
     | U.Boxes { params; elementType; dimensions; elements } ->
-      let typedParams =
-        List.map params ~f:(fun p ->
-            let typedParam : Sort.t Typed.param =
-              { binding = { name = p.elem.binding.elem; id = createId () }
-              ; bound = p.elem.bound
-              }
-            in
-            typedParam)
+      let%bind typedParams =
+        params
+        |> List.map ~f:(fun p ->
+               let%map id = CheckerStateT.createId p.elem.binding.elem in
+               let typedParam : Sort.t Typed.param =
+                 { binding = id; bound = p.elem.bound }
+               in
+               typedParam)
+        |> CheckerStateT.all
       in
       let dimensions = List.map dimensions.elem ~f:(fun d -> d.elem) in
       let expectedElements = List.fold dimensions ~init:1 ~f:( * ) in
@@ -1424,12 +1443,12 @@ module TypeChecker = struct
                  e.elem.indices.elem
                  |> List.map ~f:(fun index ->
                         SortChecker.check env index >>| fun i -> i, index.source)
-                 |> MResult.all
+                 |> CheckerStateT.all
                and body = checkAndExpectArray env e.elem.body in
                indices, body, e)
-        |> MResult.all
+        |> CheckerStateT.all
       and _ =
-        MResult.require
+        CheckerStateT.require
           (List.length elements.elem = expectedElements)
           { elem =
               WrongNumberOfElementsInBoxes
@@ -1449,7 +1468,7 @@ module TypeChecker = struct
                let%bind substitutions =
                  List.fold
                    zippedIndices
-                   ~init:(MOk (Map.empty (module Typed.Identifier)))
+                   ~init:(ok (Map.empty (module Typed.Identifier)))
                    ~f:(fun acc _ -> acc)
                in
                let subbedType = subIndicesIntoArrayType substitutions elementType in
@@ -1468,7 +1487,7 @@ module TypeChecker = struct
                 ; type' = { parameters = typedParams; body = elementType }
                 }
                  : T.box))
-        |> MResult.all
+        |> CheckerStateT.all
       in
       let shape =
         List.map dimensions ~f:(fun d ->
@@ -1484,11 +1503,11 @@ module TypeChecker = struct
            ; type' = { element = Typed.Type.Sigma sigmaType; shape }
            })
     | U.Let { binding; bound; value; body } ->
-      let id : Typed.Identifier.t = { name = binding.elem; id = createId () } in
+      let%bind id = CheckerStateT.createId binding.elem in
       let%bind bound =
         bound
         |> Option.map ~f:(fun bound -> KindChecker.check env bound)
-        |> MResult.traverseOpt
+        |> CheckerStateT.traverseOpt
       in
       let checkBody valueType =
         let extendedTypesEnv =
@@ -1510,7 +1529,7 @@ module TypeChecker = struct
       in
       let%map bodyTyped, valueTyped =
         match bound with
-        | Some bound -> MResult.both (checkBody bound) checkValue
+        | Some bound -> CheckerStateT.both (checkBody bound) checkValue
         | None ->
           let%bind valueTyped = checkValue in
           let%map bodyTyped = checkBody (T.type' valueTyped) in
@@ -1540,7 +1559,7 @@ module TypeChecker = struct
         bound
         |> Option.map ~f:(fun bound ->
                KindChecker.checkAndExpectAtom env bound >>= checkForTupleType bound.source)
-        |> MResult.traverseOpt
+        |> CheckerStateT.traverseOpt
       in
       let checkBodyAndGetBindings (valueType : Typed.Type.tuple) =
         let%bind zippedBindings =
@@ -1550,15 +1569,15 @@ module TypeChecker = struct
         let%bind newEnvEntries, revBindings =
           List.fold
             zippedBindings
-            ~init:(MOk (Map.empty (module String), []))
+            ~init:(ok (Map.empty (module String), []))
             ~f:(fun acc (type', binding) ->
               let%bind envEntriesSoFar, bindingsSoFar = acc in
-              let id : Typed.Identifier.t = { name = binding.elem; id = createId () } in
+              let%bind id = CheckerStateT.createId binding.elem in
               let entry = { id; e = Typed.Type.Atom type' } in
               match Map.add envEntriesSoFar ~key:binding.elem ~data:entry with
-              | `Ok envEntries -> MOk (envEntries, id :: bindingsSoFar)
+              | `Ok envEntries -> ok (envEntries, id :: bindingsSoFar)
               | `Duplicate ->
-                MResult.err
+                CheckerStateT.err
                   { source = binding.source
                   ; elem = DuplicateTupleBindingName binding.elem
                   })
@@ -1584,7 +1603,7 @@ module TypeChecker = struct
                 { source = value.source; elem = LetTypeDisagreement ea })
           in
           valueTyped, valueType
-        | None -> MOk (valueTyped, valueType)
+        | None -> ok (valueTyped, valueType)
       in
       (match bound with
       | Some bound ->
@@ -1601,7 +1620,7 @@ module TypeChecker = struct
              { bindings; bound = valueType; value; body; type' = T.atomType body }))
     | U.Tuple elements ->
       let%map elements =
-        elements |> List.map ~f:(checkAndExpectAtom env) |> MResult.all
+        elements |> List.map ~f:(checkAndExpectAtom env) |> CheckerStateT.all
       in
       let elementTypes = List.map elements ~f:(fun e -> T.atomType e) in
       T.Atom (T.Tuple { elements; type' = elementTypes })
@@ -1609,15 +1628,15 @@ module TypeChecker = struct
   and checkAndExpectArray env expr =
     let open Typed.Expr in
     match%bind check env expr with
-    | Array array -> MOk array
-    | Atom atom -> MOk (Scalar atom)
+    | Array array -> ok array
+    | Atom atom -> ok (Scalar atom)
 
   and checkAndExpectAtom env expr =
     let open Typed.Expr in
     match%bind check env expr with
-    | Atom atom -> MOk atom
+    | Atom atom -> ok atom
     | Array _ as typed ->
-      MResult.err
+      CheckerStateT.err
         { source = expr.source; elem = ExpectedAtomicExpr { actual = type' typed } }
 
   and checkAndExpect kind env expr =
@@ -1627,6 +1646,12 @@ module TypeChecker = struct
   ;;
 end
 
-let checkSort env index = SortChecker.check env index
-let checkKind env type' = KindChecker.check env type'
-let checkType env expr = TypeChecker.check env expr
+let checkSort env index =
+  CheckerStateT.runA (SortChecker.check env index) { idCounter = 0 }
+;;
+
+let checkKind env type' =
+  CheckerStateT.runA (KindChecker.check env type') { idCounter = 0 }
+;;
+
+let checkType env expr = CheckerStateT.runA (TypeChecker.check env expr) { idCounter = 0 }

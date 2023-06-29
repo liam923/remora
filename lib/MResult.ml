@@ -61,11 +61,11 @@ let all = function
     head :: rest
 ;;
 
-let allNE (Non_empty_list.( :: ) (headR, restL)) =
+let allNE Non_empty_list.(headR :: restL) =
   let open Let_syntax in
   let%map head = headR
   and rest = all restL in
-  Non_empty_list.( :: ) (head, rest)
+  Non_empty_list.(head :: rest)
 ;;
 
 let ofOption o ~err =
