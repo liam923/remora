@@ -20,14 +20,15 @@ module Untyped = struct
     ; bound : 't
     }
 
-  type ('s, 't) paramList = ('s, ('s, 't) param) Source.annotate list
+  type ('s, 't) paramList =
+    ('s, ('s, ('s, 't) param) Source.annotate list) Source.annotate
 
   module Index = struct
     type ref = string
     and 's dimension = int
     and 's shape = 's t list
-    and 's add = 's t Non_empty_list.t
-    and 's append = 's t Non_empty_list.t
+    and 's add = 's t list
+    and 's append = 's t list
 
     and 's raw =
       | Ref of ref
@@ -48,7 +49,7 @@ module Untyped = struct
       }
 
     and 's func =
-      { parameters : 's t list
+      { parameters : ('s, 's t list) Source.annotate
       ; return : 's t
       }
 
@@ -57,9 +58,9 @@ module Untyped = struct
       ; body : 's t
       }
 
-    and 's forall = ('s, Kind.t) abstraction
-    and 's pi = ('s, Sort.t) abstraction
-    and 's sigma = ('s, Sort.t) abstraction
+    and 's forall = ('s, ('s, Kind.t) Source.annotate) abstraction
+    and 's pi = ('s, ('s, Sort.t) Source.annotate) abstraction
+    and 's sigma = ('s, ('s, Sort.t) Source.annotate) abstraction
     and 's tuple = 's t list
 
     and 's raw =
@@ -77,24 +78,14 @@ module Untyped = struct
   module Expr = struct
     type ref = string
 
-    and 's arr =
+    and 's arrOrFrame =
       { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
-      ; elements : 's t Non_empty_list.t
+      ; elements : ('s, 's t Non_empty_list.t) Source.annotate
       }
 
-    and 's emptyArr =
+    and 's emptyArrOrFrame =
       { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
       ; elementType : 's Type.t
-      }
-
-    and 's frame =
-      { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
-      ; arrays : 's t Non_empty_list.t
-      }
-
-    and 's emptyFrame =
-      { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
-      ; arrayType : 's Type.t
       }
 
     and 's termApplication =
@@ -130,12 +121,12 @@ module Untyped = struct
       }
 
     and 's typeLambda =
-      { params : ('s, Kind.t) paramList
+      { params : ('s, ('s, Kind.t) Source.annotate) paramList
       ; body : 's t
       }
 
     and 's indexLambda =
-      { params : ('s, Sort.t) paramList
+      { params : ('s, ('s, Sort.t) Source.annotate) paramList
       ; body : 's t
       }
 
@@ -145,34 +136,32 @@ module Untyped = struct
       }
 
     and 's boxes =
-      { params : ('s, Sort.t) paramList
+      { params : ('s, ('s, Sort.t) Source.annotate) paramList
       ; elementType : 's Type.t
       ; dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
       ; elements : ('s, ('s, 's boxElement) Source.annotate list) Source.annotate
       }
 
     and 's let' =
-      { binding : ('s, string) Source.annotate
-      ; bound : 's Type.t option
+      { param : ('s, ('s, 's Type.t option) param) Source.annotate
       ; value : 's t
       ; body : 's t
       }
 
     and 's tupleLet =
-      { bindings : ('s, ('s, string) Source.annotate list) Source.annotate
-      ; bound : 's Type.t option
+      { params : ('s, 's Type.t option) paramList
       ; value : 's t
       ; body : 's t
       }
 
-    and 's tuple = 's t list
+    and 's tuple = ('s, 's t list) Source.annotate
 
     and 's raw =
       | Ref of ref
-      | Arr of 's arr
-      | EmptyArr of 's emptyArr
-      | Frame of 's frame
-      | EmptyFrame of 's emptyFrame
+      | Arr of 's arrOrFrame
+      | EmptyArr of 's emptyArrOrFrame
+      | Frame of 's arrOrFrame
+      | EmptyFrame of 's emptyArrOrFrame
       | TermApplication of 's termApplication
       | TypeApplication of 's typeApplication
       | IndexApplication of 's indexApplication
@@ -184,6 +173,8 @@ module Untyped = struct
       | Let of 's let'
       | TupleLet of 's tupleLet
       | Tuple of 's tuple
+      | IntLiteral of int
+      | CharacterLiteral of char
 
     and 's t = ('s, 's raw) Source.annotate
   end
@@ -254,6 +245,10 @@ module Typed = struct
     and sigma = Sort.t abstraction
     and tuple = atom list
 
+    and literal =
+      | Integer
+      | Character
+
     and array =
       | ArrayRef of Identifier.t
       | Arr of arr
@@ -265,6 +260,7 @@ module Typed = struct
       | Pi of pi
       | Sigma of sigma
       | Tuple of tuple
+      | Literal of literal
 
     and t =
       | Array of array
@@ -277,17 +273,16 @@ module Typed = struct
   end
 
   module Expr = struct
-    type arrayRef =
+    type ref =
       { id : Identifier.t
       ; type' : Type.array
       }
 
-    type atomRef =
-      { id : Identifier.t
-      ; type' : Type.atom
+    type arr =
+      { dimensions : int list
+      ; elements : atom list
+      ; type' : Type.arr
       }
-
-    type scalar = atom
 
     and frame =
       { dimensions : int list
@@ -346,28 +341,18 @@ module Typed = struct
       ; type' : Type.sigma
       }
 
-    and arrayLet =
+    and let' =
       { binding : Identifier.t
-      ; bound : Type.t
-      ; value : t
+      ; value : array
       ; body : array
       ; type' : Type.array
       }
 
-    and atomLet =
-      { binding : Identifier.t
-      ; bound : Type.t
-      ; value : t
-      ; body : atom
-      ; type' : Type.atom
-      }
-
     and tupleLet =
-      { bindings : Identifier.t list
-      ; bound : Type.tuple
-      ; value : atom
-      ; body : atom
-      ; type' : Type.atom
+      { params : Type.atom param list
+      ; value : array
+      ; body : array
+      ; type' : Type.array
       }
 
     and tuple =
@@ -376,49 +361,49 @@ module Typed = struct
       }
 
     and array =
-      | ArrayRef of arrayRef
-      | Scalar of scalar
+      | Ref of ref
+      | Arr of arr
       | Frame of frame
       | TermApplication of termApplication
       | TypeApplication of typeApplication
       | IndexApplication of indexApplication
       | Unbox of unbox
-      | ArrayLet of arrayLet
+      | Let of let'
+      | TupleLet of tupleLet
 
     and atom =
-      | AtomRef of atomRef
       | TermLambda of termLambda
       | TypeLambda of typeLambda
       | IndexLambda of indexLambda
       | Box of box
-      | AtomLet of atomLet
-      | TupleLet of tupleLet
       | Tuple of tuple
+      | IntLiteral of int
+      | CharacterLiteral of char
 
     and t =
       | Array of array
       | Atom of atom
 
-    let atomType = function
-      | AtomRef ref -> ref.type'
+    let atomType : atom -> Type.atom = function
       | TermLambda termLambda -> Func termLambda.type'
       | TypeLambda typeLambda -> Forall typeLambda.type'
       | IndexLambda indexLambda -> Pi indexLambda.type'
       | Box box -> Sigma box.type'
-      | AtomLet let' -> let'.type'
-      | TupleLet tupleLet -> tupleLet.type'
       | Tuple tuple -> Tuple tuple.type'
+      | IntLiteral _ -> Literal Integer
+      | CharacterLiteral _ -> Literal Character
     ;;
 
-    let arrayType = function
-      | ArrayRef ref -> ref.type'
-      | Scalar atom -> Arr { element = atomType atom; shape = [] }
+    let arrayType : array -> Type.array = function
+      | Ref ref -> ref.type'
+      | Arr arr -> Arr arr.type'
       | Frame frame -> Arr frame.type'
       | TermApplication termApplication -> Arr termApplication.type'
       | TypeApplication typeApplication -> Arr typeApplication.type'
       | IndexApplication indexApplication -> Arr indexApplication.type'
       | Unbox unbox -> Arr unbox.type'
-      | ArrayLet let' -> let'.type'
+      | Let let' -> let'.type'
+      | TupleLet tupleLet -> tupleLet.type'
     ;;
 
     let type' : t -> Type.t = function

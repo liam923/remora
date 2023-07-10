@@ -10,8 +10,8 @@ let int = '-'? ['0'-'9'] ['0'-'9']*
 
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
-let reservedchar = [^'(' ')' '[' ']' '{' '}' '"' ',' '\'' '`' ';' '#' '|' '\\' ' ' '\t' '\r' '\n']
-let symbol = reservedchar reservedchar*
+let unreservedchar = [^'(' ')' '[' ']' '{' '}' '"' ',' '\'' '`' ';' '#' '|' '\\' ' ' '\t' '\r' '\n' '@']
+let symbol = (unreservedchar | '@') unreservedchar*
 
 rule read =
   parse

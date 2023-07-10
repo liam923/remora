@@ -15,9 +15,10 @@ prog:
   | head = texp; rest = texp*; EOF { Non_empty_list.(head :: rest) }
 
 texp:
-  | LEFT_PAREN; texpList = texp*; RIGHT_PAREN { Texp.ParensList (texpList, SourceBuilder.make ~start:$startpos ~finish:$endpos) }
-  | LEFT_BRACK; texpList = texp*; RIGHT_BRACK { Texp.BracksList (texpList, SourceBuilder.make ~start:$startpos ~finish:$endpos) }
-  | s = STRING                                { Texp.String     (s,        SourceBuilder.make ~start:$startpos ~finish:$endpos) }
-  | i = INT                                   { Texp.Integer    (i,        SourceBuilder.make ~start:$startpos ~finish:$endpos) }
-  | i = SYMBOL                                { Texp.Identifier (i,        SourceBuilder.make ~start:$startpos ~finish:$endpos) } ;
+  | left = tokenSource(LEFT_PAREN); texpList = texp*; right = tokenSource(RIGHT_PAREN) { Texp.List {braceType=Parens; elements=texpList; braceSources=(left, right)}  }
+  | left = tokenSource(LEFT_BRACK); texpList = texp*; right = tokenSource(RIGHT_BRACK) { Texp.List {braceType=Bracks; elements=texpList; braceSources=(left, right)}  }
+  | s = STRING                                                                         { Texp.String  (s,        SourceBuilder.make ~start:$startpos ~finish:$endpos) }
+  | i = INT                                                                            { Texp.Integer (i,        SourceBuilder.make ~start:$startpos ~finish:$endpos) }
+  | s = SYMBOL                                                                         { Texp.Symbol  (s,        SourceBuilder.make ~start:$startpos ~finish:$endpos) } ;
     
+tokenSource(TOKEN) : TOKEN { SourceBuilder.make ~start:$startpos ~finish:$endpos }

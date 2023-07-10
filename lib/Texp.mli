@@ -14,11 +14,4 @@ type 's t =
   | Integer of int * 's
   | Symbol of string * 's
 
-let source (type s) (module SB : Source.BuilderT with type source = s) : s t -> s
-  = function
-  | List { braceType = _; elements = _; braceSources = left, right } ->
-    SB.merge left right
-  | String (_, source) -> source
-  | Integer (_, source) -> source
-  | Symbol (_, source) -> source
-;;
+val source : (module Source.BuilderT with type source = 's) -> 's t -> 's
