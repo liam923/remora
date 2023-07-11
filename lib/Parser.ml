@@ -114,7 +114,7 @@ module Make (SB : Source.BuilderT) = struct
       let%map parsedIndices =
         parseList indices ~f:parseIndex ~source:(texpSource shapeExp)
       in
-      Source.map parsedIndices ~f:(fun indices -> Index.Shape indices)
+      Source.map parsedIndices ~f:(fun indices -> Index.Slice indices)
     | index -> MResult.err ("Bad index syntax", texpSource index)
 
   and parseType : 's Texp.t -> ('s Ast.Untyped.Type.t, error) MResult.t =
@@ -257,7 +257,7 @@ module Make (SB : Source.BuilderT) = struct
         { elem =
             Type.Arr
               { element = parsedElementType
-              ; shape = Source.map parsedShapeElements ~f:(fun elems -> Index.Shape elems)
+              ; shape = Source.map parsedShapeElements ~f:(fun elems -> Index.Slice elems)
               }
         ; source = texpSource arrExp
         }

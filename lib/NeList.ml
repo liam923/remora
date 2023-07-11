@@ -310,3 +310,10 @@ include Monad.Make (struct
   let bind m ~f = concat_map m ~f
   let map = `Custom map
 end)
+
+let all_options (x :: xs) =
+  let open Option.Let_syntax in
+  let%map x = x
+  and xs = Option.all xs in
+  x :: xs
+;;

@@ -129,8 +129,6 @@ end = struct
     | Tuple elements ->
       let elementsString = elements |> List.map ~f:showAtom |> String.concat ~sep:" * " in
       [%string "(%{elementsString})"]
-    | Literal Integer -> "int"
-    | Literal Character -> "char"
 
   and type' : Typed.Type.t -> string = function
     | Array array -> showArray array
@@ -388,6 +386,14 @@ module SortChecker = struct
       in
       let indices = List.join nestedIndices in
       T.Shape indices
+    | U.Slice indices ->
+      let%map indices = indices |> List.map ~f:(check env) |> CheckerStateT.all in
+      let shapeElements =
+        List.bind indices ~f:(function
+            | Shape elements -> elements
+            | Dimension dim -> [ Add dim ])
+      in
+      T.Shape shapeElements
 
   and checkAndExpectDim env index =
     match%bind check env index with
@@ -529,21 +535,6 @@ module TypeChecker = struct
   (** Compare two types to check that they are equal*)
   let eqType (a : Typed.Type.t) (b : Typed.Type.t) : bool =
     let open Typed in
-    let universalIdCounter = ref 0 in
-    let createUniversal () =
-      let id = !universalIdCounter in
-      universalIdCounter := !universalIdCounter + 1;
-      id
-    in
-    let mapKeys cmp keyMap map =
-      List.fold
-        (Map.to_alist map)
-        ~init:(Some (Map.empty cmp))
-        ~f:(fun soFar (key, data) ->
-          match soFar, Map.find keyMap key with
-          | Some soFar, Some mappedKey -> Some (Map.set soFar ~key:mappedKey ~data)
-          | _ -> None)
-    in
     (* Booleans are represented as options in order to be able to use let syntax *)
     let boolToOpt = function
       | true -> Some ()
@@ -551,7 +542,7 @@ module TypeChecker = struct
     in
     let optToBool : unit option -> bool = Option.is_some in
     let open Option.Let_syntax in
-    let rec compareIndices (a, aEnv) (b, bEnv) : unit option =
+    let rec compareIndices a b bToA : unit option =
       let open Index in
       match a with
       | Dimension a ->
@@ -560,16 +551,36 @@ module TypeChecker = struct
           | Dimension b -> Some b
           | _ -> None
         in
-        let%bind aRefs = mapKeys (module Int) aEnv a.refs in
-        let%bind bRefs = mapKeys (module Int) bEnv b.refs in
-        boolToOpt (Map.equal ( = ) aRefs bRefs)
+        let mapKeys m ~f =
+          let rec loop alist acc =
+            match alist with
+            | [] -> acc
+            | (key, data) :: rest -> loop rest (Map.set acc ~key:(f key) ~data)
+          in
+          loop (Map.to_alist m) (Map.empty (Map.comparator_s m))
+        in
+        let rec compareRefs (aRefList, aRefs) (bRefList, bRefs) =
+          match aRefList, bRefList with
+          | [], [] -> true
+          | [], bRefList -> compareRefs (bRefList, bRefs) ([], aRefs)
+          | (ref, aCount) :: aRefListRest, bRefList ->
+            let bCount = ref |> Map.find bRefs |> Option.value ~default:0 in
+            aCount = bCount && compareRefs (aRefListRest, aRefs) (bRefList, bRefs)
+        in
+        let aRefs = a.refs in
+        let bRefs =
+          mapKeys b.refs ~f:(fun ref -> ref |> Map.find bToA |> Option.value ~default:ref)
+        in
+        boolToOpt
+          (compareRefs (Map.to_alist aRefs, aRefs) (Map.to_alist bRefs, bRefs)
+          && a.const = b.const)
       | Shape a ->
         let%bind b =
           match b with
           | Shape b -> Some b
           | _ -> None
         in
-        let compareShapeElement (a, aEnv) (b, bEnv) : unit option =
+        let compareShapeElement a b bToA : unit option =
           match a with
           | Add a ->
             let%bind b =
@@ -577,53 +588,44 @@ module TypeChecker = struct
               | Add b -> Some b
               | _ -> None
             in
-            compareIndices (Dimension a, aEnv) (Dimension b, bEnv)
+            compareIndices (Dimension a) (Dimension b) bToA
           | ShapeRef a ->
             let%bind b =
               match b with
               | ShapeRef b -> Some b
               | _ -> None
             in
-            let%bind aRef = Map.find aEnv a in
-            let%bind bRef = Map.find bEnv b in
-            boolToOpt (aRef = bRef)
+            let b = Map.find bToA b |> Option.value ~default:b in
+            boolToOpt (Identifier.equal a b)
         in
         boolToOpt
-          (List.equal
-             (fun ae be -> optToBool (compareShapeElement (ae, aEnv) (be, bEnv)))
-             a
-             b)
+          (List.equal (fun ae be -> optToBool (compareShapeElement ae be bToA)) a b)
     in
     (* Forall, Pi, and Sigma are all very similar, so compareTypeAbstractions
      pulls out this commonality*)
     let rec compareTypeAbstractions
               : 't.
-                't Type.abstraction * int Map.M(Identifier).t
-                -> 't Type.abstraction * int Map.M(Identifier).t
+                't Type.abstraction
+                -> 't Type.abstraction
+                -> Identifier.t Map.M(Identifier).t
                 -> ('t -> 't -> bool)
                 -> unit option
       =
-     fun (a, aEnv) (b, bEnv) boundEq ->
+     fun a b bToA boundEq ->
       let open Type in
       let%bind zippedParams =
         match List.zip a.parameters b.parameters with
         | Ok zp -> Some zp
         | Unequal_lengths -> None
       in
-      let%bind aEnv, bEnv =
-        List.fold
-          zippedParams
-          ~init:(Some (aEnv, bEnv))
-          ~f:(fun envs (aParam, bParam) ->
-            let%bind aEnv, bEnv = envs in
-            let%bind () = boolToOpt (boundEq aParam.bound bParam.bound) in
-            let universal = createUniversal () in
-            Some
-              ( Map.set aEnv ~key:aParam.binding ~data:universal
-              , Map.set bEnv ~key:bParam.binding ~data:universal ))
+      let%bind newBToA =
+        List.fold zippedParams ~init:(Some bToA) ~f:(fun bToA (aParam, bParam) ->
+            let%map bToA = bToA
+            and () = boolToOpt (boundEq aParam.bound bParam.bound) in
+            Map.set bToA ~key:bParam.binding ~data:aParam.binding)
       in
-      compareTypes (Type.Array a.body, aEnv) (Type.Array b.body, bEnv)
-    and compareTypes (a, aEnv) (b, bEnv) : unit option =
+      compareTypes (Type.Array a.body) (Type.Array b.body) newBToA
+    and compareTypes a b bToA : unit option =
       let open Type in
       match a with
       | Array (ArrayRef a) ->
@@ -632,26 +634,24 @@ module TypeChecker = struct
           | Array (ArrayRef b) -> Some b
           | _ -> None
         in
-        let%bind aRef = Map.find aEnv a in
-        let%bind bRef = Map.find bEnv b in
-        boolToOpt (aRef = bRef)
+        let b = Map.find bToA b |> Option.value ~default:b in
+        boolToOpt (Identifier.equal a b)
       | Array (Arr a) ->
         let%bind b =
           match b with
           | Array (Arr b) -> Some b
           | _ -> None
         in
-        let%bind () = compareTypes (Atom a.element, aEnv) (Atom b.element, bEnv) in
-        compareIndices (Index.Shape a.shape, aEnv) (Index.Shape b.shape, bEnv)
+        let%bind () = compareTypes (Atom a.element) (Atom b.element) bToA in
+        compareIndices (Index.Shape a.shape) (Index.Shape b.shape) bToA
       | Atom (AtomRef a) ->
         let%bind b =
           match b with
           | Atom (AtomRef b) -> Some b
           | _ -> None
         in
-        let%bind aRef = Map.find aEnv a in
-        let%bind bRef = Map.find bEnv b in
-        boolToOpt (aRef = bRef)
+        let b = Map.find bToA b |> Option.value ~default:b in
+        boolToOpt (Identifier.equal a b)
       | Atom (Func a) ->
         let%bind b =
           match b with
@@ -662,32 +662,32 @@ module TypeChecker = struct
           boolToOpt
             (List.equal
                (fun aParam bParam ->
-                 optToBool (compareTypes (Array aParam, aEnv) (Array bParam, bEnv)))
+                 optToBool (compareTypes (Array aParam) (Array bParam) bToA))
                a.parameters
                b.parameters)
         in
-        compareTypes (Array a.return, aEnv) (Array b.return, bEnv)
+        compareTypes (Array a.return) (Array b.return) bToA
       | Atom (Forall a) ->
         let%bind b =
           match b with
           | Atom (Forall b) -> Some b
           | _ -> None
         in
-        compareTypeAbstractions (a, aEnv) (b, bEnv) Kind.equal
+        compareTypeAbstractions a b bToA Kind.equal
       | Atom (Pi a) ->
         let%bind b =
           match b with
           | Atom (Pi b) -> Some b
           | _ -> None
         in
-        compareTypeAbstractions (a, aEnv) (b, bEnv) Sort.equal
+        compareTypeAbstractions a b bToA Sort.equal
       | Atom (Sigma a) ->
         let%bind b =
           match b with
           | Atom (Sigma b) -> Some b
           | _ -> None
         in
-        compareTypeAbstractions (a, aEnv) (b, bEnv) Sort.equal
+        compareTypeAbstractions a b bToA Sort.equal
       | Atom (Tuple a) ->
         let%bind b =
           match b with
@@ -697,21 +697,11 @@ module TypeChecker = struct
         boolToOpt
           (List.equal
              (fun aParam bParam ->
-               optToBool (compareTypes (Atom aParam, aEnv) (Atom bParam, bEnv)))
+               optToBool (compareTypes (Atom aParam) (Atom bParam) bToA))
              a
              b)
-      | Atom (Literal Integer) ->
-        (match b with
-        | Atom (Literal Integer) -> Some ()
-        | _ -> None)
-      | Atom (Literal Character) ->
-        (match b with
-        | Atom (Literal Character) -> Some ()
-        | _ -> None)
     in
-    let result : unit option =
-      compareTypes (a, Map.empty (module Identifier)) (b, Map.empty (module Identifier))
-    in
+    let result : unit option = compareTypes a b (Map.empty (module Identifier)) in
     (* Convert from option back to boolean *)
     optToBool result
   ;;
@@ -847,8 +837,6 @@ module TypeChecker = struct
     | Sigma { parameters; body } ->
       Sigma { parameters; body = subIndicesIntoArrayType indices body }
     | Tuple elements -> Tuple (List.map elements ~f:(subIndicesIntoAtomType indices))
-    | Literal Integer -> Literal Integer
-    | Literal Character -> Literal Character
   ;;
 
   let rec subTypesIntoArrayType types =
@@ -879,8 +867,6 @@ module TypeChecker = struct
     | Sigma { parameters; body } ->
       Sigma { parameters; body = subTypesIntoArrayType types body }
     | Tuple elements -> Tuple (List.map elements ~f:(subTypesIntoAtomType types))
-    | Literal Integer -> Literal Integer
-    | Literal Character -> Literal Character
   ;;
 
   let findEscapingRefs (env : Environment.t) type' =
@@ -944,8 +930,6 @@ module TypeChecker = struct
         in
         findInType extendedEnv (Array body)
       | Atom (Tuple elements) -> List.bind elements ~f:(fun a -> findInType env (Atom a))
-      | Atom (Literal Integer) -> []
-      | Atom (Literal Character) -> []
     in
     findInType env type'
   ;;
@@ -1019,9 +1003,9 @@ module TypeChecker = struct
             Typed.Index.Add (Typed.Index.dimensionConstant n))
       in
       T.Array
-        (Frame
+        (Arr
            { dimensions = unwrappedDims
-           ; arrays = []
+           ; elements = []
            ; type' = { element = elementType; shape }
            })
     | U.Frame { dimensions; elements = arrays } ->
@@ -1065,12 +1049,33 @@ module TypeChecker = struct
             Typed.Index.Add (Typed.Index.dimensionConstant n))
         @ firstArrayType.shape
       in
+      (* if all arrays in the frame are array literals, gather the elements
+         of the arrays *)
+      let arrayLiterals =
+        typedArrays
+        |> NeList.map ~f:(function
+               | T.Arr arr -> Some arr
+               | _ -> None)
+        |> NeList.all_options
+      in
       T.Array
-        (T.Frame
-           { dimensions
-           ; arrays = NeList.to_list typedArrays
-           ; type' = { element = firstArrayType.element; shape }
-           })
+        (match arrayLiterals with
+        | Some arrayElements ->
+          (* all arrays are array literals, so we can flatten the frame into an array literal *)
+          let elements =
+            arrayElements |> NeList.to_list |> List.bind ~f:(fun arr -> arr.elements)
+          in
+          Arr
+            { elements
+            ; dimensions = dimensions @ (NeList.hd arrayElements).dimensions
+            ; type' = { element = firstArrayType.element; shape }
+            }
+        | None ->
+          Frame
+            { dimensions
+            ; arrays = NeList.to_list typedArrays
+            ; type' = { element = firstArrayType.element; shape }
+            })
     | U.EmptyFrame { dimensions; elementType = arrayType } ->
       let arrayTypeSource = arrayType.source in
       let unwrappedDims = List.map dimensions.elem ~f:(fun n -> n.elem) in
@@ -1091,9 +1096,9 @@ module TypeChecker = struct
         @ arrayType.shape
       in
       T.Array
-        (T.Frame
+        (T.Arr
            { dimensions = unwrappedDims
-           ; arrays = []
+           ; elements = []
            ; type' = { element = arrayType.element; shape }
            })
     | U.TermApplication { func; args } ->
@@ -1635,8 +1640,12 @@ module TypeChecker = struct
       in
       let elementTypes = List.map elements ~f:(fun e -> T.atomType e) in
       T.Atom (T.Tuple { elements; type' = elementTypes })
-    | U.IntLiteral i -> CheckerStateT.return (T.Atom (T.IntLiteral i))
-    | U.CharacterLiteral i -> CheckerStateT.return (T.Atom (T.CharacterLiteral i))
+    | U.IntLiteral i ->
+      let value = T.IntLiteral i in
+      CheckerStateT.return (T.Atom (Literal { value; type' = env.literalType value }))
+    | U.CharacterLiteral c ->
+      let value = T.CharacterLiteral c in
+      CheckerStateT.return (T.Atom (Literal { value; type' = env.literalType value }))
 
   and checkAndExpectArray env expr =
     let open Typed.Expr in

@@ -31,6 +31,7 @@ module Untyped = struct
     and 's shape = 's t list
     and 's add = 's t list
     and 's append = 's t list
+    and 's slice = 's t list
 
     and 's raw =
       | Ref of ref
@@ -38,6 +39,7 @@ module Untyped = struct
       | Shape of 's shape
       | Add of 's add
       | Append of 's append
+      | Slice of 's slice
 
     and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
   end
@@ -251,10 +253,6 @@ module Typed = struct
     and sigma = Sort.t abstraction
     and tuple = atom list
 
-    and literal =
-      | Integer
-      | Character
-
     and array =
       | ArrayRef of Identifier.t
       | Arr of arr
@@ -266,7 +264,6 @@ module Typed = struct
       | Pi of pi
       | Sigma of sigma
       | Tuple of tuple
-      | Literal of literal
 
     and t =
       | Array of array
@@ -282,38 +279,38 @@ module Typed = struct
   module Expr = struct
     type ref =
       { id : Identifier.t
-      ; type' : Type.array
+      ; type' : Type.array [@sexp_drop_if fun _ -> true]
       }
     [@@deriving sexp]
 
     type arr =
       { dimensions : int list
       ; elements : atom list
-      ; type' : Type.arr
+      ; type' : Type.arr [@sexp_drop_if fun _ -> true]
       }
 
     and frame =
       { dimensions : int list
       ; arrays : array list
-      ; type' : Type.arr
+      ; type' : Type.arr [@sexp_drop_if fun _ -> true]
       }
 
     and termApplication =
       { func : array
       ; args : array list
-      ; type' : Type.arr
+      ; type' : Type.arr [@sexp_drop_if fun _ -> true]
       }
 
     and typeApplication =
       { tFunc : array
       ; args : Type.t list
-      ; type' : Type.arr
+      ; type' : Type.arr [@sexp_drop_if fun _ -> true]
       }
 
     and indexApplication =
       { iFunc : array
       ; args : Index.t list
-      ; type' : Type.arr
+      ; type' : Type.arr [@sexp_drop_if fun _ -> true]
       }
 
     and unbox =
@@ -321,51 +318,60 @@ module Typed = struct
       ; valueBinding : Identifier.t
       ; box : array
       ; body : array
-      ; type' : Type.arr
+      ; type' : Type.arr [@sexp_drop_if fun _ -> true]
       }
 
     and termLambda =
       { params : Type.array param list
       ; body : t
-      ; type' : Type.func
+      ; type' : Type.func [@sexp_drop_if fun _ -> true]
       }
 
     and typeLambda =
       { params : Kind.t param list
       ; body : array
-      ; type' : Type.forall
+      ; type' : Type.forall [@sexp_drop_if fun _ -> true]
       }
 
     and indexLambda =
       { params : Sort.t param list
       ; body : array
-      ; type' : Type.pi
+      ; type' : Type.pi [@sexp_drop_if fun _ -> true]
       }
 
     and box =
       { indices : Index.t list
       ; body : array
       ; bodyType : Type.array
-      ; type' : Type.sigma
+      ; type' : Type.sigma [@sexp_drop_if fun _ -> true]
       }
 
     and let' =
       { binding : Identifier.t
       ; value : array
       ; body : array
-      ; type' : Type.array
+      ; type' : Type.array [@sexp_drop_if fun _ -> true]
       }
 
     and tupleLet =
       { params : Type.atom param list
       ; value : array
       ; body : array
-      ; type' : Type.array
+      ; type' : Type.array [@sexp_drop_if fun _ -> true]
       }
 
     and tuple =
       { elements : atom list
-      ; type' : Type.tuple
+      ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
+      }
+
+    and literalValue =
+      | IntLiteral of int
+      | CharacterLiteral of char
+
+    and literal =
+      { value : literalValue
+      ; type' : Type.atom [@sexp_drop_if fun _ -> true]
       }
 
     and array =
@@ -385,8 +391,7 @@ module Typed = struct
       | IndexLambda of indexLambda
       | Box of box
       | Tuple of tuple
-      | IntLiteral of int
-      | CharacterLiteral of char
+      | Literal of literal
 
     and t =
       | Array of array
@@ -399,8 +404,7 @@ module Typed = struct
       | IndexLambda indexLambda -> Pi indexLambda.type'
       | Box box -> Sigma box.type'
       | Tuple tuple -> Tuple tuple.type'
-      | IntLiteral _ -> Literal Integer
-      | CharacterLiteral _ -> Literal Character
+      | Literal literal -> literal.type'
     ;;
 
     let arrayType : array -> Type.array = function

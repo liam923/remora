@@ -16,15 +16,15 @@ let%expect_test "parse index" =
   parseAndPrint "a";
   [%expect {| (Ref a) |}];
   parseAndPrint "[1 2 3]";
-  [%expect {| (Shape ((Dimension 1) (Dimension 2) (Dimension 3))) |}];
+  [%expect {| (Slice ((Dimension 1) (Dimension 2) (Dimension 3))) |}];
   parseAndPrint "[1 2 [3 4 5]]";
   [%expect
     {|
-    (Shape
+    (Slice
      ((Dimension 1) (Dimension 2)
-      (Shape ((Dimension 3) (Dimension 4) (Dimension 5))))) |}];
+      (Slice ((Dimension 3) (Dimension 4) (Dimension 5))))) |}];
   parseAndPrint "[a b c]";
-  [%expect {| (Shape ((Ref a) (Ref b) (Ref c))) |}];
+  [%expect {| (Slice ((Ref a) (Ref b) (Ref c))) |}];
   parseAndPrint "(+ a b)";
   [%expect {| (Add ((Ref a) (Ref b))) |}];
   parseAndPrint "(++ a b)";
@@ -36,7 +36,7 @@ let%expect_test "parse index" =
     {|
     (Shape
      ((Ref a) (Ref @c)
-      (Shape
+      (Slice
        ((Dimension 1) (Dimension 2) (Dimension 3)
         (Append ((Dimension 4) (Dimension 5)))))
       (Add ((Dimension 4))))) |}]
@@ -73,13 +73,13 @@ let%expect_test "parse type" =
     {|
     (Arr
      ((element (Ref int))
-      (shape (Shape ((Dimension 1) (Dimension 2) (Dimension 3)))))) |}];
+      (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3)))))) |}];
   parseAndPrint "[int 1 2 3]";
   [%expect
     {|
     (Arr
      ((element (Ref int))
-      (shape (Shape ((Dimension 1) (Dimension 2) (Dimension 3)))))) |}];
+      (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3)))))) |}];
   parseAndPrint "[(-> (int) [char 5]) 1 2 3]";
   [%expect
     {|
@@ -87,8 +87,8 @@ let%expect_test "parse type" =
      ((element
        (Func
         ((parameters ((Ref int)))
-         (return (Arr ((element (Ref char)) (shape (Shape ((Dimension 5))))))))))
-      (shape (Shape ((Dimension 1) (Dimension 2) (Dimension 3)))))) |}];
+         (return (Arr ((element (Ref char)) (shape (Slice ((Dimension 5))))))))))
+      (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3)))))) |}];
   parseAndPrint "(Forall (a @b c @d) (-> (a @b c) @d))";
   [%expect
     {|
@@ -107,7 +107,7 @@ let%expect_test "parse type" =
       (body
        (Arr
         ((element (Ref a))
-         (shape (Shape ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}];
+         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}];
   parseAndPrint "(Pi (a @b c @d) (-> (a @b c) @d))";
   [%expect
     {|
@@ -126,7 +126,7 @@ let%expect_test "parse type" =
       (body
        (Arr
         ((element (Ref a))
-         (shape (Shape ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}];
+         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}];
   parseAndPrint "(Sigma (a @b c @d) (-> (a @b c) @d))";
   [%expect
     {|
@@ -145,7 +145,7 @@ let%expect_test "parse type" =
       (body
        (Arr
         ((element (Ref a))
-         (shape (Shape ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}]
+         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}]
 ;;
 
 let%expect_test "parse expression" =
@@ -299,9 +299,9 @@ let%expect_test "parse expression" =
           (((binding x)
             (bound
              (Arr
-              ((element (Ref int)) (shape (Shape ((Dimension 4) (Dimension 5))))))))
+              ((element (Ref int)) (shape (Slice ((Dimension 4) (Dimension 5))))))))
            ((binding y)
-            (bound (Arr ((element (Ref int)) (shape (Shape ((Dimension 2))))))))))
+            (bound (Arr ((element (Ref int)) (shape (Slice ((Dimension 2))))))))))
          (body
           (Let
            ((param ((binding z) (bound ((Ref int)))))
@@ -319,7 +319,7 @@ let%expect_test "parse expression" =
         ((binding y)
          (bound
           (Arr
-           ((element (Ref int)) (shape (Shape ((Dimension 5) (Dimension 6))))))))))
+           ((element (Ref int)) (shape (Slice ((Dimension 5) (Dimension 6))))))))))
       (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y)))))))) |}];
   parseAndPrint "(fn ([x int] [y [int 5 6]]) (define foo (+ x y)) foo)";
   [%expect
@@ -330,7 +330,7 @@ let%expect_test "parse expression" =
         ((binding y)
          (bound
           (Arr
-           ((element (Ref int)) (shape (Shape ((Dimension 5) (Dimension 6))))))))))
+           ((element (Ref int)) (shape (Slice ((Dimension 5) (Dimension 6))))))))))
       (body
        (Let
         ((param ((binding foo) (bound ())))
@@ -359,7 +359,7 @@ let%expect_test "parse expression" =
        (TermLambda
         ((params
           (((binding x)
-            (bound (Arr ((element (Ref int)) (shape (Shape ((Ref i))))))))))
+            (bound (Arr ((element (Ref int)) (shape (Slice ((Ref i))))))))))
          (body (Ref x))))))) |}];
   parseAndPrint "(i-fn (i) (λ ([x [int i]]) x))";
   [%expect
@@ -370,7 +370,7 @@ let%expect_test "parse expression" =
        (TermLambda
         ((params
           (((binding x)
-            (bound (Arr ((element (Ref int)) (shape (Shape ((Ref i))))))))))
+            (bound (Arr ((element (Ref int)) (shape (Slice ((Ref i))))))))))
          (body (Ref x))))))) |}];
   parseAndPrint "(t-app (t-fn (@t) @t) int)";
   [%expect
@@ -401,7 +401,7 @@ let%expect_test "parse expression" =
        (IndexLambda
         ((params (((binding @t) (bound Shape))))
          (body (Frame ((dimensions (2)) (elements ((Ref int) (Ref @t)))))))))
-      (args ((Shape ((Dimension 1) (Dimension 2)))))))|}];
+      (args ((Slice ((Dimension 1) (Dimension 2)))))))|}];
   parseAndPrint "(i-app (i-fn (@t u) [int @t u]) [1 2] 1)";
   [%expect
     {|
@@ -411,7 +411,7 @@ let%expect_test "parse expression" =
         ((params (((binding @t) (bound Shape)) ((binding u) (bound Dim))))
          (body
           (Frame ((dimensions (3)) (elements ((Ref int) (Ref @t) (Ref u)))))))))
-      (args ((Shape ((Dimension 1) (Dimension 2))) (Dimension 1)))))|}];
+      (args ((Slice ((Dimension 1) (Dimension 2))) (Dimension 1)))))|}];
   parseAndPrint "(i-app (i-fn () int))";
   [%expect
     {|
@@ -430,7 +430,7 @@ let%expect_test "parse expression" =
     {|
     (Boxes
      ((params (((binding len) (bound Dim))))
-      (elementType (Arr ((element (Ref char)) (shape (Shape ((Ref len)))))))
+      (elementType (Arr ((element (Ref char)) (shape (Slice ((Ref len)))))))
       (dimensions (5))
       (elements
        (((indices ((Dimension 6)))
@@ -482,7 +482,7 @@ let%expect_test "parse expression" =
     {|
     (Boxes
      ((params (((binding r) (bound Dim)) ((binding c) (bound Dim))))
-      (elementType (Arr ((element (Ref int)) (shape (Shape ((Ref r) (Ref c)))))))
+      (elementType (Arr ((element (Ref int)) (shape (Slice ((Ref r) (Ref c)))))))
       (dimensions (3))
       (elements
        (((indices ((Dimension 2) (Dimension 2)))
@@ -515,7 +515,7 @@ let%expect_test "parse expression" =
     {|
     (Boxes
      ((params (((binding len) (bound Dim))))
-      (elementType (Arr ((element (Ref int)) (shape (Shape ((Ref len)))))))
+      (elementType (Arr ((element (Ref int)) (shape (Slice ((Ref len)))))))
       (dimensions ())
       (elements
        (((indices ((Dimension 3)))
@@ -543,7 +543,7 @@ let%expect_test "parse expression" =
               (TypeApplication
                ((tFunc
                  (IndexApplication
-                  ((iFunc (Ref length)) (args ((Ref len) (Shape ()))))))
+                  ((iFunc (Ref length)) (args ((Ref len) (Slice ()))))))
                 (args ((Ref char))))))
              (args ((Ref day))))))))))))|}]
 ;;
