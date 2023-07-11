@@ -4,6 +4,7 @@ type ('s, 't) annotate =
   { elem : 't
   ; source : 's
   }
+[@@deriving sexp_of]
 
 val map : ('s, 't) annotate -> f:('t -> 'u) -> ('s, 'u) annotate
 val unzip : ('s, 'a * 'b) annotate -> ('s, 'a) annotate * ('s, 'b) annotate

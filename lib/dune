@@ -5,10 +5,11 @@
 
 (library
  (name remora)
+ (public_name remora)
  (modules :standard TexpParser TexpLexer)
- (libraries base non_empty_list)
+ (libraries base)
  (preprocess
-  (pps ppx_jane ppx_deriving.eq ppx_deriving.show)))
+  (pps ppx_jane ppx_deriving.eq ppx_deriving.show ppx_deriving.ord)))
 
 (env
  (dev

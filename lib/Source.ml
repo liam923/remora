@@ -5,6 +5,16 @@ type ('s, 't) annotate =
   ; source : 's
   }
 
+let sexp_of_annotate sexpOfSource sexpOfElem { elem; source } =
+  if Sexp.equal (sexpOfSource source) (List [])
+  then sexpOfElem elem
+  else
+    Sexp.List
+      [ List [ Atom "elem"; sexpOfElem elem ]
+      ; List [ Atom "source"; sexpOfSource source ]
+      ]
+;;
+
 type t =
   { start : Lexing.position
   ; finish : Lexing.position

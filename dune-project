@@ -21,7 +21,7 @@
  (name remora)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune base non_empty_list menhir)
+ (depends ocaml dune base menhir)
  (tags
   (topics "to describe" your project)))
 

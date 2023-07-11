@@ -47,7 +47,7 @@ module type S2WithError = sig
   include S2
 
   val both : ('s, 'a, 'e) t -> ('s, 'b, 'e) t -> ('s, 'a * 'b, 'e) t
-  val allNE : ('s, 'ok, 'err) t Non_empty_list.t -> ('s, 'ok Non_empty_list.t, 'err) t
+  val allNE : ('s, 'ok, 'err) t NeList.t -> ('s, 'ok NeList.t, 'err) t
 end
 
 module Make2WithError (M : MonadWithError.S2) :

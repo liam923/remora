@@ -3,11 +3,20 @@ open! Base
 module type S = sig
   type source
   type error = string * source
-  type result = (source Ast.Untyped.Expr.t, error) MResult.t
+  type 't result = ('t, error) MResult.t
 
-  val parseTexps : source Texp.t Non_empty_list.t -> result
-  val parseString : string -> result
-  val parseFile : string -> result
+  module type Parser = sig
+    type t
+
+    val parseTexps : source Texp.t NeList.t -> t result
+    val parseString : string -> t result
+    val parseFile : string -> t result
+  end
+
+  module IndexParser : Parser with type t = source Ast.Untyped.Index.t
+  module TypeParser : Parser with type t = source Ast.Untyped.Type.t
+  module ExprParser : Parser with type t = source Ast.Untyped.Expr.t
+  include module type of ExprParser
 end
 
 module Make (SourceBuilder : Source.BuilderT) : S with type source = SourceBuilder.source

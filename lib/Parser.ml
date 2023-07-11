@@ -5,11 +5,20 @@ open MResult.Let_syntax
 module type S = sig
   type source
   type error = string * source
-  type result = (source Ast.Untyped.Expr.t, error) MResult.t
+  type 't result = ('t, error) MResult.t
 
-  val parseTexps : source Texp.t Non_empty_list.t -> result
-  val parseString : string -> result
-  val parseFile : string -> result
+  module type Parser = sig
+    type t
+
+    val parseTexps : source Texp.t NeList.t -> t result
+    val parseString : string -> t result
+    val parseFile : string -> t result
+  end
+
+  module IndexParser : Parser with type t = source Ast.Untyped.Index.t
+  module TypeParser : Parser with type t = source Ast.Untyped.Type.t
+  module ExprParser : Parser with type t = source Ast.Untyped.Expr.t
+  include module type of ExprParser
 end
 
 module Make (SB : Source.BuilderT) = struct
@@ -19,12 +28,12 @@ module Make (SB : Source.BuilderT) = struct
   module Parser = TexpParser.Make (SB)
 
   type error = string * SB.source
-  type result = (SB.source Ast.Untyped.Expr.t, error) MResult.t
+  type 't result = ('t, error) MResult.t
 
   let texpSource = Texp.source (module SB)
 
   let infixNeListSource list =
-    SB.merge (texpSource (Non_empty_list.hd list)) (texpSource (Non_empty_list.last list))
+    SB.merge (texpSource (NeList.hd list)) (texpSource (NeList.last list))
   ;;
 
   let infixListSource list ~before ~after =
@@ -39,7 +48,7 @@ module Make (SB : Source.BuilderT) = struct
   ;;
 
   let parseInfixNeList list ~f =
-    let%map parsedElements = list |> Non_empty_list.map ~f |> MResult.allNE in
+    let%map parsedElements = list |> NeList.map ~f |> MResult.allNE in
     Source.{ elem = parsedElements; source = infixNeListSource list }
   ;;
 
@@ -49,7 +58,7 @@ module Make (SB : Source.BuilderT) = struct
   ;;
 
   let parseNeList list ~f ~source =
-    let%map parsedElements = list |> Non_empty_list.map ~f |> MResult.allNE in
+    let%map parsedElements = list |> NeList.map ~f |> MResult.allNE in
     Source.{ elem = parsedElements; source }
   ;;
 
@@ -62,7 +71,10 @@ module Make (SB : Source.BuilderT) = struct
   ;;
 
   let parseBinding = function
-    | Texp.Symbol (id, source) -> MOk Source.{ elem = id; source }
+    | Texp.Symbol (id, source) ->
+      if String.is_prefix id ~prefix:"@"
+      then MResult.err ("Expected an identifier without an @", source)
+      else MOk Source.{ elem = id; source }
     | param -> MResult.err ("Expected an identifier", texpSource param)
   ;;
 
@@ -228,6 +240,27 @@ module Make (SB : Source.BuilderT) = struct
           ~rParenSource
       in
       Source.{ elem = Type.Sigma abstraction; source = texpSource sigmaExp }
+    | List
+        { braceType = Bracks
+        ; elements = elementType :: shapeElements
+        ; braceSources = _, rBrackSource
+        } as arrExp ->
+      let%map parsedElementType = parseType elementType
+      and parsedShapeElements =
+        parseInfixList
+          shapeElements
+          ~f:parseIndex
+          ~before:(texpSource elementType)
+          ~after:rBrackSource
+      in
+      Source.
+        { elem =
+            Type.Arr
+              { element = parsedElementType
+              ; shape = Source.map parsedShapeElements ~f:(fun elems -> Index.Shape elems)
+              }
+        ; source = texpSource arrExp
+        }
     | type' -> MResult.err ("Bad type syntax", texpSource type')
 
   and parseExpr : 's Texp.t -> ('s Ast.Untyped.Expr.t, error) MResult.t =
@@ -253,8 +286,8 @@ module Make (SB : Source.BuilderT) = struct
             ~source:(texpSource dimsExp)
         in
         (match List.find parsedDimensions.elem ~f:(fun dim -> dim.elem = 0) with
-        | Some _ ->
-          (match Non_empty_list.of_list elements with
+        | None ->
+          (match NeList.of_list elements with
           | Some elements ->
             let%map parsedElements = parseInfixNeList elements ~f:parseExpr in
             Source.
@@ -267,7 +300,7 @@ module Make (SB : Source.BuilderT) = struct
             MResult.err
               ( [%string "Bad `%{symbol}` syntax - not enough elements"]
               , SB.between (texpSource dimsExp) rParenSource ))
-        | None ->
+        | Some _ ->
           (match elements with
           | [ elementType ] ->
             let%map parsedElementType = parseType elementType in
@@ -310,7 +343,7 @@ module Make (SB : Source.BuilderT) = struct
                     { elem = [ { elem = List.length (head :: tail); source } ]; source }
                 ; elements =
                     { elem =
-                        Non_empty_list.map (head :: tail) ~f:(fun c ->
+                        NeList.map (head :: tail) ~f:(fun c ->
                             Source.{ elem = Expr.CharacterLiteral c; source })
                     ; source
                     }
@@ -328,8 +361,7 @@ module Make (SB : Source.BuilderT) = struct
           { elem =
               Expr.Frame
                 { dimensions =
-                    { elem =
-                        [ { elem = Non_empty_list.length parsedElements.elem; source } ]
+                    { elem = [ { elem = NeList.length parsedElements.elem; source } ]
                     ; source
                     }
                 ; elements = parsedElements
@@ -461,7 +493,7 @@ module Make (SB : Source.BuilderT) = struct
       (match components with
       | (List { braceType = Parens; elements = params; braceSources = _ } as paramsExp)
         :: elementType
-        :: (List { braceType = Parens; elements = dimensions; braceSources = _ } as
+        :: (List { braceType = Bracks; elements = dimensions; braceSources = _ } as
            dimsExp)
         :: elements ->
         let parseElement = function
@@ -645,41 +677,31 @@ module Make (SB : Source.BuilderT) = struct
       (match components with
       | List
           { braceType = Bracks
-          ; elements = declarationComponentsHead :: declarationComponentsTail
-          ; braceSources = decLBrack, _
+          ; elements = declarationComponents
+          ; braceSources = decLBrack, decRBrack
           }
         :: bodyHead
         :: bodyTail ->
-        let rec neListSplitOnLast (list : 'z Non_empty_list.t) =
-          match list with
-          | [ last ] -> [], last
-          | head :: restHead :: restTail ->
-            let restSplit, last = neListSplitOnLast (restHead :: restTail) in
-            head :: restSplit, last
-        in
-        let parseParam = function
-          | Texp.List
-              { braceType = Bracks
-              ; elements = [ binding; Symbol (":", _); bound ]
-              ; braceSources = _
-              } as paramExp ->
-            let%map parsedBinding = parseBinding binding
-            and parsedBound = parseType bound in
-            Source.
-              { elem = { binding = parsedBinding; bound = Some parsedBound }
-              ; source = texpSource paramExp
-              }
-          | binding ->
-            let%map parsedBinding = parseBinding binding in
-            Source.
-              { elem = { binding = parsedBinding; bound = None }
-              ; source = parsedBinding.source
-              }
-        in
-        let%map parsedBody = parseExprBody (bodyHead :: bodyTail)
-        and parsedParams, parsedValue =
-          let params, value =
-            neListSplitOnLast (declarationComponentsHead :: declarationComponentsTail)
+        (match declarationComponents with
+        | [ List { braceType = Parens; elements = params; braceSources = _ }; value ] ->
+          let parseParam = function
+            | Texp.List
+                { braceType = Parens
+                ; elements = [ binding; Symbol (":", _); bound ]
+                ; braceSources = _
+                } as paramExp ->
+              let%map parsedBinding = parseBinding binding
+              and parsedBound = parseType bound in
+              Source.
+                { elem = { binding = parsedBinding; bound = Some parsedBound }
+                ; source = texpSource paramExp
+                }
+            | binding ->
+              let%map parsedBinding = parseBinding binding in
+              Source.
+                { elem = { binding = parsedBinding; bound = None }
+                ; source = parsedBinding.source
+                }
           in
           let%map parsedValue = parseExpr value
           and parsedParams =
@@ -688,15 +710,17 @@ module Make (SB : Source.BuilderT) = struct
               ~before:decLBrack
               ~after:(texpSource value)
               ~f:parseParam
-          in
-          parsedParams, parsedValue
-        in
-        Source.
-          { elem =
-              Expr.TupleLet
-                { params = parsedParams; value = parsedValue; body = parsedBody }
-          ; source = texpSource letExpr
-          }
+          and parsedBody = parseExprBody (bodyHead :: bodyTail) in
+          Source.
+            { elem =
+                Expr.TupleLet
+                  { params = parsedParams; value = parsedValue; body = parsedBody }
+            ; source = texpSource letExpr
+            }
+        | _ ->
+          MResult.err
+            ( "Bad `let-tuple` syntax - bad declaration"
+            , infixListSource declarationComponents ~before:decLBrack ~after:decRBrack ))
       | _ ->
         MResult.err
           ( "Bad `let-tuple` syntax"
@@ -810,88 +834,51 @@ module Make (SB : Source.BuilderT) = struct
 
   (* Parse a list of define statements followed by a expression *)
   and parseExprBody
-      : source Texp.t Non_empty_list.t -> (source Ast.Untyped.Expr.t, error) MResult.t
+      : source Texp.t NeList.t -> (source Ast.Untyped.Expr.t, error) MResult.t
     =
     let open Ast.Untyped in
     function
     | [ body ] -> parseExpr body
     | define :: next :: rest ->
-      let body : source Texp.t Non_empty_list.t = next :: rest in
+      let body : source Texp.t NeList.t = next :: rest in
       let letSource = infixNeListSource (define :: next :: rest) in
       let%map parsedBody = parseExprBody body
       and parsedDefine =
         match define with
         | List
             { braceType = Parens
-            ; elements = String ("define", defineSource) :: components
+            ; elements = Symbol ("define", defineSource) :: components
             ; braceSources = _, defineRParenSource
             } as defineExp ->
           (match components with
-          (* Match a define for a regular value *)
-          | Symbol (id, idSource) :: valueHead :: valueTail ->
-            let%map parsedValue = parseExprBody (valueHead :: valueTail) in
-            fun parsedBody ->
-              Source.
-                { elem =
-                    Expr.Let
-                      { param =
-                          { elem =
-                              { binding = { elem = id; source = idSource }; bound = None }
-                          ; source = idSource
-                          }
-                      ; value = parsedValue
-                      ; body = parsedBody
-                      }
-                ; source = letSource
-                }
           (* Match a define for a function *)
           | List
               { braceType = Parens
-              ; elements = Symbol (id, idSource) :: params
+              ; elements = funBinding :: params
               ; braceSources = _, rParenSource
               }
             :: functionBodyHead
             :: functionBodyTail ->
             let%map parsedFunctionBody =
               parseExprBody (functionBodyHead :: functionBodyTail)
+            and parsedFunBinding = parseBinding funBinding
             and parsedParams =
               parseInfixList
                 params
                 ~f:(function
                   | List
                       { braceType = Bracks
-                      ; elements =
-                          Symbol (paramId, paramIdSource) :: elementType :: shapeElements
-                      ; braceSources = _, rBrackSource
+                      ; elements = [ binding; bound ]
+                      ; braceSources = _
                       } as bracks ->
-                    let%map parsedElementType = parseType elementType
-                    and parsedShapeElements =
-                      parseInfixList
-                        shapeElements
-                        ~f:parseIndex
-                        ~before:(texpSource elementType)
-                        ~after:rBrackSource
-                    in
-                    let parsedShape =
-                      Source.map parsedShapeElements ~f:(fun elements ->
-                          Index.Shape elements)
-                    in
-                    let arrType =
-                      Source.
-                        { elem =
-                            Type.Arr { element = parsedElementType; shape = parsedShape }
-                        ; source = infixNeListSource (elementType :: shapeElements)
-                        }
-                    in
+                    let%map parsedBound = parseType bound
+                    and parsedBinding = parseBinding binding in
                     Source.
-                      { elem =
-                          { binding = { elem = paramId; source = paramIdSource }
-                          ; bound = arrType
-                          }
+                      { elem = { binding = parsedBinding; bound = parsedBound }
                       ; source = texpSource bracks
                       }
                   | param -> MResult.err ("Bad parameter syntax", texpSource param))
-                ~before:idSource
+                ~before:(texpSource funBinding)
                 ~after:rParenSource
             in
             fun parsedBody ->
@@ -899,9 +886,8 @@ module Make (SB : Source.BuilderT) = struct
                 { elem =
                     Expr.Let
                       { param =
-                          { elem =
-                              { binding = { elem = id; source = idSource }; bound = None }
-                          ; source = idSource
+                          { elem = { binding = parsedFunBinding; bound = None }
+                          ; source = parsedFunBinding.source
                           }
                       ; value =
                           { elem =
@@ -909,6 +895,41 @@ module Make (SB : Source.BuilderT) = struct
                                 { params = parsedParams; body = parsedFunctionBody }
                           ; source = texpSource defineExp
                           }
+                      ; body = parsedBody
+                      }
+                ; source = letSource
+                }
+            (* Match a define for a regular value with type annotation *)
+          | binding :: Symbol (":", _) :: bound :: valueHead :: valueTail ->
+            let%map parsedValue = parseExprBody (valueHead :: valueTail)
+            and parsedBound = parseType bound
+            and parsedBinding = parseBinding binding in
+            fun parsedBody ->
+              Source.
+                { elem =
+                    Expr.Let
+                      { param =
+                          { elem = { binding = parsedBinding; bound = Some parsedBound }
+                          ; source = SB.merge parsedBinding.source parsedBound.source
+                          }
+                      ; value = parsedValue
+                      ; body = parsedBody
+                      }
+                ; source = letSource
+                }
+            (* Match a define for a regular value *)
+          | binding :: valueHead :: valueTail ->
+            let%map parsedValue = parseExprBody (valueHead :: valueTail)
+            and parsedBinding = parseBinding binding in
+            fun parsedBody ->
+              Source.
+                { elem =
+                    Expr.Let
+                      { param =
+                          { elem = { binding = parsedBinding; bound = None }
+                          ; source = parsedBinding.source
+                          }
+                      ; value = parsedValue
                       ; body = parsedBody
                       }
                 ; source = letSource
@@ -923,31 +944,76 @@ module Make (SB : Source.BuilderT) = struct
       parsedDefine parsedBody
   ;;
 
-  let parseTexps = parseExprBody
+  module type Parser = sig
+    type t
 
-  let parseBuffer lexbuf =
-    try MOk (Parser.prog Lexer.read lexbuf) with
-    | Lexer.SyntaxError (msg, source) -> MResult.err (msg, source)
-    | Parser.Error ->
-      MResult.err
-        ("Syntax error", SB.make ~start:lexbuf.lex_curr_p ~finish:lexbuf.lex_curr_p)
-  ;;
+    val parseTexps : source Texp.t NeList.t -> t result
+    val parseString : string -> t result
+    val parseFile : string -> t result
+  end
 
-  let parseString str =
-    let lexbuf = Lexing.from_string ~with_positions:true str in
-    let%bind texps = parseBuffer lexbuf in
-    parseTexps texps
-  ;;
+  module MakeParser (Base : sig
+    type t
 
-  let parseFile filename =
-    let channel = In_channel.open_text filename in
-    let lexbuf = Lexing.from_channel ~with_positions:true channel in
-    lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-    let result = parseBuffer lexbuf in
-    In_channel.close channel;
-    let%bind texps = result in
-    parseTexps texps
-  ;;
+    val parseTexps : source Texp.t NeList.t -> t result
+  end) =
+  struct
+    include Base
+
+    let parseBuffer lexbuf =
+      try MOk (Parser.prog Lexer.read lexbuf) with
+      | Lexer.SyntaxError (msg, source) -> MResult.err (msg, source)
+      | Parser.Error ->
+        MResult.err
+          ("Syntax error", SB.make ~start:lexbuf.lex_curr_p ~finish:lexbuf.lex_curr_p)
+    ;;
+
+    let parseString str =
+      let lexbuf = Lexing.from_string ~with_positions:true str in
+      let%bind texps = parseBuffer lexbuf in
+      parseTexps texps
+    ;;
+
+    let parseFile filename =
+      let channel = In_channel.open_text filename in
+      let lexbuf = Lexing.from_channel ~with_positions:true channel in
+      lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
+      let result = parseBuffer lexbuf in
+      In_channel.close channel;
+      let%bind texps = result in
+      parseTexps texps
+    ;;
+  end
+
+  module IndexParser = MakeParser (struct
+    type t = source Ast.Untyped.Index.t
+
+    let parseTexps (texps : source Texp.t NeList.t) =
+      match texps with
+      | [ texp ] -> parseIndex texp
+      | extra :: _ ->
+        MResult.err ("Expected one texp, got more than one", texpSource extra)
+    ;;
+  end)
+
+  module TypeParser = MakeParser (struct
+    type t = source Ast.Untyped.Type.t
+
+    let parseTexps (texps : source Texp.t NeList.t) =
+      match texps with
+      | [ texp ] -> parseType texp
+      | extra :: _ ->
+        MResult.err ("Expected one texp, got more than one", texpSource extra)
+    ;;
+  end)
+
+  module ExprParser = MakeParser (struct
+    type t = source Ast.Untyped.Expr.t
+
+    let parseTexps = parseExprBody
+  end)
+
+  include ExprParser
 end
 
 module Default = Make (Source.Builder)

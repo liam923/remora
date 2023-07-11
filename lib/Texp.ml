@@ -3,6 +3,7 @@ open! Base
 type braceType =
   | Parens
   | Bracks
+[@@deriving sexp_of]
 
 type 's t =
   | List of
@@ -13,6 +14,7 @@ type 's t =
   | String of string * 's
   | Integer of int * 's
   | Symbol of string * 's
+[@@deriving sexp_of]
 
 let source (type s) (module SB : Source.BuilderT with type source = s) : s t -> s
   = function

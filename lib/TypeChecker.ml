@@ -253,6 +253,8 @@ type state = { idCounter : int }
 module CheckerStateT = struct
   include StateT.Make2WithError (MResult)
 
+  type nonrec state = state
+
   let ok = return
   let err error = returnF (MResult.err error)
   let errs errors = returnF (MResult.Errors errors)
@@ -339,7 +341,7 @@ let processParams env params ~makeError ~boundToEnvEntry
          })
   in
   let typedParams = List.rev typedParamsReversed in
-  match Non_empty_list.of_list (Map.to_alist dups) with
+  match NeList.of_list (Map.to_alist dups) with
   | None ->
     let extendedEnv =
       Map.merge_skewed env entries ~combine:(fun ~key:_ _ newEntry -> newEntry)
@@ -347,8 +349,7 @@ let processParams env params ~makeError ~boundToEnvEntry
     ok { typedParams; extendedEnv }
   | Some dups ->
     CheckerStateT.errs
-      (Non_empty_list.map dups ~f:(fun (name, source) ->
-           { elem = makeError name; source }))
+      (NeList.map dups ~f:(fun (name, source) -> { elem = makeError name; source }))
 ;;
 
 module SortChecker = struct
@@ -759,7 +760,7 @@ module TypeChecker = struct
     | Ref _ -> ok ()
     | Arr arr ->
       arr.elements.elem
-      |> Non_empty_list.map ~f:requireValue
+      |> NeList.map ~f:requireValue
       |> CheckerStateT.allNE
       |> CheckerStateT.ignore_m
     | EmptyArr _ -> err
@@ -962,21 +963,19 @@ module TypeChecker = struct
       let expectedElements = dimensions |> List.fold ~init:1 ~f:( * ) in
       let%bind () =
         CheckerStateT.require
-          (expectedElements = Non_empty_list.length elements.elem)
+          (expectedElements = NeList.length elements.elem)
           { source
           ; elem =
               WrongNumberOfElementsInArray
-                { expected = expectedElements
-                ; actual = Non_empty_list.length elements.elem
-                }
+                { expected = expectedElements; actual = NeList.length elements.elem }
           }
       and elementsWithSource =
         elements.elem
-        |> Non_empty_list.map ~f:(fun e ->
+        |> NeList.map ~f:(fun e ->
                checkAndExpectAtom env e >>| fun atom -> atom, e.source)
         |> CheckerStateT.allNE
       in
-      let elements = elementsWithSource |> Non_empty_list.map ~f:(fun (e, _) -> e) in
+      let elements = elementsWithSource |> NeList.map ~f:(fun (e, _) -> e) in
       let ((firstElement, _) :: restElementsWithSource) = elementsWithSource in
       let%map () =
         restElementsWithSource
@@ -999,7 +998,7 @@ module TypeChecker = struct
       T.Array
         (Arr
            { dimensions
-           ; elements = Non_empty_list.to_list elements
+           ; elements = NeList.to_list elements
            ; type' = { element = T.atomType firstElement; shape }
            })
     | U.EmptyArr { dimensions; elementType } ->
@@ -1030,22 +1029,22 @@ module TypeChecker = struct
       let expectedArrays = dimensions |> List.fold ~init:1 ~f:( * ) in
       let%bind () =
         CheckerStateT.require
-          (expectedArrays = Non_empty_list.length arrays.elem)
+          (expectedArrays = NeList.length arrays.elem)
           { source
           ; elem =
               WrongNumberOfArraysInFrame
-                { expected = expectedArrays; actual = Non_empty_list.length arrays.elem }
+                { expected = expectedArrays; actual = NeList.length arrays.elem }
           }
       and arraysWithSource =
         arrays.elem
-        |> Non_empty_list.map ~f:(fun e ->
+        |> NeList.map ~f:(fun e ->
                checkAndExpectArray env e >>| fun atom -> atom, e.source)
         |> CheckerStateT.allNE
       in
-      let typedArrays = arraysWithSource |> Non_empty_list.map ~f:(fun (e, _) -> e) in
+      let typedArrays = arraysWithSource |> NeList.map ~f:(fun (e, _) -> e) in
       let ((firstArray, _) :: restArraysWithSource) = arraysWithSource in
       let%bind firstArrayType =
-        checkForArrType (Non_empty_list.hd arrays.elem).source (T.arrayType firstArray)
+        checkForArrType (NeList.hd arrays.elem).source (T.arrayType firstArray)
       in
       let%map () =
         restArraysWithSource
@@ -1069,7 +1068,7 @@ module TypeChecker = struct
       T.Array
         (T.Frame
            { dimensions
-           ; arrays = Non_empty_list.to_list typedArrays
+           ; arrays = NeList.to_list typedArrays
            ; type' = { element = firstArrayType.element; shape }
            })
     | U.EmptyFrame { dimensions; elementType = arrayType } ->
@@ -1173,8 +1172,7 @@ module TypeChecker = struct
         |> CheckerStateT.all
       in
       let getPrincipalFrame
-          (headFrame :: restFrames :
-            ('s, Typed.Index.shape) Source.annotate Non_empty_list.t)
+          (headFrame :: restFrames : ('s, Typed.Index.shape) Source.annotate NeList.t)
         =
         (* Get the principal frame *)
         let principalFrame, _ =
@@ -1662,12 +1660,28 @@ module TypeChecker = struct
   ;;
 end
 
-let checkSort env index =
-  CheckerStateT.runA (SortChecker.check env index) { idCounter = 0 }
+let baseEnv () =
+  let module B = Environment.Base (CheckerStateT) in
+  B.make ()
 ;;
 
-let checkKind env type' =
-  CheckerStateT.runA (KindChecker.check env type') { idCounter = 0 }
+let checkSort index =
+  CheckerStateT.runA
+    (let%bind env = baseEnv () in
+     SortChecker.check env index)
+    { idCounter = 0 }
 ;;
 
-let checkType env expr = CheckerStateT.runA (TypeChecker.check env expr) { idCounter = 0 }
+let checkKind type' =
+  CheckerStateT.runA
+    (let%bind env = baseEnv () in
+     KindChecker.check env type')
+    { idCounter = 0 }
+;;
+
+let checkType expr =
+  CheckerStateT.runA
+    (let%bind env = baseEnv () in
+     TypeChecker.check env expr)
+    { idCounter = 0 }
+;;

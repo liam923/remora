@@ -15,7 +15,9 @@ type t =
 module type IdentifierGenerator = sig
   include StateT.S2
 
-  val createId : string -> ('s, Typed.Identifier.t, 'e) t
+  type state
+
+  val createId : string -> (state, Typed.Identifier.t, 'e) t
 end
 
 module Base (Gen : IdentifierGenerator) = struct

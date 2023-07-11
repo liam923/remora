@@ -4,14 +4,14 @@ module Kind = struct
   type t =
     | Atom
     | Array
-  [@@deriving eq]
+  [@@deriving eq, sexp]
 end
 
 module Sort = struct
   type t =
     | Dim
     | Shape
-  [@@deriving eq]
+  [@@deriving eq, sexp]
 end
 
 module Untyped = struct
@@ -19,9 +19,11 @@ module Untyped = struct
     { binding : ('s, string) Source.annotate
     ; bound : 't
     }
+  [@@deriving sexp_of]
 
   type ('s, 't) paramList =
     ('s, ('s, ('s, 't) param) Source.annotate list) Source.annotate
+  [@@deriving sexp_of]
 
   module Index = struct
     type ref = string
@@ -37,7 +39,7 @@ module Untyped = struct
       | Add of 's add
       | Append of 's append
 
-    and 's t = ('s, 's raw) Source.annotate
+    and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
   end
 
   module Type = struct
@@ -72,7 +74,7 @@ module Untyped = struct
       | Sigma of 's sigma
       | Tuple of 's tuple
 
-    and 's t = ('s, 's raw) Source.annotate
+    and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
   end
 
   module Expr = struct
@@ -80,7 +82,7 @@ module Untyped = struct
 
     and 's arrOrFrame =
       { dimensions : ('s, ('s, int) Source.annotate list) Source.annotate
-      ; elements : ('s, 's t Non_empty_list.t) Source.annotate
+      ; elements : ('s, 's t NeList.t) Source.annotate
       }
 
     and 's emptyArrOrFrame =
@@ -176,7 +178,7 @@ module Untyped = struct
       | IntLiteral of int
       | CharacterLiteral of char
 
-    and 's t = ('s, 's raw) Source.annotate
+    and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
   end
 end
 
@@ -187,7 +189,7 @@ module Typed = struct
         { name : string
         ; id : int
         }
-      [@@deriving compare, sexp_of, equal]
+      [@@deriving compare, sexp, equal]
     end
 
     include T
@@ -198,22 +200,26 @@ module Typed = struct
     { binding : Identifier.t
     ; bound : 't
     }
+  [@@deriving sexp]
 
   module Index = struct
     type dimension =
       { const : int
       ; refs : int Map.M(Identifier).t
       }
+    [@@deriving sexp]
 
     type shapeElement =
       | Add of dimension
       | ShapeRef of Identifier.t
+    [@@deriving sexp]
 
-    type shape = shapeElement list
+    type shape = shapeElement list [@@deriving sexp]
 
     type t =
       | Dimension of dimension
       | Shape of shape
+    [@@deriving sexp]
 
     let dimensionConstant n = { const = n; refs = Map.empty (module Identifier) }
     let dimensionRef r = { const = 0; refs = Map.singleton (module Identifier) r 1 }
@@ -265,6 +271,7 @@ module Typed = struct
     and t =
       | Array of array
       | Atom of atom
+    [@@deriving sexp]
 
     let kind = function
       | Array _ -> Kind.Array
@@ -277,6 +284,7 @@ module Typed = struct
       { id : Identifier.t
       ; type' : Type.array
       }
+    [@@deriving sexp]
 
     type arr =
       { dimensions : int list
@@ -383,6 +391,7 @@ module Typed = struct
     and t =
       | Array of array
       | Atom of atom
+    [@@deriving sexp]
 
     let atomType : atom -> Type.atom = function
       | TermLambda termLambda -> Func termLambda.type'

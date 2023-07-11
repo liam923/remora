@@ -1,2 +1,6 @@
-(test
- (name remora))
+(library
+ (name remora_test)
+ (inline_tests)
+ (libraries base non_empty_list remora)
+ (preprocess
+  (pps ppx_jane)))

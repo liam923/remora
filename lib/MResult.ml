@@ -2,19 +2,19 @@ open! Base
 
 type ('ok, 'err) t =
   | MOk of 'ok
-  | Errors of 'err Non_empty_list.t
+  | Errors of 'err NeList.t
 
-type 'e error = 'e Non_empty_list.t
+type 'e error = 'e NeList.t
 
 let both a b =
   match a, b with
   | MOk a, MOk b -> MOk (a, b)
   | MOk _, (Errors _ as errs) | (Errors _ as errs), MOk _ -> errs
-  | Errors errs1, Errors errs2 -> Errors (Non_empty_list.append errs1 errs2)
+  | Errors errs1, Errors errs2 -> Errors (NeList.append errs1 errs2)
 ;;
 
 include MonadWithError.Make2 (struct
-  type 'e error = 'e Non_empty_list.t
+  type 'e error = 'e NeList.t
   type nonrec ('a, 'e) t = ('a, 'e) t
 
   let bind x ~f =
@@ -38,7 +38,7 @@ include MonadWithError.Make2 (struct
     | Errors errors ->
       (match error errors with
       | MOk () -> Errors errors
-      | Errors moreErrors -> Errors (Non_empty_list.append errors moreErrors))
+      | Errors moreErrors -> Errors (NeList.append errors moreErrors))
   ;;
 end)
 
@@ -61,11 +61,11 @@ let all = function
     head :: rest
 ;;
 
-let allNE Non_empty_list.(headR :: restL) =
+let allNE NeList.(headR :: restL) =
   let open Let_syntax in
   let%map head = headR
   and rest = all restL in
-  Non_empty_list.(head :: rest)
+  NeList.(head :: rest)
 ;;
 
 let ofOption o ~err =

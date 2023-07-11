@@ -8,11 +8,11 @@
 %token LEFT_BRACK
 %token RIGHT_BRACK
 %token EOF
-%start <SourceBuilder.source Texp.t Non_empty_list.t> prog
+%start <SourceBuilder.source Texp.t NeList.t> prog
 %%
 
 prog:
-  | head = texp; rest = texp*; EOF { Non_empty_list.(head :: rest) }
+  | head = texp; rest = texp*; EOF { NeList.(head :: rest) }
 
 texp:
   | left = tokenSource(LEFT_PAREN); texpList = texp*; right = tokenSource(RIGHT_PAREN) { Texp.List {braceType=Parens; elements=texpList; braceSources=(left, right)}  }
