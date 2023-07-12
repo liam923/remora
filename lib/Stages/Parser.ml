@@ -1019,3 +1019,20 @@ module Unit = Make (struct
   let merge () () = ()
   let between () () = ()
 end)
+
+module Stage (SB : Source.BuilderT) = struct
+  module Parser = Make (SB)
+
+  type input = string
+  type output = SB.source Ast.Expr.t
+  type error = (SB.source, string) Source.annotate
+
+  let name = "Parse"
+
+  let run input =
+    match Parser.parseString input with
+    | MOk _ as expr -> expr
+    | Errors errs ->
+      Errors (NeList.map errs ~f:(fun (elem, source) -> Source.{ elem; source }))
+  ;;
+end

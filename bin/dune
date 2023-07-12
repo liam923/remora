@@ -1,4 +1,6 @@
 (executable
  (public_name remora)
  (name main)
- (libraries remora))
+ (libraries remora)
+ (preprocess
+  (pps ppx_jane ppx_deriving.eq ppx_deriving.show ppx_deriving.ord)))

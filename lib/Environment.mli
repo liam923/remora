@@ -1,5 +1,5 @@
 open! Base
-open Core
+open Nucleus
 
 type 'v entry =
   { e : 'v
@@ -10,7 +10,7 @@ type t =
   { sorts : Sort.t entry Map.M(String).t
   ; kinds : Kind.t entry Map.M(String).t
   ; types : Type.array entry Map.M(String).t
-  ; literalType : Expr.literalValue -> Type.atom
+  ; literalTypes : Type.literal Map.M(Identifier).t
   }
 
 module type IdentifierGenerator = sig

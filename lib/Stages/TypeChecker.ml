@@ -25,38 +25,38 @@ type error =
   | WrongNumberOfArraysInFrame of int expectedActual
   | WrongNumberOfElementsInBoxes of int expectedActual
   | ArrayTypeDisagreement of
-      { firstElementType : Core.Type.t
-      ; gotElementType : Core.Type.t
+      { firstElementType : Nucleus.Type.t
+      ; gotElementType : Nucleus.Type.t
       }
   | FrameTypeDisagreement of
-      { firstArrayType : Core.Type.t
-      ; gotArrayType : Core.Type.t
+      { firstArrayType : Nucleus.Type.t
+      ; gotArrayType : Nucleus.Type.t
       }
-  | SigmaBodyTypeDisagreement of Core.Type.t expectedActual
-  | ExpectedAtomicExpr of { actual : Core.Type.t }
-  | ExpectedArrType of { actual : Core.Type.t }
-  | ExpectedTupleType of { actual : Core.Type.t }
-  | ExpectedSigmaType of { actual : Core.Type.t }
-  | ExpectedFuncType of { actual : Core.Type.t }
+  | SigmaBodyTypeDisagreement of Nucleus.Type.t expectedActual
+  | ExpectedAtomicExpr of { actual : Nucleus.Type.t }
+  | ExpectedArrType of { actual : Nucleus.Type.t }
+  | ExpectedTupleType of { actual : Nucleus.Type.t }
+  | ExpectedSigmaType of { actual : Nucleus.Type.t }
+  | ExpectedFuncType of { actual : Nucleus.Type.t }
   | ExpectedValue
-  | ExpectedForall of { actual : Core.Type.t }
+  | ExpectedForall of { actual : Nucleus.Type.t }
   | WrongNumberOfArguments of int expectedActual
   | WrongNumberOfBindings of int expectedActual
   | WrongNumberOfUnboxParameters of int expectedActual
   | DuplicateTupleBindingName of string
-  | LetTypeDisagreement of Core.Type.t expectedActual
-  | TupleLetTypeDisagreement of Core.Type.t expectedActual
+  | LetTypeDisagreement of Nucleus.Type.t expectedActual
+  | TupleLetTypeDisagreement of Nucleus.Type.t expectedActual
   | UnexpectedSortBoundInUnbox of Sort.t expectedActual
   | EscapingRef of string
-  | ArgumentTypeDisagreement of Core.Type.t expectedActual
-  | CellShapeDisagreement of Core.Index.shape expectedActual
-  | PrincipalFrameDisagreement of Core.Index.shape expectedActual
+  | ArgumentTypeDisagreement of Nucleus.Type.t expectedActual
+  | CellShapeDisagreement of Nucleus.Index.shape expectedActual
+  | PrincipalFrameDisagreement of Nucleus.Index.shape expectedActual
 
 module Show : sig
   val sort : Sort.t -> string
   val kind : Kind.t -> string
-  val shape : Core.Index.shape -> string
-  val type' : Core.Type.t -> string
+  val shape : Nucleus.Index.shape -> string
+  val type' : Nucleus.Type.t -> string
 end = struct
   let sort = function
     | Sort.Dim -> "Dim"
@@ -68,7 +68,7 @@ end = struct
     | Kind.Array -> "Array"
   ;;
 
-  let showDimension ({ const; refs } : Core.Index.dimension) =
+  let showDimension ({ const; refs } : Nucleus.Index.dimension) =
     let constElement = if const = 0 then None else Some (Int.to_string const) in
     let refElements =
       refs
@@ -85,8 +85,8 @@ end = struct
   ;;
 
   let showShapeElement = function
-    | Core.Index.Add dim -> showDimension dim
-    | Core.Index.ShapeRef ref -> ref.name
+    | Nucleus.Index.Add dim -> showDimension dim
+    | Nucleus.Index.ShapeRef ref -> ref.name
   ;;
 
   let showList ?(prependSpace = false) shower list =
@@ -96,10 +96,10 @@ end = struct
   ;;
 
   let shape elements = [%string "[%{showList showShapeElement elements}]"]
-  let showParam (p : 't Core.param) = p.binding.name
+  let showParam (p : 't Nucleus.param) = p.binding.name
 
   let rec showArray =
-    let open Core.Type in
+    let open Nucleus.Type in
     function
     | ArrayRef ref -> ref.name
     | Arr { element; shape } ->
@@ -110,7 +110,7 @@ end = struct
         [%string "[%{showAtom element}%{shapeString}]"])
 
   and showAtom =
-    let open Core.Type in
+    let open Nucleus.Type in
     function
     | AtomRef ref -> ref.name
     | Func { parameters; return } ->
@@ -128,8 +128,10 @@ end = struct
     | Tuple elements ->
       let elementsString = elements |> List.map ~f:showAtom |> String.concat ~sep:" * " in
       [%string "(%{elementsString})"]
+    | Literal IntLiteral -> "int"
+    | Literal CharacterLiteral -> "char"
 
-  and type' : Core.Type.t -> string = function
+  and type' : Nucleus.Type.t -> string = function
     | Array array -> showArray array
     | Atom atom -> showAtom atom
   ;;
@@ -271,8 +273,7 @@ module CheckerStateT = struct
 
   let createId name =
     make ~f:(fun state ->
-        ( { idCounter = state.idCounter + 1 }
-        , Core.Identifier.{ name; id = state.idCounter + 1 } ))
+        { idCounter = state.idCounter + 1 }, Identifier.{ name; id = state.idCounter + 1 })
   ;;
 end
 
@@ -283,12 +284,12 @@ let ok = CheckerStateT.ok
 type ('s, 't) checkerStateT = (state, 't, ('s, error) Source.annotate) CheckerStateT.t
 
 type ('t, 'u) processedParams =
-  { typedParams : 't Core.param list
+  { typedParams : 't Nucleus.param list
   ; extendedEnv : 'u Environment.entry Map.M(String).t
   }
 
 type ('s, 't, 'u) paramsToMapResult =
-  { typedParamsReversed : 't Core.param list
+  { typedParamsReversed : 't Nucleus.param list
   ; entries : 'u Environment.entry Map.M(String).t
   ; dups : 's Map.M(String).t
   }
@@ -314,7 +315,7 @@ let processParams env params ~makeError ~boundToEnvEntry
         acc
       in
       let%bind id = CheckerStateT.createId name in
-      let typedParam : 't Core.param = { binding = id; bound } in
+      let typedParam : 't Nucleus.param = { binding = id; bound } in
       let newParams = typedParam :: oldParams in
       let entry = Environment.{ e = boundToEnvEntry bound; id = typedParam.binding } in
       (match Map.add oldEntries ~key:name ~data:entry with
@@ -352,7 +353,7 @@ let processParams env params ~makeError ~boundToEnvEntry
 module SortChecker = struct
   let rec check (env : Environment.t) { elem = index; source } =
     let module U = Ast.Index in
-    let module T = Core.Index in
+    let module T = Nucleus.Index in
     match index with
     | U.Ref name ->
       Map.find env.sorts name
@@ -370,8 +371,7 @@ module SortChecker = struct
       let flattenedDimension =
         indices
         |> List.fold_left
-             ~init:
-               ({ const = 0; refs = Map.empty (module Core.Identifier) } : T.dimension)
+             ~init:({ const = 0; refs = Map.empty (module Identifier) } : T.dimension)
              ~f:(fun m1 m2 ->
                { const = m1.const + m2.const
                ; refs =
@@ -396,8 +396,8 @@ module SortChecker = struct
 
   and checkAndExpectDim env index =
     match%bind check env index with
-    | Core.Index.Dimension d -> ok d
-    | Core.Index.Shape _ ->
+    | Nucleus.Index.Dimension d -> ok d
+    | Nucleus.Index.Shape _ ->
       CheckerStateT.err
         { source = index.source
         ; elem = UnexpectedSort { expected = Sort.Dim; actual = Sort.Shape }
@@ -405,33 +405,41 @@ module SortChecker = struct
 
   and checkAndExpectShape env index =
     match%bind check env index with
-    | Core.Index.Dimension _ ->
+    | Nucleus.Index.Dimension _ ->
       CheckerStateT.err
         { source = index.source
         ; elem = UnexpectedSort { expected = Sort.Dim; actual = Sort.Shape }
         }
-    | Core.Index.Shape s -> ok s
+    | Nucleus.Index.Shape s -> ok s
   ;;
 
   let checkAndExpect sort env index =
     match sort with
-    | Sort.Dim -> checkAndExpectDim env index >>| fun r -> Core.Index.Dimension r
-    | Sort.Shape -> checkAndExpectShape env index >>| fun r -> Core.Index.Shape r
+    | Sort.Dim -> checkAndExpectDim env index >>| fun r -> Nucleus.Index.Dimension r
+    | Sort.Shape -> checkAndExpectShape env index >>| fun r -> Nucleus.Index.Shape r
   ;;
 end
 
 module KindChecker = struct
   let rec check (env : Environment.t) { elem = type'; source } =
     let module U = Ast.Type in
-    let module T = Core.Type in
+    let module T = Nucleus.Type in
     match type' with
     | U.Ref name ->
-      Map.find env.kinds name
-      |> Option.map ~f:(fun entry ->
+      let%map entry =
+        Map.find env.kinds name
+        (* |> Option.map ~f:(fun entry ->
              match entry.e with
              | Kind.Array -> T.Array (T.ArrayRef entry.id)
-             | Kind.Atom -> T.Atom (T.AtomRef entry.id))
-      |> CheckerStateT.ofOption ~err:{ source; elem = UnboundTypeVariable name }
+             | Kind.Atom -> T.Atom (T.AtomRef entry.id)) *)
+        |> CheckerStateT.ofOption ~err:{ source; elem = UnboundTypeVariable name }
+      in
+      (match Map.find env.literalTypes entry.id with
+      | Some literal -> T.Atom (Literal literal)
+      | None ->
+        (match entry.e with
+        | Kind.Array -> T.Array (T.ArrayRef entry.id)
+        | Kind.Atom -> T.Atom (T.AtomRef entry.id)))
     | U.Arr { element; shape } ->
       let%map element = checkAndExpectAtom env element
       and shape = SortChecker.checkAndExpectShape env shape in
@@ -499,13 +507,13 @@ module KindChecker = struct
       T.Atom (T.Tuple kindedElements)
 
   and checkAndExpectArray env type' =
-    let open Core.Type in
+    let open Nucleus.Type in
     match%bind check env type' with
     | Array array -> ok array
     | Atom atom -> ok (Arr { element = atom; shape = [] })
 
   and checkAndExpectAtom env type' =
-    let open Core.Type in
+    let open Nucleus.Type in
     match%bind check env type' with
     | Atom atom -> ok atom
     | Array _ ->
@@ -517,8 +525,8 @@ module KindChecker = struct
 
   let checkAndExpect kind env type' =
     match kind with
-    | Kind.Array -> checkAndExpectArray env type' >>| fun r -> Core.Type.Array r
-    | Kind.Atom -> checkAndExpectAtom env type' >>| fun r -> Core.Type.Atom r
+    | Kind.Array -> checkAndExpectArray env type' >>| fun r -> Nucleus.Type.Array r
+    | Kind.Atom -> checkAndExpectAtom env type' >>| fun r -> Nucleus.Type.Atom r
   ;;
 end
 
@@ -532,8 +540,8 @@ module TypeChecker = struct
   ;;
 
   (** Compare two types to check that they are equal*)
-  let eqType (a : Core.Type.t) (b : Core.Type.t) : bool =
-    let open Core in
+  let eqType (a : Nucleus.Type.t) (b : Nucleus.Type.t) : bool =
+    let open Nucleus in
     (* Booleans are represented as options in order to be able to use let syntax *)
     let boolToOpt = function
       | true -> Some ()
@@ -699,6 +707,20 @@ module TypeChecker = struct
                optToBool (compareTypes (Atom aParam) (Atom bParam) bToA))
              a
              b)
+      | Atom (Literal IntLiteral) ->
+        let%map () =
+          match b with
+          | Atom (Literal IntLiteral) -> Some ()
+          | _ -> None
+        in
+        ()
+      | Atom (Literal CharacterLiteral) ->
+        let%map () =
+          match b with
+          | Atom (Literal CharacterLiteral) -> Some ()
+          | _ -> None
+        in
+        ()
     in
     let result : unit option = compareTypes a b (Map.empty (module Identifier)) in
     (* Convert from option back to boolean *)
@@ -712,7 +734,7 @@ module TypeChecker = struct
   ;;
 
   let checkForArrType source type' =
-    let open Core.Type in
+    let open Nucleus.Type in
     match type' with
     | Arr arr -> ok arr
     | ArrayRef _ ->
@@ -720,21 +742,21 @@ module TypeChecker = struct
   ;;
 
   let checkForTupleType source type' =
-    let open Core.Type in
+    let open Nucleus.Type in
     match type' with
     | Tuple tup -> ok tup
     | _ -> CheckerStateT.err { source; elem = ExpectedTupleType { actual = Atom type' } }
   ;;
 
   let checkForSigmaType source type' =
-    let open Core.Type in
+    let open Nucleus.Type in
     match type' with
     | Sigma sigma -> ok sigma
     | _ -> CheckerStateT.err { source; elem = ExpectedSigmaType { actual = Atom type' } }
   ;;
 
   let checkForFuncType source type' =
-    let open Core.Type in
+    let open Nucleus.Type in
     match type' with
     | Func func -> ok func
     | _ -> CheckerStateT.err { source; elem = ExpectedFuncType { actual = Atom type' } }
@@ -777,8 +799,8 @@ module TypeChecker = struct
     | CharacterLiteral _ -> ok ()
   ;;
 
-  let subIndicesIntoDimIndex indices ({ const; refs } : Core.Index.dimension) =
-    let open Core.Index in
+  let subIndicesIntoDimIndex indices ({ const; refs } : Nucleus.Index.dimension) =
+    let open Nucleus.Index in
     Map.fold
       refs
       ~init:{ const; refs = Map.empty (Map.comparator_s refs) }
@@ -803,7 +825,7 @@ module TypeChecker = struct
   ;;
 
   let subIndicesIntoShapeIndex indices shape =
-    let open Core.Index in
+    let open Nucleus.Index in
     List.bind shape ~f:(function
         | Add dim -> [ Add (subIndicesIntoDimIndex indices dim) ]
         | ShapeRef id as ref ->
@@ -814,7 +836,7 @@ module TypeChecker = struct
   ;;
 
   let rec subIndicesIntoArrayType indices =
-    let open Core.Type in
+    let open Nucleus.Type in
     function
     | ArrayRef _ as ref -> ref
     | Arr { element; shape } ->
@@ -824,7 +846,7 @@ module TypeChecker = struct
         }
 
   and subIndicesIntoAtomType indices =
-    let open Core.Type in
+    let open Nucleus.Type in
     function
     | AtomRef _ as ref -> ref
     | Func { parameters; return } ->
@@ -839,10 +861,12 @@ module TypeChecker = struct
     | Sigma { parameters; body } ->
       Sigma { parameters; body = subIndicesIntoArrayType indices body }
     | Tuple elements -> Tuple (List.map elements ~f:(subIndicesIntoAtomType indices))
+    | Literal IntLiteral -> Literal IntLiteral
+    | Literal CharacterLiteral -> Literal CharacterLiteral
   ;;
 
   let rec subTypesIntoArrayType types =
-    let open Core.Type in
+    let open Nucleus.Type in
     function
     | ArrayRef id as ref ->
       (match Map.find types id with
@@ -853,7 +877,7 @@ module TypeChecker = struct
       Arr { element = subTypesIntoAtomType types element; shape }
 
   and subTypesIntoAtomType types =
-    let open Core.Type in
+    let open Nucleus.Type in
     function
     | AtomRef id as ref ->
       (match Map.find types id with
@@ -872,14 +896,16 @@ module TypeChecker = struct
     | Sigma { parameters; body } ->
       Sigma { parameters; body = subTypesIntoArrayType types body }
     | Tuple elements -> Tuple (List.map elements ~f:(subTypesIntoAtomType types))
+    | Literal IntLiteral -> Literal IntLiteral
+    | Literal CharacterLiteral -> Literal CharacterLiteral
   ;;
 
   let findEscapingRefs (env : Environment.t) type' =
-    let checkIfEscaping env (ref : Core.Identifier.t) =
+    let checkIfEscaping env (ref : Identifier.t) =
       if Map.mem env ref.name then [] else [ ref ]
     in
     let rec findInIndex (env : Environment.t) =
-      let open Core.Index in
+      let open Nucleus.Index in
       function
       | Shape shapeElements ->
         List.bind shapeElements ~f:(function
@@ -889,11 +915,11 @@ module TypeChecker = struct
         Map.keys refs |> List.bind ~f:(checkIfEscaping env.sorts)
     in
     let rec findInType (env : Environment.t) =
-      let open Core.Type in
+      let open Nucleus.Type in
       function
       | Array (ArrayRef ref) -> checkIfEscaping env.kinds ref
       | Array (Arr { element; shape }) ->
-        findInType env (Atom element) @ findInIndex env (Core.Index.Shape shape)
+        findInType env (Atom element) @ findInIndex env (Nucleus.Index.Shape shape)
       | Atom (AtomRef ref) -> checkIfEscaping env.kinds ref
       | Atom (Func { parameters; return }) ->
         List.bind parameters ~f:(fun a -> findInType env (Array a))
@@ -935,13 +961,15 @@ module TypeChecker = struct
         in
         findInType extendedEnv (Array body)
       | Atom (Tuple elements) -> List.bind elements ~f:(fun a -> findInType env (Atom a))
+      | Atom (Literal IntLiteral) -> []
+      | Atom (Literal CharacterLiteral) -> []
     in
     findInType env type'
   ;;
 
   let rec check (env : Environment.t) { elem = expr; source } =
     let module U = Ast.Expr in
-    let module T = Core.Expr in
+    let module T = Nucleus.Expr in
     match expr with
     | U.Ref name ->
       Map.find env.types name
@@ -981,7 +1009,8 @@ module TypeChecker = struct
         |> CheckerStateT.all_unit
       in
       let shape =
-        List.map dimensions ~f:(fun n -> Core.Index.Add (Core.Index.dimensionConstant n))
+        List.map dimensions ~f:(fun n ->
+            Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
       in
       T.Array
         (Arr
@@ -1004,7 +1033,7 @@ module TypeChecker = struct
       let%map elementType = KindChecker.checkAndExpectAtom env elementType in
       let shape =
         List.map unwrappedDims ~f:(fun n ->
-            Core.Index.Add (Core.Index.dimensionConstant n))
+            Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
       in
       T.Array
         (Arr
@@ -1049,7 +1078,8 @@ module TypeChecker = struct
         |> CheckerStateT.all_unit
       in
       let shape =
-        List.map dimensions ~f:(fun n -> Core.Index.Add (Core.Index.dimensionConstant n))
+        List.map dimensions ~f:(fun n ->
+            Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
         @ firstArrayType.shape
       in
       (* if all arrays in the frame are array literals, gather the elements
@@ -1095,7 +1125,7 @@ module TypeChecker = struct
       in
       let shape =
         List.map unwrappedDims ~f:(fun n ->
-            Core.Index.Add (Core.Index.dimensionConstant n))
+            Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
         @ arrayType.shape
       in
       T.Array
@@ -1131,9 +1161,9 @@ module TypeChecker = struct
             { source = argsSource; elem = WrongNumberOfArguments ea })
       in
       let eqShapeElement =
-        Core.Index.(
+        Nucleus.Index.(
           function
-          | ShapeRef a, ShapeRef b -> Core.Identifier.equal a b
+          | ShapeRef a, ShapeRef b -> Identifier.equal a b
           | Add a, Add b -> a.const = b.const && Map.equal ( = ) a.refs b.refs
           | ShapeRef _, Add _ | Add _, ShapeRef _ -> false)
       in
@@ -1143,8 +1173,8 @@ module TypeChecker = struct
                (* Check the element type is correct *)
                let checkElementType =
                  requireType
-                   ~expected:(Core.Type.Atom param.element)
-                   ~actual:(Core.Type.Atom argType.element)
+                   ~expected:(Nucleus.Type.Atom param.element)
+                   ~actual:(Nucleus.Type.Atom argType.element)
                    ~makeError:(fun ea ->
                      { source = argSource; elem = ArgumentTypeDisagreement ea })
                in
@@ -1180,7 +1210,7 @@ module TypeChecker = struct
         |> CheckerStateT.all
       in
       let getPrincipalFrame
-          (headFrame :: restFrames : ('s, Core.Index.shape) Source.annotate NeList.t)
+          (headFrame :: restFrames : ('s, Nucleus.Index.shape) Source.annotate NeList.t)
         =
         (* Get the principal frame *)
         let principalFrame, _ =
@@ -1230,10 +1260,12 @@ module TypeChecker = struct
       let%bind tFuncType = checkForArrType tFunc.source (T.arrayType tFuncTyped) in
       let%bind tFuncForall =
         match tFuncType.element with
-        | Core.Type.Forall forall -> ok forall
+        | Nucleus.Type.Forall forall -> ok forall
         | _ as t ->
           CheckerStateT.err
-            { source = tFunc.source; elem = ExpectedForall { actual = Core.Type.Atom t } }
+            { source = tFunc.source
+            ; elem = ExpectedForall { actual = Nucleus.Type.Atom t }
+            }
       in
       let%bind bodyType = checkForArrType tFunc.source tFuncForall.body in
       let%bind zippedArgs =
@@ -1248,7 +1280,7 @@ module TypeChecker = struct
         |> CheckerStateT.all
       in
       let substitutions =
-        Map.of_alist_reduce (module Core.Identifier) substitutionsList ~f:(fun a _ -> a)
+        Map.of_alist_reduce (module Identifier) substitutionsList ~f:(fun a _ -> a)
       in
       let subbedElementType = subTypesIntoAtomType substitutions bodyType.element in
       let typedArgs = List.map substitutionsList ~f:(fun (_, arg) -> arg) in
@@ -1264,10 +1296,12 @@ module TypeChecker = struct
       let%bind iFuncType = checkForArrType iFunc.source (T.arrayType iFuncTyped) in
       let%bind iFuncPi =
         match iFuncType.element with
-        | Core.Type.Pi pi -> ok pi
+        | Nucleus.Type.Pi pi -> ok pi
         | _ as t ->
           CheckerStateT.err
-            { source = iFunc.source; elem = ExpectedForall { actual = Core.Type.Atom t } }
+            { source = iFunc.source
+            ; elem = ExpectedForall { actual = Nucleus.Type.Atom t }
+            }
       in
       let%bind bodyType = checkForArrType iFunc.source iFuncPi.body in
       let%bind zippedArgs =
@@ -1282,7 +1316,7 @@ module TypeChecker = struct
         |> CheckerStateT.all
       in
       let substitutions =
-        Map.of_alist_reduce (module Core.Identifier) substitutionsList ~f:(fun a _ -> a)
+        Map.of_alist_reduce (module Identifier) substitutionsList ~f:(fun a _ -> a)
       in
       let subbedElementType = subIndicesIntoAtomType substitutions bodyType.element in
       let subbedBodyShape = subIndicesIntoShapeIndex substitutions bodyType.shape in
@@ -1309,7 +1343,7 @@ module TypeChecker = struct
       let%bind indexBindingsRev, newSortEnvEntries, substitutions =
         List.fold
           zippedIndexBindings
-          ~init:(ok ([], Map.empty (module String), Map.empty (module Core.Identifier)))
+          ~init:(ok ([], Map.empty (module String), Map.empty (module Identifier)))
           ~f:(fun soFar (param, binding) ->
             let%bind bindingsSoFar, entriesSoFar, subsSoFar = soFar in
             let%bind () =
@@ -1343,8 +1377,8 @@ module TypeChecker = struct
             in
             let indexRef =
               match param.bound with
-              | Sort.Dim -> Core.Index.Dimension (Core.Index.dimensionRef id)
-              | Sort.Shape -> Core.Index.Shape [ Core.Index.ShapeRef id ]
+              | Sort.Dim -> Nucleus.Index.Dimension (Nucleus.Index.dimensionRef id)
+              | Sort.Shape -> Nucleus.Index.Shape [ Nucleus.Index.ShapeRef id ]
             in
             let subs = Map.set subsSoFar ~key:param.binding ~data:indexRef in
             let bindings = id :: bindingsSoFar in
@@ -1376,7 +1410,7 @@ module TypeChecker = struct
       let%bind body = checkAndExpectArray extendedEnv body in
       let%bind bodyType = checkForArrType bodySource (T.arrayType body) in
       let%map () =
-        match findEscapingRefs env (Core.Type.Array (Core.Type.Arr bodyType)) with
+        match findEscapingRefs env (Nucleus.Type.Array (Nucleus.Type.Arr bodyType)) with
         | [] -> ok ()
         | ref :: _ ->
           CheckerStateT.err { source = bodySource; elem = EscapingRef ref.name }
@@ -1395,7 +1429,7 @@ module TypeChecker = struct
         params.elem
         |> List.map ~f:(fun { elem = { binding; bound }; source } ->
                let%map bound = KindChecker.checkAndExpectArray env bound in
-               let param : ('s, Core.Type.array) Ast.param = { binding; bound } in
+               let param : ('s, Nucleus.Type.array) Ast.param = { binding; bound } in
                { elem = param; source })
         |> CheckerStateT.all
       in
@@ -1408,7 +1442,7 @@ module TypeChecker = struct
       in
       let extendedEnv = { env with types = extendedTypesEnv } in
       let%map body = checkAndExpectArray extendedEnv body in
-      let type' : Core.Type.func =
+      let type' : Nucleus.Type.func =
         { parameters = List.map typedParams ~f:(fun p -> p.bound)
         ; return = T.arrayType body
         }
@@ -1431,7 +1465,7 @@ module TypeChecker = struct
       let extendedEnv = { env with kinds = extendedKindsEnv } in
       let%bind () = requireValue body in
       let%map body = checkAndExpectArray extendedEnv body in
-      let type' : Core.Type.forall =
+      let type' : Nucleus.Type.forall =
         { parameters = typedParams; body = T.arrayType body }
       in
       T.Atom (T.TypeLambda { params = typedParams; body; type' })
@@ -1452,7 +1486,9 @@ module TypeChecker = struct
       let extendedEnv = { env with sorts = extendedSortsEnv } in
       let%bind () = requireValue body in
       let%map body = checkAndExpectArray extendedEnv body in
-      let type' : Core.Type.pi = { parameters = typedParams; body = T.arrayType body } in
+      let type' : Nucleus.Type.pi =
+        { parameters = typedParams; body = T.arrayType body }
+      in
       T.Atom (T.IndexLambda { params = typedParams; body; type' })
     | U.Boxes { params; elementType; dimensions; elements } ->
       let dimensions = List.map dimensions.elem ~f:(fun d -> d.elem) in
@@ -1472,7 +1508,7 @@ module TypeChecker = struct
       in
       let extendedEnv = { env with sorts = extendedSortsEnv } in
       let%bind elementType = KindChecker.checkAndExpectArray extendedEnv elementType in
-      let sigmaType : Core.Type.sigma =
+      let sigmaType : Nucleus.Type.sigma =
         { parameters = typedParams; body = elementType }
       in
       let%map checkedElements =
@@ -1501,14 +1537,14 @@ module TypeChecker = struct
                let substitutions =
                  List.fold
                    zippedIndicesTyped
-                   ~init:(Map.empty (module Core.Identifier))
+                   ~init:(Map.empty (module Identifier))
                    ~f:(fun acc (param, index) ->
                      Map.set acc ~key:param.binding ~data:index)
                in
                let subbedType = subIndicesIntoArrayType substitutions elementType in
                let%map () =
                  requireType
-                   ~expected:(Core.Type.Array subbedType)
+                   ~expected:(Nucleus.Type.Array subbedType)
                    ~actual:(T.type' (T.Array body))
                    ~makeError:(fun ea ->
                      { source = element.elem.body.source
@@ -1527,13 +1563,14 @@ module TypeChecker = struct
           }
       in
       let shape =
-        List.map dimensions ~f:(fun d -> Core.Index.Add (Core.Index.dimensionConstant d))
+        List.map dimensions ~f:(fun d ->
+            Nucleus.Index.Add (Nucleus.Index.dimensionConstant d))
       in
       T.Array
         (T.Arr
            { dimensions
            ; elements = checkedElements
-           ; type' = { element = Core.Type.Sigma sigmaType; shape }
+           ; type' = { element = Nucleus.Type.Sigma sigmaType; shape }
            })
     | U.Let { param; value; body } ->
       let binding = param.elem.binding in
@@ -1610,10 +1647,10 @@ module TypeChecker = struct
               | None -> ok type'
             in
             let bindingType =
-              Core.Type.Arr { element = boundTyped; shape = valueType.shape }
+              Nucleus.Type.Arr { element = boundTyped; shape = valueType.shape }
             in
             let entry = Environment.{ id; e = bindingType } in
-            let paramTyped = Core.{ binding = id; bound = boundTyped } in
+            let paramTyped = Nucleus.{ binding = id; bound = boundTyped } in
             match Map.add envEntriesSoFar ~key:param.elem.binding.elem ~data:entry with
             | `Ok envEntries -> ok (envEntries, paramTyped :: paramsSoFar)
             | `Duplicate ->
@@ -1640,27 +1677,23 @@ module TypeChecker = struct
       in
       let elementTypes = List.map elements ~f:(fun e -> T.atomType e) in
       T.Atom (T.Tuple { elements; type' = elementTypes })
-    | U.IntLiteral i ->
-      let value = T.IntLiteral i in
-      CheckerStateT.return (T.Atom (Literal { value; type' = env.literalType value }))
-    | U.CharacterLiteral c ->
-      let value = T.CharacterLiteral c in
-      CheckerStateT.return (T.Atom (Literal { value; type' = env.literalType value }))
+    | U.IntLiteral i -> CheckerStateT.return (T.Atom (Literal (IntLiteral i)))
+    | U.CharacterLiteral c -> CheckerStateT.return (T.Atom (Literal (CharacterLiteral c)))
 
   and checkAndExpectArray env expr =
-    let open Core.Expr in
+    let open Nucleus.Expr in
     match%bind check env expr with
     | Array array -> ok array
     | Atom atom ->
       ok
-        (Core.Expr.Arr
+        (Nucleus.Expr.Arr
            { dimensions = []
            ; elements = [ atom ]
-           ; type' = { element = Core.Expr.atomType atom; shape = [] }
+           ; type' = { element = Nucleus.Expr.atomType atom; shape = [] }
            })
 
   and checkAndExpectAtom env expr =
-    let open Core.Expr in
+    let open Nucleus.Expr in
     match%bind check env expr with
     | Atom atom -> ok atom
     | Array _ as typed ->
@@ -1694,3 +1727,17 @@ let checkType expr =
      TypeChecker.check env expr)
     { idCounter = 0 }
 ;;
+
+module Stage (SB : Source.BuilderT) = struct
+  type input = SB.source Ast.Expr.t
+  type output = Nucleus.Expr.t
+  type error = (SB.source, string) Source.annotate
+
+  let name = "Type Check"
+
+  let run input =
+    match checkType input with
+    | MOk _ as expr -> expr
+    | Errors errs -> Errors (NeList.map errs ~f:(Source.map ~f:errorMessage))
+  ;;
+end

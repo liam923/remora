@@ -1,20 +1,7 @@
 open! Base
 
-(* The AST language represents a typed Remora program with no optimizations
+(* The Nucleus language represents a typed Remora program with no optimizations
    yet performed*)
-
-module Identifier = struct
-  module T = struct
-    type t =
-      { name : string
-      ; id : int
-      }
-    [@@deriving compare, sexp, equal]
-  end
-
-  include T
-  include Comparator.Make (T)
-end
 
 type 't param =
   { binding : Identifier.t
@@ -71,6 +58,10 @@ module Type = struct
   and sigma = Sort.t abstraction
   and tuple = atom list
 
+  and literal =
+    | IntLiteral
+    | CharacterLiteral
+
   and array =
     | ArrayRef of Identifier.t
     | Arr of arr
@@ -82,6 +73,7 @@ module Type = struct
     | Pi of pi
     | Sigma of sigma
     | Tuple of tuple
+    | Literal of literal
 
   and t =
     | Array of array
@@ -183,14 +175,9 @@ module Expr = struct
     ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
-  and literalValue =
+  and literal =
     | IntLiteral of int
     | CharacterLiteral of char
-
-  and literal =
-    { value : literalValue
-    ; type' : Type.atom [@sexp_drop_if fun _ -> true]
-    }
 
   and array =
     | Ref of ref
@@ -222,7 +209,8 @@ module Expr = struct
     | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
     | Tuple tuple -> Tuple tuple.type'
-    | Literal literal -> literal.type'
+    | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (CharacterLiteral _) -> Literal CharacterLiteral
   ;;
 
   let arrayType : array -> Type.array = function
@@ -241,4 +229,13 @@ module Expr = struct
     | Array array -> Array (arrayType array)
     | Atom atom -> Atom (atomType atom)
   ;;
+end
+
+module ShowStage (SB : Source.BuilderT) = struct
+  type error = (SB.source, string) Source.annotate
+  type input = Expr.t
+  type output = string
+
+  let name = "Print Nucleus"
+  let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: Expr.t] input))
 end

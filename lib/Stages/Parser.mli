@@ -22,3 +22,9 @@ end
 module Make (SourceBuilder : Source.BuilderT) : S with type source = SourceBuilder.source
 module Default : S with type source = Source.t
 module Unit : S with type source = unit
+
+module Stage (SB : Source.BuilderT) :
+  Pipeline.Stage
+    with type input = string
+    with type output = SB.source Ast.Expr.t
+    with type error = (SB.source, string) Source.annotate

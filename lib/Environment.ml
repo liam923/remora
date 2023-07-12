@@ -1,5 +1,5 @@
 open! Base
-open Core
+open Nucleus
 
 type 'v entry =
   { e : 'v
@@ -10,7 +10,7 @@ type t =
   { sorts : Sort.t entry Map.M(String).t
   ; kinds : Kind.t entry Map.M(String).t
   ; types : Type.array entry Map.M(String).t
-  ; literalType : Expr.literalValue -> Type.atom
+  ; literalTypes : Type.literal Map.M(Identifier).t
   }
 
 module type IdentifierGenerator = sig
@@ -40,37 +40,21 @@ module Base (Gen : IdentifierGenerator) = struct
       makeSubEnv [ "int", Gen.return Kind.Atom; "char", Gen.return Kind.Atom ]
     in
     let scalar element = Type.Arr { element; shape = [] } in
-    let intRef = Type.AtomRef (Map.find_exn kinds "int").id in
+    let intArr = scalar (Literal IntLiteral) in
     let%map types =
       makeSubEnv
         [ ( "+"
           , Gen.return
-              (scalar
-                 (Type.Func
-                    { parameters = [ scalar intRef; scalar intRef ]
-                    ; return = scalar intRef
-                    })) )
+              (scalar (Type.Func { parameters = [ intArr; intArr ]; return = intArr })) )
         ; ( "-"
           , Gen.return
-              (scalar
-                 (Type.Func
-                    { parameters = [ scalar intRef; scalar intRef ]
-                    ; return = scalar intRef
-                    })) )
+              (scalar (Type.Func { parameters = [ intArr; intArr ]; return = intArr })) )
         ; ( "*"
           , Gen.return
-              (scalar
-                 (Type.Func
-                    { parameters = [ scalar intRef; scalar intRef ]
-                    ; return = scalar intRef
-                    })) )
+              (scalar (Type.Func { parameters = [ intArr; intArr ]; return = intArr })) )
         ; ( "/"
           , Gen.return
-              (scalar
-                 (Type.Func
-                    { parameters = [ scalar intRef; scalar intRef ]
-                    ; return = scalar intRef
-                    })) )
+              (scalar (Type.Func { parameters = [ intArr; intArr ]; return = intArr })) )
         ; ( "length"
           , let%map t = Gen.createId "t"
             and d = Gen.createId "d"
@@ -95,16 +79,19 @@ module Base (Gen : IdentifierGenerator) = struct
                                                [ Add (Index.dimensionRef d); ShapeRef s ]
                                            }
                                        ]
-                                   ; return = scalar intRef
+                                   ; return = intArr
                                    })
                           })
                  }) )
         ]
     in
-    let literalType = function
-      | Expr.IntLiteral _ -> Type.AtomRef (Map.find_exn kinds "int").id
-      | Expr.CharacterLiteral _ -> Type.AtomRef (Map.find_exn kinds "char").id
+    let literalTypes =
+      Map.of_alist_exn
+        (module Identifier)
+        [ (Map.find_exn kinds "int").id, Type.IntLiteral
+        ; (Map.find_exn kinds "char").id, Type.CharacterLiteral
+        ]
     in
-    { sorts; kinds; types; literalType }
+    { sorts; kinds; types; literalTypes }
   ;;
 end

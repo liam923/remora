@@ -7,7 +7,9 @@ let%expect_test "check sort" =
     | MOk index ->
       (match TypeChecker.checkSort index with
       | MOk indexTyped ->
-        [%sexp_of: Core.Index.t] indexTyped |> Sexp.to_string_hum |> Stdio.print_endline
+        [%sexp_of: Nucleus.Index.t] indexTyped
+        |> Sexp.to_string_hum
+        |> Stdio.print_endline
       | Errors errs ->
         NeList.iter errs ~f:(fun err ->
             Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
@@ -56,7 +58,7 @@ let%expect_test "check kind" =
     | MOk type' ->
       (match TypeChecker.checkKind type' with
       | MOk typeTyped ->
-        [%sexp_of: Core.Type.t] typeTyped |> Sexp.to_string_hum |> Stdio.print_endline
+        [%sexp_of: Nucleus.Type.t] typeTyped |> Sexp.to_string_hum |> Stdio.print_endline
       | Errors errs ->
         NeList.iter errs ~f:(fun err ->
             Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
@@ -66,9 +68,9 @@ let%expect_test "check kind" =
       Error.raise (Error.of_string [%string "Got errors: `%{errsStr}` parsing `%{str}`"])
   in
   checkAndPrint {| int |};
-  [%expect {| (Atom (AtomRef ((name int) (id 1)))) |}];
+  [%expect {| (Atom (Literal IntLiteral)) |}];
   checkAndPrint {| char |};
-  [%expect {| (Atom (AtomRef ((name char) (id 2)))) |}];
+  [%expect {| (Atom (Literal CharacterLiteral)) |}];
   checkAndPrint {| foo |};
   [%expect {| Error: Unbound type variable `foo` |}];
   checkAndPrint {| (Arr int [1 2 3]) |};
@@ -76,7 +78,7 @@ let%expect_test "check kind" =
     {|
     (Array
      (Arr
-      ((element (AtomRef ((name int) (id 1))))
+      ((element (Literal IntLiteral))
        (shape
         ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
          (Add ((const 3) (refs ())))))))) |}];
@@ -86,9 +88,9 @@ let%expect_test "check kind" =
     (Atom
      (Func
       ((parameters
-        ((Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))
-         (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))
-       (return (Arr ((element (AtomRef ((name int) (id 1)))) (shape ()))))))) |}];
+        ((Arr ((element (Literal IntLiteral)) (shape ())))
+         (Arr ((element (Literal IntLiteral)) (shape ())))))
+       (return (Arr ((element (Literal IntLiteral)) (shape ()))))))) |}];
   checkAndPrint {| (Forall (@t) @t) |};
   [%expect
     {|
@@ -121,7 +123,7 @@ let%expect_test "check kind" =
       ((parameters (((binding ((name @i) (id 11))) (bound Shape))))
        (body
         (Arr
-         ((element (AtomRef ((name int) (id 1))))
+         ((element (Literal IntLiteral))
           (shape ((ShapeRef ((name @i) (id 11))))))))))) |}];
   checkAndPrint {| (Arr (Pi (@i) [int @i]) [1 2]) |};
   [%expect
@@ -133,7 +135,7 @@ let%expect_test "check kind" =
          ((parameters (((binding ((name @i) (id 11))) (bound Shape))))
           (body
            (Arr
-            ((element (AtomRef ((name int) (id 1))))
+            ((element (Literal IntLiteral))
              (shape ((ShapeRef ((name @i) (id 11)))))))))))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| (Pi (i) [int i i]) |};
@@ -144,7 +146,7 @@ let%expect_test "check kind" =
       ((parameters (((binding ((name i) (id 11))) (bound Dim))))
        (body
         (Arr
-         ((element (AtomRef ((name int) (id 1))))
+         ((element (Literal IntLiteral))
           (shape
            ((Add ((const 0) (refs ((((name i) (id 11)) 1)))))
             (Add ((const 0) (refs ((((name i) (id 11)) 1))))))))))))) |}];
@@ -156,7 +158,7 @@ let%expect_test "check kind" =
       ((parameters (((binding ((name @i) (id 11))) (bound Shape))))
        (body
         (Arr
-         ((element (AtomRef ((name int) (id 1))))
+         ((element (Literal IntLiteral))
           (shape ((ShapeRef ((name @i) (id 11))))))))))) |}];
   checkAndPrint {| (Arr (Sigma (@i) [int @i]) [1 2]) |};
   [%expect
@@ -168,7 +170,7 @@ let%expect_test "check kind" =
          ((parameters (((binding ((name @i) (id 11))) (bound Shape))))
           (body
            (Arr
-            ((element (AtomRef ((name int) (id 1))))
+            ((element (Literal IntLiteral))
              (shape ((ShapeRef ((name @i) (id 11)))))))))))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| (Sigma (i) [int i i]) |};
@@ -179,7 +181,7 @@ let%expect_test "check kind" =
       ((parameters (((binding ((name i) (id 11))) (bound Dim))))
        (body
         (Arr
-         ((element (AtomRef ((name int) (id 1))))
+         ((element (Literal IntLiteral))
           (shape
            ((Add ((const 0) (refs ((((name i) (id 11)) 1)))))
             (Add ((const 0) (refs ((((name i) (id 11)) 1))))))))))))) |}];
@@ -193,14 +195,13 @@ let%expect_test "check kind" =
          ((binding ((name j) (id 12))) (bound Dim))))
        (body
         (Arr
-         ((element (AtomRef ((name int) (id 1))))
+         ((element (Literal IntLiteral))
           (shape
            ((Add ((const 0) (refs ((((name j) (id 12)) 1)))))
             (ShapeRef ((name @i) (id 11))) (Add ((const 5) (refs ())))
             (Add ((const 10) (refs ((((name j) (id 12)) 1))))))))))))) |}];
   checkAndPrint {| (Tuple int char) |};
-  [%expect
-    {| (Atom (Tuple ((AtomRef ((name int) (id 1))) (AtomRef ((name char) (id 2)))))) |}]
+  [%expect {| (Atom (Tuple ((Literal IntLiteral) (Literal CharacterLiteral)))) |}]
 ;;
 
 let%expect_test "check type" =
@@ -209,8 +210,8 @@ let%expect_test "check type" =
     | MOk expr ->
       (match TypeChecker.checkType expr with
       | MOk exprTyped ->
-        [%sexp_of: Core.Expr.t] exprTyped |> Sexp.to_string_hum |> Stdio.print_endline;
-        [%sexp_of: Core.Type.t] (Core.Expr.type' exprTyped)
+        [%sexp_of: Nucleus.Expr.t] exprTyped |> Sexp.to_string_hum |> Stdio.print_endline;
+        [%sexp_of: Nucleus.Type.t] (Nucleus.Expr.type' exprTyped)
         |> Sexp.to_string_hum
         |> fun typeStr -> [%string "Type: %{typeStr}"] |> Stdio.print_endline
       | Errors errs ->
@@ -224,8 +225,8 @@ let%expect_test "check type" =
   checkAndPrint {| 5 |};
   [%expect
     {|
-    (Atom (Literal ((value (IntLiteral 5)))))
-    Type: (Atom (AtomRef ((name int) (id 1)))) |}];
+    (Atom (Literal (IntLiteral 5)))
+    Type: (Atom (Literal IntLiteral)) |}];
   checkAndPrint {| [1 2 3 4 5] |};
   [%expect
     {|
@@ -233,13 +234,11 @@ let%expect_test "check type" =
      (Arr
       ((dimensions (5))
        (elements
-        ((Literal ((value (IntLiteral 1)))) (Literal ((value (IntLiteral 2))))
-         (Literal ((value (IntLiteral 3)))) (Literal ((value (IntLiteral 4))))
-         (Literal ((value (IntLiteral 5)))))))))
+        ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+         (Literal (IntLiteral 3)) (Literal (IntLiteral 4))
+         (Literal (IntLiteral 5)))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 5) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint {| [[1 2] [3 4]] |};
   [%expect
     {|
@@ -247,11 +246,11 @@ let%expect_test "check type" =
      (Arr
       ((dimensions (2 2))
        (elements
-        ((Literal ((value (IntLiteral 1)))) (Literal ((value (IntLiteral 2))))
-         (Literal ((value (IntLiteral 3)))) (Literal ((value (IntLiteral 4)))))))))
+        ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+         (Literal (IntLiteral 3)) (Literal (IntLiteral 4)))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name int) (id 1))))
+      ((element (Literal IntLiteral))
        (shape ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| [[1 2 3] [4 5]] |};
   [%expect
@@ -271,9 +270,9 @@ let%expect_test "check type" =
      (TermApplication
       ((func (Ref ((id ((name +) (id 3))))))
        (args
-        ((Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 1))))))))
-         (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 2)))))))))))))
-    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))) |}];
+        ((Arr ((dimensions ()) (elements ((Literal (IntLiteral 1))))))
+         (Arr ((dimensions ()) (elements ((Literal (IntLiteral 2)))))))))))
+    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {| (+ [1 2 3] [4 5 6]) |};
   [%expect
     {|
@@ -284,19 +283,15 @@ let%expect_test "check type" =
         ((Arr
           ((dimensions (3))
            (elements
-            ((Literal ((value (IntLiteral 1))))
-             (Literal ((value (IntLiteral 2))))
-             (Literal ((value (IntLiteral 3))))))))
+            ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+             (Literal (IntLiteral 3))))))
          (Arr
           ((dimensions (3))
            (elements
-            ((Literal ((value (IntLiteral 4))))
-             (Literal ((value (IntLiteral 5))))
-             (Literal ((value (IntLiteral 6)))))))))))))
+            ((Literal (IntLiteral 4)) (Literal (IntLiteral 5))
+             (Literal (IntLiteral 6)))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 3) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ())))))))) |}];
   checkAndPrint {| [(+ [1 2 3] [4 5 6]) [7 8 9]] |};
   [%expect
     {|
@@ -310,24 +305,21 @@ let%expect_test "check type" =
             ((Arr
               ((dimensions (3))
                (elements
-                ((Literal ((value (IntLiteral 1))))
-                 (Literal ((value (IntLiteral 2))))
-                 (Literal ((value (IntLiteral 3))))))))
+                ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+                 (Literal (IntLiteral 3))))))
              (Arr
               ((dimensions (3))
                (elements
-                ((Literal ((value (IntLiteral 4))))
-                 (Literal ((value (IntLiteral 5))))
-                 (Literal ((value (IntLiteral 6))))))))))))
+                ((Literal (IntLiteral 4)) (Literal (IntLiteral 5))
+                 (Literal (IntLiteral 6))))))))))
          (Arr
           ((dimensions (3))
            (elements
-            ((Literal ((value (IntLiteral 7))))
-             (Literal ((value (IntLiteral 8))))
-             (Literal ((value (IntLiteral 9)))))))))))))
+            ((Literal (IntLiteral 7)) (Literal (IntLiteral 8))
+             (Literal (IntLiteral 9)))))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name int) (id 1))))
+      ((element (Literal IntLiteral))
        (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))) |}];
   checkAndPrint {| (+ [1 2 3 4 5] 6) |};
   [%expect
@@ -339,16 +331,12 @@ let%expect_test "check type" =
         ((Arr
           ((dimensions (5))
            (elements
-            ((Literal ((value (IntLiteral 1))))
-             (Literal ((value (IntLiteral 2))))
-             (Literal ((value (IntLiteral 3))))
-             (Literal ((value (IntLiteral 4))))
-             (Literal ((value (IntLiteral 5))))))))
-         (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 6)))))))))))))
+            ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+             (Literal (IntLiteral 3)) (Literal (IntLiteral 4))
+             (Literal (IntLiteral 5))))))
+         (Arr ((dimensions ()) (elements ((Literal (IntLiteral 6)))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 5) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint {| (+ [1 2 3] [1 2]) |};
   [%expect {|
     Error: Function call has principal frame `[3]`, got frame `[2]` |}];
@@ -365,10 +353,9 @@ let%expect_test "check type" =
     (Array
      (Let
       ((binding ((name foo) (id 11)))
-       (value
-        (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 5)))))))))
+       (value (Arr ((dimensions ()) (elements ((Literal (IntLiteral 5)))))))
        (body (Ref ((id ((name foo) (id 11)))))))))
-    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))) |}];
+    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {|
   (define (add [x int] [y int])
     (+ x y))
@@ -386,11 +373,9 @@ let%expect_test "check type" =
            ((TermLambda
              ((params
                (((binding ((name x) (id 12)))
-                 (bound
-                  (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))
+                 (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
                 ((binding ((name y) (id 13)))
-                 (bound
-                  (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))))
+                 (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
               (body
                (Array
                 (TermApplication
@@ -402,11 +387,9 @@ let%expect_test "check type" =
         (TermApplication
          ((func (Ref ((id ((name add) (id 11))))))
           (args
-           ((Arr
-             ((dimensions ()) (elements ((Literal ((value (IntLiteral 1))))))))
-            (Arr
-             ((dimensions ()) (elements ((Literal ((value (IntLiteral 2))))))))))))))))
-    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))) |}];
+           ((Arr ((dimensions ()) (elements ((Literal (IntLiteral 1))))))
+            (Arr ((dimensions ()) (elements ((Literal (IntLiteral 2))))))))))))))
+    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {| (fn ([x int]) x) |};
   [%expect
     {|
@@ -414,12 +397,12 @@ let%expect_test "check type" =
      (TermLambda
       ((params
         (((binding ((name x) (id 11)))
-          (bound (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))))
+          (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
        (body (Array (Ref ((id ((name x) (id 11))))))))))
     Type: (Atom
      (Func
-      ((parameters ((Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))
-       (return (Arr ((element (AtomRef ((name int) (id 1)))) (shape ()))))))) |}];
+      ((parameters ((Arr ((element (Literal IntLiteral)) (shape ())))))
+       (return (Arr ((element (Literal IntLiteral)) (shape ()))))))) |}];
   checkAndPrint {| (fn ([x int]) "hello") |};
   [%expect
     {|
@@ -427,23 +410,21 @@ let%expect_test "check type" =
      (TermLambda
       ((params
         (((binding ((name x) (id 11)))
-          (bound (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))))
+          (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
        (body
         (Array
          (Arr
           ((dimensions (5))
            (elements
-            ((Literal ((value (CharacterLiteral h))))
-             (Literal ((value (CharacterLiteral e))))
-             (Literal ((value (CharacterLiteral l))))
-             (Literal ((value (CharacterLiteral l))))
-             (Literal ((value (CharacterLiteral o)))))))))))))
+            ((Literal (CharacterLiteral h)) (Literal (CharacterLiteral e))
+             (Literal (CharacterLiteral l)) (Literal (CharacterLiteral l))
+             (Literal (CharacterLiteral o)))))))))))
     Type: (Atom
      (Func
-      ((parameters ((Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))
+      ((parameters ((Arr ((element (Literal IntLiteral)) (shape ())))))
        (return
         (Arr
-         ((element (AtomRef ((name char) (id 2))))
+         ((element (Literal CharacterLiteral))
           (shape ((Add ((const 5) (refs ()))))))))))) |}];
   checkAndPrint
     {|
@@ -476,12 +457,9 @@ let%expect_test "check type" =
          ((func
            (TypeApplication
             ((tFunc (Ref ((id ((name id) (id 11))))))
-             (args
-              ((Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))))))))
-          (args
-           ((Arr
-             ((dimensions ()) (elements ((Literal ((value (IntLiteral 5))))))))))))))))
-    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))) |}];
+             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
+          (args ((Arr ((dimensions ()) (elements ((Literal (IntLiteral 5))))))))))))))
+    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint
     {|
     (define id (t-fn (t)
@@ -516,17 +494,13 @@ let%expect_test "check type" =
          ((func
            (TypeApplication
             ((tFunc (Ref ((id ((name id) (id 11))))))
-             (args ((Atom (AtomRef ((name int) (id 1)))))))))
+             (args ((Atom (Literal IntLiteral)))))))
           (args
            ((Arr
              ((dimensions (2))
-              (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))))))))))))))
+              (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 2) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
     (define id (t-fn (@t)
@@ -561,20 +535,18 @@ let%expect_test "check type" =
              (args
               ((Array
                 (Arr
-                 ((element (AtomRef ((name char) (id 2))))
+                 ((element (Literal CharacterLiteral))
                   (shape ((Add ((const 5) (refs ())))))))))))))
           (args
            ((Arr
              ((dimensions (5))
               (elements
-               ((Literal ((value (CharacterLiteral h))))
-                (Literal ((value (CharacterLiteral e))))
-                (Literal ((value (CharacterLiteral l))))
-                (Literal ((value (CharacterLiteral l))))
-                (Literal ((value (CharacterLiteral o))))))))))))))))
+               ((Literal (CharacterLiteral h)) (Literal (CharacterLiteral e))
+                (Literal (CharacterLiteral l)) (Literal (CharacterLiteral l))
+                (Literal (CharacterLiteral o))))))))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name char) (id 2))))
+      ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint
     {|
@@ -610,20 +582,18 @@ let%expect_test "check type" =
              (args
               ((Array
                 (Arr
-                 ((element (AtomRef ((name char) (id 2))))
+                 ((element (Literal CharacterLiteral))
                   (shape ((Add ((const 5) (refs ())))))))))))))
           (args
            ((Arr
              ((dimensions (5))
               (elements
-               ((Literal ((value (CharacterLiteral h))))
-                (Literal ((value (CharacterLiteral e))))
-                (Literal ((value (CharacterLiteral l))))
-                (Literal ((value (CharacterLiteral l))))
-                (Literal ((value (CharacterLiteral o))))))))))))))))
+               ((Literal (CharacterLiteral h)) (Literal (CharacterLiteral e))
+                (Literal (CharacterLiteral l)) (Literal (CharacterLiteral l))
+                (Literal (CharacterLiteral o))))))))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name char) (id 2))))
+      ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint
     {|
@@ -658,7 +628,7 @@ let%expect_test "check type" =
                       (((binding ((name x) (id 13)))
                         (bound
                          (Arr
-                          ((element (AtomRef ((name int) (id 1))))
+                          ((element (Literal IntLiteral))
                            (shape
                             ((Add ((const 1) (refs ())))
                              (ShapeRef ((name @i) (id 12)))))))))))
@@ -672,12 +642,10 @@ let%expect_test "check type" =
           (args
            ((Arr
              ((dimensions (1 2))
-              (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))))))))))))))
+              (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name int) (id 1))))
+      ((element (Literal IntLiteral))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
@@ -707,10 +675,9 @@ let%expect_test "check type" =
     (Array
      (Let
       ((binding ((name x) (id 11)))
-       (value
-        (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 5)))))))))
+       (value (Arr ((dimensions ()) (elements ((Literal (IntLiteral 5)))))))
        (body (Ref ((id ((name x) (id 11)))))))))
-    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ()))))
+    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ()))))
     (Array
      (Let
       ((binding ((name foo) (id 11)))
@@ -729,7 +696,7 @@ let%expect_test "check type" =
                       (((binding ((name x) (id 13)))
                         (bound
                          (Arr
-                          ((element (AtomRef ((name int) (id 1))))
+                          ((element (Literal IntLiteral))
                            (shape
                             ((Add ((const 1) (refs ())))
                              (Add ((const 0) (refs ((((name i) (id 12)) 1)))))))))))))
@@ -743,12 +710,10 @@ let%expect_test "check type" =
           (args
            ((Arr
              ((dimensions (1 2))
-              (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))))))))))))))
+              (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name int) (id 1))))
+      ((element (Literal IntLiteral))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
@@ -767,15 +732,13 @@ let%expect_test "check type" =
         (Arr
          ((dimensions (5))
           (elements
-           ((Literal ((value (CharacterLiteral h))))
-            (Literal ((value (CharacterLiteral e))))
-            (Literal ((value (CharacterLiteral l))))
-            (Literal ((value (CharacterLiteral l))))
-            (Literal ((value (CharacterLiteral o)))))))))
+           ((Literal (CharacterLiteral h)) (Literal (CharacterLiteral e))
+            (Literal (CharacterLiteral l)) (Literal (CharacterLiteral l))
+            (Literal (CharacterLiteral o)))))))
        (body (Ref ((id ((name x) (id 11)))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name char) (id 2))))
+      ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint {| (define x : int "hello") x |};
   [%expect {|
@@ -791,15 +754,11 @@ let%expect_test "check type" =
          ((dimensions ())
           (elements
            ((Tuple
-             ((elements
-               ((Literal ((value (IntLiteral 5))))
-                (Literal ((value (IntLiteral 5)))))))))))))
+             ((elements ((Literal (IntLiteral 5)) (Literal (IntLiteral 5)))))))))))
        (body (Ref ((id ((name x) (id 11)))))))))
     Type: (Array
      (Arr
-      ((element
-        (Tuple ((AtomRef ((name int) (id 1))) (AtomRef ((name int) (id 1))))))
-       (shape ())))) |}];
+      ((element (Tuple ((Literal IntLiteral) (Literal IntLiteral)))) (shape ())))) |}];
   checkAndPrint
     {|
     (define weekdays
@@ -828,15 +787,12 @@ let%expect_test "check type" =
                (Arr
                 ((dimensions (6))
                  (elements
-                  ((Literal ((value (CharacterLiteral M))))
-                   (Literal ((value (CharacterLiteral o))))
-                   (Literal ((value (CharacterLiteral n))))
-                   (Literal ((value (CharacterLiteral d))))
-                   (Literal ((value (CharacterLiteral a))))
-                   (Literal ((value (CharacterLiteral y)))))))))
+                  ((Literal (CharacterLiteral M)) (Literal (CharacterLiteral o))
+                   (Literal (CharacterLiteral n)) (Literal (CharacterLiteral d))
+                   (Literal (CharacterLiteral a)) (Literal (CharacterLiteral y)))))))
               (bodyType
                (Arr
-                ((element (AtomRef ((name char) (id 2))))
+                ((element (Literal CharacterLiteral))
                  (shape ((Add ((const 0) (refs ((((name len) (id 12)) 1))))))))))))
             (Box
              ((indices ((Dimension ((const 7) (refs ())))))
@@ -844,16 +800,13 @@ let%expect_test "check type" =
                (Arr
                 ((dimensions (7))
                  (elements
-                  ((Literal ((value (CharacterLiteral T))))
-                   (Literal ((value (CharacterLiteral u))))
-                   (Literal ((value (CharacterLiteral e))))
-                   (Literal ((value (CharacterLiteral s))))
-                   (Literal ((value (CharacterLiteral d))))
-                   (Literal ((value (CharacterLiteral a))))
-                   (Literal ((value (CharacterLiteral y)))))))))
+                  ((Literal (CharacterLiteral T)) (Literal (CharacterLiteral u))
+                   (Literal (CharacterLiteral e)) (Literal (CharacterLiteral s))
+                   (Literal (CharacterLiteral d)) (Literal (CharacterLiteral a))
+                   (Literal (CharacterLiteral y)))))))
               (bodyType
                (Arr
-                ((element (AtomRef ((name char) (id 2))))
+                ((element (Literal CharacterLiteral))
                  (shape ((Add ((const 0) (refs ((((name len) (id 12)) 1))))))))))))
             (Box
              ((indices ((Dimension ((const 9) (refs ())))))
@@ -861,18 +814,14 @@ let%expect_test "check type" =
                (Arr
                 ((dimensions (9))
                  (elements
-                  ((Literal ((value (CharacterLiteral W))))
-                   (Literal ((value (CharacterLiteral e))))
-                   (Literal ((value (CharacterLiteral d))))
-                   (Literal ((value (CharacterLiteral n))))
-                   (Literal ((value (CharacterLiteral e))))
-                   (Literal ((value (CharacterLiteral s))))
-                   (Literal ((value (CharacterLiteral d))))
-                   (Literal ((value (CharacterLiteral a))))
-                   (Literal ((value (CharacterLiteral y)))))))))
+                  ((Literal (CharacterLiteral W)) (Literal (CharacterLiteral e))
+                   (Literal (CharacterLiteral d)) (Literal (CharacterLiteral n))
+                   (Literal (CharacterLiteral e)) (Literal (CharacterLiteral s))
+                   (Literal (CharacterLiteral d)) (Literal (CharacterLiteral a))
+                   (Literal (CharacterLiteral y)))))))
               (bodyType
                (Arr
-                ((element (AtomRef ((name char) (id 2))))
+                ((element (Literal CharacterLiteral))
                  (shape ((Add ((const 0) (refs ((((name len) (id 12)) 1))))))))))))
             (Box
              ((indices ((Dimension ((const 8) (refs ())))))
@@ -880,17 +829,13 @@ let%expect_test "check type" =
                (Arr
                 ((dimensions (8))
                  (elements
-                  ((Literal ((value (CharacterLiteral T))))
-                   (Literal ((value (CharacterLiteral h))))
-                   (Literal ((value (CharacterLiteral u))))
-                   (Literal ((value (CharacterLiteral r))))
-                   (Literal ((value (CharacterLiteral s))))
-                   (Literal ((value (CharacterLiteral d))))
-                   (Literal ((value (CharacterLiteral a))))
-                   (Literal ((value (CharacterLiteral y)))))))))
+                  ((Literal (CharacterLiteral T)) (Literal (CharacterLiteral h))
+                   (Literal (CharacterLiteral u)) (Literal (CharacterLiteral r))
+                   (Literal (CharacterLiteral s)) (Literal (CharacterLiteral d))
+                   (Literal (CharacterLiteral a)) (Literal (CharacterLiteral y)))))))
               (bodyType
                (Arr
-                ((element (AtomRef ((name char) (id 2))))
+                ((element (Literal CharacterLiteral))
                  (shape ((Add ((const 0) (refs ((((name len) (id 12)) 1))))))))))))
             (Box
              ((indices ((Dimension ((const 6) (refs ())))))
@@ -898,15 +843,12 @@ let%expect_test "check type" =
                (Arr
                 ((dimensions (6))
                  (elements
-                  ((Literal ((value (CharacterLiteral F))))
-                   (Literal ((value (CharacterLiteral r))))
-                   (Literal ((value (CharacterLiteral i))))
-                   (Literal ((value (CharacterLiteral d))))
-                   (Literal ((value (CharacterLiteral a))))
-                   (Literal ((value (CharacterLiteral y)))))))))
+                  ((Literal (CharacterLiteral F)) (Literal (CharacterLiteral r))
+                   (Literal (CharacterLiteral i)) (Literal (CharacterLiteral d))
+                   (Literal (CharacterLiteral a)) (Literal (CharacterLiteral y)))))))
               (bodyType
                (Arr
-                ((element (AtomRef ((name char) (id 2))))
+                ((element (Literal CharacterLiteral))
                  (shape ((Add ((const 0) (refs ((((name len) (id 12)) 1)))))))))))))))))
        (body
         (Unbox
@@ -923,12 +865,10 @@ let%expect_test "check type" =
                    (args
                     ((Dimension ((const 0) (refs ((((name len) (id 13)) 1)))))
                      (Shape ()))))))
-                (args ((Atom (AtomRef ((name char) (id 2)))))))))
+                (args ((Atom (Literal CharacterLiteral)))))))
              (args ((Ref ((id ((name day) (id 14))))))))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 5) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint
     {|
     (boxes (r c) [int r c] [3]
@@ -949,13 +889,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (2 2))
               (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))
-                (Literal ((value (IntLiteral 3))))
-                (Literal ((value (IntLiteral 4)))))))))
+               ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+                (Literal (IntLiteral 3)) (Literal (IntLiteral 4)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape
                ((Add ((const 0) (refs ((((name r) (id 11)) 1)))))
                 (Add ((const 0) (refs ((((name c) (id 12)) 1))))))))))))
@@ -966,12 +904,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (1 3))
               (elements
-               ((Literal ((value (IntLiteral 10))))
-                (Literal ((value (IntLiteral 100))))
-                (Literal ((value (IntLiteral 1000)))))))))
+               ((Literal (IntLiteral 10)) (Literal (IntLiteral 100))
+                (Literal (IntLiteral 1000)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape
                ((Add ((const 0) (refs ((((name r) (id 11)) 1)))))
                 (Add ((const 0) (refs ((((name c) (id 12)) 1))))))))))))
@@ -982,12 +919,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (3 1))
               (elements
-               ((Literal ((value (IntLiteral 10))))
-                (Literal ((value (IntLiteral 100))))
-                (Literal ((value (IntLiteral 1000)))))))))
+               ((Literal (IntLiteral 10)) (Literal (IntLiteral 100))
+                (Literal (IntLiteral 1000)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape
                ((Add ((const 0) (refs ((((name r) (id 11)) 1)))))
                 (Add ((const 0) (refs ((((name c) (id 12)) 1)))))))))))))))))
@@ -1000,7 +936,7 @@ let%expect_test "check type" =
             ((binding ((name c) (id 12))) (bound Dim))))
           (body
            (Arr
-            ((element (AtomRef ((name int) (id 1))))
+            ((element (Literal IntLiteral))
              (shape
               ((Add ((const 0) (refs ((((name r) (id 11)) 1)))))
                (Add ((const 0) (refs ((((name c) (id 12)) 1)))))))))))))
@@ -1018,12 +954,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (3))
               (elements
-               ((Literal ((value (IntLiteral 8))))
-                (Literal ((value (IntLiteral 23))))
-                (Literal ((value (IntLiteral 0)))))))))
+               ((Literal (IntLiteral 8)) (Literal (IntLiteral 23))
+                (Literal (IntLiteral 0)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape ((Add ((const 0) (refs ((((name len) (id 11)) 1)))))))))))))))))
     Type: (Array
      (Arr
@@ -1032,7 +967,7 @@ let%expect_test "check type" =
          ((parameters (((binding ((name len) (id 11))) (bound Dim))))
           (body
            (Arr
-            ((element (AtomRef ((name int) (id 1))))
+            ((element (Literal IntLiteral))
              (shape ((Add ((const 0) (refs ((((name len) (id 11)) 1)))))))))))))
        (shape ())))) |}];
   checkAndPrint
@@ -1055,13 +990,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (2 2))
               (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))
-                (Literal ((value (IntLiteral 3))))
-                (Literal ((value (IntLiteral 4)))))))))
+               ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+                (Literal (IntLiteral 3)) (Literal (IntLiteral 4)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape ((ShapeRef ((name @shape) (id 11))))))))))
          (Box
           ((indices
@@ -1070,12 +1003,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (1 3))
               (elements
-               ((Literal ((value (IntLiteral 10))))
-                (Literal ((value (IntLiteral 100))))
-                (Literal ((value (IntLiteral 1000)))))))))
+               ((Literal (IntLiteral 10)) (Literal (IntLiteral 100))
+                (Literal (IntLiteral 1000)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape ((ShapeRef ((name @shape) (id 11))))))))))
          (Box
           ((indices
@@ -1084,12 +1016,11 @@ let%expect_test "check type" =
             (Arr
              ((dimensions (3 1))
               (elements
-               ((Literal ((value (IntLiteral 10))))
-                (Literal ((value (IntLiteral 100))))
-                (Literal ((value (IntLiteral 1000)))))))))
+               ((Literal (IntLiteral 10)) (Literal (IntLiteral 100))
+                (Literal (IntLiteral 1000)))))))
            (bodyType
             (Arr
-             ((element (AtomRef ((name int) (id 1))))
+             ((element (Literal IntLiteral))
               (shape ((ShapeRef ((name @shape) (id 11)))))))))))))))
     Type: (Array
      (Arr
@@ -1098,7 +1029,7 @@ let%expect_test "check type" =
          ((parameters (((binding ((name @shape) (id 11))) (bound Shape))))
           (body
            (Arr
-            ((element (AtomRef ((name int) (id 1))))
+            ((element (Literal IntLiteral))
              (shape ((ShapeRef ((name @shape) (id 11)))))))))))
        (shape ((Add ((const 3) (refs ())))))))) |}];
   checkAndPrint {| (box ((len 4)) [int len] [8 23 0]) |};
@@ -1118,12 +1049,10 @@ let%expect_test "check type" =
           (arrays
            ((Ref ((id ((name +) (id 3))))) (Ref ((id ((name -) (id 4))))))))))
        (args
-        ((Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 1))))))))
-         (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 2)))))))))))))
+        ((Arr ((dimensions ()) (elements ((Literal (IntLiteral 1))))))
+         (Arr ((dimensions ()) (elements ((Literal (IntLiteral 2)))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 2) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| ([+ -] [1 2] 3) |};
   [%expect
     {|
@@ -1137,14 +1066,10 @@ let%expect_test "check type" =
        (args
         ((Arr
           ((dimensions (2))
-           (elements
-            ((Literal ((value (IntLiteral 1))))
-             (Literal ((value (IntLiteral 2))))))))
-         (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 3)))))))))))))
+           (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))
+         (Arr ((dimensions ()) (elements ((Literal (IntLiteral 3)))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 2) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| ([+ -] [1 2] [3 4]) |};
   [%expect
     {|
@@ -1158,18 +1083,12 @@ let%expect_test "check type" =
        (args
         ((Arr
           ((dimensions (2))
-           (elements
-            ((Literal ((value (IntLiteral 1))))
-             (Literal ((value (IntLiteral 2))))))))
+           (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))
          (Arr
           ((dimensions (2))
-           (elements
-            ((Literal ((value (IntLiteral 3))))
-             (Literal ((value (IntLiteral 4)))))))))))))
+           (elements ((Literal (IntLiteral 3)) (Literal (IntLiteral 4)))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 2) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| ([+ -] [1 2 3] [4 5]) |};
   [%expect {| Error: Function call has principal frame `[2]`, got frame `[3]` |}];
   checkAndPrint {| ([+ -] [1 2 3] [4 5 6]) |};
@@ -1195,7 +1114,7 @@ let%expect_test "check type" =
                (((binding ((name x) (id 12)))
                  (bound
                   (Arr
-                   ((element (AtomRef ((name int) (id 1))))
+                   ((element (Literal IntLiteral))
                     (shape ((Add ((const 2) (refs ())))))))))))
               (body (Array (Ref ((id ((name x) (id 12))))))))))))))
        (body
@@ -1204,13 +1123,9 @@ let%expect_test "check type" =
           (args
            ((Arr
              ((dimensions (2))
-              (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))))))))))))))
+              (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 2) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {|
     (define (foo [x [int 2]]) 5)
     (foo [1 2])
@@ -1229,23 +1144,19 @@ let%expect_test "check type" =
                (((binding ((name x) (id 12)))
                  (bound
                   (Arr
-                   ((element (AtomRef ((name int) (id 1))))
+                   ((element (Literal IntLiteral))
                     (shape ((Add ((const 2) (refs ())))))))))))
               (body
                (Array
-                (Arr
-                 ((dimensions ())
-                  (elements ((Literal ((value (IntLiteral 5)))))))))))))))))
+                (Arr ((dimensions ()) (elements ((Literal (IntLiteral 5)))))))))))))))
        (body
         (TermApplication
          ((func (Ref ((id ((name foo) (id 11))))))
           (args
            ((Arr
              ((dimensions (2))
-              (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))))))))))))))
-    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))) |}];
+              (elements ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))))))))))))))
+    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {|
     (define (foo [x [int 2]]) 5)
     (foo [[1 2] [3 4]])
@@ -1264,13 +1175,11 @@ let%expect_test "check type" =
                (((binding ((name x) (id 12)))
                  (bound
                   (Arr
-                   ((element (AtomRef ((name int) (id 1))))
+                   ((element (Literal IntLiteral))
                     (shape ((Add ((const 2) (refs ())))))))))))
               (body
                (Array
-                (Arr
-                 ((dimensions ())
-                  (elements ((Literal ((value (IntLiteral 5)))))))))))))))))
+                (Arr ((dimensions ()) (elements ((Literal (IntLiteral 5)))))))))))))))
        (body
         (TermApplication
          ((func (Ref ((id ((name foo) (id 11))))))
@@ -1278,14 +1187,10 @@ let%expect_test "check type" =
            ((Arr
              ((dimensions (2 2))
               (elements
-               ((Literal ((value (IntLiteral 1))))
-                (Literal ((value (IntLiteral 2))))
-                (Literal ((value (IntLiteral 3))))
-                (Literal ((value (IntLiteral 4))))))))))))))))
+               ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
+                (Literal (IntLiteral 3)) (Literal (IntLiteral 4))))))))))))))
     Type: (Array
-     (Arr
-      ((element (AtomRef ((name int) (id 1))))
-       (shape ((Add ((const 2) (refs ())))))))) |}];
+     (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {|
     (define (foo [x [int 2]]) 5)
     (foo [[1 2 3] [4 5 6]])
@@ -1362,16 +1267,12 @@ let%expect_test "check type" =
                     (TypeApplication
                      ((tFunc (Ref ((id ((name funs) (id 19))))))
                       (args
-                       ((Array
-                         (Arr
-                          ((element (AtomRef ((name int) (id 1)))) (shape ())))))))))
+                       ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
                    (args
                     ((Arr
-                      ((dimensions ())
-                       (elements ((Literal ((value (IntLiteral 1))))))))
+                      ((dimensions ()) (elements ((Literal (IntLiteral 1))))))
                      (Arr
-                      ((dimensions ())
-                       (elements ((Literal ((value (IntLiteral 2)))))))))))))
+                      ((dimensions ()) (elements ((Literal (IntLiteral 2)))))))))))
                 (body
                  (Let
                   ((binding ((name bar) (id 21)))
@@ -1383,36 +1284,36 @@ let%expect_test "check type" =
                          (args
                           ((Array
                             (Arr
-                             ((element (AtomRef ((name char) (id 2))))
+                             ((element (Literal CharacterLiteral))
                               (shape ((Add ((const 2) (refs ())))))))))))))
                       (args
                        ((Arr
                          ((dimensions (2))
                           (elements
-                           ((Literal ((value (CharacterLiteral h))))
-                            (Literal ((value (CharacterLiteral i))))))))
+                           ((Literal (CharacterLiteral h))
+                            (Literal (CharacterLiteral i))))))
                         (Arr
                          ((dimensions (2))
                           (elements
-                           ((Literal ((value (CharacterLiteral i))))
-                            (Literal ((value (CharacterLiteral h)))))))))))))
+                           ((Literal (CharacterLiteral i))
+                            (Literal (CharacterLiteral h)))))))))))
                    (body
                     (Arr
                      ((dimensions (11))
                       (elements
-                       ((Literal ((value (CharacterLiteral h))))
-                        (Literal ((value (CharacterLiteral e))))
-                        (Literal ((value (CharacterLiteral l))))
-                        (Literal ((value (CharacterLiteral l))))
-                        (Literal ((value (CharacterLiteral o))))
-                        (Literal ((value (CharacterLiteral " "))))
-                        (Literal ((value (CharacterLiteral w))))
-                        (Literal ((value (CharacterLiteral o))))
-                        (Literal ((value (CharacterLiteral r))))
-                        (Literal ((value (CharacterLiteral l))))
-                        (Literal ((value (CharacterLiteral d))))))))))))))))))))))))
+                       ((Literal (CharacterLiteral h))
+                        (Literal (CharacterLiteral e))
+                        (Literal (CharacterLiteral l))
+                        (Literal (CharacterLiteral l))
+                        (Literal (CharacterLiteral o))
+                        (Literal (CharacterLiteral " "))
+                        (Literal (CharacterLiteral w))
+                        (Literal (CharacterLiteral o))
+                        (Literal (CharacterLiteral r))
+                        (Literal (CharacterLiteral l))
+                        (Literal (CharacterLiteral d))))))))))))))))))))))
     Type: (Array
      (Arr
-      ((element (AtomRef ((name char) (id 2))))
+      ((element (Literal CharacterLiteral))
        (shape ((Add ((const 11) (refs ())))))))) |}]
 ;;
