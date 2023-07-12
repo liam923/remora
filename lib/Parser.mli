@@ -13,9 +13,9 @@ module type S = sig
     val parseFile : string -> t result
   end
 
-  module IndexParser : Parser with type t = source Ast.Untyped.Index.t
-  module TypeParser : Parser with type t = source Ast.Untyped.Type.t
-  module ExprParser : Parser with type t = source Ast.Untyped.Expr.t
+  module IndexParser : Parser with type t = source Ast.Index.t
+  module TypeParser : Parser with type t = source Ast.Type.t
+  module ExprParser : Parser with type t = source Ast.Expr.t
   include module type of ExprParser
 end
 

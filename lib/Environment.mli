@@ -1,16 +1,16 @@
 open! Base
-open Ast
+open Core
 
 type 'v entry =
   { e : 'v
-  ; id : Typed.Identifier.t
+  ; id : Identifier.t
   }
 
 type t =
   { sorts : Sort.t entry Map.M(String).t
   ; kinds : Kind.t entry Map.M(String).t
-  ; types : Typed.Type.array entry Map.M(String).t
-  ; literalType : Typed.Expr.literalValue -> Typed.Type.atom
+  ; types : Type.array entry Map.M(String).t
+  ; literalType : Expr.literalValue -> Type.atom
   }
 
 module type IdentifierGenerator = sig
@@ -18,7 +18,7 @@ module type IdentifierGenerator = sig
 
   type state
 
-  val createId : string -> (state, Typed.Identifier.t, 'e) t
+  val createId : string -> (state, Identifier.t, 'e) t
 end
 
 module Base (Gen : IdentifierGenerator) : sig

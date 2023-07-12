@@ -7,9 +7,7 @@ let%expect_test "check sort" =
     | MOk index ->
       (match TypeChecker.checkSort index with
       | MOk indexTyped ->
-        [%sexp_of: Ast.Typed.Index.t] indexTyped
-        |> Sexp.to_string_hum
-        |> Stdio.print_endline
+        [%sexp_of: Core.Index.t] indexTyped |> Sexp.to_string_hum |> Stdio.print_endline
       | Errors errs ->
         NeList.iter errs ~f:(fun err ->
             Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
@@ -58,9 +56,7 @@ let%expect_test "check kind" =
     | MOk type' ->
       (match TypeChecker.checkKind type' with
       | MOk typeTyped ->
-        [%sexp_of: Ast.Typed.Type.t] typeTyped
-        |> Sexp.to_string_hum
-        |> Stdio.print_endline
+        [%sexp_of: Core.Type.t] typeTyped |> Sexp.to_string_hum |> Stdio.print_endline
       | Errors errs ->
         NeList.iter errs ~f:(fun err ->
             Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
@@ -213,10 +209,8 @@ let%expect_test "check type" =
     | MOk expr ->
       (match TypeChecker.checkType expr with
       | MOk exprTyped ->
-        [%sexp_of: Ast.Typed.Expr.t] exprTyped
-        |> Sexp.to_string_hum
-        |> Stdio.print_endline;
-        [%sexp_of: Ast.Typed.Type.t] (Ast.Typed.Expr.type' exprTyped)
+        [%sexp_of: Core.Expr.t] exprTyped |> Sexp.to_string_hum |> Stdio.print_endline;
+        [%sexp_of: Core.Type.t] (Core.Expr.type' exprTyped)
         |> Sexp.to_string_hum
         |> fun typeStr -> [%string "Type: %{typeStr}"] |> Stdio.print_endline
       | Errors errs ->
@@ -1112,5 +1106,313 @@ let%expect_test "check type" =
   checkAndPrint {| (box ((len 3)) [int 1 len] [8 23 0]) |};
   [%expect {| Error: Expected type `[int 1 3]`, got `[int 3]` |}];
   checkAndPrint {| (box ((len [3])) [int len] [8 23 0]) |};
-  [%expect {| Error: Unexpected sort: expected `Dim`, got `Shape` |}]
+  [%expect {| Error: Unexpected sort: expected `Dim`, got `Shape` |}];
+  checkAndPrint {| ([+ -] 1 2) |};
+  [%expect
+    {|
+    (Array
+     (TermApplication
+      ((func
+        (Frame
+         ((dimensions (2))
+          (arrays
+           ((Ref ((id ((name +) (id 3))))) (Ref ((id ((name -) (id 4))))))))))
+       (args
+        ((Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 1))))))))
+         (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 2)))))))))))))
+    Type: (Array
+     (Arr
+      ((element (AtomRef ((name int) (id 1))))
+       (shape ((Add ((const 2) (refs ())))))))) |}];
+  checkAndPrint {| ([+ -] [1 2] 3) |};
+  [%expect
+    {|
+    (Array
+     (TermApplication
+      ((func
+        (Frame
+         ((dimensions (2))
+          (arrays
+           ((Ref ((id ((name +) (id 3))))) (Ref ((id ((name -) (id 4))))))))))
+       (args
+        ((Arr
+          ((dimensions (2))
+           (elements
+            ((Literal ((value (IntLiteral 1))))
+             (Literal ((value (IntLiteral 2))))))))
+         (Arr ((dimensions ()) (elements ((Literal ((value (IntLiteral 3)))))))))))))
+    Type: (Array
+     (Arr
+      ((element (AtomRef ((name int) (id 1))))
+       (shape ((Add ((const 2) (refs ())))))))) |}];
+  checkAndPrint {| ([+ -] [1 2] [3 4]) |};
+  [%expect
+    {|
+    (Array
+     (TermApplication
+      ((func
+        (Frame
+         ((dimensions (2))
+          (arrays
+           ((Ref ((id ((name +) (id 3))))) (Ref ((id ((name -) (id 4))))))))))
+       (args
+        ((Arr
+          ((dimensions (2))
+           (elements
+            ((Literal ((value (IntLiteral 1))))
+             (Literal ((value (IntLiteral 2))))))))
+         (Arr
+          ((dimensions (2))
+           (elements
+            ((Literal ((value (IntLiteral 3))))
+             (Literal ((value (IntLiteral 4)))))))))))))
+    Type: (Array
+     (Arr
+      ((element (AtomRef ((name int) (id 1))))
+       (shape ((Add ((const 2) (refs ())))))))) |}];
+  checkAndPrint {| ([+ -] [1 2 3] [4 5]) |};
+  [%expect {| Error: Function call has principal frame `[2]`, got frame `[3]` |}];
+  checkAndPrint {| ([+ -] [1 2 3] [4 5 6]) |};
+  [%expect
+    {|
+    Error: Function call has principal frame `[2]`, got frame `[3]`
+    Error: Function call has principal frame `[2]`, got frame `[3]` |}];
+  checkAndPrint {|
+    (define (foo [x [int 2]]) x)
+    (foo [1 2])
+    |};
+  [%expect
+    {|
+    (Array
+     (Let
+      ((binding ((name foo) (id 11)))
+       (value
+        (Arr
+         ((dimensions ())
+          (elements
+           ((TermLambda
+             ((params
+               (((binding ((name x) (id 12)))
+                 (bound
+                  (Arr
+                   ((element (AtomRef ((name int) (id 1))))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              (body (Array (Ref ((id ((name x) (id 12))))))))))))))
+       (body
+        (TermApplication
+         ((func (Ref ((id ((name foo) (id 11))))))
+          (args
+           ((Arr
+             ((dimensions (2))
+              (elements
+               ((Literal ((value (IntLiteral 1))))
+                (Literal ((value (IntLiteral 2))))))))))))))))
+    Type: (Array
+     (Arr
+      ((element (AtomRef ((name int) (id 1))))
+       (shape ((Add ((const 2) (refs ())))))))) |}];
+  checkAndPrint {|
+    (define (foo [x [int 2]]) 5)
+    (foo [1 2])
+    |};
+  [%expect
+    {|
+    (Array
+     (Let
+      ((binding ((name foo) (id 11)))
+       (value
+        (Arr
+         ((dimensions ())
+          (elements
+           ((TermLambda
+             ((params
+               (((binding ((name x) (id 12)))
+                 (bound
+                  (Arr
+                   ((element (AtomRef ((name int) (id 1))))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              (body
+               (Array
+                (Arr
+                 ((dimensions ())
+                  (elements ((Literal ((value (IntLiteral 5)))))))))))))))))
+       (body
+        (TermApplication
+         ((func (Ref ((id ((name foo) (id 11))))))
+          (args
+           ((Arr
+             ((dimensions (2))
+              (elements
+               ((Literal ((value (IntLiteral 1))))
+                (Literal ((value (IntLiteral 2))))))))))))))))
+    Type: (Array (Arr ((element (AtomRef ((name int) (id 1)))) (shape ())))) |}];
+  checkAndPrint {|
+    (define (foo [x [int 2]]) 5)
+    (foo [[1 2] [3 4]])
+    |};
+  [%expect
+    {|
+    (Array
+     (Let
+      ((binding ((name foo) (id 11)))
+       (value
+        (Arr
+         ((dimensions ())
+          (elements
+           ((TermLambda
+             ((params
+               (((binding ((name x) (id 12)))
+                 (bound
+                  (Arr
+                   ((element (AtomRef ((name int) (id 1))))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              (body
+               (Array
+                (Arr
+                 ((dimensions ())
+                  (elements ((Literal ((value (IntLiteral 5)))))))))))))))))
+       (body
+        (TermApplication
+         ((func (Ref ((id ((name foo) (id 11))))))
+          (args
+           ((Arr
+             ((dimensions (2 2))
+              (elements
+               ((Literal ((value (IntLiteral 1))))
+                (Literal ((value (IntLiteral 2))))
+                (Literal ((value (IntLiteral 3))))
+                (Literal ((value (IntLiteral 4))))))))))))))))
+    Type: (Array
+     (Arr
+      ((element (AtomRef ((name int) (id 1))))
+       (shape ((Add ((const 2) (refs ())))))))) |}];
+  checkAndPrint {|
+    (define (foo [x [int 2]]) 5)
+    (foo [[1 2 3] [4 5 6]])
+    |};
+  [%expect {| Error: Function expected argument with cell shape `[2]`, got `[2 3]` |}];
+  checkAndPrint
+    {|
+    (define left (t-fn (@t) (fn ([l @t] [r @t]) l)))
+    (define right (t-fn (@t) (fn ([l @t] [r @t]) r)))
+    (define funs [left right])
+
+    (define foo ((t-app funs int) 1 2))
+    (define bar ((t-app funs [char 2]) "hi" "ih"))
+
+    "hello world"
+    |};
+  [%expect
+    {|
+    (Array
+     (Let
+      ((binding ((name left) (id 11)))
+       (value
+        (Arr
+         ((dimensions ())
+          (elements
+           ((TypeLambda
+             ((params (((binding ((name @t) (id 12))) (bound Array))))
+              (body
+               (Arr
+                ((dimensions ())
+                 (elements
+                  ((TermLambda
+                    ((params
+                      (((binding ((name l) (id 13)))
+                        (bound (ArrayRef ((name @t) (id 12)))))
+                       ((binding ((name r) (id 14)))
+                        (bound (ArrayRef ((name @t) (id 12)))))))
+                     (body (Array (Ref ((id ((name l) (id 13)))))))))))))))))))))
+       (body
+        (Let
+         ((binding ((name right) (id 15)))
+          (value
+           (Arr
+            ((dimensions ())
+             (elements
+              ((TypeLambda
+                ((params (((binding ((name @t) (id 16))) (bound Array))))
+                 (body
+                  (Arr
+                   ((dimensions ())
+                    (elements
+                     ((TermLambda
+                       ((params
+                         (((binding ((name l) (id 17)))
+                           (bound (ArrayRef ((name @t) (id 16)))))
+                          ((binding ((name r) (id 18)))
+                           (bound (ArrayRef ((name @t) (id 16)))))))
+                        (body (Array (Ref ((id ((name r) (id 18)))))))))))))))))))))
+          (body
+           (Let
+            ((binding ((name funs) (id 19)))
+             (value
+              (Frame
+               ((dimensions (2))
+                (arrays
+                 ((Ref ((id ((name left) (id 11)))))
+                  (Ref ((id ((name right) (id 15))))))))))
+             (body
+              (Let
+               ((binding ((name foo) (id 20)))
+                (value
+                 (TermApplication
+                  ((func
+                    (TypeApplication
+                     ((tFunc (Ref ((id ((name funs) (id 19))))))
+                      (args
+                       ((Array
+                         (Arr
+                          ((element (AtomRef ((name int) (id 1)))) (shape ())))))))))
+                   (args
+                    ((Arr
+                      ((dimensions ())
+                       (elements ((Literal ((value (IntLiteral 1))))))))
+                     (Arr
+                      ((dimensions ())
+                       (elements ((Literal ((value (IntLiteral 2)))))))))))))
+                (body
+                 (Let
+                  ((binding ((name bar) (id 21)))
+                   (value
+                    (TermApplication
+                     ((func
+                       (TypeApplication
+                        ((tFunc (Ref ((id ((name funs) (id 19))))))
+                         (args
+                          ((Array
+                            (Arr
+                             ((element (AtomRef ((name char) (id 2))))
+                              (shape ((Add ((const 2) (refs ())))))))))))))
+                      (args
+                       ((Arr
+                         ((dimensions (2))
+                          (elements
+                           ((Literal ((value (CharacterLiteral h))))
+                            (Literal ((value (CharacterLiteral i))))))))
+                        (Arr
+                         ((dimensions (2))
+                          (elements
+                           ((Literal ((value (CharacterLiteral i))))
+                            (Literal ((value (CharacterLiteral h)))))))))))))
+                   (body
+                    (Arr
+                     ((dimensions (11))
+                      (elements
+                       ((Literal ((value (CharacterLiteral h))))
+                        (Literal ((value (CharacterLiteral e))))
+                        (Literal ((value (CharacterLiteral l))))
+                        (Literal ((value (CharacterLiteral l))))
+                        (Literal ((value (CharacterLiteral o))))
+                        (Literal ((value (CharacterLiteral " "))))
+                        (Literal ((value (CharacterLiteral w))))
+                        (Literal ((value (CharacterLiteral o))))
+                        (Literal ((value (CharacterLiteral r))))
+                        (Literal ((value (CharacterLiteral l))))
+                        (Literal ((value (CharacterLiteral d))))))))))))))))))))))))
+    Type: (Array
+     (Arr
+      ((element (AtomRef ((name char) (id 2))))
+       (shape ((Add ((const 11) (refs ())))))))) |}]
 ;;

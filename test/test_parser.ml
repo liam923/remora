@@ -5,9 +5,7 @@ let%expect_test "parse index" =
   let parseAndPrint str =
     match Parser.Unit.IndexParser.parseString str with
     | MOk result ->
-      [%sexp_of: unit Ast.Untyped.Index.t] result
-      |> Sexp.to_string_hum
-      |> Stdio.print_endline
+      [%sexp_of: unit Ast.Index.t] result |> Sexp.to_string_hum |> Stdio.print_endline
     | Errors errs ->
       let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
       let errsStr = Sexp.to_string_hum errsSexp in
@@ -46,9 +44,7 @@ let%expect_test "parse type" =
   let parseAndPrint str =
     match Parser.Unit.TypeParser.parseString str with
     | MOk result ->
-      [%sexp_of: unit Ast.Untyped.Type.t] result
-      |> Sexp.to_string_hum
-      |> Stdio.print_endline
+      [%sexp_of: unit Ast.Type.t] result |> Sexp.to_string_hum |> Stdio.print_endline
     | Errors errs ->
       let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
       let errsStr = Sexp.to_string_hum errsSexp in
@@ -154,9 +150,7 @@ let%expect_test "parse expression" =
   let parseAndPrint str =
     match Parser.Unit.ExprParser.parseString str with
     | MOk result ->
-      [%sexp_of: unit Ast.Untyped.Expr.t] result
-      |> Sexp.to_string_hum
-      |> Stdio.print_endline
+      [%sexp_of: unit Ast.Expr.t] result |> Sexp.to_string_hum |> Stdio.print_endline
     | Errors errs ->
       let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
       let errsStr = Sexp.to_string_hum errsSexp in

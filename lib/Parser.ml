@@ -1,6 +1,7 @@
 open! Base
 open MResult
 open MResult.Let_syntax
+open Ast
 
 module type S = sig
   type source
@@ -15,9 +16,9 @@ module type S = sig
     val parseFile : string -> t result
   end
 
-  module IndexParser : Parser with type t = source Ast.Untyped.Index.t
-  module TypeParser : Parser with type t = source Ast.Untyped.Type.t
-  module ExprParser : Parser with type t = source Ast.Untyped.Expr.t
+  module IndexParser : Parser with type t = source Index.t
+  module TypeParser : Parser with type t = source Type.t
+  module ExprParser : Parser with type t = source Expr.t
   include module type of ExprParser
 end
 
@@ -78,9 +79,7 @@ module Make (SB : Source.BuilderT) = struct
     | param -> MResult.err ("Expected an identifier", texpSource param)
   ;;
 
-  let rec parseIndex : 's Texp.t -> ('s Ast.Untyped.Index.t, error) MResult.t =
-    let open Ast.Untyped in
-    function
+  let rec parseIndex : 's Texp.t -> ('s Index.t, error) MResult.t = function
     | Integer (i, source) -> MOk { elem = Index.Dimension i; source }
     | Symbol (id, source) -> MOk { elem = Index.Ref id; source }
     (* Match (+ ...) *)
@@ -117,8 +116,7 @@ module Make (SB : Source.BuilderT) = struct
       Source.map parsedIndices ~f:(fun indices -> Index.Slice indices)
     | index -> MResult.err ("Bad index syntax", texpSource index)
 
-  and parseType : 's Texp.t -> ('s Ast.Untyped.Type.t, error) MResult.t =
-    let open Ast.Untyped in
+  and parseType : 's Texp.t -> ('s Type.t, error) MResult.t =
     (* A function used for parsing Forall, Pi, and Sigma *)
     let parseAbstraction
         (type k)
@@ -201,8 +199,8 @@ module Make (SB : Source.BuilderT) = struct
       let%map abstraction =
         parseAbstraction
           components
-          ~atBound:Ast.Kind.Array
-          ~noAtBound:Ast.Kind.Atom
+          ~atBound:Kind.Array
+          ~noAtBound:Kind.Atom
           ~symbol:forall
           ~symbolSource:forallSource
           ~rParenSource
@@ -217,8 +215,8 @@ module Make (SB : Source.BuilderT) = struct
       let%map abstraction =
         parseAbstraction
           components
-          ~atBound:Ast.Sort.Shape
-          ~noAtBound:Ast.Sort.Dim
+          ~atBound:Sort.Shape
+          ~noAtBound:Sort.Dim
           ~symbol:pi
           ~symbolSource:piSource
           ~rParenSource
@@ -233,8 +231,8 @@ module Make (SB : Source.BuilderT) = struct
       let%map abstraction =
         parseAbstraction
           components
-          ~atBound:Ast.Sort.Shape
-          ~noAtBound:Ast.Sort.Dim
+          ~atBound:Sort.Shape
+          ~noAtBound:Sort.Dim
           ~symbol:sigma
           ~symbolSource:sigmaSource
           ~rParenSource
@@ -272,8 +270,7 @@ module Make (SB : Source.BuilderT) = struct
       Source.map parsedElements ~f:(fun elements -> Type.Tuple elements)
     | type' -> MResult.err ("Bad type syntax", texpSource type')
 
-  and parseExpr : 's Texp.t -> ('s Ast.Untyped.Expr.t, error) MResult.t =
-    let open Ast.Untyped in
+  and parseExpr : 's Texp.t -> ('s Expr.t, error) MResult.t =
     (* array and frame syntax is very similar and both are complex,
        so this abstracts out the commonality *)
     let parseArrayOrFrame
@@ -466,8 +463,8 @@ module Make (SB : Source.BuilderT) = struct
           let%map binding, bound, source =
             parseBindingWithImplicitBound
               indexBinding
-              ~atBound:Ast.Sort.Shape
-              ~noAtBound:Ast.Sort.Dim
+              ~atBound:Sort.Shape
+              ~noAtBound:Sort.Dim
           in
           Source.{ elem = Expr.{ binding; bound = Some bound }; source }
         in
@@ -540,8 +537,8 @@ module Make (SB : Source.BuilderT) = struct
               let%map binding, bound, source =
                 parseBindingWithImplicitBound
                   param
-                  ~atBound:Ast.Sort.Shape
-                  ~noAtBound:Ast.Sort.Dim
+                  ~atBound:Sort.Shape
+                  ~noAtBound:Sort.Dim
               in
               Source.{ elem = { binding; bound }; source })
             ~source:(texpSource paramsExp)
@@ -583,10 +580,7 @@ module Make (SB : Source.BuilderT) = struct
           | Texp.List
               { braceType = Parens; elements = [ param; index ]; braceSources = _ } ->
             let%map paramBinding, paramBound, paramSource =
-              parseBindingWithImplicitBound
-                param
-                ~atBound:Ast.Sort.Shape
-                ~noAtBound:Ast.Sort.Dim
+              parseBindingWithImplicitBound param ~atBound:Sort.Shape ~noAtBound:Sort.Dim
             and parsedIndex = parseIndex index in
             ( Source.
                 { elem = { binding = paramBinding; bound = paramBound }
@@ -781,10 +775,7 @@ module Make (SB : Source.BuilderT) = struct
         :: bodyTail ->
         let parseParam param =
           let%map binding, bound, source =
-            parseBindingWithImplicitBound
-              param
-              ~atBound:Ast.Kind.Array
-              ~noAtBound:Ast.Kind.Atom
+            parseBindingWithImplicitBound param ~atBound:Kind.Array ~noAtBound:Kind.Atom
           in
           Source.{ elem = { binding; bound }; source }
         in
@@ -811,10 +802,7 @@ module Make (SB : Source.BuilderT) = struct
         :: bodyTail ->
         let parseParam param =
           let%map binding, bound, source =
-            parseBindingWithImplicitBound
-              param
-              ~atBound:Ast.Sort.Shape
-              ~noAtBound:Ast.Sort.Dim
+            parseBindingWithImplicitBound param ~atBound:Sort.Shape ~noAtBound:Sort.Dim
           in
           Source.{ elem = { binding; bound }; source }
         in
@@ -842,11 +830,8 @@ module Make (SB : Source.BuilderT) = struct
     | expr -> MResult.err ("Bad expression syntax", texpSource expr)
 
   (* Parse a list of define statements followed by a expression *)
-  and parseExprBody
-      : source Texp.t NeList.t -> (source Ast.Untyped.Expr.t, error) MResult.t
-    =
-    let open Ast.Untyped in
-    function
+  and parseExprBody : source Texp.t NeList.t -> (source Expr.t, error) MResult.t
+    = function
     | [ body ] -> parseExpr body
     | define :: next :: rest ->
       let body : source Texp.t NeList.t = next :: rest in
@@ -995,7 +980,7 @@ module Make (SB : Source.BuilderT) = struct
   end
 
   module IndexParser = MakeParser (struct
-    type t = source Ast.Untyped.Index.t
+    type t = source Index.t
 
     let parseTexps (texps : source Texp.t NeList.t) =
       match texps with
@@ -1006,7 +991,7 @@ module Make (SB : Source.BuilderT) = struct
   end)
 
   module TypeParser = MakeParser (struct
-    type t = source Ast.Untyped.Type.t
+    type t = source Type.t
 
     let parseTexps (texps : source Texp.t NeList.t) =
       match texps with
@@ -1017,7 +1002,7 @@ module Make (SB : Source.BuilderT) = struct
   end)
 
   module ExprParser = MakeParser (struct
-    type t = source Ast.Untyped.Expr.t
+    type t = source Expr.t
 
     let parseTexps = parseExprBody
   end)
