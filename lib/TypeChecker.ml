@@ -829,7 +829,10 @@ module TypeChecker = struct
     function
     | AtomRef _ as ref -> ref
     | Func { parameters; return } ->
-      Func { parameters; return = subIndicesIntoArrayType indices return }
+      Func
+        { parameters = List.map parameters ~f:(subIndicesIntoArrayType indices)
+        ; return = subIndicesIntoArrayType indices return
+        }
     | Forall { parameters; body } ->
       Forall { parameters; body = subIndicesIntoArrayType indices body }
     | Pi { parameters; body } ->
@@ -859,7 +862,10 @@ module TypeChecker = struct
       | Some (Array _) -> ref
       | None -> ref)
     | Func { parameters; return } ->
-      Func { parameters; return = subTypesIntoArrayType types return }
+      Func
+        { parameters = List.map parameters ~f:(subTypesIntoArrayType types)
+        ; return = subTypesIntoArrayType types return
+        }
     | Forall { parameters; body } ->
       Forall { parameters; body = subTypesIntoArrayType types body }
     | Pi { parameters; body } ->
@@ -1456,53 +1462,55 @@ module TypeChecker = struct
       let type' : Typed.Type.pi = { parameters = typedParams; body = T.arrayType body } in
       T.Atom (T.IndexLambda { params = typedParams; body; type' })
     | U.Boxes { params; elementType; dimensions; elements } ->
-      let%bind typedParams =
-        params.elem
-        |> List.map ~f:(fun p ->
-               let%map id = CheckerStateT.createId p.elem.binding.elem in
-               let typedParam : Sort.t Typed.param =
-                 { binding = id; bound = p.elem.bound.elem }
-               in
-               typedParam)
-        |> CheckerStateT.all
-      in
       let dimensions = List.map dimensions.elem ~f:(fun d -> d.elem) in
       let expectedElements = List.fold dimensions ~init:1 ~f:( * ) in
-      let%bind elementType = KindChecker.checkAndExpectArray env elementType
-      and checkedElements =
-        elements.elem
-        |> List.map ~f:(fun e ->
-               let%map indices =
-                 e.elem.indices.elem
-                 |> List.map ~f:(fun index ->
-                        SortChecker.check env index >>| fun i -> i, index.source)
-                 |> CheckerStateT.all
-               and body = checkAndExpectArray env e.elem.body in
-               indices, body, e)
-        |> CheckerStateT.all
-      and _ =
-        CheckerStateT.require
-          (List.length elements.elem = expectedElements)
-          { elem =
-              WrongNumberOfElementsInBoxes
-                { expected = expectedElements; actual = List.length elements.elem }
-          ; source = elements.source
-          }
+      let params =
+        (* The parameter's have source-annotated bounds; remove the source annotations *)
+        List.map params.elem ~f:(function
+            | { elem = { binding; bound = { elem = bound; source = _ } }; source } ->
+            { elem = Untyped.{ binding; bound }; source })
       in
-      let%map boxes =
-        checkedElements
-        |> List.map ~f:(fun (indices, body, element) ->
+      let%bind { typedParams; extendedEnv = extendedSortsEnv } =
+        processParams
+          env.sorts
+          params
+          ~makeError:(fun name -> DuplicateIndexParameterName name)
+          ~boundToEnvEntry:(fun b -> b)
+      in
+      let extendedEnv = { env with sorts = extendedSortsEnv } in
+      let%bind elementType = KindChecker.checkAndExpectArray extendedEnv elementType in
+      let sigmaType : Typed.Type.sigma =
+        { parameters = typedParams; body = elementType }
+      in
+      let%map checkedElements =
+        elements.elem
+        |> List.map ~f:(fun element ->
+               let%bind body = checkAndExpectArray env element.elem.body in
                let%bind zippedIndices =
-                 zipLists ~expected:typedParams ~actual:indices ~makeError:(fun ea ->
+                 zipLists
+                   ~expected:typedParams
+                   ~actual:element.elem.indices.elem
+                   ~makeError:(fun ea ->
                      { source = element.elem.indices.source
                      ; elem = WrongNumberOfArguments ea
                      })
                in
-               let%bind substitutions =
+               let%bind zippedIndicesTyped =
+                 zippedIndices
+                 |> List.map ~f:(fun (param, index) ->
+                        let%map checkedIndex =
+                          SortChecker.checkAndExpect param.bound env index
+                        in
+                        param, checkedIndex)
+                 |> CheckerStateT.all
+               in
+               let indices = List.map zippedIndicesTyped ~f:(fun (_, i) -> i) in
+               let substitutions =
                  List.fold
-                   zippedIndices
-                   ~init:(ok (Map.empty (module Typed.Identifier)))
-                   ~f:(fun acc _ -> acc)
+                   zippedIndicesTyped
+                   ~init:(Map.empty (module Typed.Identifier))
+                   ~f:(fun acc (param, index) ->
+                     Map.set acc ~key:param.binding ~data:index)
                in
                let subbedType = subIndicesIntoArrayType substitutions elementType in
                let%map () =
@@ -1514,25 +1522,25 @@ module TypeChecker = struct
                      ; elem = SigmaBodyTypeDisagreement ea
                      })
                in
-               ({ indices = List.map indices ~f:(fun (i, _) -> i)
-                ; body
-                ; bodyType = elementType
-                ; type' = { parameters = typedParams; body = elementType }
-                }
-                 : T.box))
+               T.Box { indices; body; bodyType = elementType; type' = sigmaType })
         |> CheckerStateT.all
+      and () =
+        CheckerStateT.require
+          (List.length elements.elem = expectedElements)
+          { elem =
+              WrongNumberOfElementsInBoxes
+                { expected = expectedElements; actual = List.length elements.elem }
+          ; source = elements.source
+          }
       in
       let shape =
         List.map dimensions ~f:(fun d ->
             Typed.Index.Add (Typed.Index.dimensionConstant d))
       in
-      let sigmaType : Typed.Type.sigma =
-        { parameters = typedParams; body = elementType }
-      in
       T.Array
         (T.Arr
            { dimensions
-           ; elements = List.map boxes ~f:(fun b -> T.Box b)
+           ; elements = checkedElements
            ; type' = { element = Typed.Type.Sigma sigmaType; shape }
            })
     | U.Let { param; value; body } ->

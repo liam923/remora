@@ -261,6 +261,15 @@ module Make (SB : Source.BuilderT) = struct
               }
         ; source = texpSource arrExp
         }
+    | List
+        { braceType = Parens
+        ; elements = Symbol ("Tuple", _) :: elements
+        ; braceSources = _
+        } as tupExp ->
+      let%map parsedElements =
+        parseList elements ~f:parseType ~source:(texpSource tupExp)
+      in
+      Source.map parsedElements ~f:(fun elements -> Type.Tuple elements)
     | type' -> MResult.err ("Bad type syntax", texpSource type')
 
   and parseExpr : 's Texp.t -> ('s Ast.Untyped.Expr.t, error) MResult.t =

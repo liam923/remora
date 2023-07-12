@@ -3,6 +3,7 @@ open! Base
 type ('ok, 'err) t =
   | MOk of 'ok
   | Errors of 'err NeList.t
+[@@deriving sexp, eq, ord]
 
 include
   MonadWithError.S2

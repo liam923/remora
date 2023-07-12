@@ -3,15 +3,18 @@ open! Base
 type ('ok, 'err) t =
   | MOk of 'ok
   | Errors of 'err NeList.t
+[@@deriving sexp, eq, ord]
 
 type 'e error = 'e NeList.t
 
-let both a b =
+let goodBoth a b =
   match a, b with
   | MOk a, MOk b -> MOk (a, b)
   | MOk _, (Errors _ as errs) | (Errors _ as errs), MOk _ -> errs
   | Errors errs1, Errors errs2 -> Errors (NeList.append errs1 errs2)
 ;;
+
+let both = goodBoth
 
 include MonadWithError.Make2 (struct
   type 'e error = 'e NeList.t
@@ -33,8 +36,8 @@ include MonadWithError.Make2 (struct
   let return x = MOk x
 
   let bindWithError x ~f ~error =
-    match bind x ~f with
-    | MOk success -> MOk success
+    match x with
+    | MOk success -> f success
     | Errors errors ->
       (match error errors with
       | MOk () -> Errors errors
@@ -48,11 +51,11 @@ module Let_syntax = struct
   module Let_syntax = struct
     include Let_syntax
 
-    let both = both
+    let both = goodBoth
   end
 end
 
-let all = function
+let rec all = function
   | [] -> MOk []
   | headR :: restL ->
     let open Let_syntax in
@@ -66,6 +69,15 @@ let allNE NeList.(headR :: restL) =
   let%map head = headR
   and rest = all restL in
   NeList.(head :: rest)
+;;
+
+let rec all_unit = function
+  | [] -> return ()
+  | headR :: restL ->
+    let open Let_syntax in
+    let%map () = headR
+    and () = all_unit restL in
+    ()
 ;;
 
 let ofOption o ~err =

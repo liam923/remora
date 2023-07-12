@@ -145,7 +145,9 @@ let%expect_test "parse type" =
       (body
        (Arr
         ((element (Ref a))
-         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}]
+         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}];
+  parseAndPrint "(Tuple int char)";
+  [%expect {| (Tuple ((Ref int) (Ref char))) |}]
 ;;
 
 let%expect_test "parse expression" =

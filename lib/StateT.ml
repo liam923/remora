@@ -86,7 +86,7 @@ end
 module Make2WithError (M : MonadWithError.S2) = struct
   include Make2 (M)
 
-  let both a b =
+  let goodBoth a b =
     M.return (fun inState ->
         M.bindWithError
           (run a inState)
@@ -96,17 +96,19 @@ module Make2WithError (M : MonadWithError.S2) = struct
           ~error:(fun _ -> M.ignore_m (run b inState)))
   ;;
 
+  let both = goodBoth
+
   module Let_syntax = struct
     include Let_syntax
 
     module Let_syntax = struct
       include Let_syntax
 
-      let both = both
+      let both = goodBoth
     end
   end
 
-  let all = function
+  let rec all = function
     | [] -> return []
     | headR :: restL ->
       let open Let_syntax in
@@ -120,5 +122,11 @@ module Make2WithError (M : MonadWithError.S2) = struct
     let%map head = headR
     and rest = all restL in
     NeList.(head :: rest)
+  ;;
+
+  let all_unit list =
+    let open Let_syntax in
+    let%map _ = all list in
+    ()
   ;;
 end

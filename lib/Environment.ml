@@ -40,26 +40,68 @@ module Base (Gen : IdentifierGenerator) = struct
       makeSubEnv [ "int", Gen.return Kind.Atom; "char", Gen.return Kind.Atom ]
     in
     let scalar element = Typed.Type.Arr { element; shape = [] } in
-    let intRef = scalar (AtomRef (Map.find_exn kinds "int").id) in
+    let intRef = Typed.Type.AtomRef (Map.find_exn kinds "int").id in
     let%map types =
       makeSubEnv
         Ast.Typed.
           [ ( "+"
             , Gen.return
-                (scalar (Type.Func { parameters = [ intRef; intRef ]; return = intRef }))
-            )
+                (scalar
+                   (Type.Func
+                      { parameters = [ scalar intRef; scalar intRef ]
+                      ; return = scalar intRef
+                      })) )
           ; ( "-"
             , Gen.return
-                (scalar (Type.Func { parameters = [ intRef; intRef ]; return = intRef }))
-            )
+                (scalar
+                   (Type.Func
+                      { parameters = [ scalar intRef; scalar intRef ]
+                      ; return = scalar intRef
+                      })) )
           ; ( "*"
             , Gen.return
-                (scalar (Type.Func { parameters = [ intRef; intRef ]; return = intRef }))
-            )
+                (scalar
+                   (Type.Func
+                      { parameters = [ scalar intRef; scalar intRef ]
+                      ; return = scalar intRef
+                      })) )
           ; ( "/"
             , Gen.return
-                (scalar (Type.Func { parameters = [ intRef; intRef ]; return = intRef }))
-            )
+                (scalar
+                   (Type.Func
+                      { parameters = [ scalar intRef; scalar intRef ]
+                      ; return = scalar intRef
+                      })) )
+          ; ( "length"
+            , let%map t = Gen.createId "t"
+              and d = Gen.createId "d"
+              and s = Gen.createId "@s" in
+              scalar
+                (Type.Pi
+                   { parameters =
+                       [ { binding = d; bound = Sort.Dim }
+                       ; { binding = s; bound = Sort.Shape }
+                       ]
+                   ; body =
+                       scalar
+                         (Type.Forall
+                            { parameters = [ { binding = t; bound = Kind.Atom } ]
+                            ; body =
+                                scalar
+                                  (Type.Func
+                                     { parameters =
+                                         [ Arr
+                                             { element = AtomRef t
+                                             ; shape =
+                                                 [ Add (Index.dimensionRef d)
+                                                 ; ShapeRef s
+                                                 ]
+                                             }
+                                         ]
+                                     ; return = scalar intRef
+                                     })
+                            })
+                   }) )
           ]
     in
     let literalType = function
