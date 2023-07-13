@@ -14,6 +14,7 @@ module type S2 = sig
   val inspectF : f:('s -> ('c, 'e) m) -> ('s, 'c, 'e) t
   val modify : f:('s -> 's) -> ('s, unit, 'e) t
   val modifyF : f:('s -> ('s, 'e) m) -> ('s, unit, 'e) t
+  val get : unit -> ('s, 's, 'e) t
   val set : 's -> ('s, unit, 'e) t
   val setF : ('s, 'e) m -> ('s, unit, 'e) t
   val returnF : ('a, 'e) m -> ('s, 'a, 'e) t
@@ -69,6 +70,7 @@ module Make2 (M : Monad.S2) = struct
     M.return (fun state -> M.map (f state) ~f:(fun outState -> outState, ()))
   ;;
 
+  let get () = M.return (fun state -> M.return (state, state))
   let set state = M.return (fun _ -> M.return (state, ()))
   let setF stateF = M.return (fun _ -> M.map stateF ~f:(fun state -> state, ()))
   let returnF value = M.map value ~f:(fun value state -> M.return (state, value))

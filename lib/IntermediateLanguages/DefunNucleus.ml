@@ -1,84 +1,22 @@
 open! Base
 
-(* The MonoNucleus language represents a monomorphized Remora program *)
+(* The DefunNucleus language represents a monomorphized, defunctionalized Remora program *)
 
-type 't param =
-  { binding : Identifier.t
-  ; bound : 't
-  }
-[@@deriving sexp]
+type 't param = 't MonoNucleus.param [@@deriving sexp]
 
-module Index = struct
-  type dimension =
-    { const : int
-    ; refs : int Map.M(Identifier).t
-    }
-  [@@deriving sexp]
-
-  type shapeElement =
-    | Add of dimension
-    | ShapeRef of Identifier.t
-  [@@deriving sexp]
-
-  type shape = shapeElement list [@@deriving sexp]
-
-  type t =
-    | Dimension of dimension
-    | Shape of shape
-  [@@deriving sexp]
-
-  let dimensionConstant n = { const = n; refs = Map.empty (module Identifier) }
-  let dimensionRef r = { const = 0; refs = Map.singleton (module Identifier) r 1 }
-
-  let sort = function
-    | Dimension _ -> Sort.Dim
-    | Shape _ -> Sort.Shape
-  ;;
-end
-
-module Type = struct
-  type array =
-    { element : atom
-    ; shape : Index.shape
-    }
-
-  and func =
-    { parameters : array list
-    ; return : array
-    }
-
-  and sigma =
-    { parameters : Sort.t param list
-    ; body : array
-    }
-
-  and tuple = atom list
-
-  and literal =
-    | IntLiteral
-    | CharacterLiteral
-
-  and atom =
-    | Func of func
-    | Sigma of sigma
-    | Tuple of tuple
-    | Literal of literal
-
-  and t =
-    | Array of array
-    | Atom of atom
-  [@@deriving sexp]
-
-  let kind = function
-    | Array _ -> Kind.Array
-    | Atom _ -> Kind.Atom
-  ;;
-end
+module Index = MonoNucleus.Index
+module Type = MonoNucleus.Type
 
 module Expr = struct
   type ref =
     { id : Identifier.t
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    }
+  [@@deriving sexp]
+
+  type functionRef =
+    { id : Identifier.t
+    ; type' : Type.func [@sexp_drop_if fun _ -> true]
     }
   [@@deriving sexp]
 
@@ -108,12 +46,6 @@ module Expr = struct
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
-  and termLambda =
-    { params : Type.array param list
-    ; body : array
-    ; type' : Type.func [@sexp_drop_if fun _ -> true]
-    }
-
   and box =
     { indices : Index.t list
     ; body : array
@@ -140,14 +72,8 @@ module Expr = struct
     ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
-  and literalValue =
-    | IntLiteral of int
-    | CharacterLiteral of char
-
-  and literal =
-    { value : literalValue
-    ; type' : Type.atom [@sexp_drop_if fun _ -> true]
-    }
+  and literalValue = MonoNucleus.Expr.literalValue
+  and literal = MonoNucleus.Expr.literal
 
   and array =
     | Ref of ref
@@ -159,7 +85,7 @@ module Expr = struct
     | TupleLet of tupleLet
 
   and atom =
-    | TermLambda of termLambda
+    | FunctionRef of functionRef
     | Box of box
     | Tuple of tuple
     | Literal of literal
@@ -170,7 +96,7 @@ module Expr = struct
   [@@deriving sexp]
 
   let atomType : atom -> Type.atom = function
-    | TermLambda termLambda -> Func termLambda.type'
+    | FunctionRef ref -> Type.Func ref.type'
     | Box box -> Sigma box.type'
     | Tuple tuple -> Tuple tuple.type'
     | Literal literal -> literal.type'
@@ -192,13 +118,24 @@ module Expr = struct
   ;;
 end
 
-type t = Expr.t [@@deriving sexp]
+type func =
+  { params : Type.array param list
+  ; body : Expr.array
+  ; type' : Type.func [@sexp_drop_if fun _ -> true]
+  }
+[@@deriving sexp]
+
+type t =
+  { functions : func Map.M(Identifier).t
+  ; body : Expr.t
+  }
+[@@deriving sexp]
 
 module ShowStage (SB : Source.BuilderT) = struct
   type error = (SB.source option, string) Source.annotate
   type input = t
   type output = string
 
-  let name = "Print MonoNucleus"
+  let name = "Print DefunNucleus"
   let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: t] input))
 end

@@ -73,7 +73,8 @@ end = struct
     let refElements =
       refs
       |> Map.to_alist
-      |> List.bind ~f:(fun (id, count) -> List.init count ~f:(fun _ -> Some id.name))
+      |> List.bind ~f:(fun (id, count) ->
+             List.init count ~f:(fun _ -> Some (Identifier.name id)))
     in
     let elements = constElement :: refElements |> List.filter_opt in
     match elements with
@@ -86,7 +87,7 @@ end = struct
 
   let showShapeElement = function
     | Nucleus.Index.Add dim -> showDimension dim
-    | Nucleus.Index.ShapeRef ref -> ref.name
+    | Nucleus.Index.ShapeRef ref -> Identifier.name ref
   ;;
 
   let showList ?(prependSpace = false) shower list =
@@ -96,12 +97,12 @@ end = struct
   ;;
 
   let shape elements = [%string "[%{showList showShapeElement elements}]"]
-  let showParam (p : 't Nucleus.param) = p.binding.name
+  let showParam (p : 't Nucleus.param) = Identifier.name p.binding
 
   let rec showArray =
     let open Nucleus.Type in
     function
-    | ArrayRef ref -> ref.name
+    | ArrayRef ref -> Identifier.name ref
     | Arr { element; shape } ->
       if List.is_empty shape
       then showAtom element
@@ -112,7 +113,7 @@ end = struct
   and showAtom =
     let open Nucleus.Type in
     function
-    | AtomRef ref -> ref.name
+    | AtomRef ref -> Identifier.name ref
     | Func { parameters; return } ->
       [%string "(→ (%{showList showArray parameters}) %{showArray return})"]
     | Forall { parameters; body } ->
@@ -250,7 +251,9 @@ type ('s, 't) checkResult = ('t, ('s, error) Source.annotate) MResult.t
 type state = { idCounter : int }
 
 module CheckerStateT = struct
-  include StateT.Make2WithError (MResult)
+  module S = StateT.Make2WithError (MResult)
+  include S
+  module IdCreator = Identifier.Creator (StateT.Make2WithError (MResult))
 
   type nonrec state = state
 
@@ -272,8 +275,8 @@ module CheckerStateT = struct
   ;;
 
   let createId name =
-    make ~f:(fun state ->
-        { idCounter = state.idCounter + 1 }, Identifier.{ name; id = state.idCounter + 1 })
+    IdCreator.create name ~updateCounter:(fun { idCounter } ->
+        { idCounter = idCounter + 1 }, idCounter)
   ;;
 end
 
@@ -902,7 +905,7 @@ module TypeChecker = struct
 
   let findEscapingRefs (env : Environment.t) type' =
     let checkIfEscaping env (ref : Identifier.t) =
-      if Map.mem env ref.name then [] else [ ref ]
+      if Map.mem env (Identifier.name ref) then [] else [ ref ]
     in
     let rec findInIndex (env : Environment.t) =
       let open Nucleus.Index in
@@ -931,7 +934,7 @@ module TypeChecker = struct
               List.fold parameters ~init:env.kinds ~f:(fun env param ->
                   Map.set
                     env
-                    ~key:param.binding.name
+                    ~key:(Identifier.name param.binding)
                     ~data:{ e = param.bound; id = param.binding })
           }
         in
@@ -943,7 +946,7 @@ module TypeChecker = struct
               List.fold parameters ~init:env.sorts ~f:(fun env param ->
                   Map.set
                     env
-                    ~key:param.binding.name
+                    ~key:(Identifier.name param.binding)
                     ~data:{ e = param.bound; id = param.binding })
           }
         in
@@ -955,7 +958,7 @@ module TypeChecker = struct
               List.fold parameters ~init:env.sorts ~f:(fun env param ->
                   Map.set
                     env
-                    ~key:param.binding.name
+                    ~key:(Identifier.name param.binding)
                     ~data:{ e = param.bound; id = param.binding })
           }
         in
@@ -1413,7 +1416,8 @@ module TypeChecker = struct
         match findEscapingRefs env (Nucleus.Type.Array (Nucleus.Type.Arr bodyType)) with
         | [] -> ok ()
         | ref :: _ ->
-          CheckerStateT.err { source = bodySource; elem = EscapingRef ref.name }
+          CheckerStateT.err
+            { source = bodySource; elem = EscapingRef (Identifier.name ref) }
       in
       T.Array
         (T.Unbox
@@ -1447,7 +1451,7 @@ module TypeChecker = struct
         ; return = T.arrayType body
         }
       in
-      T.Atom (T.TermLambda { params = typedParams; body = T.Array body; type' })
+      T.Atom (T.TermLambda { params = typedParams; body; type' })
     | U.TypeLambda { params; body } ->
       let params =
         (* The parameter's have source-annotated bounds; remove the source annotations *)
@@ -1728,16 +1732,21 @@ let checkType expr =
     { idCounter = 0 }
 ;;
 
+let checkProgram = checkType
+
 module Stage (SB : Source.BuilderT) = struct
-  type input = SB.source Ast.Expr.t
-  type output = Nucleus.Expr.t
-  type error = (SB.source, string) Source.annotate
+  type input = SB.source Ast.t
+  type output = Nucleus.t
+  type error = (SB.source option, string) Source.annotate
 
   let name = "Type Check"
 
   let run input =
-    match checkType input with
+    match checkProgram input with
     | MOk _ as expr -> expr
-    | Errors errs -> Errors (NeList.map errs ~f:(Source.map ~f:errorMessage))
+    | Errors errs ->
+      Errors
+        (NeList.map errs ~f:(fun { elem = err; source } ->
+             { elem = errorMessage err; source = Some source }))
   ;;
 end

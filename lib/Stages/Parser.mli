@@ -26,5 +26,5 @@ module Unit : S with type source = unit
 module Stage (SB : Source.BuilderT) :
   Pipeline.Stage
     with type input = string
-    with type output = SB.source Ast.Expr.t
-    with type error = (SB.source, string) Source.annotate
+    with type output = SB.source Ast.t
+    with type error = (SB.source option, string) Source.annotate

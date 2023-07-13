@@ -133,7 +133,7 @@ module Expr = struct
 
   and termLambda =
     { params : Type.array param list
-    ; body : t
+    ; body : array
     ; type' : Type.func [@sexp_drop_if fun _ -> true]
     }
 
@@ -231,11 +231,13 @@ module Expr = struct
   ;;
 end
 
+type t = Expr.t [@@deriving sexp]
+
 module ShowStage (SB : Source.BuilderT) = struct
-  type error = (SB.source, string) Source.annotate
-  type input = Expr.t
+  type error = (SB.source option, string) Source.annotate
+  type input = t
   type output = string
 
   let name = "Print Nucleus"
-  let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: Expr.t] input))
+  let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: t] input))
 end

@@ -2,7 +2,7 @@ open! Base
 
 module type S = sig
   type source
-  type error = (source, string) Source.annotate
+  type error = (source option, string) Source.annotate
 
   val compiler : (string, string, error) Pipeline.t
   val compileStringToString : string -> (string, error) MResult.t
@@ -10,7 +10,7 @@ end
 
 module Make (SB : Source.BuilderT) = struct
   type source = SB.source
-  type error = (source, string) Source.annotate
+  type error = (source option, string) Source.annotate
 
   module type CompilerStage = Pipeline.Stage with type error = error
 
@@ -18,7 +18,8 @@ module Make (SB : Source.BuilderT) = struct
     Pipeline.(
       (module Parser.Stage (SB))
       @> (module TypeChecker.Stage (SB))
-      @> (module Nucleus.ShowStage (SB))
+      @> (module Monomorphize.Stage (SB))
+      @> (module MonoNucleus.ShowStage (SB))
       @> empty)
   ;;
 

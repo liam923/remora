@@ -168,3 +168,5 @@ module Expr = struct
 
   and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
 end
+
+type 's t = 's Expr.t [@@deriving sexp_of]

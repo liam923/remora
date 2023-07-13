@@ -2,7 +2,7 @@ open! Base
 
 module type S = sig
   type source
-  type error = (source, string) Source.annotate
+  type error = (source option, string) Source.annotate
 
   val compiler : (string, string, error) Pipeline.t
   val compileStringToString : string -> (string, error) MResult.t

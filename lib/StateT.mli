@@ -32,6 +32,9 @@ module type S2 = sig
 
   val modifyF : f:('s -> ('s, 'e) m) -> ('s, unit, 'e) t
 
+  (* Get the state *)
+  val get : unit -> ('s, 's, 'e) t
+
   (** Set the state *)
   val set : 's -> ('s, unit, 'e) t
 
