@@ -1,116 +1,202 @@
 open! Base
 
-module type Stage = sig
-  type input
-  type output
-  type error
+module type S2 = sig
+  type ('a, 'e) m
 
-  val name : string
-  val run : input -> (output, error) MResult.t
+  module S : StateT.S2 with type ('a, 'e) m = ('a, 'e) m
+
+  module type Stage = sig
+    type state
+    type input
+    type output
+    type error
+
+    val name : string
+    val run : input -> (state, output, error) S.t
+  end
+
+  type ('s, 'a, 'b, 'e) stage =
+    (module Stage
+       with type state = 's
+        and type input = 'a
+        and type output = 'b
+        and type error = 'e)
+
+  type ('s, 'a, 'b, 'e) pipeline
+  type ('s, 'a, 'b, 'e) t = ('s, 'a, 'b, 'e) pipeline
+
+  val ( @> )
+    :  ('s, 'a, 'b, 'e) stage
+    -> ('s, 'b, 'c, 'e) pipeline
+    -> ('s, 'a, 'c, 'e) pipeline
+
+  type ('s, 'a, 'b, 'e) compositePipeline =
+    { name : string
+    ; pipeline : ('s, 'a, 'b, 'e) pipeline
+    }
+
+  val ( @@> )
+    :  ('s, 'a, 'b, 'e) compositePipeline
+    -> ('s, 'b, 'c, 'e) pipeline
+    -> ('s, 'a, 'c, 'e) pipeline
+
+  val empty : ('s, 'a, 'a, 'e) pipeline
+  val make : ('s, 'a, 'b, 'e) pipeline -> 'a -> ('s, 'b, 'e) S.t
+
+  module type Plugin = sig
+    type acc
+    type error
+
+    val initialAcc : acc
+    val makeStage : acc -> 'a -> ('s, 'a, 'b, error) stage -> ('s, acc * 'b, error) S.t
+  end
+
+  val makeWithPlugin
+    :  ('s, 'a, 'b, 'e) pipeline
+    -> 'a
+    -> (module Plugin with type acc = 'acc and type error = 'e)
+    -> ('s, 'acc * 'b, 'e) S.t
+
+  module type NestingPlugin = sig
+    type acc
+    type error
+
+    val initialAcc : acc
+    val increaseNesting : name:string -> acc -> acc
+    val decreaseNesting : acc -> acc
+    val makeStage : acc -> 'a -> ('s, 'a, 'b, error) stage -> ('s, acc * 'b, error) S.t
+  end
+
+  val makeWithNestingPlugin
+    :  ('s, 'a, 'b, 'e) pipeline
+    -> 'a
+    -> (module NestingPlugin with type acc = 'acc and type error = 'e)
+    -> ('s, 'acc * 'b, 'e) S.t
 end
 
-type ('a, 'b, 'e) stage =
-  (module Stage with type input = 'a and type output = 'b and type error = 'e)
+module Make2 (M : MonadWithError.S2) = struct
+  type ('a, 'e) m = ('a, 'e) M.t
 
-type (_, _, _) pipeline =
-  | Step : ('a, 'b, 'e) stage * ('b, 'c, 'e) pipeline -> ('a, 'c, 'e) pipeline
-  | CompositeStep :
-      ('a, 'b, 'e) compositePipeline * ('b, 'c, 'e) pipeline
-      -> ('a, 'c, 'e) pipeline
-  | Empty : ('a, 'a, 'e) pipeline
+  module S = StateT.Make2WithError (M)
 
-and ('a, 'b, 'e) compositePipeline =
-  { name : string
-  ; pipeline : ('a, 'b, 'e) pipeline
-  }
+  module type Stage = sig
+    type state
+    type input
+    type output
+    type error
 
-type ('a, 'b, 'e) t = ('a, 'b, 'e) pipeline
+    val name : string
+    val run : input -> (state, output, error) S.t
+  end
 
-let ( @> ) step rest = Step (step, rest)
-let empty = Empty
-let ( @@> ) step rest = CompositeStep (step, rest)
+  type ('s, 'a, 'b, 'e) stage =
+    (module Stage
+       with type state = 's
+        and type input = 'a
+        and type output = 'b
+        and type error = 'e)
 
-module type NestingPlugin = sig
-  type acc
-  type error
+  type (_, _, _, _) pipeline =
+    | Step :
+        ('s, 'a, 'b, 'e) stage * ('s, 'b, 'c, 'e) pipeline
+        -> ('s, 'a, 'c, 'e) pipeline
+    | CompositeStep :
+        ('s, 'a, 'b, 'e) compositePipeline * ('s, 'b, 'c, 'e) pipeline
+        -> ('s, 'a, 'c, 'e) pipeline
+    | Empty : ('s, 'a, 'a, 'e) pipeline
 
-  val initialAcc : acc
-  val increaseNesting : name:string -> acc -> acc
-  val decreaseNesting : acc -> acc
-  val executeStage : acc -> 'a -> ('a, 'b, error) stage -> acc * ('b, error) MResult.t
-end
+  and ('s, 'a, 'b, 'e) compositePipeline =
+    { name : string
+    ; pipeline : ('s, 'a, 'b, 'e) pipeline
+    }
 
-let execWithNestingPlugin
-    (type a b e acc)
-    (pipeline : (a, b, e) pipeline)
-    (init : a)
-    (plugin : (module NestingPlugin with type acc = acc and type error = e))
-    : acc * (b, e) MResult.t
-  =
-  let module P = (val plugin : NestingPlugin with type acc = acc and type error = e) in
-  let rec loop : type c d. acc -> c -> (c, d, e) pipeline -> acc * (d, e) MResult.t =
-   fun acc curr pipeline ->
-    match pipeline with
-    | Step (stage, rest) ->
-      let acc, next = P.executeStage acc curr stage in
-      (match next with
-      | MOk next -> loop acc next rest
-      | Errors _ as errs -> acc, errs)
-    | CompositeStep ({ name; pipeline }, rest) ->
-      let acc = P.increaseNesting ~name acc in
-      let acc, next = loop acc curr pipeline in
-      (match next with
-      | MOk next ->
+  type ('s, 'a, 'b, 'e) t = ('s, 'a, 'b, 'e) pipeline
+
+  let ( @> ) step rest = Step (step, rest)
+  let empty = Empty
+  let ( @@> ) step rest = CompositeStep (step, rest)
+
+  module type NestingPlugin = sig
+    type acc
+    type error
+
+    val initialAcc : acc
+    val increaseNesting : name:string -> acc -> acc
+    val decreaseNesting : acc -> acc
+    val makeStage : acc -> 'a -> ('s, 'a, 'b, error) stage -> ('s, acc * 'b, error) S.t
+  end
+
+  let makeWithNestingPlugin
+      (type s a b e acc)
+      (pipeline : (s, a, b, e) pipeline)
+      (init : a)
+      (plugin : (module NestingPlugin with type acc = acc and type error = e))
+      : (s, acc * b, e) S.t
+    =
+    let module P = (val plugin : NestingPlugin with type acc = acc and type error = e) in
+    let rec loop : type c d. acc -> c -> (s, c, d, e) pipeline -> (s, acc * d, e) S.t =
+     fun acc curr pipeline ->
+      match pipeline with
+      | Step (stage, rest) ->
+        let%bind.S acc, next = P.makeStage acc curr stage in
+        loop acc next rest
+      | CompositeStep ({ name; pipeline }, rest) ->
+        let acc = P.increaseNesting ~name acc in
+        let%bind.S acc, next = loop acc curr pipeline in
         let acc = P.decreaseNesting acc in
         loop acc next rest
-      | Errors _ as errs -> acc, errs)
-    | Empty -> acc, MOk curr
-  in
-  loop P.initialAcc init pipeline
-;;
+      | Empty -> S.return (acc, curr)
+    in
+    loop P.initialAcc init pipeline
+  ;;
 
-module type Plugin = sig
-  type acc
-  type error
+  module type Plugin = sig
+    type acc
+    type error
 
-  val initialAcc : acc
-  val executeStage : acc -> 'a -> ('a, 'b, error) stage -> acc * ('b, error) MResult.t
+    val initialAcc : acc
+    val makeStage : acc -> 'a -> ('s, 'a, 'b, error) stage -> ('s, acc * 'b, error) S.t
+  end
+
+  let makeWithPlugin
+      (type s a b e acc)
+      (pipeline : (s, a, b, e) pipeline)
+      (init : a)
+      (plugin : (module Plugin with type acc = acc and type error = e))
+      : (s, acc * b, e) S.t
+    =
+    let module P = struct
+      include (val plugin : Plugin with type acc = acc and type error = e)
+
+      let increaseNesting ~name:_ acc = acc
+      let decreaseNesting acc = acc
+    end
+    in
+    makeWithNestingPlugin pipeline init (module P)
+  ;;
+
+  let make (type s a b e) (pipeline : (s, a, b, e) pipeline) (init : a) =
+    (* Error.raise (Error.of_string "")
+  ;; *)
+    let module P = struct
+      type acc = unit
+      type error = e
+
+      let initialAcc = ()
+
+      let makeStage (type s c d) () curr stage =
+        let module Stage = (val stage : Stage
+                              with type state = s
+                               and type input = c
+                               and type output = d
+                               and type error = e)
+        in
+        let%map.S next = Stage.run curr in
+        (), next
+      ;;
+    end
+    in
+    let%map.S (), result = makeWithPlugin pipeline init (module P) in
+    result
+  ;;
 end
-
-let execWithPlugin
-    (type a b e acc)
-    (pipeline : (a, b, e) pipeline)
-    (init : a)
-    (plugin : (module Plugin with type acc = acc and type error = e))
-    : acc * (b, e) MResult.t
-  =
-  let module P = struct
-    include (val plugin : Plugin with type acc = acc and type error = e)
-
-    let increaseNesting ~name:_ acc = acc
-    let decreaseNesting acc = acc
-  end
-  in
-  execWithNestingPlugin pipeline init (module P)
-;;
-
-let exec (type a b e) (pipeline : (a, b, e) pipeline) (init : a) =
-  let module P = struct
-    type acc = unit
-    type error = e
-
-    let initialAcc = ()
-
-    let executeStage (type c d) () curr stage =
-      let module S = (val stage : Stage
-                        with type input = c
-                         and type output = d
-                         and type error = e)
-      in
-      (), S.run curr
-    ;;
-  end
-  in
-  let (), result = execWithPlugin pipeline init (module P) in
-  result
-;;

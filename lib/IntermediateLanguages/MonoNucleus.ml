@@ -195,10 +195,11 @@ end
 type t = Expr.t [@@deriving sexp]
 
 module ShowStage (SB : Source.BuilderT) = struct
+  type state = CompilerState.state
   type error = (SB.source option, string) Source.annotate
   type input = t
   type output = string
 
   let name = "Print MonoNucleus"
-  let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: t] input))
+  let run input = CompilerPipeline.S.return (Sexp.to_string_hum ([%sexp_of: t] input))
 end

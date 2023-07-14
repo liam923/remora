@@ -4,7 +4,7 @@ module type S = sig
   type source
   type error = (source option, string) Source.annotate
 
-  val compiler : (string, string, error) Pipeline.t
+  val compiler : (CompilerState.state, string, string, error) CompilerPipeline.t
   val compileStringToString : string -> (string, error) MResult.t
 end
 
@@ -12,10 +12,8 @@ module Make (SB : Source.BuilderT) = struct
   type source = SB.source
   type error = (source option, string) Source.annotate
 
-  module type CompilerStage = Pipeline.Stage with type error = error
-
   let compiler =
-    Pipeline.(
+    CompilerPipeline.(
       (module Parser.Stage (SB))
       @> (module TypeChecker.Stage (SB))
       @> (module Monomorphize.Stage (SB))
@@ -23,7 +21,9 @@ module Make (SB : Source.BuilderT) = struct
       @> empty)
   ;;
 
-  let compileStringToString input = Pipeline.exec compiler input
+  let compileStringToString input =
+    CompilerPipeline.S.runA (CompilerPipeline.make compiler input) CompilerState.initial
+  ;;
 end
 
 module Default = Make (Source.Builder)

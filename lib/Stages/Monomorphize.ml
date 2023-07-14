@@ -50,6 +50,7 @@ end
 let monomorphize expr = MonoStateT.runA (MonomorphExpr.monomorph expr) ()
 
 module Stage (SB : Source.BuilderT) = struct
+  type state = CompilerState.state
   type input = Nucleus.t
   type output = MonoNucleus.t
   type error = (SB.source option, string) Source.annotate
@@ -57,9 +58,10 @@ module Stage (SB : Source.BuilderT) = struct
   let name = "Monomorphize"
 
   let run input =
-    match monomorphize input with
-    | MOk _ as expr -> expr
-    | Errors errs ->
-      Errors (NeList.map errs ~f:(fun err -> Source.{ elem = err; source = None }))
+    CompilerPipeline.S.returnF
+      (match monomorphize input with
+      | MOk _ as expr -> expr
+      | Errors errs ->
+        Errors (NeList.map errs ~f:(fun err -> Source.{ elem = err; source = None })))
   ;;
 end

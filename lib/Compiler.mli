@@ -4,7 +4,7 @@ module type S = sig
   type source
   type error = (source option, string) Source.annotate
 
-  val compiler : (string, string, error) Pipeline.t
+  val compiler : (CompilerState.state, string, string, error) CompilerPipeline.t
   val compileStringToString : string -> (string, error) MResult.t
 end
 

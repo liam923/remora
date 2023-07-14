@@ -13,13 +13,11 @@ include Comparator.Make (T)
 
 let name { name; id = _ } = name
 
-module Creator (S : StateT.S2) = struct
-  open S.Let_syntax
-
-  let create name ~updateCounter =
-    let%bind state = S.get () in
-    let state, id = updateCounter state in
-    let%map () = S.set state in
-    { name; id }
-  ;;
-end
+let create name ~getCounter ~setCounter =
+  let open State.Let_syntax in
+  let%bind state = State.get () in
+  let id = getCounter state in
+  let state = setCounter state (id + 1) in
+  let%map () = State.set state in
+  { name; id }
+;;

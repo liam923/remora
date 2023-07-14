@@ -2,7 +2,8 @@ open! Base
 
 type state =
   { functions : DefunNucleus.func Map.M(Identifier).t
-  ; idCounter : int
+  ; functionCounter : int
+  ; compilerState : CompilerState.state
   }
 
 let defunctionalize (expr : MonoNucleus.t) =
@@ -42,16 +43,20 @@ let defunctionalize (expr : MonoNucleus.t) =
       DN.TupleLet { params; value; body; type' }
   and defunctionalizeAtom = function
     | MN.TermLambda { params; body; type' } ->
-      let module IdCreator = Identifier.Creator (State) in
       let%bind body = defunctionalizeArray body in
-      let%bind { functions; idCounter } = State.get () in
-      let name = [%string "fn_%{idCounter#Int}"] in
+      let%bind { functions; functionCounter; compilerState = _ } = State.get () in
+      let name = [%string "fn_%{functionCounter#Int}"] in
       let%bind id =
-        IdCreator.create name ~updateCounter:(fun state ->
-            { state with idCounter = state.idCounter + 1 }, state.idCounter)
+        Identifier.create
+          name
+          ~getCounter:(fun s -> s.compilerState.idCounter)
+          ~setCounter:(fun s idCounter -> { s with compilerState = { idCounter } })
       in
       let functions = Map.set functions ~key:id ~data:{ params; body; type' } in
-      let%map () = State.modify ~f:(fun state -> { state with functions }) in
+      let functionCounter = functionCounter + 1 in
+      let%map () =
+        State.modify ~f:(fun state -> { state with functions; functionCounter })
+      in
       DN.FunctionRef { id; type' }
     | MN.Box { indices; body; bodyType; type' } ->
       let%map body = defunctionalizeArray body in
@@ -61,20 +66,28 @@ let defunctionalize (expr : MonoNucleus.t) =
       DN.Tuple { elements; type' }
     | MN.Literal literal -> return (DN.Literal literal)
   in
-  let { functions; idCounter = _ }, body =
-    State.run
-      (defunctionalizeExpr expr)
-      { functions = Map.empty (module Identifier); idCounter = 1000000 }
-    (* TODO!!!!!! *)
-  in
-  DefunNucleus.{ functions; body }
+  State.make ~f:(fun compilerState ->
+      let { functions; functionCounter = _; compilerState }, body =
+        State.run
+          (defunctionalizeExpr expr)
+          { functions = Map.empty (module Identifier)
+          ; functionCounter = 0
+          ; compilerState
+          }
+      in
+      compilerState, DefunNucleus.{ functions; body })
 ;;
 
 module Stage (SB : Source.BuilderT) = struct
+  type state = CompilerState.state
   type input = MonoNucleus.t
   type output = DefunNucleus.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Defunctionalize"
-  let run input = MResult.MOk (defunctionalize input)
+
+  let run input =
+    CompilerPipeline.S.make ~f:(fun compilerState ->
+        State.run (defunctionalize input) compilerState)
+  ;;
 end

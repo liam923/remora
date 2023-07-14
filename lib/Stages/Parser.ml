@@ -1023,6 +1023,7 @@ end)
 module Stage (SB : Source.BuilderT) = struct
   module Parser = Make (SB)
 
+  type state = CompilerState.state
   type input = string
   type output = SB.source Ast.t
   type error = (SB.source option, string) Source.annotate
@@ -1030,10 +1031,12 @@ module Stage (SB : Source.BuilderT) = struct
   let name = "Parse"
 
   let run input =
-    match Parser.parseString input with
-    | MOk _ as expr -> expr
-    | Errors errs ->
-      Errors
-        (NeList.map errs ~f:(fun (elem, source) -> Source.{ elem; source = Some source }))
+    CompilerPipeline.S.returnF
+      (match Parser.parseString input with
+      | MOk _ as expr -> expr
+      | Errors errs ->
+        Errors
+          (NeList.map errs ~f:(fun (elem, source) ->
+               Source.{ elem; source = Some source })))
   ;;
 end
