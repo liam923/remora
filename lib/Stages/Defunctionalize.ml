@@ -1,4 +1,4 @@
-open! Base
+(* open! Base
 
 type state =
   { functions : DefunNucleus.func Map.M(Identifier).t
@@ -90,4 +90,4 @@ module Stage (SB : Source.BuilderT) = struct
     CompilerPipeline.S.make ~f:(fun compilerState ->
         State.run (defunctionalize input) compilerState)
   ;;
-end
+end *)

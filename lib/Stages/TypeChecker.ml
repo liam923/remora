@@ -547,191 +547,10 @@ module TypeChecker = struct
   ;;
 
   (** Compare two types to check that they are equal*)
-  let eqType (a : Nucleus.Type.t) (b : Nucleus.Type.t) : bool =
-    let open Nucleus in
-    (* Booleans are represented as options in order to be able to use let syntax *)
-    let boolToOpt = function
-      | true -> Some ()
-      | false -> None
-    in
-    let optToBool : unit option -> bool = Option.is_some in
-    let open Option.Let_syntax in
-    let rec compareIndices a b bToA : unit option =
-      let open Index in
-      match a with
-      | Dimension a ->
-        let%bind b =
-          match b with
-          | Dimension b -> Some b
-          | _ -> None
-        in
-        let mapKeys m ~f =
-          let rec loop alist acc =
-            match alist with
-            | [] -> acc
-            | (key, data) :: rest -> loop rest (Map.set acc ~key:(f key) ~data)
-          in
-          loop (Map.to_alist m) (Map.empty (Map.comparator_s m))
-        in
-        let rec compareRefs (aRefList, aRefs) (bRefList, bRefs) =
-          match aRefList, bRefList with
-          | [], [] -> true
-          | [], bRefList -> compareRefs (bRefList, bRefs) ([], aRefs)
-          | (ref, aCount) :: aRefListRest, bRefList ->
-            let bCount = ref |> Map.find bRefs |> Option.value ~default:0 in
-            aCount = bCount && compareRefs (aRefListRest, aRefs) (bRefList, bRefs)
-        in
-        let aRefs = a.refs in
-        let bRefs =
-          mapKeys b.refs ~f:(fun ref -> ref |> Map.find bToA |> Option.value ~default:ref)
-        in
-        boolToOpt
-          (compareRefs (Map.to_alist aRefs, aRefs) (Map.to_alist bRefs, bRefs)
-          && a.const = b.const)
-      | Shape a ->
-        let%bind b =
-          match b with
-          | Shape b -> Some b
-          | _ -> None
-        in
-        let compareShapeElement a b bToA : unit option =
-          match a with
-          | Add a ->
-            let%bind b =
-              match b with
-              | Add b -> Some b
-              | _ -> None
-            in
-            compareIndices (Dimension a) (Dimension b) bToA
-          | ShapeRef a ->
-            let%bind b =
-              match b with
-              | ShapeRef b -> Some b
-              | _ -> None
-            in
-            let b = Map.find bToA b |> Option.value ~default:b in
-            boolToOpt (Identifier.equal a b)
-        in
-        boolToOpt
-          (List.equal (fun ae be -> optToBool (compareShapeElement ae be bToA)) a b)
-    in
-    (* Forall, Pi, and Sigma are all very similar, so compareTypeAbstractions
-     pulls out this commonality*)
-    let rec compareTypeAbstractions
-              : 't.
-                't Type.abstraction
-                -> 't Type.abstraction
-                -> Identifier.t Map.M(Identifier).t
-                -> ('t -> 't -> bool)
-                -> unit option
-      =
-     fun a b bToA boundEq ->
-      let open Type in
-      let%bind zippedParams =
-        match List.zip a.parameters b.parameters with
-        | Ok zp -> Some zp
-        | Unequal_lengths -> None
-      in
-      let%bind newBToA =
-        List.fold zippedParams ~init:(Some bToA) ~f:(fun bToA (aParam, bParam) ->
-            let%map bToA = bToA
-            and () = boolToOpt (boundEq aParam.bound bParam.bound) in
-            Map.set bToA ~key:bParam.binding ~data:aParam.binding)
-      in
-      compareTypes (Type.Array a.body) (Type.Array b.body) newBToA
-    and compareTypes a b bToA : unit option =
-      let open Type in
-      match a with
-      | Array (ArrayRef a) ->
-        let%bind b =
-          match b with
-          | Array (ArrayRef b) -> Some b
-          | _ -> None
-        in
-        let b = Map.find bToA b |> Option.value ~default:b in
-        boolToOpt (Identifier.equal a b)
-      | Array (Arr a) ->
-        let%bind b =
-          match b with
-          | Array (Arr b) -> Some b
-          | _ -> None
-        in
-        let%bind () = compareTypes (Atom a.element) (Atom b.element) bToA in
-        compareIndices (Index.Shape a.shape) (Index.Shape b.shape) bToA
-      | Atom (AtomRef a) ->
-        let%bind b =
-          match b with
-          | Atom (AtomRef b) -> Some b
-          | _ -> None
-        in
-        let b = Map.find bToA b |> Option.value ~default:b in
-        boolToOpt (Identifier.equal a b)
-      | Atom (Func a) ->
-        let%bind b =
-          match b with
-          | Atom (Func b) -> Some b
-          | _ -> None
-        in
-        let%bind () =
-          boolToOpt
-            (List.equal
-               (fun aParam bParam ->
-                 optToBool (compareTypes (Array aParam) (Array bParam) bToA))
-               a.parameters
-               b.parameters)
-        in
-        compareTypes (Array a.return) (Array b.return) bToA
-      | Atom (Forall a) ->
-        let%bind b =
-          match b with
-          | Atom (Forall b) -> Some b
-          | _ -> None
-        in
-        compareTypeAbstractions a b bToA Kind.equal
-      | Atom (Pi a) ->
-        let%bind b =
-          match b with
-          | Atom (Pi b) -> Some b
-          | _ -> None
-        in
-        compareTypeAbstractions a b bToA Sort.equal
-      | Atom (Sigma a) ->
-        let%bind b =
-          match b with
-          | Atom (Sigma b) -> Some b
-          | _ -> None
-        in
-        compareTypeAbstractions a b bToA Sort.equal
-      | Atom (Tuple a) ->
-        let%bind b =
-          match b with
-          | Atom (Tuple b) -> Some b
-          | _ -> None
-        in
-        boolToOpt
-          (List.equal
-             (fun aParam bParam ->
-               optToBool (compareTypes (Atom aParam) (Atom bParam) bToA))
-             a
-             b)
-      | Atom (Literal IntLiteral) ->
-        let%map () =
-          match b with
-          | Atom (Literal IntLiteral) -> Some ()
-          | _ -> None
-        in
-        ()
-      | Atom (Literal CharacterLiteral) ->
-        let%map () =
-          match b with
-          | Atom (Literal CharacterLiteral) -> Some ()
-          | _ -> None
-        in
-        ()
-    in
-    let result : unit option = compareTypes a b (Map.empty (module Identifier)) in
-    (* Convert from option back to boolean *)
-    optToBool result
+  let eqType a b =
+    Nucleus.Canonical.Type.equal
+      (Nucleus.Canonical.Type.from a)
+      (Nucleus.Canonical.Type.from b)
   ;;
 
   let requireType ~expected ~actual ~makeError =
@@ -804,107 +623,6 @@ module TypeChecker = struct
       |> CheckerState.ignore_m
     | IntLiteral _ -> ok ()
     | CharacterLiteral _ -> ok ()
-  ;;
-
-  let subIndicesIntoDimIndex indices ({ const; refs } : Nucleus.Index.dimension) =
-    let open Nucleus.Index in
-    Map.fold
-      refs
-      ~init:{ const; refs = Map.empty (Map.comparator_s refs) }
-      ~f:(fun ~key:idBeingSubbed ~data:subMultiplier acc ->
-        match Map.find indices idBeingSubbed with
-        | Some (Dimension sub) ->
-          (* need to combine togeth acc and sub, with sub repeated subMultiplier times *)
-          let sub =
-            { const = sub.const * subMultiplier
-            ; refs = Map.map sub.refs ~f:(( * ) subMultiplier)
-            }
-          in
-          let combinedConsts = acc.const + sub.const in
-          let combinedRefs =
-            Map.fold sub.refs ~init:acc.refs ~f:(fun ~key:ref ~data:count combinedRefs ->
-                Map.update combinedRefs ref ~f:(fun prevCount ->
-                    Option.value prevCount ~default:0 + count))
-          in
-          { const = combinedConsts; refs = combinedRefs }
-        | Some (Shape _) -> acc
-        | None -> acc)
-  ;;
-
-  let subIndicesIntoShapeIndex indices shape =
-    let open Nucleus.Index in
-    List.bind shape ~f:(function
-        | Add dim -> [ Add (subIndicesIntoDimIndex indices dim) ]
-        | ShapeRef id as ref ->
-          (match Map.find indices id with
-          | Some (Shape shape) -> shape
-          | Some (Dimension _) -> [ ref ]
-          | None -> [ ref ]))
-  ;;
-
-  let rec subIndicesIntoArrayType indices =
-    let open Nucleus.Type in
-    function
-    | ArrayRef _ as ref -> ref
-    | Arr { element; shape } ->
-      Arr
-        { element = subIndicesIntoAtomType indices element
-        ; shape = subIndicesIntoShapeIndex indices shape
-        }
-
-  and subIndicesIntoAtomType indices =
-    let open Nucleus.Type in
-    function
-    | AtomRef _ as ref -> ref
-    | Func { parameters; return } ->
-      Func
-        { parameters = List.map parameters ~f:(subIndicesIntoArrayType indices)
-        ; return = subIndicesIntoArrayType indices return
-        }
-    | Forall { parameters; body } ->
-      Forall { parameters; body = subIndicesIntoArrayType indices body }
-    | Pi { parameters; body } ->
-      Pi { parameters; body = subIndicesIntoArrayType indices body }
-    | Sigma { parameters; body } ->
-      Sigma { parameters; body = subIndicesIntoArrayType indices body }
-    | Tuple elements -> Tuple (List.map elements ~f:(subIndicesIntoAtomType indices))
-    | Literal IntLiteral -> Literal IntLiteral
-    | Literal CharacterLiteral -> Literal CharacterLiteral
-  ;;
-
-  let rec subTypesIntoArrayType types =
-    let open Nucleus.Type in
-    function
-    | ArrayRef id as ref ->
-      (match Map.find types id with
-      | Some (Array arrayType) -> arrayType
-      | Some (Atom _) -> ref
-      | None -> ref)
-    | Arr { element; shape } ->
-      Arr { element = subTypesIntoAtomType types element; shape }
-
-  and subTypesIntoAtomType types =
-    let open Nucleus.Type in
-    function
-    | AtomRef id as ref ->
-      (match Map.find types id with
-      | Some (Atom atomType) -> atomType
-      | Some (Array _) -> ref
-      | None -> ref)
-    | Func { parameters; return } ->
-      Func
-        { parameters = List.map parameters ~f:(subTypesIntoArrayType types)
-        ; return = subTypesIntoArrayType types return
-        }
-    | Forall { parameters; body } ->
-      Forall { parameters; body = subTypesIntoArrayType types body }
-    | Pi { parameters; body } ->
-      Pi { parameters; body = subTypesIntoArrayType types body }
-    | Sigma { parameters; body } ->
-      Sigma { parameters; body = subTypesIntoArrayType types body }
-    | Tuple elements -> Tuple (List.map elements ~f:(subTypesIntoAtomType types))
-    | Literal IntLiteral -> Literal IntLiteral
-    | Literal CharacterLiteral -> Literal CharacterLiteral
   ;;
 
   let findEscapingRefs (env : Environment.t) type' =
@@ -1289,7 +1007,9 @@ module TypeChecker = struct
       let substitutions =
         Map.of_alist_reduce (module Identifier) substitutionsList ~f:(fun a _ -> a)
       in
-      let subbedElementType = subTypesIntoAtomType substitutions bodyType.element in
+      let subbedElementType =
+        Substitute.subTypesIntoAtomType substitutions bodyType.element
+      in
       let typedArgs = List.map substitutionsList ~f:(fun (_, arg) -> arg) in
       T.Array
         (T.TypeApplication
@@ -1325,8 +1045,12 @@ module TypeChecker = struct
       let substitutions =
         Map.of_alist_reduce (module Identifier) substitutionsList ~f:(fun a _ -> a)
       in
-      let subbedElementType = subIndicesIntoAtomType substitutions bodyType.element in
-      let subbedBodyShape = subIndicesIntoShapeIndex substitutions bodyType.shape in
+      let subbedElementType =
+        Substitute.subIndicesIntoAtomType substitutions bodyType.element
+      in
+      let subbedBodyShape =
+        Substitute.subIndicesIntoShapeIndex substitutions bodyType.shape
+      in
       let typedArgs = List.map substitutionsList ~f:(fun (_, arg) -> arg) in
       T.Array
         (T.IndexApplication
@@ -1408,7 +1132,7 @@ module TypeChecker = struct
           env.types
           ~key:valueBinding.elem
           ~data:
-            { e = subIndicesIntoArrayType substitutions sigma.body
+            { e = Substitute.subIndicesIntoArrayType substitutions sigma.body
             ; id = valueBindingTyped
             }
       in
@@ -1549,7 +1273,9 @@ module TypeChecker = struct
                    ~f:(fun acc (param, index) ->
                      Map.set acc ~key:param.binding ~data:index)
                in
-               let subbedType = subIndicesIntoArrayType substitutions elementType in
+               let subbedType =
+                 Substitute.subIndicesIntoArrayType substitutions elementType
+               in
                let%map () =
                  requireType
                    ~expected:(Nucleus.Type.Array subbedType)

@@ -3,4 +3,4 @@ open! Base
 type t =
   | Atom
   | Array
-[@@deriving eq, sexp]
+[@@deriving equal, sexp, compare]

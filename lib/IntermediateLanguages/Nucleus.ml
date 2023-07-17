@@ -234,10 +234,196 @@ end
 type t = Expr.t [@@deriving sexp]
 
 module ShowStage (SB : Source.BuilderT) = struct
+  type state = CompilerState.state
   type error = (SB.source option, string) Source.annotate
   type input = t
   type output = string
 
   let name = "Print Nucleus"
-  let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: t] input))
+  let run input = CompilerPipeline.S.return (Sexp.to_string_hum ([%sexp_of: t] input))
+end
+
+module Canonical : sig
+  module Index : sig
+    type t [@@deriving compare, equal]
+    type comparator_witness
+
+    val comparator : (t, comparator_witness) Comparator.t
+    val from : Index.t -> t
+  end
+
+  module Type : sig
+    type t [@@deriving compare, equal]
+    type comparator_witness
+
+    val comparator : (t, comparator_witness) Comparator.t
+    val from : Type.t -> t
+  end
+end = struct
+  module Ref = struct
+    module T = struct
+      type t = int * int [@@deriving compare, sexp, equal]
+    end
+
+    include T
+    include Comparator.Make (T)
+
+    let default = -1, 0
+    let getInEnv env i = Map.find env i |> Option.value ~default
+  end
+
+  module Index = struct
+    module T = struct
+      type dimension =
+        { const : int
+        ; refs : int Map.M(Ref).t
+        }
+      [@@deriving compare, sexp, equal]
+
+      type shapeElement =
+        | Add of dimension
+        | ShapeRef of Ref.t
+      [@@deriving compare, sexp, equal]
+
+      type shape = shapeElement list [@@deriving compare, sexp, equal]
+
+      type t =
+        | Dimension of dimension
+        | Shape of shape
+      [@@deriving compare, sexp, equal]
+    end
+
+    include T
+    include Comparator.Make (T)
+
+    let dimensionFrom env ({ const; refs } : Index.dimension) : dimension =
+      { const
+      ; refs =
+          Map.fold
+            refs
+            ~init:(Map.empty (module Ref))
+            ~f:(fun ~key:ref ~data:count acc ->
+              Map.set acc ~key:(Ref.getInEnv env ref) ~data:count)
+      }
+    ;;
+
+    let shapeElementFrom env = function
+      | Index.Add dimension -> Add (dimensionFrom env dimension)
+      | Index.ShapeRef ref -> ShapeRef (Ref.getInEnv env ref)
+    ;;
+
+    let shapeFrom env = List.map ~f:(shapeElementFrom env)
+
+    let indexFrom env : Index.t -> t = function
+      | Index.Dimension dimension -> Dimension (dimensionFrom env dimension)
+      | Index.Shape shapeElements -> Shape (shapeFrom env shapeElements)
+    ;;
+
+    let from index = indexFrom (Map.empty (module Identifier)) index
+  end
+
+  module Type = struct
+    module T = struct
+      type arr =
+        { element : atom
+        ; shape : Index.shape
+        }
+
+      and func =
+        { parameters : array list
+        ; return : array
+        }
+
+      and 't abstraction =
+        { parameters : 't list
+        ; body : array
+        }
+
+      and forall = Kind.t abstraction
+      and pi = Sort.t abstraction
+      and sigma = Sort.t abstraction
+      and tuple = atom list
+
+      and literal =
+        | IntLiteral
+        | CharacterLiteral
+
+      and array =
+        | ArrayRef of Ref.t
+        | Arr of arr
+
+      and atom =
+        | AtomRef of Ref.t
+        | Func of func
+        | Forall of forall
+        | Pi of pi
+        | Sigma of sigma
+        | Tuple of tuple
+        | Literal of literal
+
+      and t =
+        | Array of array
+        | Atom of atom
+      [@@deriving compare, sexp, equal]
+    end
+
+    include T
+    include Comparator.Make (T)
+
+    let rec arrayFrom env depth = function
+      | Type.ArrayRef ref -> ArrayRef (Ref.getInEnv env ref)
+      | Type.Arr { element; shape } ->
+        Arr { element = atomFrom env depth element; shape = Index.shapeFrom env shape }
+
+    and atomFrom env depth = function
+      | Type.AtomRef ref -> AtomRef (Ref.getInEnv env ref)
+      | Type.Func { parameters; return } ->
+        Func
+          { parameters = List.map parameters ~f:(arrayFrom env depth)
+          ; return = arrayFrom env depth return
+          }
+      | Type.Forall { parameters; body } ->
+        Forall
+          { parameters = List.map parameters ~f:(fun p -> p.bound)
+          ; body =
+              (let env, _ =
+                 List.fold parameters ~init:(env, 0) ~f:(fun (env, count) param ->
+                     Map.set env ~key:param.binding ~data:(depth, count), count + 1)
+               in
+               let depth = depth + 1 in
+               arrayFrom env depth body)
+          }
+      | Type.Pi { parameters; body } ->
+        Pi
+          { parameters = List.map parameters ~f:(fun p -> p.bound)
+          ; body =
+              (let env, _ =
+                 List.fold parameters ~init:(env, 0) ~f:(fun (env, count) param ->
+                     Map.set env ~key:param.binding ~data:(depth, count), count + 1)
+               in
+               let depth = depth + 1 in
+               arrayFrom env depth body)
+          }
+      | Type.Sigma { parameters; body } ->
+        Sigma
+          { parameters = List.map parameters ~f:(fun p -> p.bound)
+          ; body =
+              (let env, _ =
+                 List.fold parameters ~init:(env, 0) ~f:(fun (env, count) param ->
+                     Map.set env ~key:param.binding ~data:(depth, count), count + 1)
+               in
+               let depth = depth + 1 in
+               arrayFrom env depth body)
+          }
+      | Type.Tuple elements -> Tuple (List.map elements ~f:(atomFrom env depth))
+      | Type.Literal IntLiteral -> Literal IntLiteral
+      | Type.Literal CharacterLiteral -> Literal CharacterLiteral
+
+    and typeFrom env depth = function
+      | Type.Array array -> Array (arrayFrom env depth array)
+      | Type.Atom atom -> Atom (atomFrom env depth atom)
+    ;;
+
+    let from type' = typeFrom (Map.empty (module Identifier)) 0 type'
+  end
 end

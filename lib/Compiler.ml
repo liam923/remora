@@ -16,8 +16,9 @@ module Make (SB : Source.BuilderT) = struct
     CompilerPipeline.(
       (module Parser.Stage (SB))
       @> (module TypeChecker.Stage (SB))
-      @> (module Monomorphize.Stage (SB))
-      @> (module MonoNucleus.ShowStage (SB))
+      (* @> (module Monomorphize.Stage (SB)) *)
+      (* @> (module MonoNucleus.ShowStage (SB)) *)
+      @> (module Nucleus.ShowStage (SB))
       @> empty)
   ;;
 

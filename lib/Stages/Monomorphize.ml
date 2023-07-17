@@ -1,9 +1,10 @@
 open! Base
+module Mono = MonoNucleus
+module Poly = Nucleus
+(* open Poly *)
 
-type state = unit
-
-module MonoStateT = struct
-  include StateT.Make2WithError (MResult)
+module MonoState = struct
+  include CompilerState
   (* 
   type nonrec state = state
 
@@ -25,29 +26,81 @@ module MonoStateT = struct
   ;; *)
 end
 
-(* open MonoStateT.Let_syntax *)
+(* open MonoState.Let_syntax
 
-type 't result = (state, 't, string) MonoStateT.t
+type tstack = Type.t list list
+type istack = Index.t list list
 
-(* module MonomorphIndex = struct
-  let monomorph : Nucleus.Index.t -> MonoNucleus.Index.t result =
-    Error.raise (Error.of_string "unimplemented")
-  ;;
-end
+type stack =
+  { t : tstack
+  ; i : istack
+  }
 
-module MonomorphType = struct
-  let monomorph : Nucleus.Type.t -> MonoNucleus.Type.t result =
-    Error.raise (Error.of_string "unimplemented")
-  ;;
-end *)
+type tqueue = ((tstack * Identifier.t) Map.M(Canonical.Type).t) Map.M(Identifier).t
+type iqueue = (istack * Identifier.t) Map.M(Identifier).t
 
-module MonomorphExpr = struct
-  let monomorph (_ : Nucleus.Expr.t) : MonoNucleus.Expr.t result =
-    Error.raise (Error.of_string "unimplemented")
-  ;;
-end
+type queue =
+  { t : tqueue
+  ; i : iqueue
+  }
 
-let monomorphize expr = MonoStateT.runA (MonomorphExpr.monomorph expr) ()
+type paramRequests = queue list
+type 't result = (CompilerState.state, 't, string) MonoState.t
+
+type 't morphedExpr =
+  { expr : 't
+  ; queue : queue
+  ; paramRequests : paramRequests option
+  }
+
+let mapMorphedExpr { expr; queue; paramRequests } ~f =
+  { expr = f expr; queue; paramRequests }
+;;
+
+let rec morphAtom (stack : stack) : Poly.Expr.atom -> Mono.Expr.atom morphedExpr result
+  = function
+  | TermLambda _ -> Error.raise (Error.of_string "")
+  | TypeLambda _ -> Error.raise (Error.of_string "")
+  | IndexLambda _ -> Error.raise (Error.of_string "")
+  | Box _ -> Error.raise (Error.of_string "")
+  | Tuple _ -> Error.raise (Error.of_string "")
+  | Literal (IntLiteral i) ->
+    MonoState.return
+      { expr = Mono.Expr.Literal (IntLiteral i)
+      ; queue = { t = Map.empty (module Identifier); i = Map.empty (module Identifier) }
+      ; paramRequests = None
+      }
+  | Literal (CharacterLiteral c) ->
+    MonoState.return
+      { expr = Mono.Expr.Literal (CharacterLiteral c)
+      ; queue = { t = Map.empty (module Identifier); i = Map.empty (module Identifier) }
+      ; paramRequests = None
+      }
+
+and morphArray (stack : stack) : Poly.Expr.array -> Mono.Expr.array morphedExpr result
+  = function
+  | Ref _ -> Error.raise (Error.of_string "")
+  | Arr _ -> Error.raise (Error.of_string "")
+  | Frame _ -> Error.raise (Error.of_string "")
+  | TermApplication _ -> Error.raise (Error.of_string "")
+  | TypeApplication { tFunc; args; type' = _ } ->
+    morphArray { stack with t = args :: stack.t } tFunc
+  | IndexApplication { iFunc; args; type' = _ } ->
+    morphArray { stack with i = args :: stack.i } iFunc
+  | Unbox _ -> Error.raise (Error.of_string "")
+  | Let _ -> Error.raise (Error.of_string "")
+  | TupleLet _ -> Error.raise (Error.of_string "")
+
+and morph (stack : stack) : Poly.Expr.t -> Mono.Expr.t morphedExpr result = function
+  | Array array ->
+    let%map morphed = morphArray stack array in
+    mapMorphedExpr morphed ~f:(fun array -> Mono.Expr.Array array)
+  | Atom atom ->
+    let%map morphed = morphAtom stack atom in
+    mapMorphedExpr morphed ~f:(fun atom -> Mono.Expr.Atom atom)
+;; *)
+
+let monomorphize _ = Error.raise (Error.of_string "")
 
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
@@ -56,12 +109,5 @@ module Stage (SB : Source.BuilderT) = struct
   type error = (SB.source option, string) Source.annotate
 
   let name = "Monomorphize"
-
-  let run input =
-    CompilerPipeline.S.returnF
-      (match monomorphize input with
-      | MOk _ as expr -> expr
-      | Errors errs ->
-        Errors (NeList.map errs ~f:(fun err -> Source.{ elem = err; source = None })))
-  ;;
+  let run input = monomorphize input
 end

@@ -1,4 +1,4 @@
-open! Base
+(* open! Base
 
 (* The DefunNucleus language represents a monomorphized, defunctionalized Remora program *)
 
@@ -138,4 +138,4 @@ module ShowStage (SB : Source.BuilderT) = struct
 
   let name = "Print DefunNucleus"
   let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: t] input))
-end
+end *)

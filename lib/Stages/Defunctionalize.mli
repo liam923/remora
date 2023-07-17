@@ -1,4 +1,4 @@
-open! Base
+(* open! Base
 
 val defunctionalize : MonoNucleus.t -> (CompilerState.state, DefunNucleus.t, _) State.t
 
@@ -7,4 +7,4 @@ module Stage (SB : Source.BuilderT) :
     with type state = CompilerState.state
     with type input = MonoNucleus.t
     with type output = DefunNucleus.t
-    with type error = (SB.source option, string) Source.annotate
+    with type error = (SB.source option, string) Source.annotate *)

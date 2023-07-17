@@ -1,6 +1,8 @@
 open! Base
 
-val monomorphize : Nucleus.t -> (MonoNucleus.t, string) MResult.t
+val monomorphize
+  :  Nucleus.t
+  -> (CompilerState.state, MonoNucleus.t, string) CompilerState.t
 
 module Stage (SB : Source.BuilderT) :
   CompilerPipeline.Stage
