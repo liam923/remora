@@ -34,16 +34,16 @@ module Make2 (M : Monad.S2) = struct
 
     let bind runF ~f =
       M.map runF ~f:(fun run inState ->
-          let%bind.M interimState, interimValue = run inState in
-          let%bind.M fRun = f interimValue in
-          let%map.M outState, outValue = fRun interimState in
-          outState, outValue)
+        let%bind.M interimState, interimValue = run inState in
+        let%bind.M fRun = f interimValue in
+        let%map.M outState, outValue = fRun interimState in
+        outState, outValue)
     ;;
 
     let map runF ~f =
       M.map runF ~f:(fun run inState ->
-          let%map.M outState, interimValue = run inState in
-          outState, f interimValue)
+        let%map.M outState, interimValue = run inState in
+        outState, f interimValue)
     ;;
 
     let map = `Custom map
@@ -52,14 +52,14 @@ module Make2 (M : Monad.S2) = struct
 
   let transform runF ~f =
     M.map runF ~f:(fun run inState ->
-        let%map.M interimState, interimValue = run inState in
-        f interimState interimValue)
+      let%map.M interimState, interimValue = run inState in
+      f interimState interimValue)
   ;;
 
   let transformF runF ~f =
     M.map runF ~f:(fun run inState ->
-        let%bind.M interimState, interimValue = run inState in
-        f interimState interimValue)
+      let%bind.M interimState, interimValue = run inState in
+      f interimState interimValue)
   ;;
 
   let inspect ~f = M.return (fun state -> M.return (state, f state))
@@ -90,12 +90,12 @@ module Make2WithError (M : MonadWithError.S2) = struct
 
   let goodBoth a b =
     M.return (fun inState ->
-        M.bindWithError
-          (run a inState)
-          ~f:(fun (interimState, aValue) ->
-            M.map (run b interimState) ~f:(fun (outState, bValue) ->
-                outState, (aValue, bValue)))
-          ~error:(fun _ -> M.ignore_m (run b inState)))
+      M.bindWithError
+        (run a inState)
+        ~f:(fun (interimState, aValue) ->
+          M.map (run b interimState) ~f:(fun (outState, bValue) ->
+            outState, (aValue, bValue)))
+        ~error:(fun _ -> M.ignore_m (run b inState)))
   ;;
 
   let both = goodBoth

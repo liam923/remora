@@ -6,13 +6,13 @@ let%expect_test "check sort" =
     match Parser.Unit.IndexParser.parseString str with
     | MOk index ->
       (match CompilerState.runA (TypeChecker.checkSort index) CompilerState.initial with
-      | MOk indexTyped ->
-        [%sexp_of: Nucleus.Index.t] indexTyped
-        |> Sexp.to_string_hum
-        |> Stdio.print_endline
-      | Errors errs ->
-        NeList.iter errs ~f:(fun err ->
-            Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
+       | MOk indexTyped ->
+         [%sexp_of: Nucleus.Index.t] indexTyped
+         |> Sexp.to_string_hum
+         |> Stdio.print_endline
+       | Errors errs ->
+         NeList.iter errs ~f:(fun err ->
+           Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
     | Errors errs ->
       let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
       let errsStr = Sexp.to_string_hum errsSexp in
@@ -57,11 +57,11 @@ let%expect_test "check kind" =
     match Parser.Unit.TypeParser.parseString str with
     | MOk type' ->
       (match CompilerState.runA (TypeChecker.checkKind type') CompilerState.initial with
-      | MOk typeTyped ->
-        [%sexp_of: Nucleus.Type.t] typeTyped |> Sexp.to_string_hum |> Stdio.print_endline
-      | Errors errs ->
-        NeList.iter errs ~f:(fun err ->
-            Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
+       | MOk typeTyped ->
+         [%sexp_of: Nucleus.Type.t] typeTyped |> Sexp.to_string_hum |> Stdio.print_endline
+       | Errors errs ->
+         NeList.iter errs ~f:(fun err ->
+           Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
     | Errors errs ->
       let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
       let errsStr = Sexp.to_string_hum errsSexp in
@@ -209,14 +209,14 @@ let%expect_test "check type" =
     match Parser.Unit.parseString str with
     | MOk expr ->
       (match CompilerState.runA (TypeChecker.checkType expr) CompilerState.initial with
-      | MOk exprTyped ->
-        [%sexp_of: Nucleus.Expr.t] exprTyped |> Sexp.to_string_hum |> Stdio.print_endline;
-        [%sexp_of: Nucleus.Type.t] (Nucleus.Expr.type' exprTyped)
-        |> Sexp.to_string_hum
-        |> fun typeStr -> [%string "Type: %{typeStr}"] |> Stdio.print_endline
-      | Errors errs ->
-        NeList.iter errs ~f:(fun err ->
-            Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
+       | MOk exprTyped ->
+         [%sexp_of: Nucleus.Expr.t] exprTyped |> Sexp.to_string_hum |> Stdio.print_endline;
+         [%sexp_of: Nucleus.Type.t] (Nucleus.Expr.type' exprTyped)
+         |> Sexp.to_string_hum
+         |> fun typeStr -> [%string "Type: %{typeStr}"] |> Stdio.print_endline
+       | Errors errs ->
+         NeList.iter errs ~f:(fun err ->
+           Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
     | Errors errs ->
       let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
       let errsStr = Sexp.to_string_hum errsSexp in

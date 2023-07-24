@@ -40,8 +40,8 @@ include MonadWithError.Make2 (struct
     | MOk success -> f success
     | Errors errors ->
       (match error errors with
-      | MOk () -> Errors errors
-      | Errors moreErrors -> Errors (NeList.append errors moreErrors))
+       | MOk () -> Errors errors
+       | Errors moreErrors -> Errors (NeList.append errors moreErrors))
   ;;
 end)
 

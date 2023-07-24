@@ -13,6 +13,6 @@ let () =
   | MOk outProgram -> Stdio.print_endline outProgram
   | Errors errors ->
     NeList.iter errors ~f:(fun { elem = error; source = _ } ->
-        Stdio.prerr_endline [%string "Error: %{error}"]);
+      Stdio.prerr_endline [%string "Error: %{error}"]);
     Caml.exit 1
 ;;

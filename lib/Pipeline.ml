@@ -127,11 +127,11 @@ module Make2 (M : MonadWithError.S2) = struct
   end
 
   let makeWithNestingPlugin
-      (type s a b e acc)
-      (pipeline : (s, a, b, e) pipeline)
-      (init : a)
-      (plugin : (module NestingPlugin with type acc = acc and type error = e))
-      : (s, acc * b, e) S.t
+    (type s a b e acc)
+    (pipeline : (s, a, b, e) pipeline)
+    (init : a)
+    (plugin : (module NestingPlugin with type acc = acc and type error = e))
+    : (s, acc * b, e) S.t
     =
     let module P = (val plugin : NestingPlugin with type acc = acc and type error = e) in
     let rec loop : type c d. acc -> c -> (s, c, d, e) pipeline -> (s, acc * d, e) S.t =
@@ -159,11 +159,11 @@ module Make2 (M : MonadWithError.S2) = struct
   end
 
   let makeWithPlugin
-      (type s a b e acc)
-      (pipeline : (s, a, b, e) pipeline)
-      (init : a)
-      (plugin : (module Plugin with type acc = acc and type error = e))
-      : (s, acc * b, e) S.t
+    (type s a b e acc)
+    (pipeline : (s, a, b, e) pipeline)
+    (init : a)
+    (plugin : (module Plugin with type acc = acc and type error = e))
+    : (s, acc * b, e) S.t
     =
     let module P = struct
       include (val plugin : Plugin with type acc = acc and type error = e)
@@ -185,11 +185,13 @@ module Make2 (M : MonadWithError.S2) = struct
       let initialAcc = ()
 
       let makeStage (type s c d) () curr stage =
-        let module Stage = (val stage : Stage
-                              with type state = s
-                               and type input = c
-                               and type output = d
-                               and type error = e)
+        let module Stage =
+          (val stage
+              : Stage
+              with type state = s
+               and type input = c
+               and type output = d
+               and type error = e)
         in
         let%map.S next = Stage.run curr in
         (), next

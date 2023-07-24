@@ -147,8 +147,8 @@ let find_mapi t ~f =
     | [ x ] -> Option.(f i x >>| fun y -> i, y)
     | x1 :: x2 :: xs ->
       (match f i x1 with
-      | None -> loop (i + 1) (x2 :: xs)
-      | Some y -> Some (i, y))
+       | None -> loop (i + 1) (x2 :: xs)
+       | Some y -> Some (i, y))
   in
   loop 0 t
 ;;

@@ -17,8 +17,8 @@ let subIndicesIntoDimIndex indices ({ const; refs } : Nucleus.Index.dimension) =
         let combinedConsts = acc.const + sub.const in
         let combinedRefs =
           Map.fold sub.refs ~init:acc.refs ~f:(fun ~key:ref ~data:count combinedRefs ->
-              Map.update combinedRefs ref ~f:(fun prevCount ->
-                  Option.value prevCount ~default:0 + count))
+            Map.update combinedRefs ref ~f:(fun prevCount ->
+              Option.value prevCount ~default:0 + count))
         in
         { const = combinedConsts; refs = combinedRefs }
       | Some (Shape _) -> acc
@@ -30,12 +30,12 @@ open! Base
 let subIndicesIntoShapeIndex indices shape =
   let open Nucleus.Index in
   List.bind shape ~f:(function
-      | Add dim -> [ Add (subIndicesIntoDimIndex indices dim) ]
-      | ShapeRef id as ref ->
-        (match Map.find indices id with
-        | Some (Shape shape) -> shape
-        | Some (Dimension _) -> [ ref ]
-        | None -> [ ref ]))
+    | Add dim -> [ Add (subIndicesIntoDimIndex indices dim) ]
+    | ShapeRef id as ref ->
+      (match Map.find indices id with
+       | Some (Shape shape) -> shape
+       | Some (Dimension _) -> [ ref ]
+       | None -> [ ref ]))
 ;;
 
 let subIndicesIntoIndex indices =
@@ -98,9 +98,9 @@ let rec subTypesIntoArrayType types =
   function
   | ArrayRef id as ref ->
     (match Map.find types id with
-    | Some (Array arrayType) -> arrayType
-    | Some (Atom _) -> ref
-    | None -> ref)
+     | Some (Array arrayType) -> arrayType
+     | Some (Atom _) -> ref
+     | None -> ref)
   | Arr arr -> Arr (subTypesIntoArrType types arr)
 
 and subTypesIntoArrType types Nucleus.Type.{ element; shape } =
@@ -111,9 +111,9 @@ and subTypesIntoAtomType types =
   function
   | AtomRef id as ref ->
     (match Map.find types id with
-    | Some (Atom atomType) -> atomType
-    | Some (Array _) -> ref
-    | None -> ref)
+     | Some (Atom atomType) -> atomType
+     | Some (Array _) -> ref
+     | None -> ref)
   | Func { parameters; return } ->
     Func
       { parameters = List.map parameters ~f:(subTypesIntoArrayType types)
@@ -202,7 +202,7 @@ let rec subTypesIntoArrayExpr types =
     TupleLet
       { params =
           List.map params ~f:(fun { binding; bound } ->
-              Nucleus.{ binding; bound = subTypesIntoAtomType types bound })
+            Nucleus.{ binding; bound = subTypesIntoAtomType types bound })
       ; value = subTypesIntoArrayExpr types value
       ; body = subTypesIntoArrayExpr types body
       ; type' = subTypesIntoArrayType types type'
@@ -213,7 +213,7 @@ and subTypesIntoAtomExpr types = function
     TermLambda
       { params =
           List.map params ~f:(fun { binding; bound } ->
-              Nucleus.{ binding; bound = subTypesIntoArrayType types bound })
+            Nucleus.{ binding; bound = subTypesIntoArrayType types bound })
       ; body = subTypesIntoArrayExpr types body
       ; type' = subTypesIntoFuncType types type'
       }
@@ -296,7 +296,7 @@ let rec subIndicesIntoArrayExpr indices =
     TupleLet
       { params =
           List.map params ~f:(fun { binding; bound } ->
-              Nucleus.{ binding; bound = subIndicesIntoAtomType indices bound })
+            Nucleus.{ binding; bound = subIndicesIntoAtomType indices bound })
       ; value = subIndicesIntoArrayExpr indices value
       ; body = subIndicesIntoArrayExpr indices body
       ; type' = subIndicesIntoArrayType indices type'
@@ -307,7 +307,7 @@ and subIndicesIntoAtomExpr indices = function
     TermLambda
       { params =
           List.map params ~f:(fun { binding; bound } ->
-              Nucleus.{ binding; bound = subIndicesIntoArrayType indices bound })
+            Nucleus.{ binding; bound = subIndicesIntoArrayType indices bound })
       ; body = subIndicesIntoArrayExpr indices body
       ; type' = subIndicesIntoFuncType indices type'
       }

@@ -387,7 +387,7 @@ end = struct
           ; body =
               (let env, _ =
                  List.fold parameters ~init:(env, 0) ~f:(fun (env, count) param ->
-                     Map.set env ~key:param.binding ~data:(depth, count), count + 1)
+                   Map.set env ~key:param.binding ~data:(depth, count), count + 1)
                in
                let depth = depth + 1 in
                arrayFrom env depth body)
@@ -398,7 +398,7 @@ end = struct
           ; body =
               (let env, _ =
                  List.fold parameters ~init:(env, 0) ~f:(fun (env, count) param ->
-                     Map.set env ~key:param.binding ~data:(depth, count), count + 1)
+                   Map.set env ~key:param.binding ~data:(depth, count), count + 1)
                in
                let depth = depth + 1 in
                arrayFrom env depth body)
@@ -409,7 +409,7 @@ end = struct
           ; body =
               (let env, _ =
                  List.fold parameters ~init:(env, 0) ~f:(fun (env, count) param ->
-                     Map.set env ~key:param.binding ~data:(depth, count), count + 1)
+                   Map.set env ~key:param.binding ~data:(depth, count), count + 1)
                in
                let depth = depth + 1 in
                arrayFrom env depth body)
