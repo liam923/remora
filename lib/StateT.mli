@@ -1,7 +1,7 @@
 open! Base
 
 (** Inspired by Cats' StateT (from Scala).
-   A monad that holds a state and a value, where the value is also a monad *)
+    A monad that holds a state and a value, where the value is also a monad *)
 
 module type S2 = sig
   (** m is the monad being wrapped *)

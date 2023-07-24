@@ -14,5 +14,5 @@ let () =
   | Errors errors ->
     NeList.iter errors ~f:(fun { elem = error; source = _ } ->
       Stdio.prerr_endline [%string "Error: %{error}"]);
-    Caml.exit 1
+    Stdlib.exit 1
 ;;

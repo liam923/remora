@@ -135,7 +135,7 @@ module Make2 (M : MonadWithError.S2) = struct
     =
     let module P = (val plugin : NestingPlugin with type acc = acc and type error = e) in
     let rec loop : type c d. acc -> c -> (s, c, d, e) pipeline -> (s, acc * d, e) S.t =
-     fun acc curr pipeline ->
+      fun acc curr pipeline ->
       match pipeline with
       | Step (stage, rest) ->
         let%bind.S acc, next = P.makeStage acc curr stage in
@@ -177,7 +177,7 @@ module Make2 (M : MonadWithError.S2) = struct
 
   let make (type s a b e) (pipeline : (s, a, b, e) pipeline) (init : a) =
     (* Error.raise (Error.of_string "")
-  ;; *)
+       ;; *)
     let module P = struct
       type acc = unit
       type error = e

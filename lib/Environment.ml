@@ -28,9 +28,9 @@ module Base (Gen : IdentifierGenerator) = struct
       let%map alist =
         namesAndValues
         |> List.map ~f:(function name, value ->
-             let%map id = Gen.createId name
-             and value = value in
-             name, { id; e = value })
+          let%map id = Gen.createId name
+          and value = value in
+          name, { id; e = value })
         |> Gen.all
       in
       Map.of_alist_exn (module String) alist

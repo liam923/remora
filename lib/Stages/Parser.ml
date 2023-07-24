@@ -129,7 +129,7 @@ module Make (SB : Source.BuilderT) = struct
       =
       match components with
       | [ (List { braceType = Parens; elements = parameters; braceSources = _ } as
-          paramsExp)
+           paramsExp)
         ; body
         ] ->
         let%map parsedBody = parseType body
@@ -176,7 +176,7 @@ module Make (SB : Source.BuilderT) = struct
       when String.equal arrow "->" || String.equal arrow "→" ->
       (match components with
        | [ (List { braceType = Parens; elements = parameters; braceSources = _ } as
-           paramsExp)
+            paramsExp)
          ; return
          ] ->
          let%map parsedParameters =
@@ -506,7 +506,7 @@ module Make (SB : Source.BuilderT) = struct
        | (List { braceType = Parens; elements = params; braceSources = _ } as paramsExp)
          :: elementType
          :: (List { braceType = Bracks; elements = dimensions; braceSources = _ } as
-            dimsExp)
+             dimsExp)
          :: elements ->
          let parseElement = function
            | Texp.List
@@ -640,7 +640,7 @@ module Make (SB : Source.BuilderT) = struct
         } as letExpr ->
       (match components with
        | (List { braceType = Bracks; elements = declarationComponents; braceSources = _ }
-         as decExp)
+          as decExp)
          :: bodyHead
          :: bodyTail ->
          let%map parsedBody = parseExprBody (bodyHead :: bodyTail)
@@ -954,10 +954,10 @@ module Make (SB : Source.BuilderT) = struct
   end
 
   module MakeParser (Base : sig
-    type t
+      type t
 
-    val parseTexps : source Texp.t NeList.t -> t result
-  end) =
+      val parseTexps : source Texp.t NeList.t -> t result
+    end) =
   struct
     include Base
 
@@ -987,32 +987,32 @@ module Make (SB : Source.BuilderT) = struct
   end
 
   module IndexParser = MakeParser (struct
-    type t = source Index.t
+      type t = source Index.t
 
-    let parseTexps (texps : source Texp.t NeList.t) =
-      match texps with
-      | [ texp ] -> parseIndex texp
-      | extra :: _ ->
-        MResult.err ("Expected one texp, got more than one", texpSource extra)
-    ;;
-  end)
+      let parseTexps (texps : source Texp.t NeList.t) =
+        match texps with
+        | [ texp ] -> parseIndex texp
+        | extra :: _ ->
+          MResult.err ("Expected one texp, got more than one", texpSource extra)
+      ;;
+    end)
 
   module TypeParser = MakeParser (struct
-    type t = source Type.t
+      type t = source Type.t
 
-    let parseTexps (texps : source Texp.t NeList.t) =
-      match texps with
-      | [ texp ] -> parseType texp
-      | extra :: _ ->
-        MResult.err ("Expected one texp, got more than one", texpSource extra)
-    ;;
-  end)
+      let parseTexps (texps : source Texp.t NeList.t) =
+        match texps with
+        | [ texp ] -> parseType texp
+        | extra :: _ ->
+          MResult.err ("Expected one texp, got more than one", texpSource extra)
+      ;;
+    end)
 
   module ExprParser = MakeParser (struct
-    type t = source Expr.t
+      type t = source Expr.t
 
-    let parseTexps = parseExprBody
-  end)
+      let parseTexps = parseExprBody
+    end)
 
   include ExprParser
 end
@@ -1020,12 +1020,12 @@ end
 module Default = Make (Source.Builder)
 
 module Unit = Make (struct
-  type source = unit
+    type source = unit
 
-  let make ~start:_ ~finish:_ = ()
-  let merge () () = ()
-  let between () () = ()
-end)
+    let make ~start:_ ~finish:_ = ()
+    let merge () () = ()
+    let between () () = ()
+  end)
 
 module Stage (SB : Source.BuilderT) = struct
   module Parser = Make (SB)

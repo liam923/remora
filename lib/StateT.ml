@@ -30,25 +30,25 @@ module Make2 (M : Monad.S2) = struct
   let runA runF initialState = M.map (run runF initialState) ~f:(fun (_, r) -> r)
 
   include Monad.Make3 (struct
-    type nonrec ('a, 's, 'e) t = ('s, 'a, 'e) t
+      type nonrec ('a, 's, 'e) t = ('s, 'a, 'e) t
 
-    let bind runF ~f =
-      M.map runF ~f:(fun run inState ->
-        let%bind.M interimState, interimValue = run inState in
-        let%bind.M fRun = f interimValue in
-        let%map.M outState, outValue = fRun interimState in
-        outState, outValue)
-    ;;
+      let bind runF ~f =
+        M.map runF ~f:(fun run inState ->
+          let%bind.M interimState, interimValue = run inState in
+          let%bind.M fRun = f interimValue in
+          let%map.M outState, outValue = fRun interimState in
+          outState, outValue)
+      ;;
 
-    let map runF ~f =
-      M.map runF ~f:(fun run inState ->
-        let%map.M outState, interimValue = run inState in
-        outState, f interimValue)
-    ;;
+      let map runF ~f =
+        M.map runF ~f:(fun run inState ->
+          let%map.M outState, interimValue = run inState in
+          outState, f interimValue)
+      ;;
 
-    let map = `Custom map
-    let return value = M.return (fun state -> M.return (state, value))
-  end)
+      let map = `Custom map
+      let return value = M.return (fun state -> M.return (state, value))
+    end)
 
   let transform runF ~f =
     M.map runF ~f:(fun run inState ->

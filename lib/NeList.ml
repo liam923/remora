@@ -1,5 +1,5 @@
-(* This is taken from the opam package neList: https://github.com/johnyob/ocaml-non-empty-list, 
-but modified in order to add some additional functionality *)
+(* This is taken from the opam package neList: https://github.com/johnyob/ocaml-non-empty-list,
+   but modified in order to add some additional functionality *)
 
 open! Base
 
@@ -167,18 +167,18 @@ module Or_unequal_lengths = struct
   include List.Or_unequal_lengths
 
   include Monad.Make (struct
-    type nonrec 'a t = 'a t
+      type nonrec 'a t = 'a t
 
-    let return x = Ok x
+      let return x = Ok x
 
-    let bind m ~f =
-      match m with
-      | Ok x -> f x
-      | Unequal_lengths -> Unequal_lengths
-    ;;
+      let bind m ~f =
+        match m with
+        | Ok x -> f x
+        | Unequal_lengths -> Unequal_lengths
+      ;;
 
-    let map = `Define_using_bind
-  end)
+      let map = `Define_using_bind
+    end)
 end
 
 open Or_unequal_lengths
@@ -304,12 +304,12 @@ let partition_tf t ~f = List.partition_tf (to_list t) ~f
 let split_n t n = List.split_n (to_list t) n
 
 include Monad.Make (struct
-  type nonrec 'a t = 'a neList
+    type nonrec 'a t = 'a neList
 
-  let return x = [ x ]
-  let bind m ~f = concat_map m ~f
-  let map = `Custom map
-end)
+    let return x = [ x ]
+    let bind m ~f = concat_map m ~f
+    let map = `Custom map
+  end)
 
 let all_options (x :: xs) =
   let open Option.Let_syntax in

@@ -1,8 +1,8 @@
 open! Base
 
 (** MonadWithError is similar to Monad. However, it provides an additional
-   bindWithError function. When performing a flatmap, this allows for
-   creating errors from the given function even if the value being mapped on
+    bindWithError function. When performing a flatmap, this allows for
+    creating errors from the given function even if the value being mapped on
     is an error *)
 
 module type S2 = sig

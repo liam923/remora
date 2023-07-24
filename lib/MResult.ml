@@ -17,33 +17,33 @@ let goodBoth a b =
 let both = goodBoth
 
 include MonadWithError.Make2 (struct
-  type 'e error = 'e NeList.t
-  type nonrec ('a, 'e) t = ('a, 'e) t
+    type 'e error = 'e NeList.t
+    type nonrec ('a, 'e) t = ('a, 'e) t
 
-  let bind x ~f =
-    match x with
-    | Errors _ as x -> x
-    | MOk x -> f x
-  ;;
+    let bind x ~f =
+      match x with
+      | Errors _ as x -> x
+      | MOk x -> f x
+    ;;
 
-  let map x ~f =
-    match x with
-    | Errors _ as x -> x
-    | MOk x -> MOk (f x)
-  ;;
+    let map x ~f =
+      match x with
+      | Errors _ as x -> x
+      | MOk x -> MOk (f x)
+    ;;
 
-  let map = `Custom map
-  let return x = MOk x
+    let map = `Custom map
+    let return x = MOk x
 
-  let bindWithError x ~f ~error =
-    match x with
-    | MOk success -> f success
-    | Errors errors ->
-      (match error errors with
-       | MOk () -> Errors errors
-       | Errors moreErrors -> Errors (NeList.append errors moreErrors))
-  ;;
-end)
+    let bindWithError x ~f ~error =
+      match x with
+      | MOk success -> f success
+      | Errors errors ->
+        (match error errors with
+         | MOk () -> Errors errors
+         | Errors moreErrors -> Errors (NeList.append errors moreErrors))
+    ;;
+  end)
 
 module Let_syntax = struct
   include Let_syntax

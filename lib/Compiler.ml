@@ -30,9 +30,9 @@ end
 module Default = Make (Source.Builder)
 
 module Unit = Make (struct
-  type source = unit
+    type source = unit
 
-  let make ~start:_ ~finish:_ = ()
-  let merge () () = ()
-  let between () () = ()
-end)
+    let make ~start:_ ~finish:_ = ()
+    let merge () () = ()
+    let between () () = ()
+  end)

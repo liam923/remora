@@ -1,15 +1,15 @@
-(* This is taken from the opam package neList: https://github.com/johnyob/ocaml-non-empty-list, 
-but modified in order to add some additional functionality *)
+(* This is taken from the opam package neList: https://github.com/johnyob/ocaml-non-empty-list,
+   but modified in order to add some additional functionality *)
 
 open! Base
 
 (** A non-empty list is defined as a immutable (singly) linked list containing at least 1 element.
-    Identical in terms of complexity to [List]. The API is inspired by Janestreet's [Base.List] 
+    Identical in terms of complexity to [List]. The API is inspired by Janestreet's [Base.List]
     (but is not identical). *)
 
 (** The non-empty list type. The use of the [( :: )] infix constructor
-    allows the usage of the built-in list syntactic sugar provided by OCaml. 
-    
+    allows the usage of the built-in list syntactic sugar provided by OCaml.
+
     For example, a singleton is given by [ [1] ]. A list containing 2 elements is given by
     [ [1; 2] ]. *)
 type 'a t = ( :: ) of 'a * 'a list [@@deriving eq, ord, show, sexp]
@@ -21,14 +21,14 @@ include Monad.S with type 'a t := 'a t
 (** [init n ~f] returns the non-empty list [[(f 0); (f 1); ...; (f (n-1))]]. *)
 val init : int -> f:(int -> 'a) -> 'a t
 
-(** [of_list] creates a non-empty list from a standard list, 
+(** [of_list] creates a non-empty list from a standard list,
     returning [None] if the empty list is provided. *)
 val of_list : 'a list -> 'a t option
 
 (* Similar to {!NeList.of_list}, but raises an [Invalid_argument] if the empty list is provided. *)
 val of_list_exn : 'a list -> 'a t
 
-(** [of_array] creates a non-empty list from an array. 
+(** [of_array] creates a non-empty list from an array.
     [of_array arr] is equivalent to [of_list (List.to_array arr)]. *)
 val of_array : 'a array -> 'a t option
 
@@ -38,11 +38,11 @@ val of_array_exn : 'a array -> 'a t
 (** [to_list] creates a standard list from a non-empty list. *)
 val to_list : 'a t -> 'a list
 
-(** [to_array] creates an array from a non-empty list. 
+(** [to_array] creates an array from a non-empty list.
     [to_array t] is equivalent to [Array.of_list (to_list t)]. *)
 val to_array : 'a t -> 'a array
 
-(** [length t] returns the number of elements in [t]. 
+(** [length t] returns the number of elements in [t].
     Note that [length t >= 1] for all [t]. *)
 val length : 'a t -> int
 
@@ -57,14 +57,14 @@ val cons : 'a -> 'a t -> 'a t
     of [t1] and [t2] (order preserved). *)
 val append : 'a t -> 'a t -> 'a t
 
-(** [rev_append t1 t2] reverses [t1] and then appends it to [t2]. 
+(** [rev_append t1 t2] reverses [t1] and then appends it to [t2].
     Equivalent to [append (rev t1) t2], however, is more efficient. *)
 val rev_append : 'a t -> 'a t -> 'a t
 
 (** Concatenates a non-empty list of non-empty lists. *)
 val concat : 'a t t -> 'a t
 
-(** [hd] returns the first element of the given non-empty list [t]. 
+(** [hd] returns the first element of the given non-empty list [t].
     Note that no exception can occur. *)
 val hd : 'a t -> 'a
 
@@ -80,7 +80,7 @@ val last : 'a t -> 'a
     along with the preceding list of elements. *)
 val lastWithPriors : 'a t -> 'a list * 'a
 
-(** Returns the [n]-th element of the list. The head of the list has position 0. 
+(** Returns the [n]-th element of the list. The head of the list has position 0.
     [None] is returned if the list [t] is too short or [n] is negative. *)
 val nth : 'a t -> int -> 'a option
 
@@ -92,7 +92,7 @@ val nth_exn : 'a t -> int -> 'a
     [equal]. *)
 val mem : 'a t -> 'a -> equal:('a -> 'a -> bool) -> bool
 
-(** [find t ~f] returns the first element of the non-empty list [t] that 
+(** [find t ~f] returns the first element of the non-empty list [t] that
     satisfied [f]. *)
 val find : 'a t -> f:('a -> bool) -> 'a option
 
@@ -105,7 +105,7 @@ val findi : 'a t -> f:(int -> 'a -> bool) -> (int * 'a) option
 
 val findi_exn : 'a t -> f:(int -> 'a -> bool) -> int * 'a
 
-(** [find_map t ~f] returns [Some x], the first element [x] for which [f x] retunrs [Some x]. 
+(** [find_map t ~f] returns [Some x], the first element [x] for which [f x] retunrs [Some x].
     Returns [None] if there is no such element. *)
 val find_map : 'a t -> f:('a -> 'b option) -> 'b option
 
@@ -117,8 +117,8 @@ val find_mapi : 'a t -> f:(int -> 'a -> 'b option) -> (int * 'b) option
 val find_mapi_exn : 'a t -> f:(int -> 'a -> 'b option) -> int * 'b
 
 (** [Or_unequal_lengths] is used for functions that take multiple non-empty lists (denoted [t1], etc).
-    Defines the dependent type: [{'a : length t1 = length t2 = ... length tn}]. 
-    Extends the [Base.List.Or_unequal_lengths] implementation with the Monad methods, improves 
+    Defines the dependent type: [{'a : length t1 = length t2 = ... length tn}].
+    Extends the [Base.List.Or_unequal_lengths] implementation with the Monad methods, improves
     readabily and reuseability of other library functions. *)
 module Or_unequal_lengths : sig
   include module type of List.Or_unequal_lengths
@@ -138,7 +138,7 @@ val rev_map2 : 'a t -> 'b t -> f:('a -> 'b -> 'c) -> 'c t Or_unequal_lengths.t
 (** Similar to [rev_map2], however, raises [Invalid_argument] if [length t1 <> length t2]. *)
 val rev_map2_exn : 'a t -> 'b t -> f:('a -> 'b -> 'c) -> 'c t
 
-(** [for_all [x1; ...; xn] ~f] returns [true] iff [f xi] is [true] for all [1 <= i <= n]. 
+(** [for_all [x1; ...; xn] ~f] returns [true] iff [f xi] is [true] for all [1 <= i <= n].
     This is a short-circuiting operation, evaluting [f xi] in a left-to-right order. *)
 val for_all : 'a t -> f:('a -> bool) -> bool
 
@@ -150,7 +150,7 @@ val for_all2 : 'a t -> 'b t -> f:('a -> 'b -> bool) -> bool Or_unequal_lengths.t
 
 val for_all2_exn : 'a t -> 'b t -> f:('a -> 'b -> bool) -> bool
 
-(** [for_all [x1; ...; xn] ~f] returns [true] iff there exists [1 <= i <= n] such that [f xi] is [true]. 
+(** [for_all [x1; ...; xn] ~f] returns [true] iff there exists [1 <= i <= n] such that [f xi] is [true].
     This is a short-circuiting operation, evaluting [f xi] in a left-to-right order. *)
 val exists : 'a t -> f:('a -> bool) -> bool
 
@@ -162,7 +162,7 @@ val exists2 : 'a t -> 'b t -> f:('a -> 'b -> bool) -> bool Or_unequal_lengths.t
 
 val exists2_exn : 'a t -> 'b t -> f:('a -> 'b -> bool) -> bool
 
-(** [filter t ~f] returns a *list* of elements of [t] that satisfy the predicate [f]. 
+(** [filter t ~f] returns a *list* of elements of [t] that satisfy the predicate [f].
     The order is preserved and evaluation is left-to-right. *)
 val filter : 'a t -> f:('a -> bool) -> 'a list
 
