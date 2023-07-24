@@ -1,14 +1,14 @@
-(* open! Base
+open! Base
 
 type state =
-  { functions : DefunNucleus.func Map.M(Identifier).t
+  { functions : NolamNucleus.func Map.M(Identifier).t
   ; functionCounter : int
   ; compilerState : CompilerState.state
   }
 
-let defunctionalize (expr : MonoNucleus.t) =
-  let module DN = DefunNucleus.Expr in
-  let module MN = MonoNucleus.Expr in
+let delambda (expr : Nucleus.t) =
+  let module DN = NolamNucleus.Expr in
+  let module MN = Nucleus.Expr in
   let open State.Let_syntax in
   let rec defunctionalizeExpr = function
     | MN.Array array ->
@@ -19,16 +19,22 @@ let defunctionalize (expr : MonoNucleus.t) =
       DN.Atom atom
   and defunctionalizeArray = function
     | MN.Ref { id; type' } -> return (DN.Ref { id; type' })
-    | MN.Arr { dimensions; elements; type' } ->
-      let%map elements = elements |> List.map ~f:defunctionalizeAtom |> State.all in
-      DN.Arr { dimensions; elements; type' }
-    | MN.Frame { dimensions; arrays; type' } ->
-      let%map arrays = arrays |> List.map ~f:defunctionalizeArray |> State.all in
-      DN.Frame { dimensions; arrays; type' }
+    | MN.Scalar { element; type' } ->
+      let%map element = defunctionalizeAtom element in
+      DN.Scalar { element; type' }
+    | MN.Frame { dimensions; elements; type' } ->
+      let%map elements = elements |> List.map ~f:defunctionalizeArray |> State.all in
+      DN.Frame { dimensions; elements; type' }
     | MN.TermApplication { func; args; type' } ->
       let%map func = defunctionalizeArray func
       and args = args |> List.map ~f:defunctionalizeArray |> State.all in
       DN.TermApplication { func; args; type' }
+    | MN.TypeApplication { tFunc; args; type' } ->
+      let%map tFunc = defunctionalizeArray tFunc in
+      DN.TypeApplication { tFunc; args; type' }
+    | MN.IndexApplication { iFunc; args; type' } ->
+      let%map iFunc = defunctionalizeArray iFunc in
+      DN.IndexApplication { iFunc; args; type' }
     | MN.Unbox { indexBindings; valueBinding; box; body; type' } ->
       let%map box = defunctionalizeArray box
       and body = defunctionalizeArray body in
@@ -58,6 +64,12 @@ let defunctionalize (expr : MonoNucleus.t) =
         State.modify ~f:(fun state -> { state with functions; functionCounter })
       in
       DN.FunctionRef { id; type' }
+    | MN.TypeLambda { params; body; type' } ->
+      let%map body = defunctionalizeArray body in
+      DN.TypeLambda { params; body; type' }
+    | MN.IndexLambda { params; body; type' } ->
+      let%map body = defunctionalizeArray body in
+      DN.IndexLambda { params; body; type' }
     | MN.Box { indices; body; bodyType; type' } ->
       let%map body = defunctionalizeArray body in
       DN.Box { indices; body; bodyType; type' }
@@ -65,29 +77,27 @@ let defunctionalize (expr : MonoNucleus.t) =
       let%map elements = elements |> List.map ~f:defunctionalizeAtom |> State.all in
       DN.Tuple { elements; type' }
     | MN.Literal literal -> return (DN.Literal literal)
+    | MN.BuiltInFunction builtIn -> return (DN.BuiltInFunction builtIn)
   in
   State.make ~f:(fun compilerState ->
-      let { functions; functionCounter = _; compilerState }, body =
-        State.run
-          (defunctionalizeExpr expr)
-          { functions = Map.empty (module Identifier)
-          ; functionCounter = 0
-          ; compilerState
-          }
-      in
-      compilerState, DefunNucleus.{ functions; body })
+    let { functions; functionCounter = _; compilerState }, body =
+      State.run
+        (defunctionalizeExpr expr)
+        { functions = Map.empty (module Identifier); functionCounter = 0; compilerState }
+    in
+    compilerState, NolamNucleus.{ functions; body })
 ;;
 
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
-  type input = MonoNucleus.t
-  type output = DefunNucleus.t
+  type input = Nucleus.t
+  type output = NolamNucleus.t
   type error = (SB.source option, string) Source.annotate
 
-  let name = "Defunctionalize"
+  let name = "De-lambda"
 
   let run input =
     CompilerPipeline.S.make ~f:(fun compilerState ->
-        State.run (defunctionalize input) compilerState)
+      State.run (delambda input) compilerState)
   ;;
-end *)
+end

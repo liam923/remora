@@ -1,11 +1,11 @@
-(* open! Base
+open! Base
 
-(* The DefunNucleus language represents a monomorphized, defunctionalized Remora program *)
+(* The NolamNucleus language represents a typed Remora program, where lambdas have been stripped out*)
 
-type 't param = 't MonoNucleus.param [@@deriving sexp]
+type 't param = 't Nucleus.param [@@deriving sexp]
 
-module Index = MonoNucleus.Index
-module Type = MonoNucleus.Type
+module Index = Nucleus.Index
+module Type = Nucleus.Type
 
 module Expr = struct
   type ref =
@@ -20,22 +20,33 @@ module Expr = struct
     }
   [@@deriving sexp]
 
-  type arr =
-    { dimensions : int list
-    ; elements : atom list
-    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+  type scalar =
+    { element : atom
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
   and frame =
     { dimensions : int list
-    ; arrays : array list
-    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    ; elements : array list
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
   and termApplication =
     { func : array
     ; args : array list
-    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
+    }
+
+  and typeApplication =
+    { tFunc : array
+    ; args : Type.t list
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
+    }
+
+  and indexApplication =
+    { iFunc : array
+    ; args : Index.t list
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
   and unbox =
@@ -43,7 +54,19 @@ module Expr = struct
     ; valueBinding : Identifier.t
     ; box : array
     ; body : array
-    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
+    }
+
+  and typeLambda =
+    { params : Kind.t param list
+    ; body : array
+    ; type' : Type.forall [@sexp_drop_if fun _ -> true]
+    }
+
+  and indexLambda =
+    { params : Sort.t param list
+    ; body : array
+    ; type' : Type.pi [@sexp_drop_if fun _ -> true]
     }
 
   and box =
@@ -72,23 +95,29 @@ module Expr = struct
     ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
-  and literalValue = MonoNucleus.Expr.literalValue
-  and literal = MonoNucleus.Expr.literal
+  and builtInFunctionName = Nucleus.Expr.builtInFunctionName
+  and builtInFunction = Nucleus.Expr.builtInFunction
+  and literal = Nucleus.Expr.literal
 
   and array =
     | Ref of ref
-    | Arr of arr
+    | Scalar of scalar
     | Frame of frame
     | TermApplication of termApplication
+    | TypeApplication of typeApplication
+    | IndexApplication of indexApplication
     | Unbox of unbox
     | Let of let'
     | TupleLet of tupleLet
 
   and atom =
     | FunctionRef of functionRef
+    | TypeLambda of typeLambda
+    | IndexLambda of indexLambda
     | Box of box
     | Tuple of tuple
     | Literal of literal
+    | BuiltInFunction of builtInFunction
 
   and t =
     | Array of array
@@ -96,18 +125,24 @@ module Expr = struct
   [@@deriving sexp]
 
   let atomType : atom -> Type.atom = function
-    | FunctionRef ref -> Type.Func ref.type'
+    | FunctionRef functionRef -> Func functionRef.type'
+    | TypeLambda typeLambda -> Forall typeLambda.type'
+    | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
     | Tuple tuple -> Tuple tuple.type'
-    | Literal literal -> literal.type'
+    | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (CharacterLiteral _) -> Literal CharacterLiteral
+    | BuiltInFunction builtIn -> builtIn.type'
   ;;
 
   let arrayType : array -> Type.array = function
     | Ref ref -> ref.type'
-    | Arr arr -> arr.type'
-    | Frame frame -> frame.type'
-    | TermApplication termApplication -> termApplication.type'
-    | Unbox unbox -> unbox.type'
+    | Scalar scalar -> Arr scalar.type'
+    | Frame frame -> Arr frame.type'
+    | TermApplication termApplication -> Arr termApplication.type'
+    | TypeApplication typeApplication -> Arr typeApplication.type'
+    | IndexApplication indexApplication -> Arr indexApplication.type'
+    | Unbox unbox -> Arr unbox.type'
     | Let let' -> let'.type'
     | TupleLet tupleLet -> tupleLet.type'
   ;;
@@ -132,10 +167,11 @@ type t =
 [@@deriving sexp]
 
 module ShowStage (SB : Source.BuilderT) = struct
+  type state = CompilerState.state
   type error = (SB.source option, string) Source.annotate
   type input = t
   type output = string
 
-  let name = "Print DefunNucleus"
-  let run input = MResult.MOk (Sexp.to_string_hum ([%sexp_of: t] input))
-end *)
+  let name = "Print NolamNucleus"
+  let run input = CompilerPipeline.S.return (Sexp.to_string_hum ([%sexp_of: t] input))
+end
