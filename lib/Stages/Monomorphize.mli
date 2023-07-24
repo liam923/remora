@@ -1,4 +1,4 @@
-open! Base
+(* open! Base
 
 val monomorphize
   :  Nucleus.t
@@ -9,4 +9,4 @@ module Stage (SB : Source.BuilderT) :
     with type state = CompilerState.state
     with type input = Nucleus.t
     with type output = MonoNucleus.t
-    with type error = (SB.source option, string) Source.annotate
+    with type error = (SB.source option, string) Source.annotate *)

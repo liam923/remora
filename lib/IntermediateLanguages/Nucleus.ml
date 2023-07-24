@@ -245,7 +245,7 @@ end
 
 module Canonical : sig
   module Index : sig
-    type t [@@deriving compare, equal]
+    type t [@@deriving compare, sexp, equal]
     type comparator_witness
 
     val comparator : (t, comparator_witness) Comparator.t
@@ -253,7 +253,7 @@ module Canonical : sig
   end
 
   module Type : sig
-    type t [@@deriving compare, equal]
+    type t [@@deriving compare, sexp, equal]
     type comparator_witness
 
     val comparator : (t, comparator_witness) Comparator.t

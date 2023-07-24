@@ -32,18 +32,6 @@ module Expr = struct
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
-  and typeApplication =
-    { tFunc : array
-    ; args : Type.t list
-    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
-    }
-
-  and indexApplication =
-    { iFunc : array
-    ; args : Index.t list
-    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
-    }
-
   and unbox =
     { indexBindings : Identifier.t list
     ; valueBinding : Identifier.t
