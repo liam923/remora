@@ -738,9 +738,9 @@ module TypeChecker = struct
             Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
       in
       T.Array
-        (Arr
+        (Frame
            { dimensions
-           ; elements = NeList.to_list elements
+           ; elements = elements |> NeList.to_list |> List.map ~f:(fun e -> T.Scalar {element=e; type'={element=T.atomType e; shape=[]}})
            ; type' = { element = T.atomType firstElement; shape }
            })
     | U.EmptyArr { dimensions; elementType } ->
@@ -761,7 +761,7 @@ module TypeChecker = struct
             Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
       in
       T.Array
-        (Arr
+        (Frame
            { dimensions = unwrappedDims
            ; elements = []
            ; type' = { element = elementType; shape }
@@ -807,31 +807,11 @@ module TypeChecker = struct
             Nucleus.Index.Add (Nucleus.Index.dimensionConstant n))
         @ firstArrayType.shape
       in
-      (* if all arrays in the frame are array literals, gather the elements
-         of the arrays *)
-      let arrayLiterals =
-        typedArrays
-        |> NeList.map ~f:(function
-               | T.Arr arr -> Some arr
-               | _ -> None)
-        |> NeList.all_options
-      in
       T.Array
-        (match arrayLiterals with
-        | Some arrayElements ->
-          (* all arrays are array literals, so we can flatten the frame into an array literal *)
-          let elements =
-            arrayElements |> NeList.to_list |> List.bind ~f:(fun arr -> arr.elements)
-          in
-          Arr
-            { elements
-            ; dimensions = dimensions @ (NeList.hd arrayElements).dimensions
-            ; type' = { element = firstArrayType.element; shape }
-            }
-        | None ->
-          Frame
+        
+          (Frame
             { dimensions
-            ; arrays = NeList.to_list typedArrays
+            ; elements = NeList.to_list typedArrays
             ; type' = { element = firstArrayType.element; shape }
             })
     | U.EmptyFrame { dimensions; elementType = arrayType } ->
@@ -854,7 +834,7 @@ module TypeChecker = struct
         @ arrayType.shape
       in
       T.Array
-        (T.Arr
+        (T.Frame
            { dimensions = unwrappedDims
            ; elements = []
            ; type' = { element = arrayType.element; shape }
@@ -1301,9 +1281,9 @@ module TypeChecker = struct
             Nucleus.Index.Add (Nucleus.Index.dimensionConstant d))
       in
       T.Array
-        (T.Arr
+        (Frame
            { dimensions
-           ; elements = checkedElements
+           ; elements = checkedElements |> List.map ~f:(fun e -> T.Scalar {element=e; type'={element=T.atomType e; shape=[]}})
            ; type' = { element = Nucleus.Type.Sigma sigmaType; shape }
            })
     | U.Let { param; value; body } ->
@@ -1420,9 +1400,8 @@ module TypeChecker = struct
     | Array array -> ok array
     | Atom atom ->
       ok
-        (Nucleus.Expr.Arr
-           { dimensions = []
-           ; elements = [ atom ]
+        (Nucleus.Expr.Scalar
+           { element = atom
            ; type' = { element = Nucleus.Expr.atomType atom; shape = [] }
            })
 

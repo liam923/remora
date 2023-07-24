@@ -154,15 +154,14 @@ let rec subTypesIntoArrayExpr types =
   let open Nucleus.Expr in
   function
   | Ref _ as ref -> ref
-  | Arr { elements; dimensions; type' } ->
-    Arr
-      { elements = List.map elements ~f:(subTypesIntoAtomExpr types)
-      ; dimensions
+  | Scalar { element; type' } ->
+    Scalar
+      { element = subTypesIntoAtomExpr types element
       ; type' = subTypesIntoArrType types type'
       }
-  | Frame { arrays; dimensions; type' } ->
+  | Frame { elements; dimensions; type' } ->
     Frame
-      { arrays = List.map arrays ~f:(subTypesIntoArrayExpr types)
+      { elements = List.map elements ~f:(subTypesIntoArrayExpr types)
       ; dimensions
       ; type' = subTypesIntoArrType types type'
       }
@@ -249,15 +248,14 @@ let rec subIndicesIntoArrayExpr indices =
   let open Nucleus.Expr in
   function
   | Ref _ as ref -> ref
-  | Arr { elements; dimensions; type' } ->
-    Arr
-      { elements = List.map elements ~f:(subIndicesIntoAtomExpr indices)
-      ; dimensions
+  | Scalar { element; type' } ->
+    Scalar
+      { element = subIndicesIntoAtomExpr indices element
       ; type' = subIndicesIntoArrType indices type'
       }
-  | Frame { arrays; dimensions; type' } ->
+  | Frame { elements; dimensions; type' } ->
     Frame
-      { arrays = List.map arrays ~f:(subIndicesIntoArrayExpr indices)
+      { elements = List.map elements ~f:(subIndicesIntoArrayExpr indices)
       ; dimensions
       ; type' = subIndicesIntoArrType indices type'
       }

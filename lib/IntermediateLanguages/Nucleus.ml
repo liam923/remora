@@ -93,15 +93,14 @@ module Expr = struct
     }
   [@@deriving sexp]
 
-  type arr =
-    { dimensions : int list
-    ; elements : atom list
+  type scalar =
+    { element : atom
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
   and frame =
     { dimensions : int list
-    ; arrays : array list
+    ; elements : array list
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
@@ -181,7 +180,7 @@ module Expr = struct
 
   and array =
     | Ref of ref
-    | Arr of arr
+    | Scalar of scalar
     | Frame of frame
     | TermApplication of termApplication
     | TypeApplication of typeApplication
@@ -215,7 +214,7 @@ module Expr = struct
 
   let arrayType : array -> Type.array = function
     | Ref ref -> ref.type'
-    | Arr arr -> Arr arr.type'
+    | Scalar scalar -> Arr scalar.type'
     | Frame frame -> Arr frame.type'
     | TermApplication termApplication -> Arr termApplication.type'
     | TypeApplication typeApplication -> Arr typeApplication.type'
