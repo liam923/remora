@@ -96,8 +96,8 @@ let%expect_test "check kind" =
     {|
     (Atom
      (Forall
-      ((parameters (((binding ((name @t) (id 3))) (bound Array))))
-       (body (ArrayRef ((name @t) (id 3))))))) |}];
+      ((parameters (((binding ((name @t) (id 7))) (bound Array))))
+       (body (ArrayRef ((name @t) (id 7))))))) |}];
   checkAndPrint {| (Arr (Forall (@t) @t) [1 2]) |};
   [%expect
     {|
@@ -105,25 +105,25 @@ let%expect_test "check kind" =
      (Arr
       ((element
         (Forall
-         ((parameters (((binding ((name @t) (id 3))) (bound Array))))
-          (body (ArrayRef ((name @t) (id 3)))))))
+         ((parameters (((binding ((name @t) (id 7))) (bound Array))))
+          (body (ArrayRef ((name @t) (id 7)))))))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| (Forall (t) t) |};
   [%expect
     {|
     (Atom
      (Forall
-      ((parameters (((binding ((name t) (id 3))) (bound Atom))))
-       (body (Arr ((element (AtomRef ((name t) (id 3)))) (shape ()))))))) |}];
+      ((parameters (((binding ((name t) (id 7))) (bound Atom))))
+       (body (Arr ((element (AtomRef ((name t) (id 7)))) (shape ()))))))) |}];
   checkAndPrint {| (Pi (@i) (Arr int @i)) |};
   [%expect
     {|
     (Atom
      (Pi
-      ((parameters (((binding ((name @i) (id 3))) (bound Shape))))
+      ((parameters (((binding ((name @i) (id 7))) (bound Shape))))
        (body
         (Arr
-         ((element (Literal IntLiteral)) (shape ((ShapeRef ((name @i) (id 3))))))))))) |}];
+         ((element (Literal IntLiteral)) (shape ((ShapeRef ((name @i) (id 7))))))))))) |}];
   checkAndPrint {| (Arr (Pi (@i) [int @i]) [1 2]) |};
   [%expect
     {|
@@ -131,33 +131,33 @@ let%expect_test "check kind" =
      (Arr
       ((element
         (Pi
-         ((parameters (((binding ((name @i) (id 3))) (bound Shape))))
+         ((parameters (((binding ((name @i) (id 7))) (bound Shape))))
           (body
            (Arr
             ((element (Literal IntLiteral))
-             (shape ((ShapeRef ((name @i) (id 3)))))))))))
+             (shape ((ShapeRef ((name @i) (id 7)))))))))))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| (Pi (i) [int i i]) |};
   [%expect
     {|
     (Atom
      (Pi
-      ((parameters (((binding ((name i) (id 3))) (bound Dim))))
+      ((parameters (((binding ((name i) (id 7))) (bound Dim))))
        (body
         (Arr
          ((element (Literal IntLiteral))
           (shape
-           ((Add ((const 0) (refs ((((name i) (id 3)) 1)))))
-            (Add ((const 0) (refs ((((name i) (id 3)) 1))))))))))))) |}];
+           ((Add ((const 0) (refs ((((name i) (id 7)) 1)))))
+            (Add ((const 0) (refs ((((name i) (id 7)) 1))))))))))))) |}];
   checkAndPrint {| (Sigma (@i) (Arr int @i)) |};
   [%expect
     {|
     (Atom
      (Sigma
-      ((parameters (((binding ((name @i) (id 3))) (bound Shape))))
+      ((parameters (((binding ((name @i) (id 7))) (bound Shape))))
        (body
         (Arr
-         ((element (Literal IntLiteral)) (shape ((ShapeRef ((name @i) (id 3))))))))))) |}];
+         ((element (Literal IntLiteral)) (shape ((ShapeRef ((name @i) (id 7))))))))))) |}];
   checkAndPrint {| (Arr (Sigma (@i) [int @i]) [1 2]) |};
   [%expect
     {|
@@ -165,39 +165,39 @@ let%expect_test "check kind" =
      (Arr
       ((element
         (Sigma
-         ((parameters (((binding ((name @i) (id 3))) (bound Shape))))
+         ((parameters (((binding ((name @i) (id 7))) (bound Shape))))
           (body
            (Arr
             ((element (Literal IntLiteral))
-             (shape ((ShapeRef ((name @i) (id 3)))))))))))
+             (shape ((ShapeRef ((name @i) (id 7)))))))))))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| (Sigma (i) [int i i]) |};
   [%expect
     {|
     (Atom
      (Sigma
-      ((parameters (((binding ((name i) (id 3))) (bound Dim))))
+      ((parameters (((binding ((name i) (id 7))) (bound Dim))))
        (body
         (Arr
          ((element (Literal IntLiteral))
           (shape
-           ((Add ((const 0) (refs ((((name i) (id 3)) 1)))))
-            (Add ((const 0) (refs ((((name i) (id 3)) 1))))))))))))) |}];
+           ((Add ((const 0) (refs ((((name i) (id 7)) 1)))))
+            (Add ((const 0) (refs ((((name i) (id 7)) 1))))))))))))) |}];
   checkAndPrint {| (Sigma (@i j) (Arr int [j @i 5 (+ j 10)])) |};
   [%expect
     {|
     (Atom
      (Sigma
       ((parameters
-        (((binding ((name @i) (id 3))) (bound Shape))
-         ((binding ((name j) (id 4))) (bound Dim))))
+        (((binding ((name @i) (id 7))) (bound Shape))
+         ((binding ((name j) (id 8))) (bound Dim))))
        (body
         (Arr
          ((element (Literal IntLiteral))
           (shape
-           ((Add ((const 0) (refs ((((name j) (id 4)) 1)))))
-            (ShapeRef ((name @i) (id 3))) (Add ((const 5) (refs ())))
-            (Add ((const 10) (refs ((((name j) (id 4)) 1))))))))))))) |}];
+           ((Add ((const 0) (refs ((((name j) (id 8)) 1)))))
+            (ShapeRef ((name @i) (id 7))) (Add ((const 5) (refs ())))
+            (Add ((const 10) (refs ((((name j) (id 8)) 1))))))))))))) |}];
   checkAndPrint {| (Tuple int char) |};
   [%expect {| (Atom (Tuple ((Literal IntLiteral) (Literal CharacterLiteral)))) |}]
 ;;
@@ -367,9 +367,9 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name foo) (id 3)))
+      ((binding ((name foo) (id 7)))
        (value (Scalar ((element (Literal (IntLiteral 5))))))
-       (body (Ref ((id ((name foo) (id 3)))))))))
+       (body (Ref ((id ((name foo) (id 7)))))))))
     Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {|
   (define (add [x int] [y int])
@@ -380,24 +380,24 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name add) (id 3)))
+      ((binding ((name add) (id 7)))
        (value
         (Scalar
          ((element
            (TermLambda
             ((params
-              (((binding ((name x) (id 4)))
+              (((binding ((name x) (id 8)))
                 (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-               ((binding ((name y) (id 5)))
+               ((binding ((name y) (id 9)))
                 (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
              (body
               (TermApplication
                ((func (Scalar ((element (BuiltInFunction ((func Add)))))))
                 (args
-                 ((Ref ((id ((name x) (id 4))))) (Ref ((id ((name y) (id 5))))))))))))))))
+                 ((Ref ((id ((name x) (id 8))))) (Ref ((id ((name y) (id 9))))))))))))))))
        (body
         (TermApplication
-         ((func (Ref ((id ((name add) (id 3))))))
+         ((func (Ref ((id ((name add) (id 7))))))
           (args
            ((Scalar ((element (Literal (IntLiteral 1)))))
             (Scalar ((element (Literal (IntLiteral 2)))))))))))))
@@ -408,9 +408,9 @@ let%expect_test "check type" =
     (Atom
      (TermLambda
       ((params
-        (((binding ((name x) (id 3)))
+        (((binding ((name x) (id 7)))
           (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
-       (body (Ref ((id ((name x) (id 3)))))))))
+       (body (Ref ((id ((name x) (id 7)))))))))
     Type: (Atom
      (Func
       ((parameters ((Arr ((element (Literal IntLiteral)) (shape ())))))
@@ -421,7 +421,7 @@ let%expect_test "check type" =
     (Atom
      (TermLambda
       ((params
-        (((binding ((name x) (id 3)))
+        (((binding ((name x) (id 7)))
           (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
        (body
         (Frame
@@ -449,25 +449,25 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name id) (id 3)))
+      ((binding ((name id) (id 7)))
        (value
         (Scalar
          ((element
            (TypeLambda
-            ((params (((binding ((name @t) (id 4))) (bound Array))))
+            ((params (((binding ((name @t) (id 8))) (bound Array))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name x) (id 5)))
-                      (bound (ArrayRef ((name @t) (id 4)))))))
-                   (body (Ref ((id ((name x) (id 5))))))))))))))))))
+                    (((binding ((name x) (id 9)))
+                      (bound (ArrayRef ((name @t) (id 8)))))))
+                   (body (Ref ((id ((name x) (id 9))))))))))))))))))
        (body
         (TermApplication
          ((func
            (TypeApplication
-            ((tFunc (Ref ((id ((name id) (id 3))))))
+            ((tFunc (Ref ((id ((name id) (id 7))))))
              (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
           (args ((Scalar ((element (Literal (IntLiteral 5)))))))))))))
     Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
@@ -481,28 +481,28 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name id) (id 3)))
+      ((binding ((name id) (id 7)))
        (value
         (Scalar
          ((element
            (TypeLambda
-            ((params (((binding ((name t) (id 4))) (bound Atom))))
+            ((params (((binding ((name t) (id 8))) (bound Atom))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name x) (id 5)))
+                    (((binding ((name x) (id 9)))
                       (bound
                        (Arr
-                        ((element (AtomRef ((name t) (id 4))))
+                        ((element (AtomRef ((name t) (id 8))))
                          (shape ((Add ((const 2) (refs ())))))))))))
-                   (body (Ref ((id ((name x) (id 5))))))))))))))))))
+                   (body (Ref ((id ((name x) (id 9))))))))))))))))))
        (body
         (TermApplication
          ((func
            (TypeApplication
-            ((tFunc (Ref ((id ((name id) (id 3))))))
+            ((tFunc (Ref ((id ((name id) (id 7))))))
              (args ((Atom (Literal IntLiteral)))))))
           (args
            ((Frame
@@ -522,25 +522,25 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name id) (id 3)))
+      ((binding ((name id) (id 7)))
        (value
         (Scalar
          ((element
            (TypeLambda
-            ((params (((binding ((name @t) (id 4))) (bound Array))))
+            ((params (((binding ((name @t) (id 8))) (bound Array))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name x) (id 5)))
-                      (bound (ArrayRef ((name @t) (id 4)))))))
-                   (body (Ref ((id ((name x) (id 5))))))))))))))))))
+                    (((binding ((name x) (id 9)))
+                      (bound (ArrayRef ((name @t) (id 8)))))))
+                   (body (Ref ((id ((name x) (id 9))))))))))))))))))
        (body
         (TermApplication
          ((func
            (TypeApplication
-            ((tFunc (Ref ((id ((name id) (id 3))))))
+            ((tFunc (Ref ((id ((name id) (id 7))))))
              (args
               ((Array
                 (Arr
@@ -569,25 +569,25 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name id) (id 3)))
+      ((binding ((name id) (id 7)))
        (value
         (Scalar
          ((element
            (TypeLambda
-            ((params (((binding ((name @t) (id 4))) (bound Array))))
+            ((params (((binding ((name @t) (id 8))) (bound Array))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name x) (id 5)))
-                      (bound (ArrayRef ((name @t) (id 4)))))))
-                   (body (Ref ((id ((name x) (id 5))))))))))))))))))
+                    (((binding ((name x) (id 9)))
+                      (bound (ArrayRef ((name @t) (id 8)))))))
+                   (body (Ref ((id ((name x) (id 9))))))))))))))))))
        (body
         (TermApplication
          ((func
            (TypeApplication
-            ((tFunc (Ref ((id ((name id) (id 3))))))
+            ((tFunc (Ref ((id ((name id) (id 7))))))
              (args
               ((Array
                 (Arr
@@ -623,30 +623,30 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name foo) (id 3)))
+      ((binding ((name foo) (id 7)))
        (value
         (Scalar
          ((element
            (IndexLambda
-            ((params (((binding ((name @i) (id 4))) (bound Shape))))
+            ((params (((binding ((name @i) (id 8))) (bound Shape))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name x) (id 5)))
+                    (((binding ((name x) (id 9)))
                       (bound
                        (Arr
                         ((element (Literal IntLiteral))
                          (shape
                           ((Add ((const 1) (refs ())))
-                           (ShapeRef ((name @i) (id 4)))))))))))
-                   (body (Ref ((id ((name x) (id 5))))))))))))))))))
+                           (ShapeRef ((name @i) (id 8)))))))))))
+                   (body (Ref ((id ((name x) (id 9))))))))))))))))))
        (body
         (TermApplication
          ((func
            (IndexApplication
-            ((iFunc (Ref ((id ((name foo) (id 3))))))
+            ((iFunc (Ref ((id ((name foo) (id 7))))))
              (args ((Shape ((Add ((const 2) (refs ()))))))))))
           (args
            ((Frame
@@ -688,36 +688,36 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name x) (id 3)))
+      ((binding ((name x) (id 7)))
        (value (Scalar ((element (Literal (IntLiteral 5))))))
-       (body (Ref ((id ((name x) (id 3)))))))))
+       (body (Ref ((id ((name x) (id 7)))))))))
     Type: (Array (Arr ((element (Literal IntLiteral)) (shape ()))))
     (Array
      (Let
-      ((binding ((name foo) (id 3)))
+      ((binding ((name foo) (id 7)))
        (value
         (Scalar
          ((element
            (IndexLambda
-            ((params (((binding ((name i) (id 4))) (bound Dim))))
+            ((params (((binding ((name i) (id 8))) (bound Dim))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name x) (id 5)))
+                    (((binding ((name x) (id 9)))
                       (bound
                        (Arr
                         ((element (Literal IntLiteral))
                          (shape
                           ((Add ((const 1) (refs ())))
-                           (Add ((const 0) (refs ((((name i) (id 4)) 1)))))))))))))
-                   (body (Ref ((id ((name x) (id 5))))))))))))))))))
+                           (Add ((const 0) (refs ((((name i) (id 8)) 1)))))))))))))
+                   (body (Ref ((id ((name x) (id 9))))))))))))))))))
        (body
         (TermApplication
          ((func
            (IndexApplication
-            ((iFunc (Ref ((id ((name foo) (id 3))))))
+            ((iFunc (Ref ((id ((name foo) (id 7))))))
              (args ((Dimension ((const 2) (refs ()))))))))
           (args
            ((Frame
@@ -744,7 +744,7 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name x) (id 3)))
+      ((binding ((name x) (id 7)))
        (value
         (Frame
          ((dimensions (5))
@@ -754,7 +754,7 @@ let%expect_test "check type" =
             (Scalar ((element (Literal (CharacterLiteral l)))))
             (Scalar ((element (Literal (CharacterLiteral l)))))
             (Scalar ((element (Literal (CharacterLiteral o))))))))))
-       (body (Ref ((id ((name x) (id 3)))))))))
+       (body (Ref ((id ((name x) (id 7)))))))))
     Type: (Array
      (Arr
       ((element (Literal CharacterLiteral))
@@ -767,13 +767,13 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name x) (id 3)))
+      ((binding ((name x) (id 7)))
        (value
         (Scalar
          ((element
            (Tuple
             ((elements ((Literal (IntLiteral 5)) (Literal (IntLiteral 5))))))))))
-       (body (Ref ((id ((name x) (id 3)))))))))
+       (body (Ref ((id ((name x) (id 7)))))))))
     Type: (Array
      (Arr
       ((element (Tuple ((Literal IntLiteral) (Literal IntLiteral)))) (shape ())))) |}];
@@ -794,7 +794,7 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name weekdays) (id 3)))
+      ((binding ((name weekdays) (id 7)))
        (value
         (Frame
          ((dimensions (5))
@@ -816,7 +816,7 @@ let%expect_test "check type" =
                  (bodyType
                   (Arr
                    ((element (Literal CharacterLiteral))
-                    (shape ((Add ((const 0) (refs ((((name len) (id 4)) 1)))))))))))))))
+                    (shape ((Add ((const 0) (refs ((((name len) (id 8)) 1)))))))))))))))
             (Scalar
              ((element
                (Box
@@ -835,7 +835,7 @@ let%expect_test "check type" =
                  (bodyType
                   (Arr
                    ((element (Literal CharacterLiteral))
-                    (shape ((Add ((const 0) (refs ((((name len) (id 4)) 1)))))))))))))))
+                    (shape ((Add ((const 0) (refs ((((name len) (id 8)) 1)))))))))))))))
             (Scalar
              ((element
                (Box
@@ -856,7 +856,7 @@ let%expect_test "check type" =
                  (bodyType
                   (Arr
                    ((element (Literal CharacterLiteral))
-                    (shape ((Add ((const 0) (refs ((((name len) (id 4)) 1)))))))))))))))
+                    (shape ((Add ((const 0) (refs ((((name len) (id 8)) 1)))))))))))))))
             (Scalar
              ((element
                (Box
@@ -876,7 +876,7 @@ let%expect_test "check type" =
                  (bodyType
                   (Arr
                    ((element (Literal CharacterLiteral))
-                    (shape ((Add ((const 0) (refs ((((name len) (id 4)) 1)))))))))))))))
+                    (shape ((Add ((const 0) (refs ((((name len) (id 8)) 1)))))))))))))))
             (Scalar
              ((element
                (Box
@@ -894,12 +894,12 @@ let%expect_test "check type" =
                  (bodyType
                   (Arr
                    ((element (Literal CharacterLiteral))
-                    (shape ((Add ((const 0) (refs ((((name len) (id 4)) 1))))))))))))))))))))
+                    (shape ((Add ((const 0) (refs ((((name len) (id 8)) 1))))))))))))))))))))
        (body
         (Unbox
-         ((indexBindings (((name len) (id 5))))
-          (valueBinding ((name day) (id 6)))
-          (box (Ref ((id ((name weekdays) (id 3))))))
+         ((indexBindings (((name len) (id 9))))
+          (valueBinding ((name day) (id 10)))
+          (box (Ref ((id ((name weekdays) (id 7))))))
           (body
            (TermApplication
             ((func
@@ -908,10 +908,10 @@ let%expect_test "check type" =
                  (IndexApplication
                   ((iFunc (Scalar ((element (BuiltInFunction ((func Length)))))))
                    (args
-                    ((Dimension ((const 0) (refs ((((name len) (id 5)) 1)))))
+                    ((Dimension ((const 0) (refs ((((name len) (id 9)) 1)))))
                      (Shape ()))))))
                 (args ((Atom (Literal CharacterLiteral)))))))
-             (args ((Ref ((id ((name day) (id 6))))))))))))))))
+             (args ((Ref ((id ((name day) (id 10))))))))))))))))
     Type: (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint
@@ -951,8 +951,8 @@ let%expect_test "check type" =
                (Arr
                 ((element (Literal IntLiteral))
                  (shape
-                  ((Add ((const 0) (refs ((((name r) (id 3)) 1)))))
-                   (Add ((const 0) (refs ((((name c) (id 4)) 1)))))))))))))))
+                  ((Add ((const 0) (refs ((((name r) (id 7)) 1)))))
+                   (Add ((const 0) (refs ((((name c) (id 8)) 1)))))))))))))))
          (Scalar
           ((element
             (Box
@@ -973,8 +973,8 @@ let%expect_test "check type" =
                (Arr
                 ((element (Literal IntLiteral))
                  (shape
-                  ((Add ((const 0) (refs ((((name r) (id 3)) 1)))))
-                   (Add ((const 0) (refs ((((name c) (id 4)) 1)))))))))))))))
+                  ((Add ((const 0) (refs ((((name r) (id 7)) 1)))))
+                   (Add ((const 0) (refs ((((name c) (id 8)) 1)))))))))))))))
          (Scalar
           ((element
             (Box
@@ -999,21 +999,21 @@ let%expect_test "check type" =
                (Arr
                 ((element (Literal IntLiteral))
                  (shape
-                  ((Add ((const 0) (refs ((((name r) (id 3)) 1)))))
-                   (Add ((const 0) (refs ((((name c) (id 4)) 1))))))))))))))))))))
+                  ((Add ((const 0) (refs ((((name r) (id 7)) 1)))))
+                   (Add ((const 0) (refs ((((name c) (id 8)) 1))))))))))))))))))))
     Type: (Array
      (Arr
       ((element
         (Sigma
          ((parameters
-           (((binding ((name r) (id 3))) (bound Dim))
-            ((binding ((name c) (id 4))) (bound Dim))))
+           (((binding ((name r) (id 7))) (bound Dim))
+            ((binding ((name c) (id 8))) (bound Dim))))
           (body
            (Arr
             ((element (Literal IntLiteral))
              (shape
-              ((Add ((const 0) (refs ((((name r) (id 3)) 1)))))
-               (Add ((const 0) (refs ((((name c) (id 4)) 1)))))))))))))
+              ((Add ((const 0) (refs ((((name r) (id 7)) 1)))))
+               (Add ((const 0) (refs ((((name c) (id 8)) 1)))))))))))))
        (shape ((Add ((const 3) (refs ())))))))) |}];
   checkAndPrint {| (box ((len 3)) [int len] [8 23 0]) |};
   [%expect
@@ -1036,16 +1036,16 @@ let%expect_test "check type" =
               (bodyType
                (Arr
                 ((element (Literal IntLiteral))
-                 (shape ((Add ((const 0) (refs ((((name len) (id 3)) 1))))))))))))))))))))
+                 (shape ((Add ((const 0) (refs ((((name len) (id 7)) 1))))))))))))))))))))
     Type: (Array
      (Arr
       ((element
         (Sigma
-         ((parameters (((binding ((name len) (id 3))) (bound Dim))))
+         ((parameters (((binding ((name len) (id 7))) (bound Dim))))
           (body
            (Arr
             ((element (Literal IntLiteral))
-             (shape ((Add ((const 0) (refs ((((name len) (id 3)) 1)))))))))))))
+             (shape ((Add ((const 0) (refs ((((name len) (id 7)) 1)))))))))))))
        (shape ())))) |}];
   checkAndPrint
     {|
@@ -1082,7 +1082,7 @@ let%expect_test "check type" =
               (bodyType
                (Arr
                 ((element (Literal IntLiteral))
-                 (shape ((ShapeRef ((name @shape) (id 3)))))))))))))
+                 (shape ((ShapeRef ((name @shape) (id 7)))))))))))))
          (Scalar
           ((element
             (Box
@@ -1101,7 +1101,7 @@ let%expect_test "check type" =
               (bodyType
                (Arr
                 ((element (Literal IntLiteral))
-                 (shape ((ShapeRef ((name @shape) (id 3)))))))))))))
+                 (shape ((ShapeRef ((name @shape) (id 7)))))))))))))
          (Scalar
           ((element
             (Box
@@ -1124,16 +1124,16 @@ let%expect_test "check type" =
               (bodyType
                (Arr
                 ((element (Literal IntLiteral))
-                 (shape ((ShapeRef ((name @shape) (id 3))))))))))))))))))
+                 (shape ((ShapeRef ((name @shape) (id 7))))))))))))))))))
     Type: (Array
      (Arr
       ((element
         (Sigma
-         ((parameters (((binding ((name @shape) (id 3))) (bound Shape))))
+         ((parameters (((binding ((name @shape) (id 7))) (bound Shape))))
           (body
            (Arr
             ((element (Literal IntLiteral))
-             (shape ((ShapeRef ((name @shape) (id 3)))))))))))
+             (shape ((ShapeRef ((name @shape) (id 7)))))))))))
        (shape ((Add ((const 3) (refs ())))))))) |}];
   checkAndPrint {| (box ((len 4)) [int len] [8 23 0]) |};
   [%expect {| Error: Expected type `[int 4]`, got `[int 3]` |}];
@@ -1216,21 +1216,21 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name foo) (id 3)))
+      ((binding ((name foo) (id 7)))
        (value
         (Scalar
          ((element
            (TermLambda
             ((params
-              (((binding ((name x) (id 4)))
+              (((binding ((name x) (id 8)))
                 (bound
                  (Arr
                   ((element (Literal IntLiteral))
                    (shape ((Add ((const 2) (refs ())))))))))))
-             (body (Ref ((id ((name x) (id 4))))))))))))
+             (body (Ref ((id ((name x) (id 8))))))))))))
        (body
         (TermApplication
-         ((func (Ref ((id ((name foo) (id 3))))))
+         ((func (Ref ((id ((name foo) (id 7))))))
           (args
            ((Frame
              ((dimensions (2))
@@ -1247,13 +1247,13 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name foo) (id 3)))
+      ((binding ((name foo) (id 7)))
        (value
         (Scalar
          ((element
            (TermLambda
             ((params
-              (((binding ((name x) (id 4)))
+              (((binding ((name x) (id 8)))
                 (bound
                  (Arr
                   ((element (Literal IntLiteral))
@@ -1261,7 +1261,7 @@ let%expect_test "check type" =
              (body (Scalar ((element (Literal (IntLiteral 5))))))))))))
        (body
         (TermApplication
-         ((func (Ref ((id ((name foo) (id 3))))))
+         ((func (Ref ((id ((name foo) (id 7))))))
           (args
            ((Frame
              ((dimensions (2))
@@ -1277,13 +1277,13 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name foo) (id 3)))
+      ((binding ((name foo) (id 7)))
        (value
         (Scalar
          ((element
            (TermLambda
             ((params
-              (((binding ((name x) (id 4)))
+              (((binding ((name x) (id 8)))
                 (bound
                  (Arr
                   ((element (Literal IntLiteral))
@@ -1291,7 +1291,7 @@ let%expect_test "check type" =
              (body (Scalar ((element (Literal (IntLiteral 5))))))))))))
        (body
         (TermApplication
-         ((func (Ref ((id ((name foo) (id 3))))))
+         ((func (Ref ((id ((name foo) (id 7))))))
           (args
            ((Frame
              ((dimensions (2))
@@ -1329,95 +1329,95 @@ let%expect_test "check type" =
     {|
     (Array
      (Let
-      ((binding ((name left) (id 3)))
+      ((binding ((name left) (id 7)))
        (value
         (Scalar
          ((element
            (TypeLambda
-            ((params (((binding ((name @t) (id 4))) (bound Array))))
+            ((params (((binding ((name @t) (id 8))) (bound Array))))
              (body
               (Scalar
                ((element
                  (TermLambda
                   ((params
-                    (((binding ((name l) (id 5)))
-                      (bound (ArrayRef ((name @t) (id 4)))))
-                     ((binding ((name r) (id 6)))
-                      (bound (ArrayRef ((name @t) (id 4)))))))
-                   (body (Ref ((id ((name l) (id 5))))))))))))))))))
+                    (((binding ((name l) (id 9)))
+                      (bound (ArrayRef ((name @t) (id 8)))))
+                     ((binding ((name r) (id 10)))
+                      (bound (ArrayRef ((name @t) (id 8)))))))
+                   (body (Ref ((id ((name l) (id 9))))))))))))))))))
        (body
         (Let
-         ((binding ((name right) (id 7)))
+         ((binding ((name right) (id 11)))
           (value
            (Scalar
             ((element
               (TypeLambda
-               ((params (((binding ((name @t) (id 8))) (bound Array))))
+               ((params (((binding ((name @t) (id 12))) (bound Array))))
                 (body
                  (Scalar
                   ((element
                     (TermLambda
                      ((params
-                       (((binding ((name l) (id 9)))
-                         (bound (ArrayRef ((name @t) (id 8)))))
-                        ((binding ((name r) (id 10)))
-                         (bound (ArrayRef ((name @t) (id 8)))))))
-                      (body (Ref ((id ((name r) (id 10))))))))))))))))))
+                       (((binding ((name l) (id 13)))
+                         (bound (ArrayRef ((name @t) (id 12)))))
+                        ((binding ((name r) (id 14)))
+                         (bound (ArrayRef ((name @t) (id 12)))))))
+                      (body (Ref ((id ((name r) (id 14))))))))))))))))))
           (body
            (Let
-            ((binding ((name id) (id 11)))
+            ((binding ((name id) (id 15)))
              (value
               (Scalar
                ((element
                  (TypeLambda
-                  ((params (((binding ((name @t) (id 12))) (bound Array))))
+                  ((params (((binding ((name @t) (id 16))) (bound Array))))
                    (body
                     (Scalar
                      ((element
                        (TermLambda
                         ((params
-                          (((binding ((name x) (id 13)))
-                            (bound (ArrayRef ((name @t) (id 12)))))))
-                         (body (Ref ((id ((name x) (id 13))))))))))))))))))
+                          (((binding ((name x) (id 17)))
+                            (bound (ArrayRef ((name @t) (id 16)))))))
+                         (body (Ref ((id ((name x) (id 17))))))))))))))))))
              (body
               (Let
-               ((binding ((name funs) (id 14)))
+               ((binding ((name funs) (id 18)))
                 (value
                  (TermApplication
                   ((func
                     (TypeApplication
-                     ((tFunc (Ref ((id ((name id) (id 11))))))
+                     ((tFunc (Ref ((id ((name id) (id 15))))))
                       (args
                        ((Array
                          (Arr
                           ((element
                             (Forall
                              ((parameters
-                               (((binding ((name @t) (id 15))) (bound Array))))
+                               (((binding ((name @t) (id 19))) (bound Array))))
                               (body
                                (Arr
                                 ((element
                                   (Func
                                    ((parameters
-                                     ((ArrayRef ((name @t) (id 15)))
-                                      (ArrayRef ((name @t) (id 15)))))
-                                    (return (ArrayRef ((name @t) (id 15)))))))
+                                     ((ArrayRef ((name @t) (id 19)))
+                                      (ArrayRef ((name @t) (id 19)))))
+                                    (return (ArrayRef ((name @t) (id 19)))))))
                                  (shape ())))))))
                            (shape ((Add ((const 2) (refs ())))))))))))))
                    (args
                     ((Frame
                       ((dimensions (2))
                        (elements
-                        ((Ref ((id ((name left) (id 3)))))
-                         (Ref ((id ((name right) (id 7))))))))))))))
+                        ((Ref ((id ((name left) (id 7)))))
+                         (Ref ((id ((name right) (id 11))))))))))))))
                 (body
                  (Let
-                  ((binding ((name foo) (id 16)))
+                  ((binding ((name foo) (id 20)))
                    (value
                     (TermApplication
                      ((func
                        (TypeApplication
-                        ((tFunc (Ref ((id ((name funs) (id 14))))))
+                        ((tFunc (Ref ((id ((name funs) (id 18))))))
                          (args
                           ((Array
                             (Arr ((element (Literal IntLiteral)) (shape ())))))))))
@@ -1426,12 +1426,12 @@ let%expect_test "check type" =
                         (Scalar ((element (Literal (IntLiteral 2))))))))))
                    (body
                     (Let
-                     ((binding ((name bar) (id 17)))
+                     ((binding ((name bar) (id 21)))
                       (value
                        (TermApplication
                         ((func
                           (TypeApplication
-                           ((tFunc (Ref ((id ((name funs) (id 14))))))
+                           ((tFunc (Ref ((id ((name funs) (id 18))))))
                             (args
                              ((Array
                                (Arr
@@ -1452,19 +1452,19 @@ let%expect_test "check type" =
                                 ((element (Literal (CharacterLiteral i)))))
                                (Scalar
                                 ((element (Literal (CharacterLiteral h))))))))))))))
-                      (body (Ref ((id ((name funs) (id 14))))))))))))))))))))))))
+                      (body (Ref ((id ((name funs) (id 18))))))))))))))))))))))))
     Type: (Array
      (Arr
       ((element
         (Forall
-         ((parameters (((binding ((name @t) (id 15))) (bound Array))))
+         ((parameters (((binding ((name @t) (id 19))) (bound Array))))
           (body
            (Arr
             ((element
               (Func
                ((parameters
-                 ((ArrayRef ((name @t) (id 15))) (ArrayRef ((name @t) (id 15)))))
-                (return (ArrayRef ((name @t) (id 15)))))))
+                 ((ArrayRef ((name @t) (id 19))) (ArrayRef ((name @t) (id 19)))))
+                (return (ArrayRef ((name @t) (id 19)))))))
              (shape ())))))))
        (shape ((Add ((const 2) (refs ())))))))) |}]
 ;;

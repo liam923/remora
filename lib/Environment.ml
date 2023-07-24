@@ -104,6 +104,70 @@ module Base (Gen : IdentifierGenerator) = struct
                 }
             in
             scalar (Expr.BuiltInFunction { func = Length; type' }) )
+        ; ( "reduce"
+          , let%map itemPad = Gen.createId "@item-pad"
+            and cellShape = Gen.createId "@cell-shape"
+            and dSub1 = Gen.createId "d-1"
+            and t = Gen.createId "t" in
+            let type' =
+              Type.Pi
+                { parameters =
+                    [ { binding = dSub1; bound = Sort.Dim }
+                    ; { binding = itemPad; bound = Sort.Shape }
+                    ; { binding = cellShape; bound = Sort.Shape }
+                    ]
+                ; body =
+                    scalarType
+                      (Type.Forall
+                         { parameters = [ { binding = t; bound = Kind.Atom } ]
+                         ; body =
+                             scalarType
+                               (Type.Func
+                                  { parameters =
+                                      [ scalarType
+                                          (Func
+                                             { parameters =
+                                                 [ Arr
+                                                     { element = AtomRef t
+                                                     ; shape = [ ShapeRef cellShape ]
+                                                     }
+                                                 ; Arr
+                                                     { element = AtomRef t
+                                                     ; shape = [ ShapeRef cellShape ]
+                                                     }
+                                                 ]
+                                             ; return =
+                                                 Arr
+                                                   { element = AtomRef t
+                                                   ; shape = [ ShapeRef cellShape ]
+                                                   }
+                                             })
+                                      ; Arr
+                                          { element = AtomRef t
+                                          ; shape =
+                                              [ Add
+                                                  { const = 1
+                                                  ; refs =
+                                                      Map.singleton
+                                                        (module Identifier)
+                                                        dSub1
+                                                        1
+                                                  }
+                                              ; ShapeRef itemPad
+                                              ; ShapeRef cellShape
+                                              ]
+                                          }
+                                      ]
+                                  ; return =
+                                      Arr
+                                        { element = AtomRef t
+                                        ; shape = [ ShapeRef itemPad; ShapeRef cellShape ]
+                                        }
+                                  })
+                         })
+                }
+            in
+            scalar (Expr.BuiltInFunction { func = Reduce; type' }) )
         ]
     in
     { sorts; kinds; types }
