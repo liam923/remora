@@ -174,6 +174,20 @@ module Expr = struct
     ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
+  and builtInFunctionName =
+    | Map
+    | Reduce
+    | Add
+    | Sub
+    | Mul
+    | Div
+    | Length
+
+  and builtInFunction =
+    { func : builtInFunctionName
+    ; type' : Type.atom [@sexp_drop_if fun _ -> true]
+    }
+
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
@@ -196,6 +210,7 @@ module Expr = struct
     | Box of box
     | Tuple of tuple
     | Literal of literal
+    | BuiltInFunction of builtInFunction
 
   and t =
     | Array of array
@@ -210,6 +225,7 @@ module Expr = struct
     | Tuple tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
+    | BuiltInFunction builtIn -> builtIn.type'
   ;;
 
   let arrayType : array -> Type.array = function

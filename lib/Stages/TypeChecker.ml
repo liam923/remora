@@ -292,12 +292,12 @@ type ('s, 't) checkerStateT = (state, 't, ('s, error) Source.annotate) CheckerSt
 
 type ('t, 'u) processedParams =
   { typedParams : 't Nucleus.param list
-  ; extendedEnv : 'u Environment.entry Map.M(String).t
+  ; extendedEnv : 'u Map.M(String).t
   }
 
 type ('s, 't, 'u) paramsToMapResult =
   { typedParamsReversed : 't Nucleus.param list
-  ; entries : 'u Environment.entry Map.M(String).t
+  ; entries : 'u Map.M(String).t
   ; dups : 's Map.M(String).t
   }
 
@@ -324,7 +324,7 @@ let processParams env params ~makeError ~boundToEnvEntry
       let%bind id = CheckerState.createId name in
       let typedParam : 't Nucleus.param = { binding = id; bound } in
       let newParams = typedParam :: oldParams in
-      let entry = Environment.{ e = boundToEnvEntry bound; id = typedParam.binding } in
+      let entry = boundToEnvEntry bound typedParam.binding in
       (match Map.add oldEntries ~key:name ~data:entry with
        | `Ok newEntries ->
          collapseParams
@@ -357,6 +357,21 @@ let processParams env params ~makeError ~boundToEnvEntry
       (NeList.map dups ~f:(fun (name, source) -> { elem = makeError name; source }))
 ;;
 
+let sortBoundToEnvEntry sort id =
+  (* let open Nucleus.Index in *)
+  match sort with
+  | Sort.Dim -> Nucleus.Index.(Dimension (dimensionRef id))
+  | Sort.Shape -> Nucleus.Index.(Shape [ ShapeRef id ])
+;;
+
+let kindBoundToEnvEntry kind id =
+  match kind with
+  | Kind.Array -> Nucleus.Type.Array (ArrayRef id)
+  | Kind.Atom -> Nucleus.Type.Atom (AtomRef id)
+;;
+
+let typeBoundToEnvEntry type' id = Nucleus.Expr.Ref { id; type' }
+
 module SortChecker = struct
   let rec check (env : Environment.t) { elem = index; source } =
     let module U = Ast.Index in
@@ -364,10 +379,6 @@ module SortChecker = struct
     match index with
     | U.Ref name ->
       Map.find env.sorts name
-      |> Option.map ~f:(fun entry ->
-        match entry.e with
-        | Sort.Dim -> T.Dimension (T.dimensionRef entry.id)
-        | Sort.Shape -> T.Shape [ T.ShapeRef entry.id ])
       |> CheckerState.ofOption ~err:{ source; elem = UnboundIndexVariable name }
     | U.Dimension dim -> ok (T.Dimension (T.dimensionConstant dim))
     | U.Shape indices ->
@@ -433,20 +444,8 @@ module KindChecker = struct
     let module T = Nucleus.Type in
     match type' with
     | U.Ref name ->
-      let%map entry =
-        Map.find env.kinds name
-        (* |> Option.map ~f:(fun entry ->
-           match entry.e with
-           | Kind.Array -> T.Array (T.ArrayRef entry.id)
-           | Kind.Atom -> T.Atom (T.AtomRef entry.id)) *)
-        |> CheckerState.ofOption ~err:{ source; elem = UnboundTypeVariable name }
-      in
-      (match Map.find env.literalTypes entry.id with
-       | Some literal -> T.Atom (Literal literal)
-       | None ->
-         (match entry.e with
-          | Kind.Array -> T.Array (T.ArrayRef entry.id)
-          | Kind.Atom -> T.Atom (T.AtomRef entry.id)))
+      Map.find env.kinds name
+      |> CheckerState.ofOption ~err:{ source; elem = UnboundTypeVariable name }
     | U.Arr { element; shape } ->
       let%map element = checkAndExpectAtom env element
       and shape = SortChecker.checkAndExpectShape env shape in
@@ -468,7 +467,7 @@ module KindChecker = struct
           env.kinds
           parameters
           ~makeError:(fun name -> DuplicateTypeParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:kindBoundToEnvEntry
       in
       let extendedEnv = { env with kinds = extendedKinds } in
       let%map body = checkAndExpectArray extendedEnv body in
@@ -485,7 +484,7 @@ module KindChecker = struct
           env.sorts
           parameters
           ~makeError:(fun name -> DuplicateIndexParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:sortBoundToEnvEntry
       in
       let extendedEnv = { env with sorts = extendeSorts } in
       let%map body = checkAndExpectArray extendedEnv body in
@@ -502,7 +501,7 @@ module KindChecker = struct
           env.sorts
           parameters
           ~makeError:(fun name -> DuplicateIndexParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:sortBoundToEnvEntry
       in
       let extendedEnv = { env with sorts = extendeSorts } in
       let%map body = checkAndExpectArray extendedEnv body in
@@ -657,7 +656,7 @@ module TypeChecker = struct
                 Map.set
                   env
                   ~key:(Identifier.name param.binding)
-                  ~data:{ e = param.bound; id = param.binding })
+                  ~data:(kindBoundToEnvEntry param.bound param.binding))
           }
         in
         findInType extendedEnv (Array body)
@@ -669,7 +668,7 @@ module TypeChecker = struct
                 Map.set
                   env
                   ~key:(Identifier.name param.binding)
-                  ~data:{ e = param.bound; id = param.binding })
+                  ~data:(sortBoundToEnvEntry param.bound param.binding))
           }
         in
         findInType extendedEnv (Array body)
@@ -681,7 +680,7 @@ module TypeChecker = struct
                 Map.set
                   env
                   ~key:(Identifier.name param.binding)
-                  ~data:{ e = param.bound; id = param.binding })
+                  ~data:(sortBoundToEnvEntry param.bound param.binding))
           }
         in
         findInType extendedEnv (Array body)
@@ -698,7 +697,7 @@ module TypeChecker = struct
     match expr with
     | U.Ref name ->
       Map.find env.types name
-      |> Option.map ~f:(fun entry -> T.Array (T.Ref { id = entry.id; type' = entry.e }))
+      |> Option.map ~f:(fun entry -> T.Array entry)
       |> CheckerState.ofOption ~err:{ source; elem = UnboundVariable name }
     | U.Arr { dimensions; elements } ->
       let dimensions = dimensions.elem |> List.map ~f:(fun d -> d.elem) in
@@ -1071,12 +1070,14 @@ module TypeChecker = struct
               | None -> ok ()
             in
             let%bind id = CheckerState.createId binding.elem.binding.elem in
+            let indexRef =
+              match param.bound with
+              | Sort.Dim -> Nucleus.Index.(Dimension (dimensionRef id))
+              | Sort.Shape -> Nucleus.Index.Shape [ Nucleus.Index.ShapeRef id ]
+            in
             let%map entries =
               match
-                Map.add
-                  entriesSoFar
-                  ~key:binding.elem.binding.elem
-                  ~data:Environment.{ e = param.bound; id }
+                Map.add entriesSoFar ~key:binding.elem.binding.elem ~data:indexRef
               with
               | `Ok entries -> ok entries
               | `Duplicate ->
@@ -1084,11 +1085,6 @@ module TypeChecker = struct
                   { source = binding.elem.binding.source
                   ; elem = DuplicateParameterName binding.elem.binding.elem
                   }
-            in
-            let indexRef =
-              match param.bound with
-              | Sort.Dim -> Nucleus.Index.Dimension (Nucleus.Index.dimensionRef id)
-              | Sort.Shape -> Nucleus.Index.Shape [ Nucleus.Index.ShapeRef id ]
             in
             let subs = Map.set subsSoFar ~key:param.binding ~data:indexRef in
             let bindings = id :: bindingsSoFar in
@@ -1111,9 +1107,10 @@ module TypeChecker = struct
           env.types
           ~key:valueBinding.elem
           ~data:
-            { e = Substitute.subIndicesIntoArrayType substitutions sigma.body
-            ; id = valueBindingTyped
-            }
+            (Ref
+               { id = valueBindingTyped
+               ; type' = Substitute.subIndicesIntoArrayType substitutions sigma.body
+               })
       in
       let extendedEnv = { env with sorts = extendedSorts; types = extendedTypes } in
       let bodySource = body.source in
@@ -1149,7 +1146,7 @@ module TypeChecker = struct
           env.types
           kindedParams
           ~makeError:(fun name -> DuplicateParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:typeBoundToEnvEntry
       in
       let extendedEnv = { env with types = extendedTypesEnv } in
       let%map body = checkAndExpectArray extendedEnv body in
@@ -1171,7 +1168,7 @@ module TypeChecker = struct
           env.kinds
           params
           ~makeError:(fun name -> DuplicateParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:kindBoundToEnvEntry
       in
       let extendedEnv = { env with kinds = extendedKindsEnv } in
       let%bind () = requireValue body in
@@ -1192,7 +1189,7 @@ module TypeChecker = struct
           env.sorts
           params
           ~makeError:(fun name -> DuplicateParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:sortBoundToEnvEntry
       in
       let extendedEnv = { env with sorts = extendedSortsEnv } in
       let%bind () = requireValue body in
@@ -1215,7 +1212,7 @@ module TypeChecker = struct
           env.sorts
           params
           ~makeError:(fun name -> DuplicateIndexParameterName name)
-          ~boundToEnvEntry:(fun b -> b)
+          ~boundToEnvEntry:sortBoundToEnvEntry
       in
       let extendedEnv = { env with sorts = extendedSortsEnv } in
       let%bind elementType = KindChecker.checkAndExpectArray extendedEnv elementType in
@@ -1290,7 +1287,7 @@ module TypeChecker = struct
       in
       let checkBody valueType =
         let extendedTypesEnv =
-          Map.set env.types ~key:binding.elem ~data:{ id; e = valueType }
+          Map.set env.types ~key:binding.elem ~data:(Ref { id; type' = valueType })
         in
         let extendedEnv = { env with types = extendedTypesEnv } in
         checkAndExpectArray extendedEnv body
@@ -1356,9 +1353,13 @@ module TypeChecker = struct
             let bindingType =
               Nucleus.Type.Arr { element = boundTyped; shape = valueType.shape }
             in
-            let entry = Environment.{ id; e = bindingType } in
             let paramTyped = Nucleus.{ binding = id; bound = boundTyped } in
-            match Map.add envEntriesSoFar ~key:param.elem.binding.elem ~data:entry with
+            match
+              Map.add
+                envEntriesSoFar
+                ~key:param.elem.binding.elem
+                ~data:(Nucleus.Expr.Ref { id; type' = bindingType })
+            with
             | `Ok envEntries -> ok (envEntries, paramTyped :: paramsSoFar)
             | `Duplicate ->
               CheckerState.err

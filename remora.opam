@@ -2,21 +2,22 @@
 opam-version: "2.0"
 synopsis: "A short synopsis"
 description: "A longer description"
-maintainer: ["Maintainer Name"]
-authors: ["Author Name"]
+maintainer: ["Liam Stevenson"]
+authors: ["Liam Stevenson"]
 license: "LICENSE"
 tags: ["topics" "to describe" "your" "project"]
-homepage: "https://github.com/username/reponame"
+homepage: "https://github.com/liam923/remora"
 doc: "https://url/to/documentation"
-bug-reports: "https://github.com/username/reponame/issues"
+bug-reports: "https://github.com/liam923/remora/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.7"}
   "base"
   "menhir"
-  "odoc" {with-doc}
-  "ocamlformat"
   "ppx_jane"
+  "ppx_deriving"
+  "ocamlformat" {with-test & = "0.26.0"}
+  "odoc" {with-doc}
 ]
 build: [
   ["dune" "subst"] {dev}
@@ -32,4 +33,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/username/reponame.git"
+dev-repo: "git+https://github.com/liam923/remora.git"

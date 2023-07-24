@@ -5,11 +5,11 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github liam923/remora))
 
-(authors "Author Name")
+(authors "Liam Stevenson")
 
-(maintainers "Maintainer Name")
+(maintainers "Liam Stevenson")
 
 (license LICENSE)
 
@@ -21,7 +21,7 @@
  (name remora)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune base menhir)
+ (depends ocaml dune base menhir ppx_jane ppx_deriving (ocamlformat (and :with-test (= 0.26.0))))
  (tags
   (topics "to describe" your project)))
 

@@ -242,6 +242,8 @@ and subTypesIntoAtomExpr types = function
       ; type' = subTypesIntoTupleType types type'
       }
   | Literal _ as literal -> literal
+  | BuiltInFunction { func; type' } ->
+    BuiltInFunction { func; type' = subTypesIntoAtomType types type' }
 ;;
 
 let rec subIndicesIntoArrayExpr indices =
@@ -336,4 +338,6 @@ and subIndicesIntoAtomExpr indices = function
       ; type' = subIndicesIntoTupleType indices type'
       }
   | Literal _ as literal -> literal
+  | BuiltInFunction { func; type' } ->
+    BuiltInFunction { func; type' = subIndicesIntoAtomType indices type' }
 ;;

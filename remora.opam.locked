@@ -3,36 +3,36 @@ name: "remora"
 version: "~dev"
 synopsis: "A short synopsis"
 description: "A longer description"
-maintainer: "Maintainer Name"
-authors: "Author Name"
+maintainer: "Liam Stevenson"
+authors: "Liam Stevenson"
 license: "LICENSE"
 tags: ["topics" "to describe" "your" "project"]
-homepage: "https://github.com/username/reponame"
+homepage: "https://github.com/liam923/remora"
 doc: "https://url/to/documentation"
-bug-reports: "https://github.com/username/reponame/issues"
+bug-reports: "https://github.com/liam923/remora/issues"
 depends: [
-  "astring" {= "0.8.5"}
+  "astring" {= "0.8.5" & with-test}
   "base" {= "v0.16.2"}
   "base-bigarray" {= "base"}
-  "base-bytes" {= "base"}
+  "base-bytes" {= "base" & with-test}
   "base-domains" {= "base"}
   "base-nnp" {= "base"}
   "base-threads" {= "base"}
   "base-unix" {= "base"}
   "base_quickcheck" {= "v0.16.0"}
   "bin_prot" {= "v0.16.0"}
-  "camlp-streams" {= "5.0.1"}
-  "cmdliner" {= "1.2.0"}
-  "cppo" {= "1.6.9" & with-doc}
+  "camlp-streams" {= "5.0.1" & with-test}
+  "cmdliner" {= "1.2.0" & with-test}
+  "cppo" {= "1.6.9"}
   "csexp" {= "1.5.2"}
   "dune" {= "3.9.1"}
-  "dune-build-info" {= "3.9.1"}
+  "dune-build-info" {= "3.9.1" & with-test}
   "dune-configurator" {= "3.9.1"}
-  "either" {= "1.0.0"}
+  "either" {= "1.0.0" & with-test}
   "fieldslib" {= "v0.16.0"}
-  "fix" {= "20230505"}
+  "fix" {= "20230505" & with-test}
   "fmt" {= "0.9.0" & with-doc}
-  "fpath" {= "0.7.3"}
+  "fpath" {= "0.7.3" & with-test}
   "jane-street-headers" {= "v0.16.0"}
   "jst-config" {= "v0.16.0"}
   "menhir" {= "20230608"}
@@ -44,12 +44,12 @@ depends: [
   "ocaml-compiler-libs" {= "v0.12.4"}
   "ocaml-config" {= "3"}
   "ocaml-options-vanilla" {= "1"}
-  "ocaml-version" {= "3.6.1"}
-  "ocamlbuild" {= "0.14.2"}
+  "ocaml-version" {= "3.6.1" & with-test}
+  "ocamlbuild" {= "0.14.2" & with-test}
   "ocamlfind" {= "1.9.6"}
-  "ocamlformat" {= "0.26.0"}
-  "ocamlformat-lib" {= "0.26.0"}
-  "ocp-indent" {= "1.8.1"}
+  "ocamlformat" {= "0.26.0" & with-test}
+  "ocamlformat-lib" {= "0.26.0" & with-test}
+  "ocp-indent" {= "1.8.1" & with-test}
   "odoc" {= "2.2.0" & with-doc}
   "odoc-parser" {= "2.0.0" & with-doc}
   "parsexp" {= "v0.16.0"}
@@ -61,6 +61,7 @@ depends: [
   "ppx_compare" {= "v0.16.0"}
   "ppx_custom_printf" {= "v0.16.0"}
   "ppx_derivers" {= "1.2.1"}
+  "ppx_deriving" {= "5.2.1"}
   "ppx_disable_unused_warnings" {= "v0.16.0"}
   "ppx_enumerate" {= "v0.16.0"}
   "ppx_expect" {= "v0.16.0"}
@@ -97,13 +98,12 @@ depends: [
   "stdio" {= "v0.16.0"}
   "stdlib-shims" {= "0.3.0"}
   "time_now" {= "v0.16.0"}
-  "topkg" {= "1.0.7"}
+  "topkg" {= "1.0.7" & with-test}
   "typerep" {= "v0.16.0"}
   "tyxml" {= "4.5.0" & with-doc}
-  "uucp" {= "15.0.0"}
-  "uunf" {= "15.0.0"}
-  "uuseg" {= "15.0.0"}
-  "uutf" {= "1.0.3"}
+  "uucp" {= "15.0.0" & with-test}
+  "uuseg" {= "15.0.0" & with-test}
+  "uutf" {= "1.0.3" & with-test}
   "variantslib" {= "v0.16.0"}
 ]
 build: [
@@ -120,4 +120,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/username/reponame.git"
+dev-repo: "git+https://github.com/liam923/remora.git"
