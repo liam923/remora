@@ -16,10 +16,8 @@ module Make (SB : Source.BuilderT) = struct
     CompilerPipeline.(
       (module Parser.Stage (SB))
       @> (module TypeChecker.Stage (SB))
-      @> (module Delambda.Stage (SB))
-      (* @> (module Monomorphize.Stage (SB)) *)
-      (* @> (module MonoNucleus.ShowStage (SB)) *)
-      @> (module NolamNucleus.ShowStage (SB))
+      @> (module Explicitize.Stage (SB))
+      @> (module Show.Stage (ExplicitNucleus) (SB))
       @> empty)
   ;;
 
@@ -29,11 +27,4 @@ module Make (SB : Source.BuilderT) = struct
 end
 
 module Default = Make (Source.Builder)
-
-module Unit = Make (struct
-    type source = unit
-
-    let make ~start:_ ~finish:_ = ()
-    let merge () () = ()
-    let between () () = ()
-  end)
+module Unit = Make (Source.UnitBuilder)

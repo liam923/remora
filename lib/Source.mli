@@ -23,3 +23,4 @@ module type BuilderT = sig
 end
 
 module Builder : BuilderT with type source = t
+module UnitBuilder : BuilderT with type source = unit

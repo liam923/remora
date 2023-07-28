@@ -14,6 +14,13 @@ module type S = sig
     val parseTexps : source Texp.t NeList.t -> t result
     val parseString : string -> t result
     val parseFile : string -> t result
+
+    module Stage :
+      CompilerPipeline.Stage
+        with type state = CompilerState.state
+        with type input = string
+        with type output = t
+        with type error = (source option, string) Source.annotate
   end
 
   module IndexParser : Parser with type t = source Index.t
@@ -951,12 +958,20 @@ module Make (SB : Source.BuilderT) = struct
     val parseTexps : source Texp.t NeList.t -> t result
     val parseString : string -> t result
     val parseFile : string -> t result
+
+    module Stage :
+      CompilerPipeline.Stage
+        with type state = CompilerState.state
+        with type input = string
+        with type output = t
+        with type error = (source option, string) Source.annotate
   end
 
   module MakeParser (Base : sig
       type t
 
       val parseTexps : source Texp.t NeList.t -> t result
+      val name : string
     end) =
   struct
     include Base
@@ -984,6 +999,25 @@ module Make (SB : Source.BuilderT) = struct
       let%bind texps = result in
       parseTexps texps
     ;;
+
+    module Stage = struct
+      type state = CompilerState.state
+      type input = string
+      type output = t
+      type error = (source option, string) Source.annotate
+
+      let name = Base.name
+
+      let run input =
+        CompilerPipeline.S.returnF
+          (match parseString input with
+           | MOk _ as expr -> expr
+           | Errors errs ->
+             Errors
+               (NeList.map errs ~f:(fun (elem, source) ->
+                  Source.{ elem; source = Some source })))
+      ;;
+    end
   end
 
   module IndexParser = MakeParser (struct
@@ -995,6 +1029,8 @@ module Make (SB : Source.BuilderT) = struct
         | extra :: _ ->
           MResult.err ("Expected one texp, got more than one", texpSource extra)
       ;;
+
+      let name = "Parse Index"
     end)
 
   module TypeParser = MakeParser (struct
@@ -1006,12 +1042,15 @@ module Make (SB : Source.BuilderT) = struct
         | extra :: _ ->
           MResult.err ("Expected one texp, got more than one", texpSource extra)
       ;;
+
+      let name = "Parse Type"
     end)
 
   module ExprParser = MakeParser (struct
       type t = source Expr.t
 
       let parseTexps = parseExprBody
+      let name = "Parse Expression"
     end)
 
   include ExprParser

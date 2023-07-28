@@ -7,26 +7,26 @@ type 't param =
   { binding : Identifier.t
   ; bound : 't
   }
-[@@deriving sexp]
+[@@deriving sexp, compare, equal]
 
 module Index = struct
   type dimension =
     { const : int
     ; refs : int Map.M(Identifier).t
     }
-  [@@deriving sexp]
+  [@@deriving sexp, compare, equal]
 
   type shapeElement =
     | Add of dimension
     | ShapeRef of Identifier.t
-  [@@deriving sexp]
+  [@@deriving sexp, compare, equal]
 
-  type shape = shapeElement list [@@deriving sexp]
+  type shape = shapeElement list [@@deriving sexp, compare, equal]
 
   type t =
     | Dimension of dimension
     | Shape of shape
-  [@@deriving sexp]
+  [@@deriving sexp, compare, equal]
 
   let dimensionConstant n = { const = n; refs = Map.empty (module Identifier) }
   let dimensionRef r = { const = 0; refs = Map.singleton (module Identifier) r 1 }
@@ -78,7 +78,7 @@ module Type = struct
   and t =
     | Array of array
     | Atom of atom
-  [@@deriving sexp]
+  [@@deriving sexp, compare, equal]
 
   let kind = function
     | Array _ -> Kind.Array
@@ -91,7 +91,16 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
-  [@@deriving sexp]
+  [@@deriving sexp, compare, equal]
+
+  type builtInFunctionName =
+    | Reduce
+    | Add
+    | Sub
+    | Mul
+    | Div
+    | Length
+  [@@deriving compare, sexp, equal]
 
   type scalar =
     { element : atom
@@ -174,18 +183,9 @@ module Expr = struct
     ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
-  and builtInFunctionName =
-    | Map
-    | Reduce
-    | Add
-    | Sub
-    | Mul
-    | Div
-    | Length
-
   and builtInFunction =
     { func : builtInFunctionName
-    ; type' : Type.atom [@sexp_drop_if fun _ -> true]
+    ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
   and literal =
@@ -202,6 +202,7 @@ module Expr = struct
     | Unbox of unbox
     | Let of let'
     | TupleLet of tupleLet
+    | BuiltInFunction of builtInFunction
 
   and atom =
     | TermLambda of termLambda
@@ -210,12 +211,11 @@ module Expr = struct
     | Box of box
     | Tuple of tuple
     | Literal of literal
-    | BuiltInFunction of builtInFunction
 
   and t =
     | Array of array
     | Atom of atom
-  [@@deriving sexp]
+  [@@deriving sexp, compare, equal]
 
   let atomType : atom -> Type.atom = function
     | TermLambda termLambda -> Func termLambda.type'
@@ -225,7 +225,6 @@ module Expr = struct
     | Tuple tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
-    | BuiltInFunction builtIn -> builtIn.type'
   ;;
 
   let arrayType : array -> Type.array = function
@@ -238,6 +237,7 @@ module Expr = struct
     | Unbox unbox -> Arr unbox.type'
     | Let let' -> let'.type'
     | TupleLet tupleLet -> tupleLet.type'
+    | BuiltInFunction builtIn -> builtIn.type'
   ;;
 
   let type' : t -> Type.t = function
@@ -246,7 +246,7 @@ module Expr = struct
   ;;
 end
 
-type t = Expr.t [@@deriving sexp]
+type t = Expr.array [@@deriving sexp]
 
 module ShowStage (SB : Source.BuilderT) = struct
   type state = CompilerState.state

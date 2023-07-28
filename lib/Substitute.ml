@@ -207,16 +207,11 @@ let rec subTypesIntoArrayExpr types =
       ; body = subTypesIntoArrayExpr types body
       ; type' = subTypesIntoArrayType types type'
       }
+  | BuiltInFunction { func; type' } ->
+    BuiltInFunction { func; type' = subTypesIntoArrayType types type' }
 
 and subTypesIntoAtomExpr types = function
-  | TermLambda { params; body; type' } ->
-    TermLambda
-      { params =
-          List.map params ~f:(fun { binding; bound } ->
-            Nucleus.{ binding; bound = subTypesIntoArrayType types bound })
-      ; body = subTypesIntoArrayExpr types body
-      ; type' = subTypesIntoFuncType types type'
-      }
+  | TermLambda lambda -> TermLambda (subTypesIntoTermLambda types lambda)
   | TypeLambda { params; body; type' } ->
     TypeLambda
       { params
@@ -242,8 +237,14 @@ and subTypesIntoAtomExpr types = function
       ; type' = subTypesIntoTupleType types type'
       }
   | Literal _ as literal -> literal
-  | BuiltInFunction { func; type' } ->
-    BuiltInFunction { func; type' = subTypesIntoAtomType types type' }
+
+and subTypesIntoTermLambda types { params; body; type' } =
+  { params =
+      List.map params ~f:(fun { binding; bound } ->
+        Nucleus.{ binding; bound = subTypesIntoArrayType types bound })
+  ; body = subTypesIntoArrayExpr types body
+  ; type' = subTypesIntoFuncType types type'
+  }
 ;;
 
 let rec subIndicesIntoArrayExpr indices =
@@ -303,16 +304,11 @@ let rec subIndicesIntoArrayExpr indices =
       ; body = subIndicesIntoArrayExpr indices body
       ; type' = subIndicesIntoArrayType indices type'
       }
+  | BuiltInFunction { func; type' } ->
+    BuiltInFunction { func; type' = subIndicesIntoArrayType indices type' }
 
 and subIndicesIntoAtomExpr indices = function
-  | TermLambda { params; body; type' } ->
-    TermLambda
-      { params =
-          List.map params ~f:(fun { binding; bound } ->
-            Nucleus.{ binding; bound = subIndicesIntoArrayType indices bound })
-      ; body = subIndicesIntoArrayExpr indices body
-      ; type' = subIndicesIntoFuncType indices type'
-      }
+  | TermLambda lambda -> TermLambda (subIndicesIntoTermLambda indices lambda)
   | TypeLambda { params; body; type' } ->
     TypeLambda
       { params
@@ -338,6 +334,12 @@ and subIndicesIntoAtomExpr indices = function
       ; type' = subIndicesIntoTupleType indices type'
       }
   | Literal _ as literal -> literal
-  | BuiltInFunction { func; type' } ->
-    BuiltInFunction { func; type' = subIndicesIntoAtomType indices type' }
+
+and subIndicesIntoTermLambda indices { params; body; type' } =
+  { params =
+      List.map params ~f:(fun { binding; bound } ->
+        Nucleus.{ binding; bound = subIndicesIntoArrayType indices bound })
+  ; body = subIndicesIntoArrayExpr indices body
+  ; type' = subIndicesIntoFuncType indices type'
+  }
 ;;

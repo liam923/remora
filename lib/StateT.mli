@@ -42,6 +42,7 @@ module type S2 = sig
   val returnF : ('a, 'e) m -> ('s, 'a, 'e) t
   val make : f:('s -> 's * 'a) -> ('s, 'a, 'e) t
   val makeF : f:('s -> ('s * 'a, 'e) m) -> ('s, 'a, 'e) t
+  val all_map : ('k, ('s, 'ok, 'err) t, 'cmp) Map.t -> ('s, ('k, 'ok, 'cmp) Map.t, 'err) t
 end
 
 module Make2 (M : Monad.S2) : S2 with type ('a, 'e) m = ('a, 'e) M.t

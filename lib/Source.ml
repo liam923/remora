@@ -41,3 +41,11 @@ module Builder = struct
     { start; finish }
   ;;
 end
+
+module UnitBuilder = struct
+  type source = unit
+
+  let make ~start:_ ~finish:_ = ()
+  let merge () () = ()
+  let between () () = ()
+end

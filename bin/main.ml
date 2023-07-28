@@ -12,7 +12,14 @@ let () =
   match Compiler.Default.compileStringToString program with
   | MOk outProgram -> Stdio.print_endline outProgram
   | Errors errors ->
-    NeList.iter errors ~f:(fun { elem = error; source = _ } ->
-      Stdio.prerr_endline [%string "Error: %{error}"]);
+    NeList.iter errors ~f:(fun { elem = error; source } ->
+      match source with
+      | Some { start; finish } ->
+        let showPos (pos : Lexing.position) =
+          [%string "%{pos.pos_lnum#Int}:%{(pos.pos_cnum - pos.pos_bol)#Int}"]
+        in
+        Stdio.prerr_endline
+          [%string "Error (%{showPos start} - %{showPos finish}): %{error}"]
+      | None -> Stdio.prerr_endline [%string "Error: %{error}"]);
     Stdlib.exit 1
 ;;

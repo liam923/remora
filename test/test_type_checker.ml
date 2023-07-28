@@ -2,22 +2,15 @@ open! Base
 open Remora
 
 let%expect_test "check sort" =
-  let checkAndPrint str =
-    match Parser.Unit.IndexParser.parseString str with
-    | MOk index ->
-      (match CompilerState.runA (TypeChecker.checkSort index) CompilerState.initial with
-       | MOk indexTyped ->
-         [%sexp_of: Nucleus.Index.t] indexTyped
-         |> Sexp.to_string_hum
-         |> Stdio.print_endline
-       | Errors errs ->
-         NeList.iter errs ~f:(fun err ->
-           Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
-    | Errors errs ->
-      let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
-      let errsStr = Sexp.to_string_hum errsSexp in
-      Error.raise (Error.of_string [%string "Got errors: `%{errsStr}` parsing `%{str}`"])
+  let pipeline =
+    CompilerPipeline.(
+      let module Parser = Parser.Make (Source.UnitBuilder) in
+      (module Parser.IndexParser.Stage)
+      @> (module TypeChecker.Sort.Stage (Source.UnitBuilder))
+      @> (module Show.Stage (Nucleus.Index) (Source.UnitBuilder))
+      @> empty)
   in
+  let checkAndPrint = TestPipeline.runAndPrint pipeline in
   checkAndPrint {| 5 |};
   [%expect {| (Dimension ((const 5) (refs ()))) |}];
   checkAndPrint {| (+ 5 10) |};
@@ -53,20 +46,15 @@ let%expect_test "check sort" =
 ;;
 
 let%expect_test "check kind" =
-  let checkAndPrint str =
-    match Parser.Unit.TypeParser.parseString str with
-    | MOk type' ->
-      (match CompilerState.runA (TypeChecker.checkKind type') CompilerState.initial with
-       | MOk typeTyped ->
-         [%sexp_of: Nucleus.Type.t] typeTyped |> Sexp.to_string_hum |> Stdio.print_endline
-       | Errors errs ->
-         NeList.iter errs ~f:(fun err ->
-           Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
-    | Errors errs ->
-      let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
-      let errsStr = Sexp.to_string_hum errsSexp in
-      Error.raise (Error.of_string [%string "Got errors: `%{errsStr}` parsing `%{str}`"])
+  let pipeline =
+    CompilerPipeline.(
+      let module Parser = Parser.Make (Source.UnitBuilder) in
+      (module Parser.TypeParser.Stage)
+      @> (module TypeChecker.Kind.Stage (Source.UnitBuilder))
+      @> (module Show.Stage (Nucleus.Type) (Source.UnitBuilder))
+      @> empty)
   in
+  let checkAndPrint = TestPipeline.runAndPrint pipeline in
   checkAndPrint {| int |};
   [%expect {| (Atom (Literal IntLiteral)) |}];
   checkAndPrint {| char |};
@@ -203,28 +191,34 @@ let%expect_test "check kind" =
 ;;
 
 let%expect_test "check type" =
-  let checkAndPrint str =
-    match Parser.Unit.parseString str with
-    | MOk expr ->
-      (match CompilerState.runA (TypeChecker.checkType expr) CompilerState.initial with
-       | MOk exprTyped ->
-         [%sexp_of: Nucleus.Expr.t] exprTyped |> Sexp.to_string_hum |> Stdio.print_endline;
-         [%sexp_of: Nucleus.Type.t] (Nucleus.Expr.type' exprTyped)
-         |> Sexp.to_string_hum
-         |> fun typeStr -> [%string "Type: %{typeStr}"] |> Stdio.print_endline
-       | Errors errs ->
-         NeList.iter errs ~f:(fun err ->
-           Stdio.prerr_endline [%string "Error: %{TypeChecker.errorMessage err.elem}"]))
-    | Errors errs ->
-      let errsSexp = [%sexp_of: (string * unit) list] (NeList.to_list errs) in
-      let errsStr = Sexp.to_string_hum errsSexp in
-      Error.raise (Error.of_string [%string "Got errors: `%{errsStr}` parsing `%{str}`"])
+  let pipeline =
+    CompilerPipeline.(
+      let module Parser = Parser.Make (Source.UnitBuilder) in
+      (module Parser.Stage)
+      @> (module TypeChecker.Type.Stage (Source.UnitBuilder))
+      @> (module Show.CustomStage
+                   (struct
+                     type t = Nucleus.Expr.t
+
+                     let to_string expr =
+                       String.concat_lines
+                         [ Sexp.to_string_hum ([%sexp_of: Nucleus.Expr.t] expr)
+                         ; "Type:"
+                         ; Sexp.to_string_hum
+                             ([%sexp_of: Nucleus.Type.t] (Nucleus.Expr.type' expr))
+                         ]
+                     ;;
+                   end)
+                   (Source.UnitBuilder))
+      @> empty)
   in
+  let checkAndPrint = TestPipeline.runAndPrint pipeline in
   checkAndPrint {| 5 |};
   [%expect
     {|
     (Atom (Literal (IntLiteral 5)))
-    Type: (Atom (Literal IntLiteral)) |}];
+    Type:
+    (Atom (Literal IntLiteral)) |}];
   checkAndPrint {| [1 2 3 4 5] |};
   [%expect
     {|
@@ -237,7 +231,8 @@ let%expect_test "check type" =
          (Scalar ((element (Literal (IntLiteral 3)))))
          (Scalar ((element (Literal (IntLiteral 4)))))
          (Scalar ((element (Literal (IntLiteral 5))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint {| [[1 2] [3 4]] |};
   [%expect
@@ -256,7 +251,8 @@ let%expect_test "check type" =
            (elements
             ((Scalar ((element (Literal (IntLiteral 3)))))
              (Scalar ((element (Literal (IntLiteral 4))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal IntLiteral))
        (shape ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
@@ -276,17 +272,18 @@ let%expect_test "check type" =
     {|
     (Array
      (TermApplication
-      ((func (Scalar ((element (BuiltInFunction ((func Add)))))))
+      ((func (BuiltInFunction ((func Add))))
        (args
         ((Scalar ((element (Literal (IntLiteral 1)))))
          (Scalar ((element (Literal (IntLiteral 2))))))))))
-    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
+    Type:
+    (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {| (+ [1 2 3] [4 5 6]) |};
   [%expect
     {|
     (Array
      (TermApplication
-      ((func (Scalar ((element (BuiltInFunction ((func Add)))))))
+      ((func (BuiltInFunction ((func Add))))
        (args
         ((Frame
           ((dimensions (3))
@@ -300,7 +297,8 @@ let%expect_test "check type" =
             ((Scalar ((element (Literal (IntLiteral 4)))))
              (Scalar ((element (Literal (IntLiteral 5)))))
              (Scalar ((element (Literal (IntLiteral 6))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ())))))))) |}];
   checkAndPrint {| [(+ [1 2 3] [4 5 6]) [7 8 9]] |};
   [%expect
@@ -310,7 +308,7 @@ let%expect_test "check type" =
       ((dimensions (2))
        (elements
         ((TermApplication
-          ((func (Scalar ((element (BuiltInFunction ((func Add)))))))
+          ((func (BuiltInFunction ((func Add))))
            (args
             ((Frame
               ((dimensions (3))
@@ -330,7 +328,8 @@ let%expect_test "check type" =
             ((Scalar ((element (Literal (IntLiteral 7)))))
              (Scalar ((element (Literal (IntLiteral 8)))))
              (Scalar ((element (Literal (IntLiteral 9))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal IntLiteral))
        (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))) |}];
@@ -339,7 +338,7 @@ let%expect_test "check type" =
     {|
     (Array
      (TermApplication
-      ((func (Scalar ((element (BuiltInFunction ((func Add)))))))
+      ((func (BuiltInFunction ((func Add))))
        (args
         ((Frame
           ((dimensions (5))
@@ -350,7 +349,8 @@ let%expect_test "check type" =
              (Scalar ((element (Literal (IntLiteral 4)))))
              (Scalar ((element (Literal (IntLiteral 5)))))))))
          (Scalar ((element (Literal (IntLiteral 6))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint {| (+ [1 2 3] [1 2]) |};
   [%expect {|
@@ -370,7 +370,8 @@ let%expect_test "check type" =
       ((binding ((name foo) (id 7)))
        (value (Scalar ((element (Literal (IntLiteral 5))))))
        (body (Ref ((id ((name foo) (id 7)))))))))
-    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
+    Type:
+    (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {|
   (define (add [x int] [y int])
     (+ x y))
@@ -392,7 +393,7 @@ let%expect_test "check type" =
                 (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
              (body
               (TermApplication
-               ((func (Scalar ((element (BuiltInFunction ((func Add)))))))
+               ((func (BuiltInFunction ((func Add))))
                 (args
                  ((Ref ((id ((name x) (id 8))))) (Ref ((id ((name y) (id 9))))))))))))))))
        (body
@@ -401,7 +402,8 @@ let%expect_test "check type" =
           (args
            ((Scalar ((element (Literal (IntLiteral 1)))))
             (Scalar ((element (Literal (IntLiteral 2)))))))))))))
-    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
+    Type:
+    (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {| (fn ([x int]) x) |};
   [%expect
     {|
@@ -411,7 +413,8 @@ let%expect_test "check type" =
         (((binding ((name x) (id 7)))
           (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
        (body (Ref ((id ((name x) (id 7)))))))))
-    Type: (Atom
+    Type:
+    (Atom
      (Func
       ((parameters ((Arr ((element (Literal IntLiteral)) (shape ())))))
        (return (Arr ((element (Literal IntLiteral)) (shape ()))))))) |}];
@@ -432,7 +435,8 @@ let%expect_test "check type" =
             (Scalar ((element (Literal (CharacterLiteral l)))))
             (Scalar ((element (Literal (CharacterLiteral l)))))
             (Scalar ((element (Literal (CharacterLiteral o)))))))))))))
-    Type: (Atom
+    Type:
+    (Atom
      (Func
       ((parameters ((Arr ((element (Literal IntLiteral)) (shape ())))))
        (return
@@ -470,7 +474,8 @@ let%expect_test "check type" =
             ((tFunc (Ref ((id ((name id) (id 7))))))
              (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
           (args ((Scalar ((element (Literal (IntLiteral 5)))))))))))))
-    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
+    Type:
+    (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint
     {|
     (define id (t-fn (t)
@@ -510,7 +515,8 @@ let%expect_test "check type" =
               (elements
                ((Scalar ((element (Literal (IntLiteral 1)))))
                 (Scalar ((element (Literal (IntLiteral 2)))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
@@ -555,7 +561,8 @@ let%expect_test "check type" =
                 (Scalar ((element (Literal (CharacterLiteral l)))))
                 (Scalar ((element (Literal (CharacterLiteral l)))))
                 (Scalar ((element (Literal (CharacterLiteral o)))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
@@ -602,7 +609,8 @@ let%expect_test "check type" =
                 (Scalar ((element (Literal (CharacterLiteral l)))))
                 (Scalar ((element (Literal (CharacterLiteral l)))))
                 (Scalar ((element (Literal (CharacterLiteral o)))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
@@ -657,7 +665,8 @@ let%expect_test "check type" =
                   (elements
                    ((Scalar ((element (Literal (IntLiteral 1)))))
                     (Scalar ((element (Literal (IntLiteral 2)))))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal IntLiteral))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
@@ -691,7 +700,9 @@ let%expect_test "check type" =
       ((binding ((name x) (id 7)))
        (value (Scalar ((element (Literal (IntLiteral 5))))))
        (body (Ref ((id ((name x) (id 7)))))))))
-    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ()))))
+    Type:
+    (Array (Arr ((element (Literal IntLiteral)) (shape ()))))
+
     (Array
      (Let
       ((binding ((name foo) (id 7)))
@@ -728,7 +739,8 @@ let%expect_test "check type" =
                   (elements
                    ((Scalar ((element (Literal (IntLiteral 1)))))
                     (Scalar ((element (Literal (IntLiteral 2)))))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal IntLiteral))
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
@@ -755,7 +767,8 @@ let%expect_test "check type" =
             (Scalar ((element (Literal (CharacterLiteral l)))))
             (Scalar ((element (Literal (CharacterLiteral o))))))))))
        (body (Ref ((id ((name x) (id 7)))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
@@ -774,7 +787,8 @@ let%expect_test "check type" =
            (Tuple
             ((elements ((Literal (IntLiteral 5)) (Literal (IntLiteral 5))))))))))
        (body (Ref ((id ((name x) (id 7)))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element (Tuple ((Literal IntLiteral) (Literal IntLiteral)))) (shape ())))) |}];
   checkAndPrint
@@ -906,13 +920,14 @@ let%expect_test "check type" =
               (TypeApplication
                ((tFunc
                  (IndexApplication
-                  ((iFunc (Scalar ((element (BuiltInFunction ((func Length)))))))
+                  ((iFunc (BuiltInFunction ((func Length))))
                    (args
                     ((Dimension ((const 0) (refs ((((name len) (id 9)) 1)))))
                      (Shape ()))))))
                 (args ((Atom (Literal CharacterLiteral)))))))
              (args ((Ref ((id ((name day) (id 10))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))) |}];
   checkAndPrint
     {|
@@ -1001,7 +1016,8 @@ let%expect_test "check type" =
                  (shape
                   ((Add ((const 0) (refs ((((name r) (id 7)) 1)))))
                    (Add ((const 0) (refs ((((name c) (id 8)) 1))))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element
         (Sigma
@@ -1037,7 +1053,8 @@ let%expect_test "check type" =
                (Arr
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 0) (refs ((((name len) (id 7)) 1))))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element
         (Sigma
@@ -1125,7 +1142,8 @@ let%expect_test "check type" =
                (Arr
                 ((element (Literal IntLiteral))
                  (shape ((ShapeRef ((name @shape) (id 7))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element
         (Sigma
@@ -1150,12 +1168,12 @@ let%expect_test "check type" =
         (Frame
          ((dimensions (2))
           (elements
-           ((Scalar ((element (BuiltInFunction ((func Add))))))
-            (Scalar ((element (BuiltInFunction ((func Sub)))))))))))
+           ((BuiltInFunction ((func Add))) (BuiltInFunction ((func Sub))))))))
        (args
         ((Scalar ((element (Literal (IntLiteral 1)))))
          (Scalar ((element (Literal (IntLiteral 2))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| ([+ -] [1 2] 3) |};
   [%expect
@@ -1166,8 +1184,7 @@ let%expect_test "check type" =
         (Frame
          ((dimensions (2))
           (elements
-           ((Scalar ((element (BuiltInFunction ((func Add))))))
-            (Scalar ((element (BuiltInFunction ((func Sub)))))))))))
+           ((BuiltInFunction ((func Add))) (BuiltInFunction ((func Sub))))))))
        (args
         ((Frame
           ((dimensions (2))
@@ -1175,7 +1192,8 @@ let%expect_test "check type" =
             ((Scalar ((element (Literal (IntLiteral 1)))))
              (Scalar ((element (Literal (IntLiteral 2)))))))))
          (Scalar ((element (Literal (IntLiteral 3))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| ([+ -] [1 2] [3 4]) |};
   [%expect
@@ -1186,8 +1204,7 @@ let%expect_test "check type" =
         (Frame
          ((dimensions (2))
           (elements
-           ((Scalar ((element (BuiltInFunction ((func Add))))))
-            (Scalar ((element (BuiltInFunction ((func Sub)))))))))))
+           ((BuiltInFunction ((func Add))) (BuiltInFunction ((func Sub))))))))
        (args
         ((Frame
           ((dimensions (2))
@@ -1199,7 +1216,8 @@ let%expect_test "check type" =
            (elements
             ((Scalar ((element (Literal (IntLiteral 3)))))
              (Scalar ((element (Literal (IntLiteral 4))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {| ([+ -] [1 2 3] [4 5]) |};
   [%expect {| Error: Function call has principal frame `[2]`, got frame `[3]` |}];
@@ -1237,7 +1255,8 @@ let%expect_test "check type" =
               (elements
                ((Scalar ((element (Literal (IntLiteral 1)))))
                 (Scalar ((element (Literal (IntLiteral 2)))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {|
     (define (foo [x [int 2]]) 5)
@@ -1268,7 +1287,8 @@ let%expect_test "check type" =
               (elements
                ((Scalar ((element (Literal (IntLiteral 1)))))
                 (Scalar ((element (Literal (IntLiteral 2)))))))))))))))))
-    Type: (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
+    Type:
+    (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {|
     (define (foo [x [int 2]]) 5)
     (foo [[1 2] [3 4]])
@@ -1306,7 +1326,8 @@ let%expect_test "check type" =
                   (elements
                    ((Scalar ((element (Literal (IntLiteral 3)))))
                     (Scalar ((element (Literal (IntLiteral 4)))))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {|
     (define (foo [x [int 2]]) 5)
@@ -1453,7 +1474,8 @@ let%expect_test "check type" =
                                (Scalar
                                 ((element (Literal (CharacterLiteral h))))))))))))))
                       (body (Ref ((id ((name funs) (id 18))))))))))))))))))))))))
-    Type: (Array
+    Type:
+    (Array
      (Arr
       ((element
         (Forall
@@ -1466,5 +1488,16 @@ let%expect_test "check type" =
                  ((ArrayRef ((name @t) (id 19))) (ArrayRef ((name @t) (id 19)))))
                 (return (ArrayRef ((name @t) (id 19)))))))
              (shape ())))))))
-       (shape ((Add ((const 2) (refs ())))))))) |}]
+       (shape ((Add ((const 2) (refs ())))))))) |}];
+  checkAndPrint
+    {|
+    (define id (t-fn (@t) (fn ([x @t]) x)))
+    (define use-id (t-fn (@t) (fn ([x @t]) ((t-app id @t) x))))
+    5
+    |};
+  [%expect
+    {|
+    Error: Expected an Arr type, got `@t`
+    Error: Expected an Arr type, got `@t`
+    Error: Expected an Arr type, got `@t` |}]
 ;;

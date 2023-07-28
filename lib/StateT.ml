@@ -20,6 +20,7 @@ module type S2 = sig
   val returnF : ('a, 'e) m -> ('s, 'a, 'e) t
   val make : f:('s -> 's * 'a) -> ('s, 'a, 'e) t
   val makeF : f:('s -> ('s * 'a, 'e) m) -> ('s, 'a, 'e) t
+  val all_map : ('k, ('s, 'ok, 'err) t, 'cmp) Map.t -> ('s, ('k, 'ok, 'cmp) Map.t, 'err) t
 end
 
 module Make2 (M : Monad.S2) = struct
@@ -76,6 +77,17 @@ module Make2 (M : Monad.S2) = struct
   let returnF value = M.map value ~f:(fun value state -> M.return (state, value))
   let make ~f = M.return (fun state -> M.return (f state))
   let makeF ~f = M.return f
+
+  let all_map map =
+    Map.fold
+      map
+      ~init:(return (Map.empty (Map.comparator_s map)))
+      ~f:(fun ~key ~data acc ->
+        let open Let_syntax in
+        let%map acc = acc
+        and data = data in
+        Map.set acc ~key ~data)
+  ;;
 end
 
 module type S2WithError = sig
@@ -130,5 +142,16 @@ module Make2WithError (M : MonadWithError.S2) = struct
     let open Let_syntax in
     let%map _ = all list in
     ()
+  ;;
+
+  let all_map map =
+    Map.fold
+      map
+      ~init:(return (Map.empty (Map.comparator_s map)))
+      ~f:(fun ~key ~data acc ->
+        let open Let_syntax in
+        let%map acc = acc
+        and data = data in
+        Map.set acc ~key ~data)
   ;;
 end

@@ -11,6 +11,13 @@ module type S = sig
     val parseTexps : source Texp.t NeList.t -> t result
     val parseString : string -> t result
     val parseFile : string -> t result
+
+    module Stage :
+      CompilerPipeline.Stage
+        with type state = CompilerState.state
+        with type input = string
+        with type output = t
+        with type error = (source option, string) Source.annotate
   end
 
   module IndexParser : Parser with type t = source Ast.Index.t
