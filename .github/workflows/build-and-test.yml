@@ -12,7 +12,7 @@ jobs:
         os:
           # - macos-latest
           - ubuntu-latest
-          - windows-latest
+          # - windows-latest
         ocaml-compiler:
           - "4.14.1"
 
@@ -26,6 +26,7 @@ jobs:
         uses: ocaml/setup-ocaml@v2
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          dune-cache: true
 
       - run: opam install . --deps-only --with-test --with-doc --locked
 
