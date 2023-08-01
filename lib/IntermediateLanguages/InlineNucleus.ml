@@ -1,6 +1,7 @@
 open! Base
 
-(* The ExplicitNucleus language represents a Remora program where maps have been made explicit *)
+(* The InlineNucleus language represents a monomorphized Remora program where
+   all function calls have been inlined (besides intrinsic ones like map) *)
 
 type 't param = 't Nucleus.param [@@deriving sexp, compare, equal]
 

@@ -1,5 +1,8 @@
 open! Base
 
+(** This compiler stage monomorphizes the program and makes all function calls
+    (besides primitive ones) inline *)
+
 val inline
   :  ExplicitNucleus.t
   -> (CompilerState.state, InlineNucleus.t, string) CompilerState.t
