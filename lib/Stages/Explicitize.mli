@@ -1,5 +1,8 @@
 open! Base
 
+(** This compiler stage makes all the maps that are implicitly
+    included in function calls explicit. *)
+
 val explicitize : Nucleus.t -> (CompilerState.state, ExplicitNucleus.t, _) State.t
 
 module Stage (SB : Source.BuilderT) :

@@ -1,23 +1,41 @@
 open! Base
 
-module T = struct
-  type t =
-    { name : string
-    ; id : int
-    }
-  [@@deriving compare, sexp, equal]
+module type S = sig
+  type t [@@deriving compare, sexp, equal]
+  type comparator_witness
+
+  val comparator : (t, comparator_witness) Comparator.t
+  val name : t -> string
+
+  val create
+    :  string
+    -> getCounter:('s -> int)
+    -> setCounter:('s -> int -> 's)
+    -> ('s, t, _) State.t
 end
 
-include T
-include Comparator.Make (T)
+module Make () = struct
+  module T = struct
+    type t =
+      { name : string
+      ; id : int
+      }
+    [@@deriving compare, sexp, equal]
+  end
 
-let name { name; id = _ } = name
+  include T
+  include Comparator.Make (T)
 
-let create name ~getCounter ~setCounter =
-  let open State.Let_syntax in
-  let%bind state = State.get () in
-  let id = getCounter state in
-  let state = setCounter state (id + 1) in
-  let%map () = State.set state in
-  { name; id }
-;;
+  let name { name; id = _ } = name
+
+  let create name ~getCounter ~setCounter =
+    let open State.Let_syntax in
+    let%bind state = State.get () in
+    let id = getCounter state in
+    let state = setCounter state (id + 1) in
+    let%map () = State.set state in
+    { name; id }
+  ;;
+end
+
+include Make ()

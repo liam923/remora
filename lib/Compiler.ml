@@ -17,7 +17,8 @@ module Make (SB : Source.BuilderT) = struct
       (module Parser.Stage (SB))
       @> (module TypeChecker.Stage (SB))
       @> (module Explicitize.Stage (SB))
-      @> (module Show.Stage (ExplicitNucleus) (SB))
+      @> (module Inline.Stage (SB))
+      @> (module Show.Stage (InlineNucleus) (SB))
       @> empty)
   ;;
 

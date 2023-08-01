@@ -41,7 +41,7 @@ module Base (Gen : IdentifierGenerator) = struct
       makeSubEnv
         [ ( "+"
           , Gen.return
-              (Expr.BuiltInFunction
+              (Expr.Primitive
                  { func = Add
                  ; type' =
                      scalarType
@@ -49,7 +49,7 @@ module Base (Gen : IdentifierGenerator) = struct
                  }) )
         ; ( "-"
           , Gen.return
-              (Expr.BuiltInFunction
+              (Expr.Primitive
                  { func = Sub
                  ; type' =
                      scalarType
@@ -57,7 +57,7 @@ module Base (Gen : IdentifierGenerator) = struct
                  }) )
         ; ( "*"
           , Gen.return
-              (Expr.BuiltInFunction
+              (Expr.Primitive
                  { func = Mul
                  ; type' =
                      scalarType
@@ -65,7 +65,7 @@ module Base (Gen : IdentifierGenerator) = struct
                  }) )
         ; ( "/"
           , Gen.return
-              (Expr.BuiltInFunction
+              (Expr.Primitive
                  { func = Div
                  ; type' =
                      scalarType
@@ -103,7 +103,7 @@ module Base (Gen : IdentifierGenerator) = struct
                             })
                    })
             in
-            Expr.BuiltInFunction { func = Length; type' } )
+            Expr.Primitive { func = Length; type' } )
         ; ( "reduce"
           , let%map itemPad = Gen.createId "@item-pad"
             and cellShape = Gen.createId "@cell-shape"
@@ -169,7 +169,7 @@ module Base (Gen : IdentifierGenerator) = struct
                             })
                    })
             in
-            Expr.BuiltInFunction { func = Reduce; type' } )
+            Expr.Primitive { func = Reduce; type' } )
         ]
     in
     { sorts; kinds; types }

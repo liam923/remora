@@ -180,7 +180,7 @@ let errorMessage = function
     [%string "Expected a function type, got `%{Show.type' actual}`"]
   | ExpectedValue -> "Expected a value"
   | ExpectedForall { actual } ->
-    [%string "Expected an express with a Forall type, got `%{Show.type' actual}`"]
+    [%string "Expected an expression with a Forall type, got `%{Show.type' actual}`"]
   | WrongNumberOfArguments { expected; actual } ->
     [%string "Expected %{expected#Int} arguements, got %{actual#Int}"]
   | WrongNumberOfBindings { expected; actual } ->
@@ -986,7 +986,7 @@ module TypeChecker = struct
         Map.of_alist_reduce (module Identifier) substitutionsList ~f:(fun a _ -> a)
       in
       let subbedElementType =
-        Substitute.subTypesIntoAtomType substitutions bodyType.element
+        Nucleus.Substitute.Type.subTypesIntoAtom substitutions bodyType.element
       in
       let typedArgs = List.map substitutionsList ~f:(fun (_, arg) -> arg) in
       T.Array
@@ -1024,10 +1024,10 @@ module TypeChecker = struct
         Map.of_alist_reduce (module Identifier) substitutionsList ~f:(fun a _ -> a)
       in
       let subbedElementType =
-        Substitute.subIndicesIntoAtomType substitutions bodyType.element
+        Nucleus.Substitute.Type.subIndicesIntoAtom substitutions bodyType.element
       in
       let subbedBodyShape =
-        Substitute.subIndicesIntoShapeIndex substitutions bodyType.shape
+        Nucleus.Substitute.Index.subIndicesIntoShape substitutions bodyType.shape
       in
       let typedArgs = List.map substitutionsList ~f:(fun (_, arg) -> arg) in
       T.Array
@@ -1109,7 +1109,8 @@ module TypeChecker = struct
           ~data:
             (Ref
                { id = valueBindingTyped
-               ; type' = Substitute.subIndicesIntoArrayType substitutions sigma.body
+               ; type' =
+                   Nucleus.Substitute.Type.subIndicesIntoArray substitutions sigma.body
                })
       in
       let extendedEnv = { env with sorts = extendedSorts; types = extendedTypes } in
@@ -1244,7 +1245,9 @@ module TypeChecker = struct
               ~init:(Map.empty (module Identifier))
               ~f:(fun acc (param, index) -> Map.set acc ~key:param.binding ~data:index)
           in
-          let subbedType = Substitute.subIndicesIntoArrayType substitutions elementType in
+          let subbedType =
+            Nucleus.Substitute.Type.subIndicesIntoArray substitutions elementType
+          in
           let%map () =
             requireType
               ~expected:(Nucleus.Type.Array subbedType)

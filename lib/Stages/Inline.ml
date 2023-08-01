@@ -1,48 +1,65 @@
-(* open! Base
+open! Base
+module Index = Nucleus.Index
+module Type = Nucleus.Type
+module Canonical = Nucleus.Canonical
 
-module Function = struct
+type application =
+  | TypeApp of Type.t list
+  | IndexApp of Index.t list
+[@@deriving sexp_of]
+
+type appStack = application list [@@deriving sexp_of]
+
+module CanonicalAppStack = struct
   module T = struct
-    open Nucleus
+    type element =
+      | TypeApp of Canonical.Type.t list
+      | IndexApp of Canonical.Index.t list
+    [@@deriving compare, sexp]
 
-    type t =
-      | BuiltIn of
-          { funcName : Expr.builtInFunctionName
-          ; arrayEnv : Type.array Map.M(String).t
-          ; atomEnv : Type.atom Map.M(String).t
-          ; shapeEnv : Index.shape Map.M(String).t
-          ; dimensionEnv : Index.dimension Map.M(String).t
-          ; type' : Type.array
-          }
-      | Lambda of Expr.termLambda
-      | TypeLambda of
-          { params : Kind.t param list
-          ; body : t
-          }
-      | IndexLambda of
-          { params : Sort.t param list
-          ; body : t
-          }
-    [@@deriving sexp_of, compare, equal]
-
-    let rec subTypes types = function
-      | BuiltIn _ as builtIn -> builtIn
-      | Lambda lambda -> Lambda (Substitute.subTypesIntoTermLambda types lambda)
-      | TypeLambda { params; body } -> TypeLambda { params; body = subTypes types body }
-      | IndexLambda { params; body } -> IndexLambda { params; body = subTypes types body }
-    ;;
-
-    let rec subIndices indices = function
-      | BuiltIn _ as builtIn -> builtIn
-      | Lambda lambda -> Lambda (Substitute.subIndicesIntoTermLambda indices lambda)
-      | TypeLambda { params; body } ->
-        TypeLambda { params; body = subIndices indices body }
-      | IndexLambda { params; body } ->
-        IndexLambda { params; body = subIndices indices body }
-    ;;
+    type t = element list [@@deriving compare, sexp]
   end
 
   include T
   include Comparator.Make (T)
+
+  let from =
+    List.map ~f:(fun (app : application) ->
+      match app with
+      | TypeApp types -> TypeApp (List.map types ~f:Canonical.Type.from)
+      | IndexApp indices -> IndexApp (List.map indices ~f:Canonical.Index.from))
+  ;;
+end
+
+module Function = struct
+  type t =
+    | Lambda of
+        { lambda : ExplicitNucleus.Expr.termLambda
+        ; id : Identifier.t
+        }
+    | Primitive of
+        { func : ExplicitNucleus.Expr.primitive
+        ; appStack : appStack
+        }
+  [@@deriving sexp_of]
+
+  let equal a b =
+    match a, b with
+    | Lambda a, Lambda b -> Identifier.equal a.id b.id
+    | Primitive a, Primitive b -> ExplicitNucleus.Expr.equal_primitive a.func b.func
+    | Lambda _, Primitive _ | Primitive _, Lambda _ -> false
+  ;;
+
+  let toExplicit =
+    let module E = ExplicitNucleus.Expr in
+    function
+    | Lambda { lambda; id = _ } ->
+      E.Scalar
+        { element = TermLambda lambda
+        ; type' = { element = Func lambda.type'; shape = [] }
+        }
+    | Primitive { func; appStack = _ } -> Primitive func
+  ;;
 end
 
 module FunctionSet = struct
@@ -50,6 +67,7 @@ module FunctionSet = struct
     | Multiple
     | One of Function.t
     | Empty
+  [@@deriving sexp_of]
 
   let merge functionSets =
     let rec loop = function
@@ -64,502 +82,537 @@ module FunctionSet = struct
     in
     loop (Empty, functionSets)
   ;;
-
-  let map s ~f =
-    match s with
-    | Multiple -> Multiple
-    | One s -> One (f s)
-    | Empty -> Empty
-  ;;
 end
 
-type env = FunctionSet.t Map.M(Identifier).t
-
-type 't return =
-  { value : 't
+type cacheEntry =
+  { binding : Identifier.t
+  ; monoValue : InlineNucleus.Expr.array
   ; functions : FunctionSet.t
   }
+[@@deriving sexp_of]
+
+type envEntry =
+  { polyValue : ExplicitNucleus.Expr.array
+  ; cache : cacheEntry Map.M(CanonicalAppStack).t
+  }
+[@@deriving sexp_of]
 
 module InlineState = struct
-  include CompilerState
+  include StateT.Make2WithError (MResult)
+
+  type state =
+    { compilerState : CompilerState.state
+    ; env : envEntry Map.M(Identifier).t
+    }
 
   type 't u = (state, 't, string) t
+
+  let getEnv () = get () >>| fun state -> state.env
+  let setEnv env = get () >>= fun state -> set { state with env }
 
   let createId name =
     make ~f:(fun state ->
       State.run
         (Identifier.create
            name
-           ~getCounter:(fun (s : state) -> s.idCounter)
-           ~setCounter:(fun _ idCounter -> CompilerState.{ idCounter }))
+           ~getCounter:(fun (s : state) -> s.compilerState.idCounter)
+           ~setCounter:(fun (s : state) idCounter ->
+             { s with compilerState = CompilerState.{ idCounter } }))
         state)
   ;;
+
+  let unzip = map ~f:List.unzip
+  let err error = returnF (MResult.Errors (error :: []))
 end
 
-let rec explicitizeArray (env : env) subs (array : Nucleus.Expr.array)
-  : InlineNucleus.Expr.array return InlineState.u
+let rec inlineAtomType : Nucleus.Type.atom -> InlineNucleus.Type.atom = function
+  | AtomRef _ ->
+    raise (Unreachable.Error "There should be no type refs left after inlining")
+  | Sigma sigma -> Sigma (inlineSigmaType sigma)
+  | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
+  | Literal CharacterLiteral -> Literal CharacterLiteral
+  | Literal IntLiteral -> Literal IntLiteral
+  | Func _ -> Literal Unit
+  | Forall _ -> Literal Unit
+  | Pi _ -> Literal Unit
+
+and inlineArrayType : Nucleus.Type.array -> InlineNucleus.Type.array = function
+  | ArrayRef _ ->
+    raise (Unreachable.Error "There should be no type refs left after inlining")
+  | Arr { element; shape } -> { element = inlineAtomType element; shape }
+
+and inlineSigmaType ({ parameters; body } : Nucleus.Type.sigma) : InlineNucleus.Type.sigma
   =
-  let open CompilerState.Let_syntax in
-  let module N = Nucleus.Expr in
-  let module I = InlineNucleus.Expr in
-  match array with
-  | N.Ref { id; type' } ->
-    let id = Map.find subs id |> Option.value ~default:id in
-    let functions = Map.find env id |> Option.value ~default:Multiple in
-    InlineState.return { value = I.Ref { id; type' }; functions }
-  | N.Scalar { element; type' } ->
-    let%map { value = element; functions } = explicitizeAtom env subs element in
-    { value = I.Scalar { element; type' }; functions }
-  | N.Frame { dimensions; elements; type' } ->
-    let%map elementsWtihFunctions =
-      elements |> List.map ~f:(explicitizeArray env subs) |> InlineState.all
-    in
-    let elements = List.map elementsWtihFunctions ~f:(fun e -> e.value) in
-    let functionSets = List.map elementsWtihFunctions ~f:(fun e -> e.functions) in
-    let functions = FunctionSet.merge functionSets in
-    { value = I.Frame { dimensions; elements; type' }; functions }
-  | N.TermApplication ({ func = funcExpr; args; type' } as call) ->
-    (* Need to make maps explicit and inline functions *)
-    let funcArrType =
-      match Nucleus.Expr.arrayType funcExpr with
-      | Arr arr -> arr
-      | _ -> Unreachable.raiseStr "Expected an Arr type in function call position"
-    in
-    let funcType =
-      match funcArrType.element with
-      | Func funcType -> funcType
-      | _ -> Unreachable.raiseStr "Expected a function type in function call position"
-    in
-    let%bind { value = _; functions } = explicitizeArray env subs funcExpr in
-    let callStr () = [%sexp_of: N.termApplication] call |> Sexp.to_string_hum in
-    let%bind func =
-      match functions with
-      | Multiple ->
-        InlineState.returnF
-          (MResult.err
-             [%string
-               "At function call %{callStr ()}, unable to determine what function is \
-                being called"])
-      | One func -> InlineState.return func
-      | Empty ->
-        Error.raise
-          (Error.of_string
-             "At least one function should be available, but got an empty set. There's \
-              either a bug in Inline or a type error in the program")
-    in
-    (* Define type to contain info about each arg, as well as the array in the function call position *)
-    let module CallComponent = struct
-      type arg =
-        { arg : InlineNucleus.Expr.array (* The argument's value *)
-        ; argType : InlineNucleus.Type.arr (* The type of the argument *)
-        ; frame : InlineNucleus.Index.shape (* The frame of the argument *)
-        ; cellShape : InlineNucleus.Index.shape (* The cell shape *)
-        ; name : string
-            (* A name for the argument. If the function is a lambda, it is the parameter names. If not, it is generated *)
-        ; index : int (* Whether the argument is first, second, third, etc. *)
-        ; functions : FunctionSet.t
-        }
-
-      type t =
-        | FunctionCall of { frame : InlineNucleus.Index.shape }
-        | Arg of arg
-
-      type boundArg =
-        { binding : Identifier.t
-        ; ref : I.array
-        ; functions : FunctionSet.t
-        ; index : int
-        }
-
-      let frame = function
-        | FunctionCall fc -> fc.frame
-        | Arg arg -> arg.frame
-      ;;
-
-      let makeComponents args =
-        let paramNames =
-          match func with
-          | Lambda lambda ->
-            List.map lambda.params ~f:(fun param -> Identifier.name param.binding)
-          | _ -> List.init (List.length args) ~f:(fun i -> [%string "arg%{i#Int}"])
-        in
-        let%map args =
-          List.zip_exn funcType.parameters args
-          |> List.zip_exn paramNames
-          |> List.zip_exn (List.init (List.length args) ~f:(fun i -> i))
-          |> List.map ~f:(fun (index, (name, (param, arg))) ->
-            let%map { value = arg; functions } = explicitizeArray env subs arg in
-            let cellShape =
-              match param with
-              | Arr { element = _; shape } -> shape
-              | ArrayRef _ -> Unreachable.raiseStr "Expected an Arr for a function param"
-            in
-            let argType =
-              match I.arrayType arg with
-              | Arr arr -> arr
-              | ArrayRef _ ->
-                Unreachable.raiseStr "Expected an Arr for a function argument"
-            in
-            let argShape = argType.shape in
-            let getFrame ~argShape ~cellShape =
-              List.rev argShape
-              |> (fun l -> List.drop l (List.length cellShape))
-              |> List.rev
-            in
-            let frame = getFrame ~argShape ~cellShape in
-            Arg { arg; argType; frame; cellShape; name; index; functions })
-          |> InlineState.all
-        in
-        FunctionCall { frame = funcArrType.shape } :: args
-      ;;
-    end
-    in
-    (* Group callComponents by their frame size, with the shortest frames coming first *)
-    let%bind components =
-      CallComponent.makeComponents args
-      |> InlineState.map
-           ~f:
-             (List.sort_and_group ~compare:(fun a b ->
-                Int.compare
-                  (List.length (CallComponent.frame a))
-                  (List.length (CallComponent.frame b))))
-    in
-    (* Recur over the grouped args, inserting the implicit maps, and inlining the function call *)
-    let rec explicitizeMapsAndThenInline
-      (components : CallComponent.t list list)
-      (boundArgs : CallComponent.boundArg list)
-      (type' : Nucleus.Type.arr)
-      =
-      let dropFrameFromArrType frame (arrType : Nucleus.Type.arr) =
-        Nucleus.Type.
-          { element = arrType.element
-          ; shape = List.drop arrType.shape (List.length frame)
-          }
-      in
-      let dropFrameFromFrame frameToDrop fullFrame =
-        List.drop fullFrame (List.length frameToDrop)
-      in
-      match components with
-      | [] ->
-        (* There are no more implicit maps left to deal with, so now we
-           inline the function call *)
-        let boundArgs =
-          List.sort boundArgs ~compare:(fun a b -> Int.compare a.index b.index)
-        in
-        (match func with
-         | Lambda lambda ->
-           let subs =
-             List.zip_exn lambda.params boundArgs
-             |> List.fold ~init:subs ~f:(fun subs (param, arg) ->
-               Map.set subs ~key:param.binding ~data:arg.binding)
-           in
-           let env =
-             List.fold boundArgs ~init:env ~f:(fun env arg ->
-               Map.set env ~key:arg.binding ~data:arg.functions)
-           in
-           explicitizeArray env subs lambda.body
-         | BuiltIn { funcName; arrayEnv; atomEnv; shapeEnv; dimensionEnv; type' } ->
-           let makeBinop op =
-             InlineState.return
-               { value =
-                   I.BuiltInFunctionCall
-                     (Binop
-                        { op
-                        ; arg1 = (List.nth_exn boundArgs 0).ref
-                        ; arg2 = (List.nth_exn boundArgs 0).ref
-                        ; type'
-                        })
-               ; functions = Empty
-               }
-           in
-           (match funcName with
-            | Add -> makeBinop Add
-            | Sub -> makeBinop Sub
-            | Mul -> makeBinop Mul
-            | Div -> makeBinop Div
-            | Length ->
-              let arg = List.nth_exn boundArgs 0 in
-              let t = Map.find_exn atomEnv "t" in
-              let d = Map.find_exn dimensionEnv "d" in
-              let cellShape = Map.find_exn shapeEnv "@cell-shape" in
-              InlineState.return
-                { value =
-                    I.BuiltInFunctionCall
-                      (Length { arg = arg.ref; t; d; cellShape; type' })
-                ; functions = Empty
-                }
-            | Reduce ->
-              let arg = List.nth_exn boundArgs 0 in
-              let t = Map.find_exn atomEnv "t" in
-              let dSub1 = Map.find_exn dimensionEnv "d-1" in
-              let itemPad = Map.find_exn shapeEnv "@item-pad" in
-              let cellShape = Map.find_exn shapeEnv "@cell-shape" in
-              InlineState.return
-                { value =
-                    I.BuiltInFunctionCall
-                      (Reduce
-                         { body = ()
-                         ; args = [ arg.ref ]
-                         ; t
-                         ; dSub1
-                         ; itemPad
-                         ; cellShape
-                         ; type'
-                         })
-                ; functions = Empty
-                })
-         | TypeLambda _ -> Unreachable.raise ()
-         | IndexLambda _ -> Unreachable.raise ())
-      | minFrameComponents :: restComponents ->
-        (* minFrameArgs are the arguments whose frame is the shortest of all the arguments.
-           The shape of the minFrameArgs can be safely mapped over across all
-           arguments, and then the minFrameArgs will have been reduced to their cells. *)
-        let minFrame = CallComponent.frame (List.hd_exn minFrameComponents) in
-        let processComponent (component : CallComponent.t)
-          : (I.mapArg option * CallComponent.t * CallComponent.boundArg option)
-          InlineState.u
-          =
-          match component with
-          | Arg arg ->
-            let%map binding = InlineState.createId arg.name in
-            let newArgType = dropFrameFromArrType minFrame arg.argType in
-            let newArg =
-              CallComponent.
-                { arg = Ref { id = binding; type' = Arr newArgType }
-                ; argType = newArgType
-                ; frame = dropFrameFromFrame minFrame arg.frame
-                ; cellShape = arg.cellShape
-                ; name = arg.name
-                ; index = arg.index
-                ; functions = arg.functions
-                }
-            in
-            let boundArg =
-              CallComponent.
-                { binding
-                ; ref = I.Ref { id = binding; type' = Arr newArgType }
-                ; index = arg.index
-                ; functions = arg.functions
-                }
-            in
-            let mapArg : I.mapArg = { binding; value = arg.arg } in
-            Some mapArg, CallComponent.Arg newArg, Some boundArg
-          | FunctionCall { frame } ->
-            InlineState.return
-              ( None
-              , CallComponent.FunctionCall { frame = dropFrameFromFrame minFrame frame }
-              , None )
-        in
-        let%bind minFrameComponentsProcessed =
-          List.map minFrameComponents ~f:processComponent |> InlineState.all
-        in
-        let%bind restComponentsProcessed =
-          List.map restComponents ~f:(fun cs ->
-            cs |> List.map ~f:processComponent |> InlineState.all)
-          |> InlineState.all
-        in
-        let mapArgs =
-          List.map minFrameComponentsProcessed ~f:(fun (mapArg, _, _) -> mapArg)
-          @ List.bind
-              restComponentsProcessed
-              ~f:(List.map ~f:(fun (mapArg, _, _) -> mapArg))
-          |> List.filter_opt
-        in
-        let boundMinArgs =
-          List.map minFrameComponentsProcessed ~f:(fun (_, _, boundArg) -> boundArg)
-          |> List.filter_opt
-        in
-        let mapType = dropFrameFromArrType minFrame type' in
-        let%map { value = mapBody; functions } =
-          explicitizeMapsAndThenInline restComponents (boundMinArgs @ boundArgs) mapType
-        in
-        { value =
-            I.BuiltInFunctionCall
-              (I.Map
-                 { body = mapBody
-                 ; args = mapArgs
-                 ; frameShape = minFrame
-                 ; type' = Arr type'
-                 })
-        ; functions
-        }
-    in
-    explicitizeMapsAndThenInline components [] type'
-  | N.TypeApplication { tFunc; args; type' } ->
-    let%map { value = tFunc; functions = rawFunctions } =
-      explicitizeArray env subs tFunc
-    in
-    let functions =
-      FunctionSet.map rawFunctions ~f:(function
-        | TypeLambda { params; body } ->
-          let subs =
-            List.zip_exn params args
-            |> List.fold
-                 ~init:(Map.empty (module Identifier))
-                 ~f:(fun acc (param, arg) -> Map.set acc ~key:param.binding ~data:arg)
-          in
-          Function.subTypes subs body
-        | BuiltIn { funcName; arrayEnv; atomEnv; shapeEnv; dimensionEnv; type' } ->
-          (match type' with
-           | Arr { element = Forall { parameters; body }; shape = _ } ->
-             let subs, arrayEnv, atomEnv =
-               List.zip_exn parameters args
-               |> List.fold
-                    ~init:(Map.empty (module Identifier), arrayEnv, atomEnv)
-                    ~f:(fun (subs, arrayEnv, atomEnv) (param, arg) ->
-                      let subs = Map.set subs ~key:param.binding ~data:arg in
-                      match arg with
-                      | Array arg ->
-                        let arrayEnv =
-                          Map.set arrayEnv ~key:(Identifier.name param.binding) ~data:arg
-                        in
-                        subs, arrayEnv, atomEnv
-                      | Atom arg ->
-                        let atomEnv =
-                          Map.set atomEnv ~key:(Identifier.name param.binding) ~data:arg
-                        in
-                        subs, arrayEnv, atomEnv)
-             in
-             let type' = Substitute.subTypesIntoArrayType subs body in
-             BuiltIn { funcName; arrayEnv; atomEnv; shapeEnv; dimensionEnv; type' }
-           | _ -> Unreachable.raiseStr "TypeLambda's body should have Forall type")
-        | IndexLambda _ | Lambda _ -> Unreachable.raise ())
-    in
-    { value = I.TypeApplication { tFunc; args; type' }; functions }
-  | N.IndexApplication { iFunc; args; type' } ->
-    let%map { value = iFunc; functions = rawFunctions } =
-      explicitizeArray env subs iFunc
-    in
-    let functions =
-      FunctionSet.map rawFunctions ~f:(function
-        | IndexLambda { params; body } ->
-          let subs =
-            List.zip_exn params args
-            |> List.fold
-                 ~init:(Map.empty (module Identifier))
-                 ~f:(fun acc (param, arg) -> Map.set acc ~key:param.binding ~data:arg)
-          in
-          Function.subIndices subs body
-        | BuiltIn { funcName; arrayEnv; atomEnv; shapeEnv; dimensionEnv; type' } ->
-          (match type' with
-           | Arr { element = Pi { parameters; body }; shape = _ } ->
-             let subs, shapeEnv, dimensionEnv =
-               List.zip_exn parameters args
-               |> List.fold
-                    ~init:(Map.empty (module Identifier), shapeEnv, dimensionEnv)
-                    ~f:(fun (subs, shapeEnv, dimensionEnv) (param, arg) ->
-                      let subs = Map.set subs ~key:param.binding ~data:arg in
-                      match arg with
-                      | Shape arg ->
-                        let shapeEnv =
-                          Map.set shapeEnv ~key:(Identifier.name param.binding) ~data:arg
-                        in
-                        subs, shapeEnv, dimensionEnv
-                      | Dimension arg ->
-                        let dimensionEnv =
-                          Map.set
-                            dimensionEnv
-                            ~key:(Identifier.name param.binding)
-                            ~data:arg
-                        in
-                        subs, shapeEnv, dimensionEnv)
-             in
-             let type' = Substitute.subIndicesIntoArrayType subs body in
-             BuiltIn { funcName; arrayEnv; atomEnv; shapeEnv; dimensionEnv; type' }
-           | _ -> Unreachable.raiseStr "TypeLambda's body should have Forall type")
-        | TypeLambda _ | Lambda _ -> Unreachable.raise ())
-    in
-    { value = I.IndexApplication { iFunc; args; type' }; functions }
-  | N.Unbox { indexBindings; valueBinding; box; body; type' } ->
-    let%bind { value = box; functions = boxFunctions } = explicitizeArray env subs box in
-    let env = Map.set env ~key:valueBinding ~data:boxFunctions in
-    let%map { value = body; functions } = explicitizeArray env subs body in
-    { value = I.Unbox { indexBindings; valueBinding; box; body; type' }; functions }
-  | N.Let { binding; value; body; type' } ->
-    let%bind { value; functions = valueFunctions } = explicitizeArray env subs value in
-    let env = Map.set env ~key:binding ~data:valueFunctions in
-    let%map { value = body; functions } = explicitizeArray env subs body in
-    { value =
-        I.BuiltInFunctionCall
-          (Map { body; args = [ { binding; value } ]; frameShape = []; type' })
-    ; functions
-    }
-  | N.TupleLet { params; value; body; type' } ->
-    let%map { value; functions = _ } = explicitizeArray env subs value
-    (* Copy propogation is not followed through tuple lets *)
-    and { value = body; functions } = explicitizeArray env subs body in
-    { value = I.TupleLet { params; value; body; type' }; functions }
-  | N.BuiltInFunction { func; type' } ->
-    return
-      { value = I.BuiltInFunction { func; type' }
-      ; functions =
-          One
-            (Function.BuiltIn
-               { funcName = func
-               ; arrayEnv = Map.empty (module String)
-               ; atomEnv = Map.empty (module String)
-               ; shapeEnv = Map.empty (module String)
-               ; dimensionEnv = Map.empty (module String)
-               ; type'
-               })
-      }
-
-and explicitizeAtom (env : env) subs atom : InlineNucleus.Expr.atom return InlineState.u =
-  let open CompilerState.Let_syntax in
-  let module N = Nucleus.Expr in
-  let module I = InlineNucleus.Expr in
-  match atom with
-  | N.TermLambda lambda ->
-    return
-      { value = I.TermLambda { type' = lambda.type' }; functions = One (Lambda lambda) }
-  | N.TypeLambda { params; body; type' } ->
-    let%map { value = body; functions = rawFunctions } = explicitizeArray env subs body in
-    let functions =
-      FunctionSet.map rawFunctions ~f:(fun body -> TypeLambda { params; body })
-    in
-    { value = I.TypeLambda { params; body; type' }; functions }
-  | N.IndexLambda { params; body; type' } ->
-    let%map { value = body; functions = rawFunctions } = explicitizeArray env subs body in
-    let functions =
-      FunctionSet.map rawFunctions ~f:(fun body -> IndexLambda { params; body })
-    in
-    { value = I.IndexLambda { params; body; type' }; functions }
-  | N.Box _ -> Unimplemented.raise ()
-  | N.Tuple { elements; type' } ->
-    let%map elementsWithFunctions =
-      elements |> List.map ~f:(explicitizeAtom env subs) |> InlineState.all
-    in
-    let elements = List.map elementsWithFunctions ~f:(fun e -> e.value) in
-    { value = I.Tuple { elements; type' }; functions = Multiple }
-  | N.Literal (IntLiteral i) ->
-    return { value = I.Literal (IntLiteral i); functions = Empty }
-  | N.Literal (CharacterLiteral c) ->
-    return { value = I.Literal (CharacterLiteral c); functions = Empty }
+  { parameters; body = inlineArrayType body }
 ;;
 
-let explicitize (prog : Nucleus.t)
+let assertValueRestriction value =
+  let isPolymorphicType =
+    let open ExplicitNucleus.Type in
+    let rec isPolymorphicArray = function
+      | ArrayRef _ -> false
+      | Arr arr -> isPolymorphicAtom arr.element
+    and isPolymorphicAtom = function
+      | AtomRef _ -> false
+      | Func _ -> false
+      | Forall _ -> true
+      | Pi _ -> true
+      | Sigma sigma -> isPolymorphicArray sigma.body
+      | Tuple elements -> List.exists elements ~f:isPolymorphicAtom
+      | Literal IntLiteral -> false
+      | Literal CharacterLiteral -> false
+    in
+    isPolymorphicArray
+  in
+  let isValue =
+    let open ExplicitNucleus.Expr in
+    let rec isValueArray = function
+      | Ref _ -> true
+      | Scalar scalar -> isValueAtom scalar.element
+      | Frame frame -> List.for_all frame.elements ~f:isValueArray
+      | TermApplication _ -> false
+      | TypeApplication _ -> false
+      | IndexApplication _ -> false
+      | Unbox _ -> false
+      | TupleLet _ -> false
+      | Primitive _ -> true
+      | Map _ -> false
+    and isValueAtom = function
+      | TermLambda _ -> true
+      | TypeLambda _ -> true
+      | IndexLambda _ -> true
+      | Box box -> isValueArray box.body
+      | Tuple tuple -> List.for_all tuple.elements ~f:isValueAtom
+      | Literal (IntLiteral _) -> true
+      | Literal (CharacterLiteral _) -> true
+    in
+    isValueArray
+  in
+  if isPolymorphicType (ExplicitNucleus.Expr.arrayType value) && not (isValue value)
+  then
+    InlineState.err
+      (String.concat_lines
+         [ "Polymorphic variables and function arguments must be a value type, got \
+            not-value:"
+         ; [%sexp_of: ExplicitNucleus.Expr.array] value |> Sexp.to_string_hum
+         ])
+  else InlineState.return ()
+;;
+
+let scalar atom =
+  InlineNucleus.Expr.(
+    Scalar { element = atom; type' = { element = atomType atom; shape = [] } })
+;;
+
+let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.array)
+  : (InlineNucleus.Expr.array * FunctionSet.t) InlineState.u
+  =
+  let module E = ExplicitNucleus.Expr in
+  let module I = InlineNucleus.Expr in
+  let open InlineState.Let_syntax in
+  (* Stdio.print_endline "inlineArray";
+     Stdio.print_endline ([%sexp_of: E.array] array |> Sexp.to_string_hum);
+     Stdio.print_endline ([%sexp_of: appStack] appStack |> Sexp.to_string_hum); *)
+  match array with
+  | Ref { id; type' } ->
+    (* Substitute the id is it appears in subs *)
+    let id = Map.find subs id |> Option.value ~default:id in
+    (* Look up the cache entry corresponding to id and the current appStack. *)
+    let%bind env = InlineState.getEnv () in
+    let { polyValue; cache } = Map.find_exn env id in
+    let canonicalStack = CanonicalAppStack.from appStack in
+    (match Map.find cache canonicalStack with
+     | Some { binding; monoValue = _; functions } ->
+       (* The cache entry already exists *)
+       return (I.Ref { id = binding; type' = inlineArrayType type' }, functions)
+     | None ->
+       (* No cache entry exists yet. Create a new monomorphization of the
+          variable and put it in the cache. *)
+       let%bind monoValue, functions = inlineArray subs appStack polyValue
+       and binding = InlineState.createId (Identifier.name id) in
+       let cacheEntry = { binding; monoValue; functions } in
+       (* env may have been updated when computing the monoValue, so
+          need to re-fetch it *)
+       let%bind env = InlineState.getEnv () in
+       let newEnv =
+         Map.set
+           env
+           ~key:id
+           ~data:{ polyValue; cache = Map.set cache ~key:canonicalStack ~data:cacheEntry }
+       in
+       let%map () = InlineState.setEnv newEnv in
+       I.Ref { id = binding; type' = inlineArrayType type' }, functions)
+  | Scalar { element; type' = _ } -> inlineAtom subs appStack element
+  | Frame { dimensions; elements; type' } ->
+    let%map elements, functions =
+      elements
+      |> List.map ~f:(inlineArray subs appStack)
+      |> InlineState.all
+      |> InlineState.unzip
+    in
+    let functions = FunctionSet.merge functions in
+    I.Frame { dimensions; elements; type' = inlineArrayType (Arr type') }, functions
+  | TermApplication termApplication -> inlineTermApplication subs appStack termApplication
+  | TypeApplication { tFunc; args; type' = _ } ->
+    inlineArray subs (TypeApp args :: appStack) tFunc
+  | IndexApplication { iFunc; args; type' = _ } ->
+    inlineArray subs (IndexApp args :: appStack) iFunc
+  | Unbox { indexBindings; valueBinding; box; body; type' } ->
+    let args = [ valueBinding, box ] in
+    let%map body, args, functions = inlineBodyWithBindings subs appStack body args in
+    let boxBindings =
+      args
+      |> List.map ~f:(fun bindings ->
+        Map.to_alist bindings
+        |> List.map ~f:(fun (_, (binding, box)) : I.unboxBinding -> { binding; box }))
+      |> List.join
+    in
+    ( I.Unbox { indexBindings; boxBindings; body; type' = inlineArrayType (Arr type') }
+    , functions )
+  | TupleLet _ -> raise (Unimplemented.Error "Tuples are not supported")
+  | Primitive primitive ->
+    return
+      (scalar (I.Literal Unit), FunctionSet.One (Primitive { func = primitive; appStack }))
+  | Map { args; body; frameShape; type' } ->
+    let args = List.map args ~f:(fun { binding; value } -> binding, value) in
+    let%map body, args, functions = inlineBodyWithBindings subs appStack body args in
+    let args =
+      args
+      |> List.map ~f:(fun bindings ->
+        bindings
+        |> Map.to_alist
+        |> List.map ~f:(fun (_, (binding, value)) : I.mapArg -> { binding; value }))
+      |> List.join
+    in
+    ( I.IntrinsicCall (Map { args; body; frameShape; type' = inlineArrayType type' })
+    , functions )
+
+and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
+  : (InlineNucleus.Expr.array * FunctionSet.t) InlineState.u
+  =
+  let module E = ExplicitNucleus.Expr in
+  let module I = InlineNucleus.Expr in
+  let open InlineState.Let_syntax in
+  (* Stdio.print_endline "inlineAtom";
+     Stdio.print_endline ([%sexp_of: E.atom] atom |> Sexp.to_string_hum);
+     Stdio.print_endline ([%sexp_of: appStack] appStack |> Sexp.to_string_hum); *)
+  match atom with
+  | TermLambda lambda ->
+    (* Since all function calls gget inlined, the value of the lambda is
+       never used, so it can be safely replaced with unit *)
+    let%map id = InlineState.createId "lambda" in
+    scalar (I.Literal Unit), FunctionSet.One (Lambda { lambda; id })
+  | TypeLambda { params; body; type' = _ } ->
+    (* Stdio.print_endline "Doing TypeLambda";
+       Stdio.print_endline ([%sexp_of: E.atom] atom |> Sexp.to_string_hum);
+       Stdio.print_endline ([%sexp_of: appStack] appStack |> Sexp.to_string_hum); *)
+    (match appStack with
+     | TypeApp types :: restStack ->
+       let typeSubs =
+         List.zip_exn params types
+         |> List.fold
+              ~init:(Map.empty (module Identifier))
+              ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
+       in
+       let subbedBody = ExplicitNucleus.Substitute.Expr.subTypesIntoArray typeSubs body in
+       (* Stdio.print_endline "subbed body:";
+          Stdio.print_endline ([%sexp_of: E.array] subbedBody |> Sexp.to_string_hum); *)
+       inlineArray subs restStack subbedBody
+     | [] ->
+       (* Empty stack means the type lambda's value is not passed to a type
+          application, so we can replace it with a unit *)
+       return (scalar (I.Literal Unit), FunctionSet.Empty)
+     | _ :: _ as stack ->
+       raise
+         (Unreachable.Error
+            (String.concat_lines
+               [ "Expected type application at head of stack or empty stack, got stack:"
+               ; [%sexp_of: appStack] stack |> Sexp.to_string_hum
+               ])))
+  | IndexLambda { params; body; type' = _ } ->
+    (match appStack with
+     | IndexApp indices :: restStack ->
+       let indexSubs =
+         List.zip_exn params indices
+         |> List.fold
+              ~init:(Map.empty (module Identifier))
+              ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
+       in
+       let subbedBody =
+         ExplicitNucleus.Substitute.Expr.subIndicesIntoArray indexSubs body
+       in
+       inlineArray subs restStack subbedBody
+     | [] ->
+       (* Empty stack means the index lambda's value is not passed to an index
+          application, so we can replace it with a unit *)
+       return (scalar (I.Literal Unit), FunctionSet.Empty)
+     | _ as stack ->
+       raise
+         (Unreachable.Error
+            (String.concat_lines
+               [ "Expected index application at head of stack, got stack:"
+               ; [%sexp_of: appStack] stack |> Sexp.to_string_hum
+               ])))
+  | Box { indices; body; bodyType; type' } ->
+    let%map body, functions = inlineArray subs appStack body in
+    ( scalar
+        (I.Box
+           { indices
+           ; body
+           ; bodyType = inlineArrayType bodyType
+           ; type' = inlineSigmaType type'
+           })
+    , functions )
+  | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
+  | Literal (CharacterLiteral c) ->
+    return (scalar (I.Literal (CharacterLiteral c)), FunctionSet.Empty)
+  | Literal (IntLiteral i) -> return (scalar (I.Literal (IntLiteral i)), FunctionSet.Empty)
+
+and inlineTermApplication subs appStack termApplication =
+  let module E = ExplicitNucleus.Expr in
+  let module I = InlineNucleus.Expr in
+  let open InlineState.Let_syntax in
+  let ({ func; args; type' } : E.termApplication) = termApplication in
+  let args =
+    List.map args ~f:(fun ({ id; type' } : E.ref) ->
+      let id = Map.find subs id |> Option.value ~default:id in
+      ({ id; type' } : E.ref))
+  in
+  let%bind _, functions = inlineArray subs [] func in
+  let%bind func =
+    match functions with
+    | Empty ->
+      (* let%map env = InlineState.getEnv () in
+         Stdio.print_endline "func:";
+         Stdio.print_endline ([%sexp_of: E.array] func |> Sexp.to_string_hum);
+         Stdio.print_endline "env:";
+         Stdio.print_endline ([%sexp_of: envEntry Map.M(Identifier).t] env |> Sexp.to_string_hum); *)
+      raise (Unreachable.Error "func should've returned at least one function")
+    | One f -> return f
+    | Multiple ->
+      InlineState.err
+        (String.concat_lines
+           [ "Could not determine what function is being called in function call:"
+           ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
+           ])
+  in
+  match func with
+  | Lambda { lambda = { params; body; type' = _ }; id = _ } ->
+    (* Simply return the lambda's body inlined, with the parameters
+       replaced with the args. The args are already guaranteed to be variables
+       bound to a map due to how the Explicitize stage works, so we don't
+       need to create bindings. (If this wasn't the case, we'd need to
+       create bindings to guaranteed the params aren't computed twice.) *)
+    let subs =
+      List.zip_exn params args
+      |> List.fold ~init:subs ~f:(fun subs (param, arg) ->
+        (* Assert that the arg we're subbing conforms to the param's bound.
+           This should have been already guaranteed by the type checker *)
+        assert (
+          Canonical.Type.equal
+            (Canonical.Type.from (Array param.bound))
+            (Canonical.Type.from (Array arg.type')));
+        Map.set subs ~key:param.binding ~data:arg.id)
+    in
+    inlineArray subs appStack body
+  | Primitive primitive ->
+    let binop op =
+      assert (List.length args = 2);
+      let%map args, _ =
+        args
+        |> List.map ~f:(fun arg -> inlineArray subs [] (Ref arg))
+        |> InlineState.all
+        |> InlineState.unzip
+      in
+      I.PrimitiveCall { op; args; type' = inlineArrayType (Arr type') }, FunctionSet.Empty
+    in
+    (match primitive.func.func with
+     | Add -> binop Add
+     | Sub -> binop Sub
+     | Mul -> binop Mul
+     | Div -> binop Div
+     | Length ->
+       assert (List.length args = 1);
+       (match primitive.appStack with
+        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
+          let%map arg, _ = inlineArray subs [] (Ref (List.hd_exn args)) in
+          ( I.IntrinsicCall
+              (Length
+                 { arg
+                 ; t = inlineAtomType t
+                 ; d
+                 ; cellShape
+                 ; type' = inlineArrayType (Arr type')
+                 })
+          , FunctionSet.Empty )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "length expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
+     | Reduce ->
+       assert (List.length args = 2);
+       (match primitive.appStack with
+        | [ IndexApp [ Dimension dSub1; Shape itemPad; Shape cellShape ]
+          ; TypeApp [ Atom t ]
+          ] ->
+          (match args with
+           | [ f; arrayArg ] ->
+             let%bind _, functions = inlineArray subs [] (Ref f) in
+             let%bind func =
+               match functions with
+               | Empty ->
+                 raise
+                   (Unreachable.Error
+                      "func of reduce should've returned at least one function")
+               | One f -> return f
+               | Multiple ->
+                 InlineState.err
+                   (String.concat_lines
+                      [ "Could not determine what function is being passed to reduce:"
+                      ; [%sexp_of: E.termApplication] termApplication
+                        |> Sexp.to_string_hum
+                      ])
+             in
+             let%bind fArg1 = InlineState.createId "reduceArg1"
+             and fArg2 = InlineState.createId "reduceArg2" in
+             let body =
+               E.TermApplication
+                 { func = Function.toExplicit func
+                 ; args =
+                     [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
+                     ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
+                     ]
+                 ; type' = { element = t; shape = cellShape }
+                 }
+             in
+             let%bind body, bindings, functions =
+               inlineBodyWithBindings
+                 subs
+                 appStack
+                 body
+                 [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
+             in
+             (* Since fArg1 and fArg2 both come from arrayArg, they need to have
+                the same set of monomorphizations, so we need to merge together
+                their cache entries *)
+             let appStacksToMonoValue =
+               bindings
+               |> List.bind ~f:(fun map ->
+                 map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
+               |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
+             in
+             let bindings1, bindings2 =
+               match bindings with
+               | [ bindings1; bindings2 ] -> bindings1, bindings2
+               | _ -> raise (Unreachable.Error "bindings should have len 2")
+             in
+             let%map args =
+               appStacksToMonoValue
+               |> Map.to_alist
+               |> List.map ~f:(fun (appStack, monoValue) ->
+                 let getBindingFrom argBindings argName =
+                   match Map.find argBindings appStack with
+                   | Some (binding, _) -> return binding
+                   | None -> InlineState.createId argName
+                 in
+                 let%map firstBinding = getBindingFrom bindings1 "reduceArg1"
+                 and secondBinding = getBindingFrom bindings2 "reduceArg2" in
+                 I.{ firstBinding; secondBinding; value = monoValue })
+               |> InlineState.all
+             in
+             ( I.IntrinsicCall
+                 (Reduce
+                    { args
+                    ; body
+                    ; t = inlineAtomType t
+                    ; dSub1
+                    ; itemPad
+                    ; cellShape
+                    ; type' = inlineArrayType (Arr type')
+                    })
+             , functions )
+           | _ -> raise (Unreachable.Error "Reduce expected two arguments"))
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "length expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ]))))
+
+(* Handle cases where there values bound to variables and then used in some
+   body of code *)
+and inlineBodyWithBindings subs appStack body bindings =
+  let open InlineState.Let_syntax in
+  (* Need to assert the value restriction in order to avoid duplicating
+     computations. Note that in Remora, the value restriction also applies
+     to function arguments. (SML doesn't have higher-rank polymorphism,
+     so the case never arises in it.) *)
+  let%bind () =
+    bindings
+    |> List.map ~f:(fun (_, value) -> assertValueRestriction value)
+    |> InlineState.all_unit
+  in
+  (* Extend the environment by adding the variables to it with empty caches *)
+  let%bind env = InlineState.getEnv () in
+  let%bind () =
+    InlineState.setEnv
+      (List.fold bindings ~init:env ~f:(fun env (binding, value) ->
+         Map.set
+           env
+           ~key:binding
+           ~data:{ polyValue = value; cache = Map.empty (module CanonicalAppStack) }))
+  in
+  (* Inline the body using the extended env *)
+  let%bind body, functions = inlineArray subs appStack body in
+  (* Inspect the cache entries for each variable. For each application stack
+     used on a variable, create a new variable. *)
+  let%bind env = InlineState.getEnv () in
+  let inlinedBindings =
+    List.map bindings ~f:(fun (binding, _) ->
+      let cache = (Map.find_exn env binding).cache in
+      let monoBindings =
+        cache
+        |> Map.map ~f:(fun { binding; monoValue; functions = _ } -> binding, monoValue)
+      in
+      monoBindings)
+  in
+  (* Remove the added bindings from the env *)
+  let%map () =
+    InlineState.setEnv
+      (List.fold bindings ~init:env ~f:(fun env (binding, _) -> Map.remove env binding))
+  in
+  body, inlinedBindings, functions
+;;
+
+let inline (prog : ExplicitNucleus.t)
   : (CompilerState.state, InlineNucleus.t, string) CompilerState.t
   =
-  let open InlineState.Let_syntax in
-  let%map { value = prog; functions = _ } =
-    explicitizeArray (Map.empty (module Identifier)) (Map.empty (module Identifier)) prog
-  in
-  prog
+  CompilerState.makeF ~f:(fun compilerState ->
+    let%map.MResult state, (result, _) =
+      InlineState.run
+        (inlineArray (Map.empty (module Identifier)) [] prog)
+        { compilerState; env = Map.empty (module Identifier) }
+    in
+    state.compilerState, result)
 ;;
 
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
-  type input = Nucleus.t
+  type input = ExplicitNucleus.t
   type output = InlineNucleus.t
   type error = (SB.source option, string) Source.annotate
 
-  let name = "Inline"
+  let name = "Inline and Monomorphize"
 
   let run input =
     CompilerPipeline.S.makeF ~f:(fun state ->
-      match CompilerState.run (explicitize input) state with
+      match CompilerState.run (inline input) state with
       | MOk _ as expr -> expr
       | Errors errs ->
         Errors (NeList.map errs ~f:(fun err -> Source.{ elem = err; source = None })))
   ;;
-end *)
+end

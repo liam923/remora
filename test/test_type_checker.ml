@@ -272,7 +272,7 @@ let%expect_test "check type" =
     {|
     (Array
      (TermApplication
-      ((func (BuiltInFunction ((func Add))))
+      ((func (Primitive ((func Add))))
        (args
         ((Scalar ((element (Literal (IntLiteral 1)))))
          (Scalar ((element (Literal (IntLiteral 2))))))))))
@@ -283,7 +283,7 @@ let%expect_test "check type" =
     {|
     (Array
      (TermApplication
-      ((func (BuiltInFunction ((func Add))))
+      ((func (Primitive ((func Add))))
        (args
         ((Frame
           ((dimensions (3))
@@ -308,7 +308,7 @@ let%expect_test "check type" =
       ((dimensions (2))
        (elements
         ((TermApplication
-          ((func (BuiltInFunction ((func Add))))
+          ((func (Primitive ((func Add))))
            (args
             ((Frame
               ((dimensions (3))
@@ -338,7 +338,7 @@ let%expect_test "check type" =
     {|
     (Array
      (TermApplication
-      ((func (BuiltInFunction ((func Add))))
+      ((func (Primitive ((func Add))))
        (args
         ((Frame
           ((dimensions (5))
@@ -393,7 +393,7 @@ let%expect_test "check type" =
                 (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
              (body
               (TermApplication
-               ((func (BuiltInFunction ((func Add))))
+               ((func (Primitive ((func Add))))
                 (args
                  ((Ref ((id ((name x) (id 8))))) (Ref ((id ((name y) (id 9))))))))))))))))
        (body
@@ -920,7 +920,7 @@ let%expect_test "check type" =
               (TypeApplication
                ((tFunc
                  (IndexApplication
-                  ((iFunc (BuiltInFunction ((func Length))))
+                  ((iFunc (Primitive ((func Length))))
                    (args
                     ((Dimension ((const 0) (refs ((((name len) (id 9)) 1)))))
                      (Shape ()))))))
@@ -1167,8 +1167,7 @@ let%expect_test "check type" =
       ((func
         (Frame
          ((dimensions (2))
-          (elements
-           ((BuiltInFunction ((func Add))) (BuiltInFunction ((func Sub))))))))
+          (elements ((Primitive ((func Add))) (Primitive ((func Sub))))))))
        (args
         ((Scalar ((element (Literal (IntLiteral 1)))))
          (Scalar ((element (Literal (IntLiteral 2))))))))))
@@ -1183,8 +1182,7 @@ let%expect_test "check type" =
       ((func
         (Frame
          ((dimensions (2))
-          (elements
-           ((BuiltInFunction ((func Add))) (BuiltInFunction ((func Sub))))))))
+          (elements ((Primitive ((func Add))) (Primitive ((func Sub))))))))
        (args
         ((Frame
           ((dimensions (2))
@@ -1203,8 +1201,7 @@ let%expect_test "check type" =
       ((func
         (Frame
          ((dimensions (2))
-          (elements
-           ((BuiltInFunction ((func Add))) (BuiltInFunction ((func Sub))))))))
+          (elements ((Primitive ((func Add))) (Primitive ((func Sub))))))))
        (args
         ((Frame
           ((dimensions (2))

@@ -93,7 +93,7 @@ module Expr = struct
     }
   [@@deriving sexp, compare, equal]
 
-  type builtInFunctionName =
+  type primitiveName =
     | Reduce
     | Add
     | Sub
@@ -183,8 +183,8 @@ module Expr = struct
     ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
-  and builtInFunction =
-    { func : builtInFunctionName
+  and primitive =
+    { func : primitiveName
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
@@ -202,7 +202,7 @@ module Expr = struct
     | Unbox of unbox
     | Let of let'
     | TupleLet of tupleLet
-    | BuiltInFunction of builtInFunction
+    | Primitive of primitive
 
   and atom =
     | TermLambda of termLambda
@@ -237,7 +237,7 @@ module Expr = struct
     | Unbox unbox -> Arr unbox.type'
     | Let let' -> let'.type'
     | TupleLet tupleLet -> tupleLet.type'
-    | BuiltInFunction builtIn -> builtIn.type'
+    | Primitive primitive -> primitive.type'
   ;;
 
   let type' : t -> Type.t = function
@@ -247,16 +247,6 @@ module Expr = struct
 end
 
 type t = Expr.array [@@deriving sexp]
-
-module ShowStage (SB : Source.BuilderT) = struct
-  type state = CompilerState.state
-  type error = (SB.source option, string) Source.annotate
-  type input = t
-  type output = string
-
-  let name = "Print Nucleus"
-  let run input = CompilerPipeline.S.return (Sexp.to_string_hum ([%sexp_of: t] input))
-end
 
 module Canonical : sig
   module Index : sig
@@ -440,5 +430,358 @@ end = struct
     ;;
 
     let from type' = typeFrom (Map.empty (module Identifier)) 0 type'
+  end
+end
+
+module Substitute = struct
+  module Index = struct
+    let subIndicesIntoDim indices ({ const; refs } : Index.dimension) =
+      let open Index in
+      Map.fold
+        refs
+        ~init:{ const; refs = Map.empty (Map.comparator_s refs) }
+        ~f:(fun ~key:idBeingSubbed ~data:subMultiplier acc ->
+          match Map.find indices idBeingSubbed with
+          | Some (Dimension sub) ->
+            (* need to combine togeth acc and sub, with sub repeated subMultiplier times *)
+            let sub =
+              { const = sub.const * subMultiplier
+              ; refs = Map.map sub.refs ~f:(( * ) subMultiplier)
+              }
+            in
+            let combinedConsts = acc.const + sub.const in
+            let combinedRefs =
+              Map.fold
+                sub.refs
+                ~init:acc.refs
+                ~f:(fun ~key:ref ~data:count combinedRefs ->
+                  Map.update combinedRefs ref ~f:(fun prevCount ->
+                    Option.value prevCount ~default:0 + count))
+            in
+            { const = combinedConsts; refs = combinedRefs }
+          | Some (Shape _) -> acc
+          | None -> acc)
+    ;;
+
+    let subIndicesIntoShape indices shape =
+      let open Index in
+      List.bind shape ~f:(function
+        | Add dim -> [ Add (subIndicesIntoDim indices dim) ]
+        | ShapeRef id as ref ->
+          (match Map.find indices id with
+           | Some (Shape shape) -> shape
+           | Some (Dimension _) -> [ ref ]
+           | None -> [ ref ]))
+    ;;
+
+    let subIndicesIntoIndex indices =
+      let open Index in
+      function
+      | Shape shape -> Shape (subIndicesIntoShape indices shape)
+      | Dimension dim -> Dimension (subIndicesIntoDim indices dim)
+    ;;
+  end
+
+  module Type = struct
+    let rec subIndicesIntoArray indices =
+      let open Type in
+      function
+      | ArrayRef _ as ref -> ref
+      | Arr arr -> Arr (subIndicesIntoArr indices arr)
+
+    and subIndicesIntoArr indices Type.{ element; shape } =
+      Type.
+        { element = subIndicesIntoAtom indices element
+        ; shape = Index.subIndicesIntoShape indices shape
+        }
+
+    and subIndicesIntoAtom indices =
+      let open Type in
+      function
+      | AtomRef _ as ref -> ref
+      | Func func -> Func (subIndicesIntoFunc indices func)
+      | Forall forall -> Forall (subIndicesIntoForall indices forall)
+      | Pi pi -> Pi (subIndicesIntoPi indices pi)
+      | Sigma sigma -> Sigma (subIndicesIntoSigma indices sigma)
+      | Tuple tuple -> Tuple (subIndicesIntoTuple indices tuple)
+      | Literal IntLiteral -> Literal IntLiteral
+      | Literal CharacterLiteral -> Literal CharacterLiteral
+
+    and subIndicesIntoFunc indices Type.{ parameters; return } =
+      Type.
+        { parameters = List.map parameters ~f:(subIndicesIntoArray indices)
+        ; return = subIndicesIntoArray indices return
+        }
+
+    and subIndicesIntoForall indices Type.{ parameters; body } =
+      Type.{ parameters; body = subIndicesIntoArray indices body }
+
+    and subIndicesIntoPi indices Type.{ parameters; body } =
+      Type.{ parameters; body = subIndicesIntoArray indices body }
+
+    and subIndicesIntoSigma indices Type.{ parameters; body } =
+      Type.{ parameters; body = subIndicesIntoArray indices body }
+
+    and subIndicesIntoTuple indices = List.map ~f:(subIndicesIntoAtom indices)
+
+    and subIndicesIntoType indices =
+      let open Type in
+      function
+      | Array array -> Array (subIndicesIntoArray indices array)
+      | Atom atom -> Atom (subIndicesIntoAtom indices atom)
+    ;;
+
+    let rec subTypesIntoArray types =
+      let open Type in
+      function
+      | ArrayRef id as ref ->
+        (match Map.find types id with
+         | Some (Array arrayType) -> arrayType
+         | Some (Atom _) -> ref
+         | None -> ref)
+      | Arr arr -> Arr (subTypesIntoArr types arr)
+
+    and subTypesIntoArr types Type.{ element; shape } =
+      Type.{ element = subTypesIntoAtom types element; shape }
+
+    and subTypesIntoAtom types =
+      let open Type in
+      function
+      | AtomRef id as ref ->
+        (match Map.find types id with
+         | Some (Atom atomType) -> atomType
+         | Some (Array _) -> ref
+         | None -> ref)
+      | Func { parameters; return } ->
+        Func
+          { parameters = List.map parameters ~f:(subTypesIntoArray types)
+          ; return = subTypesIntoArray types return
+          }
+      | Forall forall -> Forall (subTypesIntoForall types forall)
+      | Pi pi -> Pi (subTypesIntoPi types pi)
+      | Sigma sigma -> Sigma (subTypesIntoSigma types sigma)
+      | Tuple tuple -> Tuple (subTypesIntoTuple types tuple)
+      | Literal IntLiteral -> Literal IntLiteral
+      | Literal CharacterLiteral -> Literal CharacterLiteral
+
+    and subTypesIntoFunc types Type.{ parameters; return } =
+      Type.
+        { parameters = List.map parameters ~f:(subTypesIntoArray types)
+        ; return = subTypesIntoArray types return
+        }
+
+    and subTypesIntoForall types Type.{ parameters; body } =
+      Type.{ parameters; body = subTypesIntoArray types body }
+
+    and subTypesIntoPi types Type.{ parameters; body } =
+      Type.{ parameters; body = subTypesIntoArray types body }
+
+    and subTypesIntoSigma types Type.{ parameters; body } =
+      Type.{ parameters; body = subTypesIntoArray types body }
+
+    and subTypesIntoTuple types = List.map ~f:(subTypesIntoAtom types)
+
+    and subTypesIntoType types =
+      let open Type in
+      function
+      | Array array -> Array (subTypesIntoArray types array)
+      | Atom atom -> Atom (subTypesIntoAtom types atom)
+    ;;
+  end
+
+  module Expr = struct
+    let rec subTypesIntoArray types =
+      let open Expr in
+      function
+      | Ref _ as ref -> ref
+      | Scalar { element; type' } ->
+        Scalar
+          { element = subTypesIntoAtom types element
+          ; type' = Type.subTypesIntoArr types type'
+          }
+      | Frame { elements; dimensions; type' } ->
+        Frame
+          { elements = List.map elements ~f:(subTypesIntoArray types)
+          ; dimensions
+          ; type' = Type.subTypesIntoArr types type'
+          }
+      | TermApplication { func; args; type' } ->
+        TermApplication
+          { func = subTypesIntoArray types func
+          ; args = List.map args ~f:(subTypesIntoArray types)
+          ; type' = Type.subTypesIntoArr types type'
+          }
+      | TypeApplication { tFunc; args; type' } ->
+        TypeApplication
+          { tFunc = subTypesIntoArray types tFunc
+          ; args = List.map args ~f:(Type.subTypesIntoType types)
+          ; type' = Type.subTypesIntoArr types type'
+          }
+      | IndexApplication { iFunc; args; type' } ->
+        IndexApplication
+          { iFunc = subTypesIntoArray types iFunc
+          ; args
+          ; type' = Type.subTypesIntoArr types type'
+          }
+      | Unbox { indexBindings; valueBinding; box; body; type' } ->
+        Unbox
+          { indexBindings
+          ; valueBinding
+          ; box = subTypesIntoArray types box
+          ; body = subTypesIntoArray types body
+          ; type' = Type.subTypesIntoArr types type'
+          }
+      | Let { binding; value; body; type' } ->
+        Let
+          { binding
+          ; value = subTypesIntoArray types value
+          ; body = subTypesIntoArray types body
+          ; type' = Type.subTypesIntoArray types type'
+          }
+      | TupleLet { params; value; body; type' } ->
+        TupleLet
+          { params =
+              List.map params ~f:(fun { binding; bound } ->
+                { binding; bound = Type.subTypesIntoAtom types bound })
+          ; value = subTypesIntoArray types value
+          ; body = subTypesIntoArray types body
+          ; type' = Type.subTypesIntoArray types type'
+          }
+      | Primitive { func; type' } ->
+        Primitive { func; type' = Type.subTypesIntoArray types type' }
+
+    and subTypesIntoAtom types = function
+      | TermLambda lambda -> TermLambda (subTypesIntoTermLambda types lambda)
+      | TypeLambda { params; body; type' } ->
+        TypeLambda
+          { params
+          ; body = subTypesIntoArray types body
+          ; type' = Type.subTypesIntoForall types type'
+          }
+      | IndexLambda { params; body; type' } ->
+        IndexLambda
+          { params
+          ; body = subTypesIntoArray types body
+          ; type' = Type.subTypesIntoPi types type'
+          }
+      | Box { indices; body; bodyType; type' } ->
+        Box
+          { indices
+          ; body = subTypesIntoArray types body
+          ; bodyType = Type.subTypesIntoArray types bodyType
+          ; type' = Type.subTypesIntoSigma types type'
+          }
+      | Tuple { elements; type' } ->
+        Tuple
+          { elements = List.map elements ~f:(subTypesIntoAtom types)
+          ; type' = Type.subTypesIntoTuple types type'
+          }
+      | Literal _ as literal -> literal
+
+    and subTypesIntoTermLambda types { params; body; type' } =
+      { params =
+          List.map params ~f:(fun { binding; bound } ->
+            { binding; bound = Type.subTypesIntoArray types bound })
+      ; body = subTypesIntoArray types body
+      ; type' = Type.subTypesIntoFunc types type'
+      }
+    ;;
+
+    let rec subIndicesIntoArray indices =
+      let open Expr in
+      function
+      | Ref _ as ref -> ref
+      | Scalar { element; type' } ->
+        Scalar
+          { element = subIndicesIntoAtom indices element
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | Frame { elements; dimensions; type' } ->
+        Frame
+          { elements = List.map elements ~f:(subIndicesIntoArray indices)
+          ; dimensions
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | TermApplication { func; args; type' } ->
+        TermApplication
+          { func = subIndicesIntoArray indices func
+          ; args = List.map args ~f:(subIndicesIntoArray indices)
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | TypeApplication { tFunc; args; type' } ->
+        TypeApplication
+          { tFunc = subIndicesIntoArray indices tFunc
+          ; args = List.map args ~f:(Type.subIndicesIntoType indices)
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | IndexApplication { iFunc; args; type' } ->
+        IndexApplication
+          { iFunc = subIndicesIntoArray indices iFunc
+          ; args = List.map args ~f:(Index.subIndicesIntoIndex indices)
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | Unbox { indexBindings; valueBinding; box; body; type' } ->
+        Unbox
+          { indexBindings
+          ; valueBinding
+          ; box = subIndicesIntoArray indices box
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | Let { binding; value; body; type' } ->
+        Let
+          { binding
+          ; value = subIndicesIntoArray indices value
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArray indices type'
+          }
+      | TupleLet { params; value; body; type' } ->
+        TupleLet
+          { params =
+              List.map params ~f:(fun { binding; bound } ->
+                { binding; bound = Type.subIndicesIntoAtom indices bound })
+          ; value = subIndicesIntoArray indices value
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArray indices type'
+          }
+      | Primitive { func; type' } ->
+        Primitive { func; type' = Type.subIndicesIntoArray indices type' }
+
+    and subIndicesIntoAtom indices = function
+      | TermLambda lambda -> TermLambda (subIndicesIntoTermLambda indices lambda)
+      | TypeLambda { params; body; type' } ->
+        TypeLambda
+          { params
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoForall indices type'
+          }
+      | IndexLambda { params; body; type' } ->
+        IndexLambda
+          { params
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoPi indices type'
+          }
+      | Box { indices = boxIndices; body; bodyType; type' } ->
+        Box
+          { indices = boxIndices
+          ; body = subIndicesIntoArray indices body
+          ; bodyType = Type.subIndicesIntoArray indices bodyType
+          ; type' = Type.subIndicesIntoSigma indices type'
+          }
+      | Tuple { elements; type' } ->
+        Tuple
+          { elements = List.map elements ~f:(subIndicesIntoAtom indices)
+          ; type' = Type.subIndicesIntoTuple indices type'
+          }
+      | Literal _ as literal -> literal
+
+    and subIndicesIntoTermLambda indices { params; body; type' } =
+      { params =
+          List.map params ~f:(fun { binding; bound } ->
+            { binding; bound = Type.subIndicesIntoArray indices bound })
+      ; body = subIndicesIntoArray indices body
+      ; type' = Type.subIndicesIntoFunc indices type'
+      }
+    ;;
   end
 end

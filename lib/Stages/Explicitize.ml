@@ -50,7 +50,7 @@ let rec explicitizeArray array
     (* Copy propogation is not followed through tuple lets *)
     and body = explicitizeArray body in
     E.TupleLet { params; value; body; type' }
-  | N.BuiltInFunction { func; type' } -> return (E.BuiltInFunction { func; type' })
+  | N.Primitive { func; type' } -> return (E.Primitive { func; type' })
 
 and explicitizeAtom atom
   : (CompilerState.state, ExplicitNucleus.Expr.atom, _) ExplicitState.t
@@ -85,12 +85,12 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
   let funcArrType =
     match Nucleus.Expr.arrayType func with
     | Arr arr -> arr
-    | _ -> Unreachable.raiseStr "Expected an Arr type in function call position"
+    | _ -> raise (Unreachable.Error "Expected an Arr type in function call position")
   in
   let funcType =
     match funcArrType.element with
     | Func funcType -> funcType
-    | _ -> Unreachable.raiseStr "Expected a function type in function call position"
+    | _ -> raise (Unreachable.Error "Expected a function type in function call position")
   in
   (* Define type to contain info about each arg, as well as the array in the function call position *)
   let module CallComponent = struct
@@ -131,8 +131,8 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
          assert (List.length args = List.length funcType.parameters);
          let func = func.value in
          let args = List.map args ~f:(fun arg -> arg.value) in
-         return (E.TermApplication { func; args; type' })
-       | [] -> Unreachable.raise ())
+         return (E.TermApplication { func = Ref func; args; type' })
+       | [] -> raise Unreachable.default)
     | minFrameComponents :: restComponents ->
       (* minFrameArgs are the arguments whose frame is the shortest of all the arguments.
          The shape of the minFrameArgs can be safely mapped over across all
@@ -195,12 +195,13 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
       let cellShape =
         match param with
         | Arr { element = _; shape } -> shape
-        | ArrayRef _ -> Unreachable.raiseStr "Expected an Arr for a function param"
+        | ArrayRef _ -> raise (Unreachable.Error "Expected an Arr for a function param")
       in
       let argType =
         match E.arrayType arg with
         | Arr arr -> arr
-        | ArrayRef _ -> Unreachable.raiseStr "Expected an Arr for a function argument"
+        | ArrayRef _ ->
+          raise (Unreachable.Error "Expected an Arr for a function argument")
       in
       let argShape = argType.shape in
       let frame =

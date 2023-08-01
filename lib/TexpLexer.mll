@@ -24,6 +24,8 @@ rule read =
   | ')'      { RIGHT_PAREN }
   | '['      { LEFT_BRACK }
   | ']'      { RIGHT_BRACK }
+  | ';'      { read_single_line_comment lexbuf }
+  | '#' '|'  { read_multi_line_comment lexbuf }
   | _        { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf, SourceBuilder.make ~start:(Lexing.lexeme_start_p lexbuf) ~finish:(Lexing.lexeme_end_p lexbuf))) }
   | eof      { EOF }
 
@@ -44,6 +46,19 @@ and read_string buf =
   | _ { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf, SourceBuilder.make ~start:(Lexing.lexeme_start_p lexbuf) ~finish:(Lexing.lexeme_end_p lexbuf))) }
   | eof { raise (SyntaxError ("String is not terminated", SourceBuilder.make ~start:(Lexing.lexeme_start_p lexbuf) ~finish:(Lexing.lexeme_end_p lexbuf))) }
   
+and read_single_line_comment =
+  parse
+  | newline { new_line lexbuf; read lexbuf }
+  | eof { EOF }
+  | _ { read_single_line_comment lexbuf }
+
+and read_multi_line_comment =
+  parse
+  | '|' '#' { read lexbuf }
+  | newline { new_line lexbuf; read_multi_line_comment lexbuf }
+  | eof { raise (SyntaxError ("Unterminated comment", SourceBuilder.make ~start:(Lexing.lexeme_start_p lexbuf) ~finish:(Lexing.lexeme_end_p lexbuf))) }
+  | _ { read_multi_line_comment lexbuf }
+
 {
 end
 }
