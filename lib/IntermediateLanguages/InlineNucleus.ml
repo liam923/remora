@@ -23,7 +23,7 @@ module Type = struct
   and literal =
     | IntLiteral
     | CharacterLiteral
-    | Unit
+    | UnitLiteral
 
   and atom =
     | Sigma of sigma
@@ -45,7 +45,7 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.array
     }
-  [@@deriving sexp]
+  [@@deriving sexp, equal]
 
   type scalar =
     { element : atom
@@ -75,13 +75,6 @@ module Expr = struct
     ; body : array
     ; bodyType : Type.array
     ; type' : Type.sigma
-    }
-
-  and tupleLet =
-    { params : Type.atom param list
-    ; value : array
-    ; body : array
-    ; type' : Type.array
     }
 
   and primitiveOp =
@@ -134,7 +127,7 @@ module Expr = struct
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
-    | Unit
+    | UnitLiteral
 
   and array =
     | Ref of ref
@@ -151,13 +144,13 @@ module Expr = struct
   and t =
     | Array of array
     | Atom of atom
-  [@@deriving sexp]
+  [@@deriving sexp, equal]
 
   let atomType : atom -> Type.atom = function
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
-    | Literal Unit -> Literal Unit
+    | Literal UnitLiteral -> Literal UnitLiteral
   ;;
 
   let arrayType : array -> Type.array = function

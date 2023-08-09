@@ -121,29 +121,97 @@ module InlineState = struct
         state)
   ;;
 
-  let unzip = map ~f:List.unzip
   let err error = returnF (MResult.Errors (error :: []))
 end
 
 let rec inlineAtomType : Nucleus.Type.atom -> InlineNucleus.Type.atom = function
   | AtomRef _ ->
     raise (Unreachable.Error "There should be no type refs left after inlining")
-  | Sigma sigma -> Sigma (inlineSigmaType sigma)
+  | Sigma { parameters; body } -> Sigma { parameters; body = inlineArrayType body }
   | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Literal CharacterLiteral -> Literal CharacterLiteral
   | Literal IntLiteral -> Literal IntLiteral
-  | Func _ -> Literal Unit
-  | Forall _ -> Literal Unit
-  | Pi _ -> Literal Unit
+  | Func _ -> Literal UnitLiteral
+  | Forall _ -> Literal UnitLiteral
+  | Pi _ -> Literal UnitLiteral
 
 and inlineArrayType : Nucleus.Type.array -> InlineNucleus.Type.array = function
   | ArrayRef _ ->
     raise (Unreachable.Error "There should be no type refs left after inlining")
   | Arr { element; shape } -> { element = inlineAtomType element; shape }
+;;
 
-and inlineSigmaType ({ parameters; body } : Nucleus.Type.sigma) : InlineNucleus.Type.sigma
+let rec inlineAtomTypeWithStack appStack : Nucleus.Type.atom -> InlineNucleus.Type.array
+  = function
+  | AtomRef _ ->
+    raise (Unreachable.Error "There should be no type refs left after inlining")
+  | Sigma sigma ->
+    { element = Sigma (inlineSigmaTypeWithStack appStack sigma); shape = [] }
+  | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
+  | Literal CharacterLiteral -> { element = Literal CharacterLiteral; shape = [] }
+  | Literal IntLiteral -> { element = Literal IntLiteral; shape = [] }
+  | Func _ -> { element = Literal UnitLiteral; shape = [] }
+  | Forall { parameters; body } ->
+    (match appStack with
+     | TypeApp types :: restStack ->
+       let typeSubs =
+         List.zip_exn parameters types
+         |> List.fold
+              ~init:(Map.empty (module Identifier))
+              ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
+       in
+       let subbedBody = ExplicitNucleus.Substitute.Type.subTypesIntoArray typeSubs body in
+       inlineArrayTypeWithStack restStack subbedBody
+     | [] ->
+       (* Empty stack means the Forall's value is not passed to a type
+          application, so we can replace it with a unit *)
+       { element = Literal UnitLiteral; shape = [] }
+     | _ :: _ as stack ->
+       raise
+         (Unreachable.Error
+            (String.concat_lines
+               [ "Expected type application at head of stack or empty stack, got stack:"
+               ; [%sexp_of: appStack] stack |> Sexp.to_string_hum
+               ])))
+  | Pi { parameters; body } ->
+    (match appStack with
+     | IndexApp types :: restStack ->
+       let indexSubs =
+         List.zip_exn parameters types
+         |> List.fold
+              ~init:(Map.empty (module Identifier))
+              ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
+       in
+       let subbedBody =
+         ExplicitNucleus.Substitute.Type.subIndicesIntoArray indexSubs body
+       in
+       inlineArrayTypeWithStack restStack subbedBody
+     | [] ->
+       (* Empty stack means the Pi's value is not passed to an index
+          application, so we can replace it with a unit *)
+       { element = Literal UnitLiteral; shape = [] }
+     | _ :: _ as stack ->
+       raise
+         (Unreachable.Error
+            (String.concat_lines
+               [ "Expected index application at head of stack or empty stack, got stack:"
+               ; [%sexp_of: appStack] stack |> Sexp.to_string_hum
+               ])))
+
+and inlineArrayTypeWithStack appStack : Nucleus.Type.array -> InlineNucleus.Type.array
+  = function
+  | ArrayRef _ ->
+    raise (Unreachable.Error "There should be no type refs left after inlining")
+  | Arr { element; shape = outerShape } ->
+    let ({ element; shape = innerShape } : InlineNucleus.Type.array) =
+      inlineAtomTypeWithStack appStack element
+    in
+    { element; shape = outerShape @ innerShape }
+
+and inlineSigmaTypeWithStack appStack ({ parameters; body } : Nucleus.Type.sigma)
+  : InlineNucleus.Type.sigma
   =
-  { parameters; body = inlineArrayType body }
+  { parameters; body = inlineArrayTypeWithStack appStack body }
 ;;
 
 let assertValueRestriction value =
@@ -210,12 +278,9 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
   let module E = ExplicitNucleus.Expr in
   let module I = InlineNucleus.Expr in
   let open InlineState.Let_syntax in
-  (* Stdio.print_endline "inlineArray";
-     Stdio.print_endline ([%sexp_of: E.array] array |> Sexp.to_string_hum);
-     Stdio.print_endline ([%sexp_of: appStack] appStack |> Sexp.to_string_hum); *)
   match array with
   | Ref { id; type' } ->
-    (* Substitute the id is it appears in subs *)
+    (* Substitute the id if it appears in subs *)
     let id = Map.find subs id |> Option.value ~default:id in
     (* Look up the cache entry corresponding to id and the current appStack. *)
     let%bind env = InlineState.getEnv () in
@@ -224,7 +289,9 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
     (match Map.find cache canonicalStack with
      | Some { binding; monoValue = _; functions } ->
        (* The cache entry already exists *)
-       return (I.Ref { id = binding; type' = inlineArrayType type' }, functions)
+       return
+         ( I.Ref { id = binding; type' = inlineArrayTypeWithStack appStack type' }
+         , functions )
      | None ->
        (* No cache entry exists yet. Create a new monomorphization of the
           variable and put it in the cache. *)
@@ -241,7 +308,7 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
            ~data:{ polyValue; cache = Map.set cache ~key:canonicalStack ~data:cacheEntry }
        in
        let%map () = InlineState.setEnv newEnv in
-       I.Ref { id = binding; type' = inlineArrayType type' }, functions)
+       I.Ref { id = binding; type' = inlineArrayTypeWithStack appStack type' }, functions)
   | Scalar { element; type' = _ } -> inlineAtom subs appStack element
   | Frame { dimensions; elements; type' } ->
     let%map elements, functions =
@@ -251,7 +318,9 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
       |> InlineState.unzip
     in
     let functions = FunctionSet.merge functions in
-    I.Frame { dimensions; elements; type' = inlineArrayType (Arr type') }, functions
+    ( I.Frame
+        { dimensions; elements; type' = inlineArrayTypeWithStack appStack (Arr type') }
+    , functions )
   | TermApplication termApplication -> inlineTermApplication subs appStack termApplication
   | TypeApplication { tFunc; args; type' = _ } ->
     inlineArray subs (TypeApp args :: appStack) tFunc
@@ -267,12 +336,18 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
         |> List.map ~f:(fun (_, (binding, box)) : I.unboxBinding -> { binding; box }))
       |> List.join
     in
-    ( I.Unbox { indexBindings; boxBindings; body; type' = inlineArrayType (Arr type') }
+    ( I.Unbox
+        { indexBindings
+        ; boxBindings
+        ; body
+        ; type' = inlineArrayTypeWithStack appStack (Arr type')
+        }
     , functions )
   | TupleLet _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Primitive primitive ->
     return
-      (scalar (I.Literal Unit), FunctionSet.One (Primitive { func = primitive; appStack }))
+      ( scalar (I.Literal UnitLiteral)
+      , FunctionSet.One (Primitive { func = primitive; appStack }) )
   | Map { args; body; frameShape; type' } ->
     let args = List.map args ~f:(fun { binding; value } -> binding, value) in
     let%map body, args, functions = inlineBodyWithBindings subs appStack body args in
@@ -284,7 +359,8 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
         |> List.map ~f:(fun (_, (binding, value)) : I.mapArg -> { binding; value }))
       |> List.join
     in
-    ( I.IntrinsicCall (Map { args; body; frameShape; type' = inlineArrayType type' })
+    ( I.IntrinsicCall
+        (Map { args; body; frameShape; type' = inlineArrayTypeWithStack appStack type' })
     , functions )
 
 and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
@@ -293,19 +369,13 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
   let module E = ExplicitNucleus.Expr in
   let module I = InlineNucleus.Expr in
   let open InlineState.Let_syntax in
-  (* Stdio.print_endline "inlineAtom";
-     Stdio.print_endline ([%sexp_of: E.atom] atom |> Sexp.to_string_hum);
-     Stdio.print_endline ([%sexp_of: appStack] appStack |> Sexp.to_string_hum); *)
   match atom with
   | TermLambda lambda ->
     (* Since all function calls gget inlined, the value of the lambda is
        never used, so it can be safely replaced with unit *)
     let%map id = InlineState.createId "lambda" in
-    scalar (I.Literal Unit), FunctionSet.One (Lambda { lambda; id })
+    scalar (I.Literal UnitLiteral), FunctionSet.One (Lambda { lambda; id })
   | TypeLambda { params; body; type' = _ } ->
-    (* Stdio.print_endline "Doing TypeLambda";
-       Stdio.print_endline ([%sexp_of: E.atom] atom |> Sexp.to_string_hum);
-       Stdio.print_endline ([%sexp_of: appStack] appStack |> Sexp.to_string_hum); *)
     (match appStack with
      | TypeApp types :: restStack ->
        let typeSubs =
@@ -315,13 +385,11 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
        let subbedBody = ExplicitNucleus.Substitute.Expr.subTypesIntoArray typeSubs body in
-       (* Stdio.print_endline "subbed body:";
-          Stdio.print_endline ([%sexp_of: E.array] subbedBody |> Sexp.to_string_hum); *)
        inlineArray subs restStack subbedBody
      | [] ->
        (* Empty stack means the type lambda's value is not passed to a type
           application, so we can replace it with a unit *)
-       return (scalar (I.Literal Unit), FunctionSet.Empty)
+       return (scalar (I.Literal UnitLiteral), FunctionSet.Empty)
      | _ :: _ as stack ->
        raise
          (Unreachable.Error
@@ -345,7 +413,7 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
      | [] ->
        (* Empty stack means the index lambda's value is not passed to an index
           application, so we can replace it with a unit *)
-       return (scalar (I.Literal Unit), FunctionSet.Empty)
+       return (scalar (I.Literal UnitLiteral), FunctionSet.Empty)
      | _ as stack ->
        raise
          (Unreachable.Error
@@ -359,8 +427,8 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
         (I.Box
            { indices
            ; body
-           ; bodyType = inlineArrayType bodyType
-           ; type' = inlineSigmaType type'
+           ; bodyType = inlineArrayTypeWithStack appStack bodyType
+           ; type' = inlineSigmaTypeWithStack appStack type'
            })
     , functions )
   | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
@@ -381,13 +449,7 @@ and inlineTermApplication subs appStack termApplication =
   let%bind _, functions = inlineArray subs [] func in
   let%bind func =
     match functions with
-    | Empty ->
-      (* let%map env = InlineState.getEnv () in
-         Stdio.print_endline "func:";
-         Stdio.print_endline ([%sexp_of: E.array] func |> Sexp.to_string_hum);
-         Stdio.print_endline "env:";
-         Stdio.print_endline ([%sexp_of: envEntry Map.M(Identifier).t] env |> Sexp.to_string_hum); *)
-      raise (Unreachable.Error "func should've returned at least one function")
+    | Empty -> raise (Unreachable.Error "func should've returned at least one function")
     | One f -> return f
     | Multiple ->
       InlineState.err
@@ -424,7 +486,8 @@ and inlineTermApplication subs appStack termApplication =
         |> InlineState.all
         |> InlineState.unzip
       in
-      I.PrimitiveCall { op; args; type' = inlineArrayType (Arr type') }, FunctionSet.Empty
+      ( I.PrimitiveCall { op; args; type' = inlineArrayTypeWithStack appStack (Arr type') }
+      , FunctionSet.Empty )
     in
     (match primitive.func.func with
      | Add -> binop Add
@@ -442,7 +505,7 @@ and inlineTermApplication subs appStack termApplication =
                  ; t = inlineAtomType t
                  ; d
                  ; cellShape
-                 ; type' = inlineArrayType (Arr type')
+                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
                  })
           , FunctionSet.Empty )
         | _ ->
@@ -523,16 +586,10 @@ and inlineTermApplication subs appStack termApplication =
                  I.{ firstBinding; secondBinding; value = monoValue })
                |> InlineState.all
              in
+             let type' = inlineArrayTypeWithStack appStack (Arr type') in
              ( I.IntrinsicCall
                  (Reduce
-                    { args
-                    ; body
-                    ; t = inlineAtomType t
-                    ; dSub1
-                    ; itemPad
-                    ; cellShape
-                    ; type' = inlineArrayType (Arr type')
-                    })
+                    { args; body; t = type'.element; dSub1; itemPad; cellShape; type' })
              , functions )
            | _ -> raise (Unreachable.Error "Reduce expected two arguments"))
         | _ ->

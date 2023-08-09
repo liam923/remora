@@ -536,7 +536,7 @@ module KindChecker = struct
   ;;
 end
 
-module TypeChecker = struct
+module TypeCheck = struct
   let zipLists ~expected ~actual ~makeError =
     match List.zip expected actual with
     | Ok zipped -> ok zipped
@@ -1472,7 +1472,7 @@ end
 module Type = struct
   let check expr =
     let%bind env = baseEnv () in
-    TypeChecker.check env expr
+    TypeCheck.check env expr
   ;;
 
   module Stage (SB : Source.BuilderT) = struct
@@ -1497,7 +1497,7 @@ end
 
 let check prog =
   let%bind env = baseEnv () in
-  TypeChecker.checkAndExpectArray env prog
+  TypeCheck.checkAndExpectArray env prog
 ;;
 
 module Stage (SB : Source.BuilderT) = struct

@@ -16,7 +16,42 @@ module ExplicitState = struct
   ;;
 end
 
-let rec explicitizeArray array
+(* Given an expression, if it is a function, return the parameter names.
+   This function doesn't have to be perfect because this is simply to make
+   variable names more readable when debugging *)
+let rec funcParamNamesArray env : Nucleus.Expr.array -> string list option = function
+  | Ref ref -> Map.find env ref.id |> Option.join
+  | Scalar s -> funcParamNamesAtom env s.element
+  | Frame f -> List.hd f.elements |> Option.bind ~f:(funcParamNamesArray env)
+  | TermApplication _ -> None
+  | TypeApplication app -> funcParamNamesArray env app.tFunc
+  | IndexApplication app -> funcParamNamesArray env app.iFunc
+  | Unbox unbox -> funcParamNamesArray env unbox.body
+  | Let l ->
+    let env = Map.set env ~key:l.binding ~data:(funcParamNamesArray env l.value) in
+    funcParamNamesArray env l.body
+  | TupleLet l -> funcParamNamesArray env l.body
+  | Primitive p ->
+    Some
+      (match p.func with
+       | Reduce -> [ "reduceArg1"; "reduceArg2" ]
+       | Add -> [ "+arg1"; "+arg2" ]
+       | Sub -> [ "-arg1"; "-arg2" ]
+       | Mul -> [ "*arg1"; "*arg2" ]
+       | Div -> [ "/arg1"; "/arg2" ]
+       | Length -> [ "lengthArg" ])
+
+and funcParamNamesAtom env : Nucleus.Expr.atom -> string list option = function
+  | TermLambda lambda ->
+    Some (List.map lambda.params ~f:(fun p -> Identifier.name p.binding))
+  | TypeLambda lambda -> funcParamNamesArray env lambda.body
+  | IndexLambda lambda -> funcParamNamesArray env lambda.body
+  | Box box -> funcParamNamesArray env box.body
+  | Tuple _ -> None
+  | Literal _ -> None
+;;
+
+let rec explicitizeArray paramNamesEnv array
   : (CompilerState.state, ExplicitNucleus.Expr.array, _) ExplicitState.t
   =
   let open ExplicitState.Let_syntax in
@@ -25,34 +60,40 @@ let rec explicitizeArray array
   match array with
   | N.Ref { id; type' } -> ExplicitState.return (E.Ref { id; type' })
   | N.Scalar { element; type' } ->
-    let%map element = explicitizeAtom element in
+    let%map element = explicitizeAtom paramNamesEnv element in
     E.Scalar { element; type' }
   | N.Frame { dimensions; elements; type' } ->
-    let%map elements = elements |> List.map ~f:explicitizeArray |> ExplicitState.all in
+    let%map elements =
+      elements |> List.map ~f:(explicitizeArray paramNamesEnv) |> ExplicitState.all
+    in
     E.Frame { dimensions; elements; type' }
-  | N.TermApplication termApplication -> explicitizeTermApplication termApplication
+  | N.TermApplication termApplication ->
+    explicitizeTermApplication paramNamesEnv termApplication
   | N.TypeApplication { tFunc; args; type' } ->
-    let%map tFunc = explicitizeArray tFunc in
+    let%map tFunc = explicitizeArray paramNamesEnv tFunc in
     E.TypeApplication { tFunc; args; type' }
   | N.IndexApplication { iFunc; args; type' } ->
-    let%map iFunc = explicitizeArray iFunc in
+    let%map iFunc = explicitizeArray paramNamesEnv iFunc in
     E.IndexApplication { iFunc; args; type' }
   | N.Unbox { indexBindings; valueBinding; box; body; type' } ->
-    let%map box = explicitizeArray box
-    and body = explicitizeArray body in
+    let%map box = explicitizeArray paramNamesEnv box
+    and body = explicitizeArray paramNamesEnv body in
     E.Unbox { indexBindings; valueBinding; box; body; type' }
   | N.Let { binding; value; body; type' } ->
-    let%map value = explicitizeArray value
-    and body = explicitizeArray body in
+    let extendedParamNamesEnv =
+      Map.set paramNamesEnv ~key:binding ~data:(funcParamNamesArray paramNamesEnv value)
+    in
+    let%bind value = explicitizeArray paramNamesEnv value in
+    let%map body = explicitizeArray extendedParamNamesEnv body in
     E.Map { body; args = [ { binding; value } ]; frameShape = []; type' }
   | N.TupleLet { params; value; body; type' } ->
-    let%map value = explicitizeArray value
+    let%map value = explicitizeArray paramNamesEnv value
     (* Copy propogation is not followed through tuple lets *)
-    and body = explicitizeArray body in
+    and body = explicitizeArray paramNamesEnv body in
     E.TupleLet { params; value; body; type' }
   | N.Primitive { func; type' } -> return (E.Primitive { func; type' })
 
-and explicitizeAtom atom
+and explicitizeAtom paramNamesEnv atom
   : (CompilerState.state, ExplicitNucleus.Expr.atom, _) ExplicitState.t
   =
   let open ExplicitState.Let_syntax in
@@ -60,23 +101,27 @@ and explicitizeAtom atom
   let module E = ExplicitNucleus.Expr in
   match atom with
   | N.TermLambda { params; body; type' } ->
-    let%map body = explicitizeArray body in
+    let%map body = explicitizeArray paramNamesEnv body in
     E.TermLambda { params; body; type' }
   | N.TypeLambda { params; body; type' } ->
-    let%map body = explicitizeArray body in
+    let%map body = explicitizeArray paramNamesEnv body in
     E.TypeLambda { params; body; type' }
   | N.IndexLambda { params; body; type' } ->
-    let%map body = explicitizeArray body in
+    let%map body = explicitizeArray paramNamesEnv body in
     E.IndexLambda { params; body; type' }
   | N.Box { indices; body; bodyType; type' } ->
-    let%map body = explicitizeArray body in
+    let%map body = explicitizeArray paramNamesEnv body in
     E.Box { indices; body; bodyType; type' }
   | N.Tuple { elements; type' } ->
-    let%map elements = elements |> List.map ~f:explicitizeAtom |> ExplicitState.all in
+    let%map elements =
+      elements |> List.map ~f:(explicitizeAtom paramNamesEnv) |> ExplicitState.all
+    in
     E.Tuple { elements; type' }
   | N.Literal literal -> return (E.Literal literal)
 
-and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplication)
+and explicitizeTermApplication
+  paramNamesEnv
+  ({ func; args; type' } : Nucleus.Expr.termApplication)
   : (CompilerState.state, ExplicitNucleus.Expr.array, _) ExplicitState.t
   =
   let open ExplicitState.Let_syntax in
@@ -91,6 +136,10 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
     match funcArrType.element with
     | Func funcType -> funcType
     | _ -> raise (Unreachable.Error "Expected a function type in function call position")
+  in
+  let paramNames =
+    Option.value_or_thunk (funcParamNamesArray paramNamesEnv func) ~default:(fun () ->
+      List.mapi funcType.parameters ~f:(fun i _ -> [%string "arg%{i#Int}"]))
   in
   (* Define type to contain info about each arg, as well as the array in the function call position *)
   let module CallComponent = struct
@@ -185,11 +234,10 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
      all the arguments to a varaible. *)
   let%bind argComponentsWithMapArgs =
     List.zip_exn funcType.parameters args
-    |> List.zip_exn (List.init (List.length args) ~f:(fun i -> i))
-    |> List.map ~f:(fun (index, (param, arg)) ->
+    |> List.zip_exn paramNames
+    |> List.mapi ~f:(fun index (name, (param, arg)) ->
       let type' = Nucleus.Expr.arrayType arg in
-      let name = [%string "arg%{index#Int}"] in
-      let%map arg = explicitizeArray arg
+      let%map arg = explicitizeArray paramNamesEnv arg
       and binding = ExplicitState.createId name in
       let ref : E.ref = { id = binding; type' } in
       let cellShape =
@@ -211,7 +259,7 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
       let comp = CallComponent.{ value = ref; type' = argType; frame; index; name } in
       mapArg, comp)
     |> ExplicitState.all
-  and func = explicitizeArray func
+  and func = explicitizeArray paramNamesEnv func
   and funcBinding = ExplicitState.createId "f" in
   let functionComponent =
     CallComponent.
@@ -240,7 +288,7 @@ and explicitizeTermApplication ({ func; args; type' } : Nucleus.Expr.termApplica
 
 let explicitize (prog : Nucleus.t) : (CompilerState.state, ExplicitNucleus.t, _) State.t =
   let open ExplicitState.Let_syntax in
-  let%map prog = explicitizeArray prog in
+  let%map prog = explicitizeArray (Map.empty (module Identifier)) prog in
   prog
 ;;
 

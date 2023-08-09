@@ -37,9 +37,10 @@ let printStages input =
   let pipeline =
     CompilerPipeline.(
       (module Parser.Stage (Source.UnitBuilder))
-      @> (module PrintResult (Nucleus) (TypeChecker.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nucleus) (TypeCheck.Stage (Source.UnitBuilder)))
       @> (module PrintResult (ExplicitNucleus) (Explicitize.Stage (Source.UnitBuilder)))
       @> (module PrintResult (InlineNucleus) (Inline.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (InlineNucleus) (Simplify.Stage (Source.UnitBuilder)))
       @> empty)
   in
   match
@@ -66,14 +67,14 @@ let%expect_test "simple addition" =
     (Map
      ((args
        (((binding ((name f) (id 9))) (value (Primitive ((func Add)))))
-        ((binding ((name arg0) (id 7)))
+        ((binding ((name +arg1) (id 7)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name arg1) (id 8)))
+        ((binding ((name +arg2) (id 8)))
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 9))))))
-         (args (((id ((name arg0) (id 7)))) ((id ((name arg1) (id 8))))))
+         (args (((id ((name +arg1) (id 7)))) ((id ((name +arg2) (id 8))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
@@ -83,14 +84,14 @@ let%expect_test "simple addition" =
        (((binding ((name f) (id 10)))
          (value
           (Scalar
-           ((element (Literal Unit))
-            (type' ((element (Literal Unit)) (shape ())))))))
-        ((binding ((name arg0) (id 11)))
+           ((element (Literal UnitLiteral))
+            (type' ((element (Literal UnitLiteral)) (shape ())))))))
+        ((binding ((name +arg1) (id 11)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name arg1) (id 12)))
+        ((binding ((name +arg2) (id 12)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 2)))
@@ -100,13 +101,17 @@ let%expect_test "simple addition" =
         ((op Add)
          (args
           ((Ref
-            ((id ((name arg0) (id 11)))
+            ((id ((name +arg1) (id 11)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Ref
-            ((id ((name arg1) (id 12)))
+            ((id ((name +arg2) (id 12)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ())))))
+    Result of stage Simplify:
+    (Scalar
+     ((element (Literal (IntLiteral 3)))
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;
 
 let%expect_test "simple function definition and call" =
@@ -157,15 +162,16 @@ let%expect_test "simple function definition and call" =
                  ((args
                    (((binding ((name f) (id 12)))
                      (value (Primitive ((func Add)))))
-                    ((binding ((name arg0) (id 10)))
+                    ((binding ((name +arg1) (id 10)))
                      (value (Ref ((id ((name x) (id 8)))))))
-                    ((binding ((name arg1) (id 11)))
+                    ((binding ((name +arg2) (id 11)))
                      (value (Ref ((id ((name y) (id 9)))))))))
                   (body
                    (TermApplication
                     ((func (Ref ((id ((name f) (id 12))))))
                      (args
-                      (((id ((name arg0) (id 10)))) ((id ((name arg1) (id 11))))))
+                      (((id ((name +arg1) (id 10))))
+                       ((id ((name +arg2) (id 11))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
@@ -174,14 +180,14 @@ let%expect_test "simple function definition and call" =
         ((args
           (((binding ((name f) (id 15)))
             (value (Ref ((id ((name add) (id 7)))))))
-           ((binding ((name arg0) (id 13)))
+           ((binding ((name x) (id 13)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))
-           ((binding ((name arg1) (id 14)))
+           ((binding ((name y) (id 14)))
             (value (Scalar ((element (Literal (IntLiteral 10)))))))))
          (body
           (TermApplication
            ((func (Ref ((id ((name f) (id 15))))))
-            (args (((id ((name arg0) (id 13)))) ((id ((name arg1) (id 14))))))
+            (args (((id ((name x) (id 13)))) ((id ((name y) (id 14))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -193,8 +199,8 @@ let%expect_test "simple function definition and call" =
        (((binding ((name add) (id 17)))
          (value
           (Scalar
-           ((element (Literal Unit))
-            (type' ((element (Literal Unit)) (shape ())))))))))
+           ((element (Literal UnitLiteral))
+            (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
         (Map
@@ -203,13 +209,13 @@ let%expect_test "simple function definition and call" =
             (value
              (Ref
               ((id ((name add) (id 17)))
-               (type' ((element (Literal Unit)) (shape ())))))))
-           ((binding ((name arg0) (id 20)))
+               (type' ((element (Literal UnitLiteral)) (shape ())))))))
+           ((binding ((name x) (id 20)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name arg1) (id 22)))
+           ((binding ((name y) (id 22)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 10)))
@@ -221,32 +227,36 @@ let%expect_test "simple function definition and call" =
              (((binding ((name f) (id 19)))
                (value
                 (Scalar
-                 ((element (Literal Unit))
-                  (type' ((element (Literal Unit)) (shape ())))))))
-              ((binding ((name arg0) (id 21)))
+                 ((element (Literal UnitLiteral))
+                  (type' ((element (Literal UnitLiteral)) (shape ())))))))
+              ((binding ((name +arg1) (id 21)))
                (value
                 (Ref
-                 ((id ((name arg0) (id 20)))
+                 ((id ((name x) (id 20)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name arg1) (id 23)))
+              ((binding ((name +arg2) (id 23)))
                (value
                 (Ref
-                 ((id ((name arg1) (id 22)))
+                 ((id ((name y) (id 22)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (PrimitiveCall
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name arg0) (id 21)))
+                  ((id ((name +arg1) (id 21)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name arg1) (id 23)))
+                  ((id ((name +arg2) (id 23)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ())))))
+    Result of stage Simplify:
+    (Scalar
+     ((element (Literal (IntLiteral 15)))
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;
 
 let%expect_test "polymorphic function definition and call" =
@@ -304,12 +314,12 @@ let%expect_test "polymorphic function definition and call" =
              (TypeApplication
               ((tFunc (Ref ((id ((name id) (id 7))))))
                (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-           ((binding ((name arg0) (id 10)))
+           ((binding ((name e) (id 10)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))))
          (body
           (TermApplication
            ((func (Ref ((id ((name f) (id 11))))))
-            (args (((id ((name arg0) (id 10))))))
+            (args (((id ((name e) (id 10))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -321,8 +331,8 @@ let%expect_test "polymorphic function definition and call" =
        (((binding ((name id) (id 13)))
          (value
           (Scalar
-           ((element (Literal Unit))
-            (type' ((element (Literal Unit)) (shape ())))))))))
+           ((element (Literal UnitLiteral))
+            (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
         (Map
@@ -331,18 +341,22 @@ let%expect_test "polymorphic function definition and call" =
             (value
              (Ref
               ((id ((name id) (id 13)))
-               (type' ((element (Literal Unit)) (shape ())))))))
-           ((binding ((name arg0) (id 15)))
+               (type' ((element (Literal UnitLiteral)) (shape ())))))))
+           ((binding ((name e) (id 15)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name arg0) (id 15)))
+           ((id ((name e) (id 15)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ())))))
+    Result of stage Simplify:
+    (Scalar
+     ((element (Literal (IntLiteral 5)))
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;
 
 let%expect_test "function call with implicit map" =
@@ -368,7 +382,7 @@ let%expect_test "function call with implicit map" =
     (Map
      ((args
        (((binding ((name f) (id 9))) (value (Primitive ((func Add)))))
-        ((binding ((name arg0) (id 7)))
+        ((binding ((name +arg1) (id 7)))
          (value
           (Frame
            ((dimensions (5))
@@ -378,17 +392,17 @@ let%expect_test "function call with implicit map" =
               (Scalar ((element (Literal (IntLiteral 3)))))
               (Scalar ((element (Literal (IntLiteral 4)))))
               (Scalar ((element (Literal (IntLiteral 5)))))))))))
-        ((binding ((name arg1) (id 8)))
+        ((binding ((name +arg2) (id 8)))
          (value (Scalar ((element (Literal (IntLiteral 6)))))))))
       (body
        (Map
         ((args
-          (((binding ((name arg0) (id 10)))
-            (value (Ref ((id ((name arg0) (id 7)))))))))
+          (((binding ((name +arg1) (id 10)))
+            (value (Ref ((id ((name +arg1) (id 7)))))))))
          (body
           (TermApplication
            ((func (Ref ((id ((name f) (id 9))))))
-            (args (((id ((name arg0) (id 10)))) ((id ((name arg1) (id 8))))))
+            (args (((id ((name +arg1) (id 10)))) ((id ((name +arg2) (id 8))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 5) (refs ())))))
          (type'
@@ -405,9 +419,9 @@ let%expect_test "function call with implicit map" =
        (((binding ((name f) (id 11)))
          (value
           (Scalar
-           ((element (Literal Unit))
-            (type' ((element (Literal Unit)) (shape ())))))))
-        ((binding ((name arg0) (id 12)))
+           ((element (Literal UnitLiteral))
+            (type' ((element (Literal UnitLiteral)) (shape ())))))))
+        ((binding ((name +arg1) (id 12)))
          (value
           (Frame
            ((dimensions (5))
@@ -430,7 +444,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 5) (refs ())))))))))))
-        ((binding ((name arg1) (id 14)))
+        ((binding ((name +arg2) (id 14)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 6)))
@@ -439,10 +453,10 @@ let%expect_test "function call with implicit map" =
        (IntrinsicCall
         (Map
          (args
-          (((binding ((name arg0) (id 13)))
+          (((binding ((name +arg1) (id 13)))
             (value
              (Ref
-              ((id ((name arg0) (id 12)))
+              ((id ((name +arg1) (id 12)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 5) (refs ())))))))))))))
@@ -451,16 +465,57 @@ let%expect_test "function call with implicit map" =
            ((op Add)
             (args
              ((Ref
-               ((id ((name arg0) (id 13)))
+               ((id ((name +arg1) (id 13)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name arg1) (id 14)))
+               ((id ((name +arg2) (id 14)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 5) (refs ())))))
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))))
       (frameShape ())
+      (type'
+       ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))))
+    Result of stage Simplify:
+    (IntrinsicCall
+     (Map
+      (args
+       (((binding ((name +arg1) (id 13)))
+         (value
+          (Frame
+           ((dimensions (5))
+            (elements
+             ((Scalar
+               ((element (Literal (IntLiteral 1)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 2)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 3)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 4)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 5)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))))
+            (type'
+             ((element (Literal IntLiteral))
+              (shape ((Add ((const 5) (refs ())))))))))))))
+      (body
+       (PrimitiveCall
+        ((op Add)
+         (args
+          ((Ref
+            ((id ((name +arg1) (id 13)))
+             (type' ((element (Literal IntLiteral)) (shape ())))))
+           (Scalar
+            ((element (Literal (IntLiteral 6)))
+             (type' ((element (Literal IntLiteral)) (shape ())))))))
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (frameShape ((Add ((const 5) (refs ())))))
       (type'
        ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))) |}]
 ;;
