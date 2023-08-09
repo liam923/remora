@@ -241,3 +241,4 @@ val partition_map : 'a t -> f:('a -> ('b, 'c) Base.Either.t) -> 'b list * 'c lis
 val partition_tf : 'a t -> f:('a -> bool) -> 'a list * 'a list
 val split_n : 'a t -> int -> 'a list * 'a list
 val all_options : 'a option t -> 'a t option
+val max_elt : 'a t -> compare:('a -> 'a -> int) -> 'a

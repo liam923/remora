@@ -46,23 +46,24 @@ type hoisting =
   }
 [@@deriving sexp_of]
 
-(* Determine if an expression is a constant expression that can be replicated
-   throughout the code without doing additional computation *)
-let canPropogate =
-  let rec canPropogateArray : Expr.array -> bool = function
+(* Determine if an expression is a constant expression or if it requires
+   computation. i.e. 7 and x are nonComputational,
+   while (+ 7 x) is computational *)
+let nonComputational =
+  let rec nonComputationalArray : Expr.array -> bool = function
     | Ref _ -> true
-    | Scalar scalar -> canPropogateAtom scalar.element
+    | Scalar scalar -> nonComputationalAtom scalar.element
     | Frame _ -> false (* TODO: might want to allow for small frames *)
     | Unbox _ -> false
     | PrimitiveCall _ -> false
     | IntrinsicCall _ -> false
-  and canPropogateAtom : Expr.atom -> bool = function
+  and nonComputationalAtom : Expr.atom -> bool = function
     | Box _ -> false
     | Literal (IntLiteral _) -> true
     | Literal (CharacterLiteral _) -> true
     | Literal UnitLiteral -> true
   in
-  canPropogateArray
+  nonComputationalArray
 ;;
 
 let getCounts =
@@ -149,7 +150,54 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     Expr.Scalar { element; type' }
   | Frame { elements; dimensions; type' } ->
     let elements = List.map elements ~f:optimizeArray in
-    Expr.Frame { elements; dimensions; type' }
+    (* Flatten the frame if all elements are frames *)
+    let frames =
+      elements
+      |> List.map ~f:(fun e ->
+        match e with
+        | Frame f -> Some f
+        | _ -> None)
+      |> List.fold ~init:(Some []) ~f:(fun prev next ->
+        let%map.Option prev = prev
+        and next = next in
+        next :: prev)
+      |> Option.map ~f:List.rev
+    in
+    (match frames with
+     | None | Some [] ->
+       (* Not all frames (or it is empty) so proceed normally *)
+       Expr.Frame { elements; dimensions; type' }
+     | Some (headFrame :: restFrames) ->
+       (* All frames, so need to flatten *)
+       let frames : Expr.frame NeList.t = headFrame :: restFrames in
+       let commonDims, numCommonDims =
+         frames
+         |> NeList.map ~f:(fun f -> f.dimensions, List.length f.dimensions)
+         |> NeList.max_elt ~compare:(fun (_, a) (_, b) -> Int.compare a b)
+       in
+       let elements =
+         frames
+         |> NeList.to_list
+         |> List.bind ~f:(fun { elements; dimensions; type' } ->
+           let _, keptDimensions = List.split_n dimensions numCommonDims in
+           match keptDimensions with
+           | [] -> elements
+           | _ :: _ as keptDimensions ->
+             let keptNumPerFrame = List.fold keptDimensions ~init:1 ~f:( * ) in
+             elements
+             |> List.groupi ~break:(fun i _ _ -> i % keptNumPerFrame = 0)
+             |> List.map ~f:(fun elements ->
+               Expr.Frame
+                 { elements
+                 ; dimensions = keptDimensions
+                 ; type' =
+                     { element = type'.element
+                     ; shape = List.drop type'.shape numCommonDims
+                     }
+                 }))
+       in
+       let dimensions = dimensions @ commonDims in
+       Expr.Frame { elements; dimensions; type' })
   | Unbox { indexBindings; boxBindings; body; type' } ->
     let body = optimizeArray body in
     (* Simplify the args, removing unused ones *)
@@ -213,7 +261,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
           match Counts.get bodyCounts arg.binding with
           | 0 -> `Fst ()
           | 1 -> `Snd arg
-          | _ when canPropogate arg.value -> `Snd arg
+          | _ when nonComputational arg.value -> `Snd arg
           | _ -> `Trd arg)
       in
       match argsToPropogate with

@@ -760,5 +760,356 @@ let%expect_test "check simplifying" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ((Add ((const 3) (refs ())))))
       (type'
-       ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))) |}]
+       ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))) |}];
+  checkAndPrint {| [1 2 3] |};
+  [%expect
+    {|
+    (Frame
+     ((dimensions (3))
+      (elements
+       ((Scalar
+         ((element (Literal (IntLiteral 1)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 2)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 3)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))))
+      (type'
+       ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))) |}];
+  checkAndPrint {| [[1 2] [3 4] [5 6]] |};
+  [%expect
+    {|
+    (Frame
+     ((dimensions (3 2))
+      (elements
+       ((Scalar
+         ((element (Literal (IntLiteral 1)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 2)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 3)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 4)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 5)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 6)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))))
+      (type'
+       ((element (Literal IntLiteral))
+        (shape ((Add ((const 3) (refs ()))) (Add ((const 2) (refs ()))))))))) |}];
+  checkAndPrint {| (frame [0] int) |};
+  [%expect
+    {|
+    (Frame
+     ((dimensions (0)) (elements ())
+      (type'
+       ((element (Literal IntLiteral)) (shape ((Add ((const 0) (refs ()))))))))) |}];
+  checkAndPrint {| [[1 2] (+ [3 4] [5 6])] |};
+  [%expect
+    {|
+    (Frame
+     ((dimensions (2))
+      (elements
+       ((Frame
+         ((dimensions (2))
+          (elements
+           ((Scalar
+             ((element (Literal (IntLiteral 1)))
+              (type' ((element (Literal IntLiteral)) (shape ())))))
+            (Scalar
+             ((element (Literal (IntLiteral 2)))
+              (type' ((element (Literal IntLiteral)) (shape ())))))))
+          (type'
+           ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+        (IntrinsicCall
+         (Map
+          (args
+           (((binding ((name +arg1) (id 14)))
+             (value
+              (Frame
+               ((dimensions (2))
+                (elements
+                 ((Scalar
+                   ((element (Literal (IntLiteral 3)))
+                    (type' ((element (Literal IntLiteral)) (shape ())))))
+                  (Scalar
+                   ((element (Literal (IntLiteral 4)))
+                    (type' ((element (Literal IntLiteral)) (shape ())))))))
+                (type'
+                 ((element (Literal IntLiteral))
+                  (shape ((Add ((const 2) (refs ())))))))))))
+            ((binding ((name +arg2) (id 16)))
+             (value
+              (Frame
+               ((dimensions (2))
+                (elements
+                 ((Scalar
+                   ((element (Literal (IntLiteral 5)))
+                    (type' ((element (Literal IntLiteral)) (shape ())))))
+                  (Scalar
+                   ((element (Literal (IntLiteral 6)))
+                    (type' ((element (Literal IntLiteral)) (shape ())))))))
+                (type'
+                 ((element (Literal IntLiteral))
+                  (shape ((Add ((const 2) (refs ())))))))))))))
+          (body
+           (PrimitiveCall
+            ((op Add)
+             (args
+              ((Ref
+                ((id ((name +arg1) (id 14)))
+                 (type' ((element (Literal IntLiteral)) (shape ())))))
+               (Ref
+                ((id ((name +arg2) (id 16)))
+                 (type' ((element (Literal IntLiteral)) (shape ())))))))
+             (type' ((element (Literal IntLiteral)) (shape ()))))))
+          (frameShape ((Add ((const 2) (refs ())))))
+          (type'
+           ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))))
+      (type'
+       ((element (Literal IntLiteral))
+        (shape ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ()))))))))) |}];
+  checkAndPrint {| [(frame [0] int) (frame [0] int)] |};
+  [%expect
+    {|
+    (Frame
+     ((dimensions (2 0)) (elements ())
+      (type'
+       ((element (Literal IntLiteral))
+        (shape ((Add ((const 2) (refs ()))) (Add ((const 0) (refs ()))))))))) |}];
+  checkAndPrint
+    {| [[(+ [1 2] [3 4]) (+ [1 2] [3 4]) (+ [1 2] [3 4])] [[4 5] [6 7] [8 9]]] |};
+  [%expect
+    {|
+      (Frame
+       ((dimensions (2 3))
+        (elements
+         ((IntrinsicCall
+           (Map
+            (args
+             (((binding ((name +arg1) (id 24)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 1)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 2)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              ((binding ((name +arg2) (id 26)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 3)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 4)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))))
+            (body
+             (PrimitiveCall
+              ((op Add)
+               (args
+                ((Ref
+                  ((id ((name +arg1) (id 24)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))
+                 (Ref
+                  ((id ((name +arg2) (id 26)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (frameShape ((Add ((const 2) (refs ())))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+          (IntrinsicCall
+           (Map
+            (args
+             (((binding ((name +arg1) (id 29)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 1)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 2)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              ((binding ((name +arg2) (id 31)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 3)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 4)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))))
+            (body
+             (PrimitiveCall
+              ((op Add)
+               (args
+                ((Ref
+                  ((id ((name +arg1) (id 29)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))
+                 (Ref
+                  ((id ((name +arg2) (id 31)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (frameShape ((Add ((const 2) (refs ())))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+          (IntrinsicCall
+           (Map
+            (args
+             (((binding ((name +arg1) (id 34)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 1)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 2)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              ((binding ((name +arg2) (id 36)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 3)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 4)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))))
+            (body
+             (PrimitiveCall
+              ((op Add)
+               (args
+                ((Ref
+                  ((id ((name +arg1) (id 34)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))
+                 (Ref
+                  ((id ((name +arg2) (id 36)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (frameShape ((Add ((const 2) (refs ())))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+          (Frame
+           ((dimensions (2))
+            (elements
+             ((Scalar
+               ((element (Literal (IntLiteral 4)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 5)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+          (Frame
+           ((dimensions (2))
+            (elements
+             ((Scalar
+               ((element (Literal (IntLiteral 6)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 7)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+          (Frame
+           ((dimensions (2))
+            (elements
+             ((Scalar
+               ((element (Literal (IntLiteral 8)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 9)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))))
+        (type'
+         ((element (Literal IntLiteral))
+          (shape
+           ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))
+            (Add ((const 2) (refs ()))))))))) |}];
+  checkAndPrint {| [[[1 2] [3 4] [5 6]] [[7 8] [9 10] [11 12]]] |};
+  [%expect
+    {|
+    (Frame
+     ((dimensions (2 3 2))
+      (elements
+       ((Scalar
+         ((element (Literal (IntLiteral 1)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 2)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 3)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 4)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 5)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 6)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 7)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 8)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 9)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 10)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 11)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))
+        (Scalar
+         ((element (Literal (IntLiteral 12)))
+          (type' ((element (Literal IntLiteral)) (shape ())))))))
+      (type'
+       ((element (Literal IntLiteral))
+        (shape
+         ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))
+          (Add ((const 2) (refs ()))))))))) |}]
 ;;

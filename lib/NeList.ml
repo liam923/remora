@@ -317,3 +317,9 @@ let all_options (x :: xs) =
   and xs = Option.all xs in
   x :: xs
 ;;
+
+let max_elt (x :: xs) ~compare =
+  match List.max_elt xs ~compare with
+  | Some maxRest -> if compare x maxRest < 0 then x else maxRest
+  | None -> x
+;;
