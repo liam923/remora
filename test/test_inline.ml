@@ -137,8 +137,8 @@ let%expect_test "check inlining" =
        ((element (Literal CharacterLiteral))
         (shape ((Add ((const 5) (refs ()))))))))) |}];
   checkAndPrint {|
-    (define id (t-fn (@t) (fn ([x @t]) x)))
-    ((t-app id int) 5)
+    (define (id{@t| } [x @t]) x)
+    (id{int| } 5)
   |};
   [%expect
     {|
@@ -172,7 +172,7 @@ let%expect_test "check inlining" =
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
-      (define id (t-fn (@t) (fn ([x @t]) x)))
+      (define (id{@t| } [x @t]) x)
       ((t-app id (Forall (@t) (-> (@t) @t))) id)
     |};
   [%expect
@@ -212,7 +212,7 @@ let%expect_test "check inlining" =
       (type' ((element (Literal UnitLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
-      (define id (t-fn (@t) (fn ([x @t]) x)))
+      (define (id{@t| } [x @t]) x)
       ((t-app ((t-app id (Forall (@t) (-> (@t) @t))) id) int) 5)
     |};
   [%expect
@@ -290,7 +290,7 @@ let%expect_test "check inlining" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {|
-      ((t-app (i-app length 5 []) int) [1 2 3 4 5])
+      (length{int | 5 []} [1 2 3 4 5])
     |};
   [%expect
     {|
@@ -338,7 +338,7 @@ let%expect_test "check inlining" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| 
-    ((t-app (i-app reduce 4 [] []) int) + [1 2 3 4 5])
+    (reduce{int | 4 [] []} + [1 2 3 4 5])
   |};
   [%expect
     {|
@@ -413,7 +413,7 @@ let%expect_test "check inlining" =
      (type' ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint
     {|
-      (define id (t-fn (@t) (fn ([x @t]) x)))
+      (define (id{@t| } [x @t]) x)
       ((t-app [id id id] int) 5)
     |};
   [%expect
@@ -476,10 +476,10 @@ let%expect_test "check inlining" =
        ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))) |}];
   checkAndPrint
     {|
-      (define id (t-fn (@t) (fn ([x @t]) x)))
+      (define (id{@t| } [x @t]) x)
       (+
-        ((t-app (i-app length 5 []) int) [1 2 3 4 5])
-        ((t-app (i-app length 2 [2]) char) ["hi" "ih"]))
+        (length{int | 5 []} [1 2 3 4 5])
+        (length{char | 2 [2]} ["hi" "ih"]))
     |};
   [%expect
     {|
@@ -617,7 +617,7 @@ let%expect_test "check inlining" =
   checkAndPrint
     {|
       (t-app
-        ((t-app (i-app reduce 1 [] []) (Forall (@t) int))
+        (reduce{(Forall (@t) int) | 1 [] []}
           (fn ([a (Forall (@a) int)] [b (Forall (@b) int)])
             (define sum (+ (t-app a char) (t-app b int)))
             (t-fn (@u) sum))
@@ -731,7 +731,7 @@ let%expect_test "check inlining" =
          (t (Literal IntLiteral)) (dSub1 ((const 1) (refs ()))) (itemPad ())
          (cellShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
-  checkAndPrint {| ((t-app (i-app reduce 2 [] []) int) [+ -] [1 2 3]) |};
+  checkAndPrint {| (reduce{int | 2 [] []} [+ -] [1 2 3]) |};
   [%expect
     {|
     Error: Could not determine what function is being passed to reduce:
@@ -739,8 +739,7 @@ let%expect_test "check inlining" =
      (args
       (((id ((name reduceArg1) (id 10)))) ((id ((name reduceArg2) (id 8))))))
      (type' ((element (Literal IntLiteral)) (shape ())))) |}];
-  checkAndPrint
-    {| ((t-app (i-app length 2 []) (Forall (@x) int)) [(t-fn (@x) 5) (t-fn (@x) 5)]) |};
+  checkAndPrint {| (length{(Forall (@x) int) | 2 []} [(t-fn (@x) 5) (t-fn (@x) 5)]) |};
   [%expect
     {|
     (IntrinsicCall

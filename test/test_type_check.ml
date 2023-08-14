@@ -443,11 +443,9 @@ let%expect_test "check type" =
         (Arr
          ((element (Literal CharacterLiteral))
           (shape ((Add ((const 5) (refs ()))))))))))) |}];
-  checkAndPrint
-    {|
-    (define id (t-fn (@t)
-      (fn ([x @t]) x)))
-    ((t-app id int) 5)
+  checkAndPrint {|
+    (define (id{@t | } [x @t]) x)
+    (id{int | } 5)
     |};
   [%expect
     {|
@@ -476,11 +474,9 @@ let%expect_test "check type" =
           (args ((Scalar ((element (Literal (IntLiteral 5)))))))))))))
     Type:
     (Array (Arr ((element (Literal IntLiteral)) (shape ())))) |}];
-  checkAndPrint
-    {|
-    (define id (t-fn (t)
-      (fn ([x [t 2]]) x)))
-    ((t-app id int) [1 2])
+  checkAndPrint {|
+    (define (id{t | } [x [t 2]]) x)
+    (id{int | } [1 2])
     |};
   [%expect
     {|
@@ -518,11 +514,9 @@ let%expect_test "check type" =
     Type:
     (Array
      (Arr ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
-  checkAndPrint
-    {|
-    (define id (t-fn (@t)
-      (fn ([x @t]) x)))
-    ((t-app id [char 5]) "hello")
+  checkAndPrint {|
+    (define (id{@t | } [x @t]) x)
+    (id{[char 5] | } "hello")
     |};
   [%expect
     {|
@@ -566,11 +560,9 @@ let%expect_test "check type" =
      (Arr
       ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
-  checkAndPrint
-    {|
-    (define id (t-fn (@t)
-      (fn ([x @t]) x)))
-    ((t-app id [char 5]) "hello")
+  checkAndPrint {|
+    (define (id{@t | } [x @t]) x)
+    (id{[char 5] | } "hello")
     |};
   [%expect
     {|
@@ -614,18 +606,15 @@ let%expect_test "check type" =
      (Arr
       ((element (Literal CharacterLiteral))
        (shape ((Add ((const 5) (refs ())))))))) |}];
-  checkAndPrint
-    {|
-    (define id (t-fn (t)
-      (fn ([x t]) x)))
-    ((t-app id [char 5]) "hello")
+  checkAndPrint {|
+    (define (id{t | } [x t]) x)
+    (id{[char 5] | } "hello")
     |};
   [%expect {| Error: Unexpected sort: expected `Atom`, got `Array` |}];
   checkAndPrint
     {|
-    (define foo (i-fn (@i)
-      (fn ([x [int 1 @i]]) x)))
-    ((i-app foo [2]) [[1 2]])
+    (define (foo{ | @i} [x [int 1 @i]]) x)
+    (foo{ | [2]} [[1 2]])
     |};
   [%expect
     {|
@@ -672,26 +661,22 @@ let%expect_test "check type" =
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
-    (define foo (i-fn (@i)
-      (fn ([x [int 1 @i]]) x)))
-    ((i-app foo 2) [[1 2]])
+    (define (foo{ | @i} [x [int 1 @i]]) x)
+    (foo{ | 2} [[1 2]])
     |};
   [%expect {| Error: Unexpected sort: expected `Dim`, got `Shape` |}];
   checkAndPrint
     {|
-    (define foo (i-fn (@i)
-      (fn ([x [int 1 @i]]) x)))
-    ((i-app foo [2]) [[1 2] [3 4]])
+    (define (foo{ | @i} [x [int 1 @i]]) x)
+    (foo{ | [2]} [[1 2] [3 4]])
     |};
   [%expect
     {|
     Error: Function expected argument with cell shape `[1 2]`, got `[2 2]` |}];
   checkAndPrint {| (define x : int 5) x |};
-  checkAndPrint
-    {|
-    (define foo (i-fn (i)
-      (fn ([x [int 1 i]]) x)))
-    ((i-app foo 2) [[1 2]])
+  checkAndPrint {|
+    (define (foo{ | i} [x [int 1 i]]) x)
+    (foo{ | 2} [[1 2]])
     |};
   [%expect
     {|
@@ -746,9 +731,8 @@ let%expect_test "check type" =
        (shape ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
-    (define foo (i-fn (i)
-      (fn ([x [int 1 i]]) x)))
-    ((i-app foo [1 2]) [[1 2]])
+    (define (foo{ | i} [x [int 1 i]]) x)
+    (foo{ | [1 2]} [[1 2]])
     |};
   [%expect {| Error: Unexpected sort: expected `Dim`, got `Shape` |}];
   checkAndPrint {| (define x : [char 5] "hello") x |};
@@ -802,7 +786,7 @@ let%expect_test "check type" =
         ((6) "Friday" )))
 
     (unbox weekdays (day len)
-      ((t-app (i-app length len []) char) day))
+      (length{char | len []} day))
     |};
   [%expect
     {|
@@ -1333,13 +1317,13 @@ let%expect_test "check type" =
   [%expect {| Error: Function expected argument with cell shape `[2]`, got `[2 3]` |}];
   checkAndPrint
     {|
-    (define left (t-fn (@t) (fn ([l @t] [r @t]) l)))
-    (define right (t-fn (@t) (fn ([l @t] [r @t]) r)))
-    (define id (t-fn (@t) (fn ([x @t]) x)))
-    (define funs ((t-app id [(∀ (@t) (→ (@t @t) @t)) 2]) [left right]))
+    (define (left{@t | } [l @t] [r @t]) l)
+    (define (right{@t | } [l @t] [r @t]) r)
+    (define (id{@t | } [x @t]) x)
+    (define funs (id{[(∀ (@t) (→ (@t @t) @t)) 2] | } [left right]))
 
-    (define foo ((t-app funs int) 1 2))
-    (define bar ((t-app funs [char 2]) "hi" "ih"))
+    (define foo (funs{int | } 1 2))
+    (define bar (funs{[char 2] | } "hi" "ih"))
 
     funs
     |};
@@ -1488,8 +1472,8 @@ let%expect_test "check type" =
        (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint
     {|
-    (define id (t-fn (@t) (fn ([x @t]) x)))
-    (define use-id (t-fn (@t) (fn ([x @t]) ((t-app id @t) x))))
+    (define (id{@t | } [x @t]) x)
+    (define (use-id{@t | } [x @t]) (id{@t | } x))
     5
     |};
   [%expect

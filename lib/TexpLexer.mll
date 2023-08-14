@@ -22,8 +22,11 @@ rule read =
   | '"'      { read_string (Buffer.create 17) lexbuf }
   | '('      { LEFT_PAREN }
   | ')'      { RIGHT_PAREN }
-  | '['      { LEFT_BRACK }
-  | ']'      { RIGHT_BRACK }
+  | '['      { LEFT_SQUARE }
+  | ']'      { RIGHT_SQUARE }
+  | '{'      { LEFT_CURLY }
+  | '}'      { RIGHT_CURLY }
+  | '|'      { BAR }
   | ';'      { read_single_line_comment lexbuf }
   | '#' '|'  { read_multi_line_comment lexbuf }
   | _        { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf, SourceBuilder.make ~start:(Lexing.lexeme_start_p lexbuf) ~finish:(Lexing.lexeme_end_p lexbuf))) }

@@ -90,15 +90,14 @@ module Make (SB : Source.BuilderT) = struct
     | Integer (i, source) -> MOk { elem = Index.Dimension i; source }
     | Symbol (id, source) -> MOk { elem = Index.Ref id; source }
     (* Match (+ ...) *)
-    | List { braceType = Parens; elements = Symbol ("+", _) :: indices; braceSources = _ }
+    | List { braceType = Paren; elements = Symbol ("+", _) :: indices; braceSources = _ }
       as addExp ->
       let%map parsedIndices =
         parseList indices ~f:parseIndex ~source:(texpSource addExp)
       in
       Source.map parsedIndices ~f:(fun indices -> Index.Add indices)
     (* Match (++ ...) *)
-    | List
-        { braceType = Parens; elements = Symbol ("++", _) :: indices; braceSources = _ }
+    | List { braceType = Paren; elements = Symbol ("++", _) :: indices; braceSources = _ }
       as appendExp ->
       let%map parsedIndices =
         parseList indices ~f:parseIndex ~source:(texpSource appendExp)
@@ -106,17 +105,15 @@ module Make (SB : Source.BuilderT) = struct
       Source.map parsedIndices ~f:(fun indices -> Index.Append indices)
     (* Match (shape ...) *)
     | List
-        { braceType = Parens
-        ; elements = Symbol ("shape", _) :: indices
-        ; braceSources = _
-        } as shapeExp ->
+        { braceType = Paren; elements = Symbol ("shape", _) :: indices; braceSources = _ }
+      as shapeExp ->
       let%map parsedIndices =
         parseList indices ~f:parseIndex ~source:(texpSource shapeExp)
       in
       Source.map parsedIndices ~f:(fun indices -> Index.Shape indices)
     (* Match [...]
        Note that the de-sugaring is performed when type checking *)
-    | List { braceType = Bracks; elements = indices; braceSources = _ } as shapeExp ->
+    | List { braceType = Square; elements = indices; braceSources = _ } as shapeExp ->
       let%map parsedIndices =
         parseList indices ~f:parseIndex ~source:(texpSource shapeExp)
       in
@@ -135,7 +132,7 @@ module Make (SB : Source.BuilderT) = struct
       ~rParenSource
       =
       match components with
-      | [ (List { braceType = Parens; elements = parameters; braceSources = _ } as
+      | [ (List { braceType = Paren; elements = parameters; braceSources = _ } as
            paramsExp)
         ; body
         ] ->
@@ -159,7 +156,7 @@ module Make (SB : Source.BuilderT) = struct
     function
     | Symbol (id, source) -> MOk { elem = Type.Ref id; source }
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("Arr", arrSource) :: components
         ; braceSources = _, rParenSource
         } as arrExp ->
@@ -176,13 +173,13 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `Arr` syntax"
            , infixListSource components ~before:arrSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (arrow, arrSource) :: components
         ; braceSources = _, rParenSource
         } as arrExp
       when String.equal arrow "->" || String.equal arrow "→" ->
       (match components with
-       | [ (List { braceType = Parens; elements = parameters; braceSources = _ } as
+       | [ (List { braceType = Paren; elements = parameters; braceSources = _ } as
             paramsExp)
          ; return
          ] ->
@@ -198,7 +195,7 @@ module Make (SB : Source.BuilderT) = struct
            ( [%string "Bad `%{arrow}` syntax"]
            , infixListSource components ~before:arrSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (forall, forallSource) :: components
         ; braceSources = _, rParenSource
         } as forallExp
@@ -214,7 +211,7 @@ module Make (SB : Source.BuilderT) = struct
       in
       Source.{ elem = Type.Forall abstraction; source = texpSource forallExp }
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (pi, piSource) :: components
         ; braceSources = _, rParenSource
         } as piExp
@@ -230,7 +227,7 @@ module Make (SB : Source.BuilderT) = struct
       in
       Source.{ elem = Type.Pi abstraction; source = texpSource piExp }
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (sigma, sigmaSource) :: components
         ; braceSources = _, rParenSource
         } as sigmaExp
@@ -246,7 +243,7 @@ module Make (SB : Source.BuilderT) = struct
       in
       Source.{ elem = Type.Sigma abstraction; source = texpSource sigmaExp }
     | List
-        { braceType = Bracks
+        { braceType = Square
         ; elements = elementType :: shapeElements
         ; braceSources = _, rBrackSource
         } as arrExp ->
@@ -267,7 +264,7 @@ module Make (SB : Source.BuilderT) = struct
         ; source = texpSource arrExp
         }
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("Tuple", _) :: elements
         ; braceSources = _
         } as tupExp ->
@@ -288,7 +285,7 @@ module Make (SB : Source.BuilderT) = struct
       ~rParenSource
       =
       match components with
-      | (List { braceType = Bracks; elements = dimensions; braceSources = _ } as dimsExp)
+      | (List { braceType = Square; elements = dimensions; braceSources = _ } as dimsExp)
         :: elements ->
         let%bind parsedDimensions =
           parseList
@@ -365,7 +362,7 @@ module Make (SB : Source.BuilderT) = struct
                  }
            ; source
            })
-    | List { braceType = Bracks; elements; braceSources = _ } as frameExp ->
+    | List { braceType = Square; elements; braceSources = _ } as frameExp ->
       let source = texpSource frameExp in
       (match elements with
        | head :: tail ->
@@ -385,7 +382,7 @@ module Make (SB : Source.BuilderT) = struct
            }
        | [] -> MResult.err ("[] sugar can only be used for non-empty frames", source))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("array", arrSource) :: components
         ; braceSources = _, rParenSource
         } as arrExp ->
@@ -401,7 +398,7 @@ module Make (SB : Source.BuilderT) = struct
        | `NonEmpty arr -> Source.{ elem = Expr.Arr arr; source }
        | `Empty empty -> Source.{ elem = Expr.EmptyArr empty; source })
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("frame", frameSource) :: components
         ; braceSources = _, rParenSource
         } as frameExp ->
@@ -417,7 +414,7 @@ module Make (SB : Source.BuilderT) = struct
        | `NonEmpty frame -> Source.{ elem = Expr.Frame frame; source }
        | `Empty empty -> Source.{ elem = Expr.EmptyFrame empty; source })
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("t-app", tAppSource) :: components
         ; braceSources = _, rParenSource
         } as tAppExpr ->
@@ -436,7 +433,7 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `t-app` syntax"
            , infixListSource components ~before:tAppSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("i-app", iAppSource) :: components
         ; braceSources = _, rParenSource
         } as iAppExpr ->
@@ -459,14 +456,14 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `i-app` syntax"
            , infixListSource components ~before:iAppSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("unbox", unboxSource) :: components
         ; braceSources = _, rParenSource
         } as unboxExpr ->
       (match components with
        | box
          :: List
-              { braceType = Parens
+              { braceType = Paren
               ; elements = valueBinding :: indexBindings
               ; braceSources = _, bindingsRParen
               }
@@ -505,21 +502,21 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `unbox` syntax"
            , infixListSource components ~before:unboxSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("boxes", boxesSource) :: components
         ; braceSources = _, rParenSource
         } as boxesExpr ->
       (match components with
-       | (List { braceType = Parens; elements = params; braceSources = _ } as paramsExp)
+       | (List { braceType = Paren; elements = params; braceSources = _ } as paramsExp)
          :: elementType
-         :: (List { braceType = Bracks; elements = dimensions; braceSources = _ } as
+         :: (List { braceType = Square; elements = dimensions; braceSources = _ } as
              dimsExp)
          :: elements ->
          let parseElement = function
            | Texp.List
-               { braceType = Parens
+               { braceType = Paren
                ; elements =
-                   List { braceType = Parens; elements = indices; braceSources = _ }
+                   List { braceType = Paren; elements = indices; braceSources = _ }
                    :: bodyHead
                    :: bodyTail
                ; braceSources = indicesLParen, indicesRParen
@@ -580,18 +577,18 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `boxes` syntax"
            , infixListSource components ~before:boxesSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("box", boxSource) :: components
         ; braceSources = _, rParenSource
         } as boxExpr ->
       (match components with
-       | (List { braceType = Parens; elements = args; braceSources = _ } as argsExp)
+       | (List { braceType = Paren; elements = args; braceSources = _ } as argsExp)
          :: elementType
          :: bodyHead
          :: bodyTail ->
          let parseArg = function
            | Texp.List
-               { braceType = Parens; elements = [ param; index ]; braceSources = _ } ->
+               { braceType = Paren; elements = [ param; index ]; braceSources = _ } ->
              let%map paramBinding, paramBound, paramSource =
                parseBindingWithImplicitBound param ~atBound:Sort.Shape ~noAtBound:Sort.Dim
              and parsedIndex = parseIndex index in
@@ -632,7 +629,7 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `box` syntax"
            , infixListSource components ~before:boxSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("tuple", tupleSource) :: elements
         ; braceSources = _, rParenSource
         } as tupleExpr ->
@@ -641,12 +638,12 @@ module Make (SB : Source.BuilderT) = struct
       in
       Source.{ elem = Expr.Tuple parsedElements; source = texpSource tupleExpr }
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("let", letSource) :: components
         ; braceSources = _, rParenSource
         } as letExpr ->
       (match components with
-       | (List { braceType = Bracks; elements = declarationComponents; braceSources = _ }
+       | (List { braceType = Square; elements = declarationComponents; braceSources = _ }
           as decExp)
          :: bodyHead
          :: bodyTail ->
@@ -686,23 +683,23 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `let` syntax"
            , infixListSource components ~before:letSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol ("let-tuple", letSource) :: components
         ; braceSources = _, rParenSource
         } as letExpr ->
       (match components with
        | List
-           { braceType = Bracks
+           { braceType = Square
            ; elements = declarationComponents
            ; braceSources = decLBrack, decRBrack
            }
          :: bodyHead
          :: bodyTail ->
          (match declarationComponents with
-          | [ List { braceType = Parens; elements = params; braceSources = _ }; value ] ->
+          | [ List { braceType = Paren; elements = params; braceSources = _ }; value ] ->
             let parseParam = function
               | Texp.List
-                  { braceType = Parens
+                  { braceType = Paren
                   ; elements = [ binding; Symbol (":", _); bound ]
                   ; braceSources = _
                   } as paramExp ->
@@ -743,18 +740,18 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `let-tuple` syntax"
            , infixListSource components ~before:letSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (lambda, lambdaSource) :: components
         ; braceSources = _, rParenSource
         } as lambdaExp
       when String.equal lambda "λ" || String.equal lambda "fn" ->
       (match components with
-       | (List { braceType = Parens; elements = params; braceSources = _ } as paramsExp)
+       | (List { braceType = Paren; elements = params; braceSources = _ } as paramsExp)
          :: bodyHead
          :: bodyTail ->
          let parseParam = function
            | Texp.List
-               { braceType = Bracks; elements = [ binding; bound ]; braceSources = _ } as
+               { braceType = Square; elements = [ binding; bound ]; braceSources = _ } as
              paramExp ->
              let%map parsedBinding = parseBinding binding
              and parsedBound = parseType bound in
@@ -778,13 +775,13 @@ module Make (SB : Source.BuilderT) = struct
            ( [%string "Bad `%{lambda}` syntax"]
            , infixListSource components ~before:lambdaSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (tlambda, tlambdaSource) :: components
         ; braceSources = _, rParenSource
         } as tlambdaExp
       when String.equal tlambda "Tλ" || String.equal tlambda "t-fn" ->
       (match components with
-       | (List { braceType = Parens; elements = params; braceSources = _ } as paramsExp)
+       | (List { braceType = Paren; elements = params; braceSources = _ } as paramsExp)
          :: bodyHead
          :: bodyTail ->
          let parseParam param =
@@ -805,13 +802,13 @@ module Make (SB : Source.BuilderT) = struct
            ( [%string "Bad `%{tlambda}` syntax"]
            , infixListSource components ~before:tlambdaSource ~after:rParenSource ))
     | List
-        { braceType = Parens
+        { braceType = Paren
         ; elements = Symbol (ilambda, ilambdaSource) :: components
         ; braceSources = _, rParenSource
         } as ilambdaExp
       when String.equal ilambda "Iλ" || String.equal ilambda "i-fn" ->
       (match components with
-       | (List { braceType = Parens; elements = params; braceSources = _ } as paramsExp)
+       | (List { braceType = Paren; elements = params; braceSources = _ } as paramsExp)
          :: bodyHead
          :: bodyTail ->
          let parseParam param =
@@ -831,7 +828,7 @@ module Make (SB : Source.BuilderT) = struct
          MResult.err
            ( [%string "Bad `%{ilambda}` syntax"]
            , infixListSource components ~before:ilambdaSource ~after:rParenSource ))
-    | List { braceType = Parens; elements = func :: args; braceSources = _, rParenSource }
+    | List { braceType = Paren; elements = func :: args; braceSources = _, rParenSource }
       as termAppExp ->
       let%map parsedFunc = parseExpr func
       and parsedArgs =
@@ -841,6 +838,42 @@ module Make (SB : Source.BuilderT) = struct
         { elem = Expr.TermApplication { func = parsedFunc; args = parsedArgs }
         ; source = texpSource termAppExp
         }
+    | WithCurlies
+        { base
+        ; leftElements
+        ; rightElements
+        ; curlySources = lCurlySource, rCurlySource
+        ; splitSource
+        } as curliesExp ->
+      let%map expression = parseExpr base
+      and iAppArgs =
+        parseInfixList rightElements ~f:parseIndex ~before:splitSource ~after:rCurlySource
+      and tAppArgs =
+        parseInfixList leftElements ~f:parseType ~before:lCurlySource ~after:splitSource
+      in
+      (* If there are elements on the right half, parse them as indices and
+         wrap an i-app around the expression *)
+      let expression =
+        match iAppArgs with
+        | { elem = []; source = _ } -> expression
+        | { elem = _ :: _; source = _ } as iAppArgs ->
+          Source.
+            { elem = Expr.IndexApplication { iFunc = expression; args = iAppArgs }
+            ; source = texpSource curliesExp
+            }
+      in
+      (* If there are elements on the left half, parse them as types and
+         wrap a t-app around the expression *)
+      let expression =
+        match tAppArgs with
+        | { elem = []; source = _ } -> expression
+        | { elem = _ :: _; source = _ } as tAppArgs ->
+          Source.
+            { elem = Expr.TypeApplication { tFunc = expression; args = tAppArgs }
+            ; source = texpSource curliesExp
+            }
+      in
+      expression
     | expr -> MResult.err ("Bad expression syntax", texpSource expr)
 
   (* Parse a list of define statements followed by a expression *)
@@ -850,18 +883,80 @@ module Make (SB : Source.BuilderT) = struct
     | define :: next :: rest ->
       let body : source Texp.t NeList.t = next :: rest in
       let letSource = infixNeListSource (define :: next :: rest) in
+      let parseDefineBinding = function
+        | Texp.WithCurlies
+            { base = binding
+            ; leftElements
+            ; rightElements
+            ; curlySources = lCurlySource, rCurlySource
+            ; splitSource
+            } ->
+          let%map binding = parseBinding binding
+          and typeBindings =
+            parseInfixList
+              leftElements
+              ~f:(parseBindingWithImplicitBound ~atBound:Kind.Array ~noAtBound:Kind.Atom)
+              ~before:splitSource
+              ~after:rCurlySource
+          and indexBindings =
+            parseInfixList
+              rightElements
+              ~f:(parseBindingWithImplicitBound ~atBound:Sort.Shape ~noAtBound:Sort.Dim)
+              ~before:lCurlySource
+              ~after:splitSource
+          in
+          let wrapBody body =
+            (* If there are elements on the right half, parse them as index
+               variables and wrap an i-fn around the body *)
+            let body =
+              match indexBindings with
+              | { elem = []; source = _ } -> body
+              | { elem = params; source = paramsSource } ->
+                let params =
+                  Source.
+                    { elem =
+                        List.map params ~f:(fun (binding, bound, source) ->
+                          Source.{ elem = { binding; bound }; source })
+                    ; source = paramsSource
+                    }
+                in
+                Source.{ elem = Expr.IndexLambda { params; body }; source = letSource }
+            in
+            (* If there are elements on the left half, parse them as types and
+               wrap a t-fn around the expression *)
+            let body =
+              match typeBindings with
+              | { elem = []; source = _ } -> body
+              | { elem = params; source = paramsSource } ->
+                let params =
+                  Source.
+                    { elem =
+                        List.map params ~f:(fun (binding, bound, source) ->
+                          Source.{ elem = { binding; bound }; source })
+                    ; source = paramsSource
+                    }
+                in
+                Source.{ elem = Expr.TypeLambda { params; body }; source = letSource }
+            in
+            body
+          in
+          binding, wrapBody
+        | binding ->
+          let%map binding = parseBinding binding in
+          binding, fun exp -> exp
+      in
       let%map parsedBody = parseExprBody body
       and parsedDefine =
         match define with
         | List
-            { braceType = Parens
+            { braceType = Paren
             ; elements = Symbol ("define", defineSource) :: components
             ; braceSources = _, defineRParenSource
             } as defineExp ->
           (match components with
            (* Match a define for a function *)
            | List
-               { braceType = Parens
+               { braceType = Paren
                ; elements = funBinding :: params
                ; braceSources = _, rParenSource
                }
@@ -869,13 +964,13 @@ module Make (SB : Source.BuilderT) = struct
              :: functionBodyTail ->
              let%map parsedFunctionBody =
                parseExprBody (functionBodyHead :: functionBodyTail)
-             and parsedFunBinding = parseBinding funBinding
+             and parsedFunBinding, wrapFun = parseDefineBinding funBinding
              and parsedParams =
                parseInfixList
                  params
                  ~f:(function
                    | List
-                       { braceType = Bracks
+                       { braceType = Square
                        ; elements = [ binding; bound ]
                        ; braceSources = _
                        } as bracks ->
@@ -898,11 +993,12 @@ module Make (SB : Source.BuilderT) = struct
                            ; source = parsedFunBinding.source
                            }
                        ; value =
-                           { elem =
-                               TermLambda
-                                 { params = parsedParams; body = parsedFunctionBody }
-                           ; source = texpSource defineExp
-                           }
+                           wrapFun
+                             { elem =
+                                 TermLambda
+                                   { params = parsedParams; body = parsedFunctionBody }
+                             ; source = texpSource defineExp
+                             }
                        ; body = parsedBody
                        }
                  ; source = letSource
@@ -911,7 +1007,7 @@ module Make (SB : Source.BuilderT) = struct
            | binding :: Symbol (":", _) :: bound :: valueHead :: valueTail ->
              let%map parsedValue = parseExprBody (valueHead :: valueTail)
              and parsedBound = parseType bound
-             and parsedBinding = parseBinding binding in
+             and parsedBinding, wrapValue = parseDefineBinding binding in
              fun parsedBody ->
                Source.
                  { elem =
@@ -920,7 +1016,7 @@ module Make (SB : Source.BuilderT) = struct
                            { elem = { binding = parsedBinding; bound = Some parsedBound }
                            ; source = SB.merge parsedBinding.source parsedBound.source
                            }
-                       ; value = parsedValue
+                       ; value = wrapValue parsedValue
                        ; body = parsedBody
                        }
                  ; source = letSource
@@ -928,7 +1024,7 @@ module Make (SB : Source.BuilderT) = struct
              (* Match a define for a regular value *)
            | binding :: valueHead :: valueTail ->
              let%map parsedValue = parseExprBody (valueHead :: valueTail)
-             and parsedBinding = parseBinding binding in
+             and parsedBinding, wrapValue = parseDefineBinding binding in
              fun parsedBody ->
                Source.
                  { elem =
@@ -937,7 +1033,7 @@ module Make (SB : Source.BuilderT) = struct
                            { elem = { binding = parsedBinding; bound = None }
                            ; source = parsedBinding.source
                            }
-                       ; value = parsedValue
+                       ; value = wrapValue parsedValue
                        ; body = parsedBody
                        }
                  ; source = letSource
