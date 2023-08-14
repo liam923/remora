@@ -79,7 +79,7 @@ let%expect_test "simple addition" =
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 10)))
          (value
@@ -107,7 +107,7 @@ let%expect_test "simple addition" =
             ((id ((name +arg2) (id 12)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ())))))
+      (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Simplify:
     (Scalar
      ((element (Literal (IntLiteral 3)))
@@ -194,7 +194,7 @@ let%expect_test "simple function definition and call" =
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name add) (id 17)))
          (value
@@ -203,7 +203,7 @@ let%expect_test "simple function definition and call" =
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 18)))
             (value
@@ -222,7 +222,7 @@ let%expect_test "simple function definition and call" =
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (IntrinsicCall
-           (Map
+           (Map (frameShape ())
             (args
              (((binding ((name f) (id 19)))
                (value
@@ -250,9 +250,9 @@ let%expect_test "simple function definition and call" =
                   ((id ((name +arg2) (id 23)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
-            (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ())))))
+            (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Simplify:
     (Scalar
      ((element (Literal (IntLiteral 15)))
@@ -326,7 +326,7 @@ let%expect_test "polymorphic function definition and call" =
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name id) (id 13)))
          (value
@@ -335,7 +335,7 @@ let%expect_test "polymorphic function definition and call" =
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 14)))
             (value
@@ -351,8 +351,8 @@ let%expect_test "polymorphic function definition and call" =
           (Ref
            ((id ((name e) (id 15)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ())))))
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Simplify:
     (Scalar
      ((element (Literal (IntLiteral 5)))
@@ -414,7 +414,7 @@ let%expect_test "function call with implicit map" =
         ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))))
     Result of stage Inline and Monomorphize:
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 11)))
          (value
@@ -451,7 +451,7 @@ let%expect_test "function call with implicit map" =
             (type' ((element (Literal IntLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ((Add ((const 5) (refs ())))))
          (args
           (((binding ((name +arg1) (id 13)))
             (value
@@ -471,15 +471,13 @@ let%expect_test "function call with implicit map" =
                ((id ((name +arg2) (id 14)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ((Add ((const 5) (refs ())))))
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))))
-      (frameShape ())
       (type'
        ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ())))))))))
     Result of stage Simplify:
     (IntrinsicCall
-     (Map
+     (Map (frameShape ((Add ((const 5) (refs ())))))
       (args
        (((binding ((name +arg1) (id 13)))
          (value
@@ -515,7 +513,6 @@ let%expect_test "function call with implicit map" =
             ((element (Literal (IntLiteral 6)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ((Add ((const 5) (refs ())))))
       (type'
        ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))) |}]
 ;;

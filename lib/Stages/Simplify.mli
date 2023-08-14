@@ -9,7 +9,7 @@ open! Base
     - Remove redundant maps
     - Hoist variables *)
 
-val simplify : InlineNucleus.t -> InlineNucleus.t
+val simplify : InlineNucleus.t -> (CompilerState.state, InlineNucleus.t, _) State.t
 
 module Stage (SB : Source.BuilderT) :
   CompilerPipeline.Stage

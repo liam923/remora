@@ -1,10 +1,20 @@
 open! Base
 open InlineNucleus
 
-type bindingSet =
-  | Bindings of Set.M(Identifier).t
-  | All
-[@@deriving sexp_of]
+module BindingSet = struct
+  type t =
+    | Bindings of Set.M(Identifier).t
+    | All
+  [@@deriving sexp_of]
+
+  let union a b =
+    match a, b with
+    | Bindings a, Bindings b -> Bindings (Set.union a b)
+    | All, _ | _, All -> All
+  ;;
+
+  let of_list l = Bindings (Set.of_list (module Identifier) l)
+end
 
 module Counts : sig
   type t [@@deriving sexp_of]
@@ -13,7 +23,7 @@ module Counts : sig
   val one : Identifier.t -> t
   val get : t -> Identifier.t -> int
   val merge : t list -> t
-  val usesAny : t -> bindingSet -> bool
+  val usesAny : t -> BindingSet.t -> bool
 end = struct
   type t = int Map.M(Identifier).t [@@deriving sexp_of]
 
@@ -28,10 +38,10 @@ end = struct
 
   let usesAny counts bindings =
     match bindings with
-    | Bindings bindings ->
+    | BindingSet.Bindings bindings ->
       let keys = Map.keys counts |> Set.of_list (module Identifier) in
       not (Set.are_disjoint keys bindings)
-    | All -> true
+    | BindingSet.All -> true
   ;;
 end
 
@@ -40,12 +50,6 @@ let scalar atom =
     Scalar { element = atom; type' = { element = atomType atom; shape = [] } })
 ;;
 
-type hoisting =
-  { variableDeclaration : Expr.mapArg
-  ; counts : Counts.t
-  }
-[@@deriving sexp_of]
-
 (* Determine if an expression is a constant expression or if it requires
    computation. i.e. 7 and x are nonComputational,
    while (+ 7 x) is computational *)
@@ -53,7 +57,7 @@ let nonComputational =
   let rec nonComputationalArray : Expr.array -> bool = function
     | Ref _ -> true
     | Scalar scalar -> nonComputationalAtom scalar.element
-    | Frame _ -> false (* TODO: might want to allow for small frames *)
+    | Frame frame -> List.for_all frame.elements ~f:nonComputationalArray
     | Unbox _ -> false
     | PrimitiveCall _ -> false
     | IntrinsicCall _ -> false
@@ -143,6 +147,12 @@ and subAtom subs : Expr.atom -> Expr.atom = function
     Box { indices; body; bodyType; type' }
 ;;
 
+(* Perform the following optimizations:
+   - Copy propogation
+   - Delete unused variables
+   - Inline variables only used once
+   - Inline variables with constant value
+   - Constant folding *)
 let rec optimizeArray : Expr.array -> Expr.array = function
   | Ref _ as ref -> ref
   | Scalar { element; type' } ->
@@ -252,7 +262,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         { binding; value })
     in
     let body = optimizeArray body in
-    (* Until it cannot be done anymore, inline args that can be propogated () and then
+    (* Until it cannot be done anymore, inline args that can be propogated and then
        simplify the body. Also, remove unused args. *)
     let rec loop (args : Expr.mapArg list) body =
       let bodyCounts = getCounts body in
@@ -279,7 +289,10 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         loop args body
     in
     let args, body = loop args body in
-    IntrinsicCall (Map { args; body; frameShape = []; type' })
+    (* If args are now empty, just return the body, as the map is now redundant *)
+    (match args with
+     | [] -> body
+     | _ :: _ as args -> IntrinsicCall (Map { args; body; frameShape = []; type' }))
   | IntrinsicCall (Map { args; body; frameShape = _ :: _ as frameShape; type' }) ->
     let body = optimizeArray body in
     (* Simplify the args, removing unused ones *)
@@ -314,35 +327,59 @@ and optimizeAtom : Expr.atom -> Expr.atom = function
   | Literal _ as literal -> literal
 ;;
 
-let hoistMap l ~f =
+module HoistState = struct
+  include State
+
+  type state = CompilerState.state
+  type ('a, 'e) u = (state, 'a, 'e) t
+
+  let createId name =
+    make ~f:(fun state ->
+      State.run
+        (Identifier.create
+           name
+           ~getCounter:(fun (s : state) -> s.idCounter)
+           ~setCounter:(fun _ idCounter -> CompilerState.{ idCounter }))
+        state)
+  ;;
+end
+
+type hoisting =
+  { variableDeclaration : Expr.mapArg
+  ; counts : Counts.t
+  }
+[@@deriving sexp_of]
+
+let hoistDeclarationsMap l ~f =
   let results, hoistings = l |> List.map ~f |> List.unzip in
   results, List.join hoistings
 ;;
 
+(* Hoist variables that can be hoisted. Maps are also cleaned up while doing
+   this. (nested maps with empty frames that can be flattened are, and maps
+   with empty frames and no args are removed) *)
 let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = function
   | Ref _ as ref -> ref, []
   | Scalar { element; type' } ->
     let element, hoistings = hoistDeclarationsInAtom element in
     Expr.Scalar { element; type' }, hoistings
   | Frame { elements; dimensions; type' } ->
-    let elements, hoistings = hoistMap elements ~f:hoistDeclarationsInArray in
+    let elements, hoistings = hoistDeclarationsMap elements ~f:hoistDeclarationsInArray in
     Expr.Frame { elements; dimensions; type' }, hoistings
   | Unbox { indexBindings; boxBindings; body; type' } ->
     let bindings =
-      boxBindings |> List.map ~f:(fun b -> b.binding) |> Set.of_list (module Identifier)
+      boxBindings |> List.map ~f:(fun b -> b.binding) |> BindingSet.of_list
     in
-    let body, bodyHoistings =
-      hoistDeclarationsInBody body ~bindings:(Bindings bindings)
-    in
+    let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let boxBindings, boxBindingHoistings =
-      hoistMap boxBindings ~f:(fun { binding; box } ->
+      hoistDeclarationsMap boxBindings ~f:(fun { binding; box } ->
         let box, hoistings = hoistDeclarationsInArray box in
         ({ binding; box } : Expr.unboxBinding), hoistings)
     in
     ( Expr.Unbox { indexBindings; boxBindings; body; type' }
     , boxBindingHoistings @ bodyHoistings )
   | PrimitiveCall { op; args; type' } ->
-    let args, hoistings = hoistMap args ~f:hoistDeclarationsInArray in
+    let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarationsInArray in
     PrimitiveCall { op; args; type' }, hoistings
   | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
     let arg, hoistings = hoistDeclarationsInArray arg in
@@ -350,7 +387,7 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
   | IntrinsicCall (Map { args; body; frameShape = []; type' = _ }) ->
     let body, bodyHoistings = hoistDeclarationsInArray body in
     let args, argHoistings =
-      hoistMap args ~f:(fun { binding; value } ->
+      hoistDeclarationsMap args ~f:(fun { binding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
         ({ binding; value } : Expr.mapArg), hoistings)
     in
@@ -360,14 +397,10 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     in
     body, argHoistings @ argsAsHoistings @ bodyHoistings
   | IntrinsicCall (Map { args; body; frameShape = _ :: _ as frameShape; type' }) ->
-    let bindings =
-      args |> List.map ~f:(fun arg -> arg.binding) |> Set.of_list (module Identifier)
-    in
-    let body, bodyHoistings =
-      hoistDeclarationsInBody body ~bindings:(Bindings bindings)
-    in
+    let bindings = args |> List.map ~f:(fun arg -> arg.binding) |> BindingSet.of_list in
+    let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let args, argHoistings =
-      hoistMap args ~f:(fun { binding; value } ->
+      hoistDeclarationsMap args ~f:(fun { binding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
         ({ binding; value } : Expr.mapArg), hoistings)
     in
@@ -377,13 +410,11 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     let bindings =
       args
       |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-      |> Set.of_list (module Identifier)
+      |> BindingSet.of_list
     in
-    let body, bodyHoistings =
-      hoistDeclarationsInBody body ~bindings:(Bindings bindings)
-    in
+    let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let args, argHoistings =
-      hoistMap args ~f:(fun { firstBinding; secondBinding; value } ->
+      hoistDeclarationsMap args ~f:(fun { firstBinding; secondBinding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
         ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
     in
@@ -469,15 +500,157 @@ and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
   body, hoistingsToPropogate
 ;;
 
+let hoistExpressionsMap l ~f =
+  let open HoistState.Let_syntax in
+  let%map results, hoistings = l |> List.map ~f |> HoistState.all |> HoistState.unzip in
+  results, List.join hoistings
+;;
+
+(* Hoist expressions that remain constant over a loop out of the loop.
+   loopBarreir is the set of variables that are declared by the loop surrounding
+   the current expression. Expressions will be hoisted iff they don't use
+   any variables in the loopBarrier AND the expression is "computational".
+   (see the function nonComputational) *)
+let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
+  : (Expr.array * hoisting list, _) HoistState.u
+  =
+  let open HoistState.Let_syntax in
+  let counts = getCounts array in
+  if (not (Counts.usesAny counts loopBarrier)) && not (nonComputational array)
+  then (
+    (* This expression can and should be hoisted, so create a variable for it *)
+    let%map id = HoistState.createId "hoistedExp" in
+    let hoisting = { variableDeclaration = { binding = id; value = array }; counts } in
+    Expr.Ref { id; type' = Expr.arrayType array }, [ hoisting ])
+  else (
+    match array with
+    | Ref _ as ref -> return (ref, [])
+    | Scalar { element; type' } ->
+      let%map element, hoistings = hoistExpressionsInAtom loopBarrier element in
+      Expr.Scalar { element; type' }, hoistings
+    | Frame { elements; dimensions; type' } ->
+      let%map elements, hoistings =
+        hoistExpressionsMap elements ~f:(hoistExpressionsInArray loopBarrier)
+      in
+      Expr.Frame { elements; dimensions; type' }, hoistings
+    | Unbox { indexBindings; boxBindings; body; type' } ->
+      let%bind boxBindings, boxBindingHoistings =
+        hoistExpressionsMap boxBindings ~f:(fun { binding; box } ->
+          let%map box, hoistings = hoistExpressionsInArray loopBarrier box in
+          ({ binding; box } : Expr.unboxBinding), hoistings)
+      in
+      let bindings =
+        boxBindings |> List.map ~f:(fun b -> b.binding) |> BindingSet.of_list
+      in
+      let%map body, bodyHoistings = hoistExpressionsInBody loopBarrier body ~bindings in
+      ( Expr.Unbox { indexBindings; boxBindings; body; type' }
+      , boxBindingHoistings @ bodyHoistings )
+    | PrimitiveCall { op; args; type' } ->
+      let%map args, hoistings =
+        hoistExpressionsMap args ~f:(hoistExpressionsInArray loopBarrier)
+      in
+      Expr.PrimitiveCall { op; args; type' }, hoistings
+    | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
+      let%map arg, hoistings = hoistExpressionsInArray loopBarrier arg in
+      Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }), hoistings
+    | IntrinsicCall (Map { args; body; frameShape; type' }) ->
+      let%bind args, argHoistings =
+        hoistExpressionsMap args ~f:(fun { binding; value } ->
+          let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
+          ({ binding; value } : Expr.mapArg), hoistings)
+      in
+      let bindings = args |> List.map ~f:(fun arg -> arg.binding) |> BindingSet.of_list in
+      (* If the map is not just a let, then we update the loop barrier to be
+         the args of the map *)
+      let bodyLoopBarrier =
+        match frameShape with
+        | [] -> loopBarrier
+        | _ :: _ -> bindings
+      in
+      let%map body, bodyHoistings =
+        hoistExpressionsInBody bodyLoopBarrier body ~bindings
+      in
+      ( Expr.IntrinsicCall (Map { args; body; frameShape; type' })
+      , argHoistings @ bodyHoistings )
+    | IntrinsicCall (Reduce { args; body; t; dSub1; itemPad; cellShape; type' }) ->
+      let%bind args, argHoistings =
+        hoistExpressionsMap args ~f:(fun { firstBinding; secondBinding; value } ->
+          let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
+          ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
+      in
+      let bindings =
+        args
+        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+        |> BindingSet.of_list
+      in
+      let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings in
+      ( Expr.IntrinsicCall (Reduce { args; body; t; dSub1; itemPad; cellShape; type' })
+      , argHoistings @ bodyHoistings ))
+
+and hoistExpressionsInAtom loopBarrier
+  : Expr.atom -> (Expr.atom * hoisting list, _) HoistState.u
+  =
+  let open HoistState.Let_syntax in
+  function
+  | Box { indices; body; bodyType; type' } ->
+    let%map body, hoistings = hoistExpressionsInArray loopBarrier body in
+    Expr.Box { indices; body; bodyType; type' }, hoistings
+  | Literal _ as literal -> return (literal, [])
+
+and hoistExpressionsInBody loopBarrier body ~bindings =
+  let open HoistState.Let_syntax in
+  (* Hoist from the body, and then determine which hoistings can be propogated
+     outside the body, and which need to be declared in the body *)
+  let extendedLoopBarrier = BindingSet.union loopBarrier bindings in
+  let%bind body, bodyHoistings = hoistExpressionsInArray extendedLoopBarrier body in
+  let hoistingsToDeclare, hoistingsToPropogate =
+    List.partition_map bodyHoistings ~f:(fun hoisting ->
+      if Counts.usesAny hoisting.counts bindings
+      then First hoisting.variableDeclaration
+      else Second hoisting)
+  in
+  (* The hoistings' values may have expression of their own that can be hoisted
+     beyond this body *)
+  let%map hoistingsToDeclare, moreHoistingsToPropogate =
+    hoistExpressionsMap hoistingsToDeclare ~f:(fun { binding; value } ->
+      let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
+      ({ binding; value } : Expr.mapArg), hoistings)
+  in
+  (* Declare the hoistings that need to be declared. *)
+  let body =
+    match hoistingsToDeclare with
+    | [] ->
+      (* None to declare *)
+      body
+    | _ :: _ as hoistingsToDeclare ->
+      (* There are some to be declared, so wrap the body in a map *)
+      Expr.IntrinsicCall
+        (Map
+           { args = hoistingsToDeclare
+           ; body
+           ; frameShape = []
+           ; type' = Expr.arrayType body
+           })
+  in
+  body, moreHoistingsToPropogate @ hoistingsToPropogate
+;;
+
 let simplify expr =
+  let open HoistState.Let_syntax in
   let rec loop expr =
+    (* Hoist variables that can be hoisted *)
     let hoisted, hoistings = hoistDeclarationsInBody expr ~bindings:All in
     assert (List.length hoistings = 0);
     let unoptimized = hoisted in
     let optimized = optimizeArray hoisted in
-    if Expr.equal_array unoptimized optimized then optimized else loop optimized
+    if Expr.equal_array unoptimized optimized
+    then (
+      let%map result, hoistings = hoistExpressionsInBody All optimized ~bindings:All in
+      assert (List.length hoistings = 0);
+      result)
+    else loop optimized
   in
-  loop expr (* TODO: hoist expressions *)
+  loop expr
 ;;
 
 module Stage (SB : Source.BuilderT) = struct
@@ -487,5 +660,8 @@ module Stage (SB : Source.BuilderT) = struct
   type error = (SB.source option, string) Source.annotate
 
   let name = "Simplify"
-  let run input = CompilerPipeline.S.make ~f:(fun state -> state, simplify input)
+
+  let run input =
+    CompilerPipeline.S.make ~f:(fun state -> State.run (simplify input) state)
+  ;;
 end

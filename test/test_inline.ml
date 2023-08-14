@@ -22,7 +22,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 10)))
          (value
@@ -50,12 +50,12 @@ let%expect_test "check inlining" =
             ((id ((name +arg2) (id 12)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| (+ [1 2 3] 4) |};
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 11)))
          (value
@@ -86,7 +86,7 @@ let%expect_test "check inlining" =
             (type' ((element (Literal IntLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
           (((binding ((name +arg1) (id 13)))
             (value
@@ -106,10 +106,8 @@ let%expect_test "check inlining" =
                ((id ((name +arg2) (id 14)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ((Add ((const 3) (refs ())))))
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))))
-      (frameShape ())
       (type'
        ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))) |}];
   checkAndPrint {|
@@ -145,7 +143,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name id) (id 13)))
          (value
@@ -154,7 +152,7 @@ let%expect_test "check inlining" =
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 14)))
             (value
@@ -170,8 +168,8 @@ let%expect_test "check inlining" =
           (Ref
            ((id ((name x) (id 15)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define id (t-fn (@t) (fn ([x @t]) x)))
@@ -180,7 +178,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name id) (id 16)))
          (value
@@ -194,7 +192,7 @@ let%expect_test "check inlining" =
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 15)))
             (value
@@ -210,8 +208,8 @@ let%expect_test "check inlining" =
           (Ref
            ((id ((name x) (id 17)))
             (type' ((element (Literal UnitLiteral)) (shape ()))))))
-         (frameShape ()) (type' ((element (Literal UnitLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal UnitLiteral)) (shape ()))))) |}];
+         (type' ((element (Literal UnitLiteral)) (shape ()))))))
+      (type' ((element (Literal UnitLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define id (t-fn (@t) (fn ([x @t]) x)))
@@ -220,7 +218,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name id) (id 16)))
          (value
@@ -234,12 +232,12 @@ let%expect_test "check inlining" =
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 21)))
             (value
              (IntrinsicCall
-              (Map
+              (Map (frameShape ())
                (args
                 (((binding ((name f) (id 17)))
                   (value
@@ -255,7 +253,6 @@ let%expect_test "check inlining" =
                 (Ref
                  ((id ((name x) (id 20)))
                   (type' ((element (Literal UnitLiteral)) (shape ()))))))
-               (frameShape ())
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
            ((binding ((name arg0) (id 22)))
             (value
@@ -266,8 +263,8 @@ let%expect_test "check inlining" =
           (Ref
            ((id ((name arg0) (id 22)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       ((t-app (t-app (t-fn (@a) (t-fn (@b) (fn ([x int]) x))) int) int) 10)
@@ -275,7 +272,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 13)))
          (value
@@ -291,14 +288,14 @@ let%expect_test "check inlining" =
        (Ref
         ((id ((name x) (id 14)))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {|
       ((t-app (i-app length 5 []) int) [1 2 3 4 5])
     |};
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 9)))
          (value
@@ -339,14 +336,14 @@ let%expect_test "check inlining" =
               (shape ((Add ((const 5) (refs ()))))))))))
          (t (Literal IntLiteral)) (d ((const 5) (refs ()))) (cellShape ())
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| 
     ((t-app (i-app reduce 4 [] []) int) + [1 2 3 4 5])
   |};
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 10)))
          (value
@@ -406,7 +403,7 @@ let%expect_test "check inlining" =
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (t (Literal IntLiteral)) (dSub1 ((const 4) (refs ()))) (itemPad ())
          (cellShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| ([+ -] 1 2) |};
   [%expect
     {|
@@ -422,7 +419,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name id) (id 14)))
          (value
@@ -431,7 +428,7 @@ let%expect_test "check inlining" =
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 15)))
             (value
@@ -457,7 +454,7 @@ let%expect_test "check inlining" =
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (IntrinsicCall
-           (Map
+           (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
              (((binding ((name f) (id 16)))
                (value
@@ -470,14 +467,11 @@ let%expect_test "check inlining" =
              (Ref
               ((id ((name x) (id 17)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
-            (frameShape ((Add ((const 3) (refs ())))))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))
-         (frameShape ())
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))))
-      (frameShape ())
       (type'
        ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))) |}];
   checkAndPrint
@@ -490,10 +484,10 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map (args ())
+     (Map (frameShape ()) (args ())
       (body
        (IntrinsicCall
-        (Map
+        (Map (frameShape ())
          (args
           (((binding ((name f) (id 17)))
             (value
@@ -503,7 +497,7 @@ let%expect_test "check inlining" =
            ((binding ((name +arg1) (id 20)))
             (value
              (IntrinsicCall
-              (Map
+              (Map (frameShape ())
                (args
                 (((binding ((name f) (id 18)))
                   (value
@@ -545,12 +539,11 @@ let%expect_test "check inlining" =
                   (t (Literal IntLiteral)) (d ((const 5) (refs ())))
                   (cellShape ())
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
-               (frameShape ())
                (type' ((element (Literal IntLiteral)) (shape ())))))))
            ((binding ((name +arg2) (id 23)))
             (value
              (IntrinsicCall
-              (Map
+              (Map (frameShape ())
                (args
                 (((binding ((name f) (id 21)))
                   (value
@@ -607,7 +600,6 @@ let%expect_test "check inlining" =
                   (t (Literal CharacterLiteral)) (d ((const 2) (refs ())))
                   (cellShape ((Add ((const 2) (refs ())))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
-               (frameShape ())
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (PrimitiveCall
@@ -620,8 +612,8 @@ let%expect_test "check inlining" =
                ((id ((name +arg2) (id 23)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (t-app
@@ -635,7 +627,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 22)))
          (value
@@ -697,12 +689,12 @@ let%expect_test "check inlining" =
                  (shape ((Add ((const 2) (refs ())))))))))))))
          (body
           (IntrinsicCall
-           (Map
+           (Map (frameShape ())
             (args
              (((binding ((name sum) (id 35)))
                (value
                 (IntrinsicCall
-                 (Map
+                 (Map (frameShape ())
                   (args
                    (((binding ((name f) (id 28)))
                      (value
@@ -730,16 +722,15 @@ let%expect_test "check inlining" =
                         ((id ((name +arg2) (id 34)))
                          (type' ((element (Literal IntLiteral)) (shape ())))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
-                  (frameShape ())
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (Ref
               ((id ((name sum) (id 35)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
-            (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' ((element (Literal IntLiteral)) (shape ()))))))
          (t (Literal IntLiteral)) (dSub1 ((const 1) (refs ()))) (itemPad ())
          (cellShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| ((t-app (i-app reduce 2 [] []) int) [+ -] [1 2 3]) |};
   [%expect
     {|
@@ -753,7 +744,7 @@ let%expect_test "check inlining" =
   [%expect
     {|
     (IntrinsicCall
-     (Map
+     (Map (frameShape ())
       (args
        (((binding ((name f) (id 12)))
          (value
@@ -785,5 +776,5 @@ let%expect_test "check inlining" =
               (shape ((Add ((const 2) (refs ()))))))))))
          (t (Literal UnitLiteral)) (d ((const 2) (refs ()))) (cellShape ())
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (frameShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;

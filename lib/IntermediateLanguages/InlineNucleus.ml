@@ -102,9 +102,9 @@ module Expr = struct
 
   and intrinsicCall =
     | Map of
-        { args : mapArg list
+        { frameShape : Index.shape
+        ; args : mapArg list
         ; body : array
-        ; frameShape : Index.shape
         ; type' : Type.array
         }
     | Length of
