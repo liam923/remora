@@ -165,6 +165,7 @@ module Expr = struct
     | Tuple of 's tuple
     | IntLiteral of int
     | CharacterLiteral of char
+    | BooleanLiteral of bool
 
   and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
 end

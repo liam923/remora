@@ -14,7 +14,7 @@ module Make (SB : Source.BuilderT) = struct
 
   let compiler =
     CompilerPipeline.(
-      (module Parser.Stage (SB))
+      (module Parse.Stage (SB))
       @> (module TypeCheck.Stage (SB))
       @> (module Explicitize.Stage (SB))
       @> (module Inline.Stage (SB))

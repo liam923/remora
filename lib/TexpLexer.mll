@@ -10,7 +10,7 @@ let int = '-'? ['0'-'9'] ['0'-'9']*
 
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
-let unreservedchar = [^'(' ')' '[' ']' '{' '}' '"' ',' '\'' '`' ';' '#' '|' '\\' ' ' '\t' '\r' '\n' '@']
+let unreservedchar = [^'(' ')' '[' ']' '{' '}' '"' ',' '\'' '`' ';' '|' '\\' ' ' '\t' '\r' '\n' '@']
 let symbol = (unreservedchar | '@') unreservedchar*
 
 rule read =
@@ -18,7 +18,6 @@ rule read =
   | white    { read lexbuf }
   | newline  { new_line lexbuf; read lexbuf }
   | int      { P.INT (int_of_string (Lexing.lexeme lexbuf)) }
-  | symbol   { SYMBOL (Lexing.lexeme lexbuf) }
   | '"'      { read_string (Buffer.create 17) lexbuf }
   | '('      { LEFT_PAREN }
   | ')'      { RIGHT_PAREN }
@@ -29,6 +28,7 @@ rule read =
   | '|'      { BAR }
   | ';'      { read_single_line_comment lexbuf }
   | '#' '|'  { read_multi_line_comment lexbuf }
+  | symbol   { SYMBOL (Lexing.lexeme lexbuf) }
   | _        { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf, SourceBuilder.make ~start:(Lexing.lexeme_start_p lexbuf) ~finish:(Lexing.lexeme_end_p lexbuf))) }
   | eof      { EOF }
 

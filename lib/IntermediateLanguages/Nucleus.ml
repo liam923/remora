@@ -61,6 +61,7 @@ module Type = struct
   and literal =
     | IntLiteral
     | CharacterLiteral
+    | BooleanLiteral
 
   and array =
     | ArrayRef of Identifier.t
@@ -191,6 +192,7 @@ module Expr = struct
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
+    | BooleanLiteral of bool
 
   and array =
     | Ref of ref
@@ -225,6 +227,7 @@ module Expr = struct
     | Tuple tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
+    | Literal (BooleanLiteral _) -> Literal BooleanLiteral
   ;;
 
   let arrayType : array -> Type.array = function
@@ -352,6 +355,7 @@ end = struct
       and literal =
         | IntLiteral
         | CharacterLiteral
+        | BooleanLiteral
 
       and array =
         | ArrayRef of Ref.t
@@ -423,6 +427,7 @@ end = struct
       | Type.Tuple elements -> Tuple (List.map elements ~f:(atomFrom env depth))
       | Type.Literal IntLiteral -> Literal IntLiteral
       | Type.Literal CharacterLiteral -> Literal CharacterLiteral
+      | Type.Literal BooleanLiteral -> Literal BooleanLiteral
 
     and typeFrom env depth = function
       | Type.Array array -> Array (arrayFrom env depth array)
@@ -506,6 +511,7 @@ module Substitute = struct
       | Tuple tuple -> Tuple (subIndicesIntoTuple indices tuple)
       | Literal IntLiteral -> Literal IntLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
+      | Literal BooleanLiteral -> Literal BooleanLiteral
 
     and subIndicesIntoFunc indices Type.{ parameters; return } =
       Type.
@@ -563,6 +569,7 @@ module Substitute = struct
       | Tuple tuple -> Tuple (subTypesIntoTuple types tuple)
       | Literal IntLiteral -> Literal IntLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
+      | Literal BooleanLiteral -> Literal BooleanLiteral
 
     and subTypesIntoFunc types Type.{ parameters; return } =
       Type.

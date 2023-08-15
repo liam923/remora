@@ -33,6 +33,7 @@ module Base (Gen : IdentifierGenerator) = struct
       makeSubEnv
         [ "int", Gen.return (Type.Atom (Literal IntLiteral))
         ; "char", Gen.return (Type.Atom (Literal CharacterLiteral))
+        ; "bool", Gen.return (Type.Atom (Literal BooleanLiteral))
         ]
     in
     let scalarType element = Type.Arr { element; shape = [] } in

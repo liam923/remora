@@ -131,6 +131,7 @@ end = struct
       [%string "(%{elementsString})"]
     | Literal IntLiteral -> "int"
     | Literal CharacterLiteral -> "char"
+    | Literal BooleanLiteral -> "bool"
 
   and type' : Nucleus.Type.t -> string = function
     | Array array -> showArray array
@@ -622,6 +623,7 @@ module TypeCheck = struct
       |> CheckerState.ignore_m
     | IntLiteral _ -> ok ()
     | CharacterLiteral _ -> ok ()
+    | BooleanLiteral _ -> ok ()
   ;;
 
   let findEscapingRefs (env : Environment.t) type' =
@@ -687,6 +689,7 @@ module TypeCheck = struct
       | Atom (Tuple elements) -> List.bind elements ~f:(fun a -> findInType env (Atom a))
       | Atom (Literal IntLiteral) -> []
       | Atom (Literal CharacterLiteral) -> []
+      | Atom (Literal BooleanLiteral) -> []
     in
     findInType env type'
   ;;
@@ -1390,6 +1393,7 @@ module TypeCheck = struct
       T.Atom (T.Tuple { elements; type' = elementTypes })
     | U.IntLiteral i -> CheckerState.return (T.Atom (Literal (IntLiteral i)))
     | U.CharacterLiteral c -> CheckerState.return (T.Atom (Literal (CharacterLiteral c)))
+    | U.BooleanLiteral b -> CheckerState.return (T.Atom (Literal (BooleanLiteral b)))
 
   and checkAndExpectArray env expr =
     let open Nucleus.Expr in

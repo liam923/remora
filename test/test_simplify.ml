@@ -4,7 +4,7 @@ open Remora
 let%expect_test "check simplifying" =
   let pipeline =
     CompilerPipeline.(
-      (module Parser.Stage (Source.UnitBuilder))
+      (module Parse.Stage (Source.UnitBuilder))
       @> (module TypeCheck.Stage (Source.UnitBuilder))
       @> (module Explicitize.Stage (Source.UnitBuilder))
       @> (module Inline.Stage (Source.UnitBuilder))

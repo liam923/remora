@@ -4,8 +4,8 @@ open Remora
 let%expect_test "check sort" =
   let pipeline =
     CompilerPipeline.(
-      let module Parser = Parser.Make (Source.UnitBuilder) in
-      (module Parser.IndexParser.Stage)
+      let module Parse = Parse.Make (Source.UnitBuilder) in
+      (module Parse.IndexParser.Stage)
       @> (module TypeCheck.Sort.Stage (Source.UnitBuilder))
       @> (module Show.Stage (Nucleus.Index) (Source.UnitBuilder))
       @> empty)
@@ -48,8 +48,8 @@ let%expect_test "check sort" =
 let%expect_test "check kind" =
   let pipeline =
     CompilerPipeline.(
-      let module Parser = Parser.Make (Source.UnitBuilder) in
-      (module Parser.TypeParser.Stage)
+      let module Parse = Parse.Make (Source.UnitBuilder) in
+      (module Parse.TypeParser.Stage)
       @> (module TypeCheck.Kind.Stage (Source.UnitBuilder))
       @> (module Show.Stage (Nucleus.Type) (Source.UnitBuilder))
       @> empty)
@@ -193,8 +193,8 @@ let%expect_test "check kind" =
 let%expect_test "check type" =
   let pipeline =
     CompilerPipeline.(
-      let module Parser = Parser.Make (Source.UnitBuilder) in
-      (module Parser.Stage)
+      let module Parse = Parse.Make (Source.UnitBuilder) in
+      (module Parse.Stage)
       @> (module TypeCheck.Type.Stage (Source.UnitBuilder))
       @> (module Show.CustomStage
                    (struct
@@ -443,6 +443,35 @@ let%expect_test "check type" =
         (Arr
          ((element (Literal CharacterLiteral))
           (shape ((Add ((const 5) (refs ()))))))))))) |}];
+  checkAndPrint {|
+      (define (foo [x bool]) x)
+      (foo [#t #f])
+    |};
+  [%expect {|
+    (Array
+     (Let
+      ((binding ((name foo) (id 7)))
+       (value
+        (Scalar
+         ((element
+           (TermLambda
+            ((params
+              (((binding ((name x) (id 8)))
+                (bound (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
+             (body (Ref ((id ((name x) (id 8))))))))))))
+       (body
+        (TermApplication
+         ((func (Ref ((id ((name foo) (id 7))))))
+          (args
+           ((Frame
+             ((dimensions (2))
+              (elements
+               ((Scalar ((element (Literal (BooleanLiteral true)))))
+                (Scalar ((element (Literal (BooleanLiteral false)))))))))))))))))
+    Type:
+    (Array
+     (Arr
+      ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ())))))))) |}];
   checkAndPrint {|
     (define (id{@t | } [x @t]) x)
     (id{int | } 5)

@@ -131,6 +131,7 @@ let rec inlineAtomType : Nucleus.Type.atom -> InlineNucleus.Type.atom = function
   | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Literal CharacterLiteral -> Literal CharacterLiteral
   | Literal IntLiteral -> Literal IntLiteral
+  | Literal BooleanLiteral -> Literal BooleanLiteral
   | Func _ -> Literal UnitLiteral
   | Forall _ -> Literal UnitLiteral
   | Pi _ -> Literal UnitLiteral
@@ -150,6 +151,7 @@ let rec inlineAtomTypeWithStack appStack : Nucleus.Type.atom -> InlineNucleus.Ty
   | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Literal CharacterLiteral -> { element = Literal CharacterLiteral; shape = [] }
   | Literal IntLiteral -> { element = Literal IntLiteral; shape = [] }
+  | Literal BooleanLiteral -> { element = Literal BooleanLiteral; shape = [] }
   | Func _ -> { element = Literal UnitLiteral; shape = [] }
   | Forall { parameters; body } ->
     (match appStack with
@@ -229,6 +231,7 @@ let assertValueRestriction value =
       | Tuple elements -> List.exists elements ~f:isPolymorphicAtom
       | Literal IntLiteral -> false
       | Literal CharacterLiteral -> false
+      | Literal BooleanLiteral -> false
     in
     isPolymorphicArray
   in
@@ -253,6 +256,7 @@ let assertValueRestriction value =
       | Tuple tuple -> List.for_all tuple.elements ~f:isValueAtom
       | Literal (IntLiteral _) -> true
       | Literal (CharacterLiteral _) -> true
+      | Literal (BooleanLiteral _) -> true
     in
     isValueArray
   in
@@ -435,6 +439,8 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
   | Literal (CharacterLiteral c) ->
     return (scalar (I.Literal (CharacterLiteral c)), FunctionSet.Empty)
   | Literal (IntLiteral i) -> return (scalar (I.Literal (IntLiteral i)), FunctionSet.Empty)
+  | Literal (BooleanLiteral b) ->
+    return (scalar (I.Literal (BooleanLiteral b)), FunctionSet.Empty)
 
 and inlineTermApplication subs appStack termApplication =
   let module E = ExplicitNucleus.Expr in

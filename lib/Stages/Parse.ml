@@ -334,6 +334,10 @@ module Make (SB : Source.BuilderT) = struct
           , infixListSource components ~before:symbolSource ~after:rParenSource )
     in
     function
+    | Symbol ("#t", source) | Symbol ("#true", source) ->
+      MOk { elem = Expr.BooleanLiteral true; source }
+    | Symbol ("#f", source) | Symbol ("#false", source) ->
+      MOk { elem = Expr.BooleanLiteral false; source }
     | Symbol (id, source) -> MOk { elem = Expr.Ref id; source }
     | Integer (i, source) -> MOk { elem = Expr.IntLiteral i; source }
     | String (str, source) ->

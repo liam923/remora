@@ -136,6 +136,7 @@ module Expr = struct
     | Tuple tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
+    | Literal (BooleanLiteral _) -> Literal BooleanLiteral
   ;;
 
   let arrayType : array -> Type.array = function

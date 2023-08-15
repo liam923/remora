@@ -63,9 +63,7 @@ let nonComputational =
     | IntrinsicCall _ -> false
   and nonComputationalAtom : Expr.atom -> bool = function
     | Box _ -> false
-    | Literal (IntLiteral _) -> true
-    | Literal (CharacterLiteral _) -> true
-    | Literal UnitLiteral -> true
+    | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _ | UnitLiteral) -> true
   in
   nonComputationalArray
 ;;
@@ -101,6 +99,7 @@ let getCounts =
   and getCountsAtom : Expr.atom -> Counts.t = function
     | Literal (IntLiteral _) -> Counts.empty
     | Literal (CharacterLiteral _) -> Counts.empty
+    | Literal (BooleanLiteral _) -> Counts.empty
     | Literal UnitLiteral -> Counts.empty
     | Box { indices = _; body; bodyType = _; type' = _ } -> getCountsArray body
   in
@@ -139,8 +138,7 @@ let rec subArray subs : Expr.array -> Expr.array = function
     IntrinsicCall (Length { arg; t; d; cellShape; type' })
 
 and subAtom subs : Expr.atom -> Expr.atom = function
-  | Literal (IntLiteral _) as lit -> lit
-  | Literal (CharacterLiteral _) as lit -> lit
+  | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit -> lit
   | Literal UnitLiteral as lit -> lit
   | Box { indices; body; bodyType; type' } ->
     let body = subArray subs body in

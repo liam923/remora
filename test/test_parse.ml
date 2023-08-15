@@ -3,7 +3,7 @@ open Remora
 
 let%expect_test "parse index" =
   let parseAndPrint str =
-    match Parser.Unit.IndexParser.parseString str with
+    match Parse.Unit.IndexParser.parseString str with
     | MOk result ->
       [%sexp_of: unit Ast.Index.t] result |> Sexp.to_string_hum |> Stdio.print_endline
     | Errors errs ->
@@ -42,7 +42,7 @@ let%expect_test "parse index" =
 
 let%expect_test "parse type" =
   let parseAndPrint str =
-    match Parser.Unit.TypeParser.parseString str with
+    match Parse.Unit.TypeParser.parseString str with
     | MOk result ->
       [%sexp_of: unit Ast.Type.t] result |> Sexp.to_string_hum |> Stdio.print_endline
     | Errors errs ->
@@ -148,7 +148,7 @@ let%expect_test "parse type" =
 
 let%expect_test "parse expression" =
   let parseAndPrint str =
-    match Parser.Unit.ExprParser.parseString str with
+    match Parse.Unit.ExprParser.parseString str with
     | MOk result ->
       [%sexp_of: unit Ast.Expr.t] result |> Sexp.to_string_hum |> Stdio.print_endline
     | Errors errs ->
@@ -172,6 +172,14 @@ let%expect_test "parse expression" =
         (CharacterLiteral l) (CharacterLiteral o) (CharacterLiteral " ")
         (CharacterLiteral w) (CharacterLiteral o) (CharacterLiteral r)
         (CharacterLiteral l) (CharacterLiteral d))))) |}];
+  parseAndPrint "[#false #f #true #t]";
+  [%expect
+    {|
+    (Frame
+     ((dimensions (4))
+      (elements
+       ((BooleanLiteral false) (BooleanLiteral false) (BooleanLiteral true)
+        (BooleanLiteral true))))) |}];
   parseAndPrint "[1 2 3 4 5]";
   [%expect
     {|

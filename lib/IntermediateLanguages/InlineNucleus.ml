@@ -23,6 +23,7 @@ module Type = struct
   and literal =
     | IntLiteral
     | CharacterLiteral
+    | BooleanLiteral
     | UnitLiteral
 
   and atom =
@@ -127,6 +128,7 @@ module Expr = struct
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
+    | BooleanLiteral of bool
     | UnitLiteral
 
   and array =
@@ -150,6 +152,7 @@ module Expr = struct
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
+    | Literal (BooleanLiteral _) -> Literal BooleanLiteral
     | Literal UnitLiteral -> Literal UnitLiteral
   ;;
 
