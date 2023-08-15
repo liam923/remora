@@ -94,8 +94,22 @@ let getCounts =
         |> Counts.merge
       and bodyCounts = getCountsArray body in
       Counts.merge [ argsCounts; bodyCounts ]
+    | IntrinsicCall
+        (Scan { args; body; t = _; dSub1 = _; itemPad = _; cellShape = _; type' = _ }) ->
+      let argsCounts =
+        args
+        |> List.map ~f:(fun { firstBinding = _; secondBinding = _; value } ->
+          getCountsArray value)
+        |> Counts.merge
+      and bodyCounts = getCountsArray body in
+      Counts.merge [ argsCounts; bodyCounts ]
     | IntrinsicCall (Length { arg; t = _; d = _; cellShape = _; type' = _ }) ->
       getCountsArray arg
+    | IntrinsicCall (Filter { array; flags; t = _; d = _; cellShape = _; type' = _ }) ->
+      Counts.merge [ getCountsArray array; getCountsArray flags ]
+    | IntrinsicCall
+        (Append { arg1; arg2; t = _; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
+      Counts.merge [ getCountsArray arg1; getCountsArray arg2 ]
   and getCountsAtom : Expr.atom -> Counts.t = function
     | Literal (IntLiteral _) -> Counts.empty
     | Literal (CharacterLiteral _) -> Counts.empty
@@ -133,9 +147,23 @@ let rec subArray subs : Expr.array -> Expr.array = function
         { firstBinding; secondBinding; value = subArray subs value })
     and body = subArray subs body in
     IntrinsicCall (Reduce { args; body; t; dSub1; itemPad; cellShape; type' })
+  | IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' }) ->
+    let args =
+      List.map args ~f:(fun { firstBinding; secondBinding; value } : Expr.reduceArg ->
+        { firstBinding; secondBinding; value = subArray subs value })
+    and body = subArray subs body in
+    IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' })
   | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
     let arg = subArray subs arg in
     IntrinsicCall (Length { arg; t; d; cellShape; type' })
+  | IntrinsicCall (Filter { array; flags; t; d; cellShape; type' }) ->
+    let array = subArray subs array
+    and flags = subArray subs flags in
+    IntrinsicCall (Filter { array; flags; t; d; cellShape; type' })
+  | IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }) ->
+    let arg1 = subArray subs arg1
+    and arg2 = subArray subs arg2 in
+    IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' })
 
 and subAtom subs : Expr.atom -> Expr.atom = function
   | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit -> lit
@@ -181,7 +209,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
        let commonDims, numCommonDims =
          frames
          |> NeList.map ~f:(fun f -> f.dimensions, List.length f.dimensions)
-         |> NeList.max_elt ~compare:(fun (_, a) (_, b) -> Int.compare a b)
+         |> NeList.min_elt ~compare:(fun (_, a) (_, b) -> Int.compare a b)
        in
        let elements =
          frames
@@ -252,6 +280,50 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     else (
       let arg = optimizeArray arg in
       Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }))
+  | IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }) as append ->
+    let arg1 = optimizeArray arg1
+    and arg2 = optimizeArray arg2 in
+    (match arg1, arg2 with
+     | ( Frame { elements = elements1; dimensions = dim1 :: restDims1; type' = _ }
+       , Frame { elements = elements2; dimensions = dim2 :: restDims2; type' = _ } ) ->
+       let chunkElements elements restDims =
+         let chunkLength = List.fold restDims ~init:1 ~f:( * ) in
+         let rawChunks = List.groupi elements ~break:(fun i _ _ -> i % chunkLength = 0) in
+         let chunks =
+           List.map rawChunks ~f:(fun elements ->
+             let firstElement = List.hd_exn elements in
+             let elementType = Expr.arrayType firstElement in
+             let dimsAsShape =
+               List.map restDims ~f:(fun d ->
+                 InlineNucleus.Index.(Add (dimensionConstant d)))
+             in
+             Expr.Frame
+               { elements
+               ; dimensions = restDims
+               ; type' =
+                   { element = elementType.element
+                   ; shape = dimsAsShape @ elementType.shape
+                   }
+               })
+         in
+         chunks
+       in
+       let chunks1 = chunkElements elements1 restDims1
+       and chunks2 = chunkElements elements2 restDims2 in
+       let appendedChunks = chunks1 @ chunks2 in
+       let frame =
+         Expr.Frame
+           { elements = appendedChunks
+           ; dimensions = [ dim1 + dim2 ]
+           ; type' = Expr.arrayType append
+           }
+       in
+       optimizeArray frame
+     | _ -> Expr.IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }))
+  | IntrinsicCall (Filter { array; flags; t; d; cellShape; type' }) ->
+    let array = optimizeArray array
+    and flags = optimizeArray flags in
+    IntrinsicCall (Filter { array; flags; t; d; cellShape; type' })
   | IntrinsicCall (Map { args; body; frameShape = []; type' }) ->
     (* Do an initial simplification of the argument values and the body *)
     let args =
@@ -317,6 +389,20 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         ({ firstBinding; secondBinding; value } : Expr.reduceArg))
     in
     Expr.IntrinsicCall (Reduce { args; body; t; dSub1; itemPad; cellShape; type' })
+  | IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' }) ->
+    let body = optimizeArray body in
+    (* Simplify the args, removing unused ones *)
+    let bodyCounts = getCounts body in
+    let args =
+      args
+      |> List.filter ~f:(fun arg ->
+        Counts.get bodyCounts arg.firstBinding > 0
+        || Counts.get bodyCounts arg.secondBinding > 0)
+      |> List.map ~f:(fun { firstBinding; secondBinding; value } ->
+        let value = optimizeArray value in
+        ({ firstBinding; secondBinding; value } : Expr.reduceArg))
+    in
+    Expr.IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' })
 
 and optimizeAtom : Expr.atom -> Expr.atom = function
   | Box { indices; body; bodyType; type' } ->
@@ -382,6 +468,16 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
   | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
     let arg, hoistings = hoistDeclarationsInArray arg in
     Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }), hoistings
+  | IntrinsicCall (Filter { array; flags; t; d; cellShape; type' }) ->
+    let array, arrayHoistings = hoistDeclarationsInArray array
+    and flags, flagHoistings = hoistDeclarationsInArray flags in
+    ( Expr.IntrinsicCall (Filter { array; flags; t; d; cellShape; type' })
+    , arrayHoistings @ flagHoistings )
+  | IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }) ->
+    let arg1, hoistings1 = hoistDeclarationsInArray arg1
+    and arg2, hoistings2 = hoistDeclarationsInArray arg2 in
+    ( Expr.IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' })
+    , hoistings1 @ hoistings2 )
   | IntrinsicCall (Map { args; body; frameShape = []; type' = _ }) ->
     let body, bodyHoistings = hoistDeclarationsInArray body in
     let args, argHoistings =
@@ -417,6 +513,20 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
         ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
     in
     ( Expr.IntrinsicCall (Reduce { args; body; t; dSub1; itemPad; cellShape; type' })
+    , argHoistings @ bodyHoistings )
+  | IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' }) ->
+    let bindings =
+      args
+      |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+      |> BindingSet.of_list
+    in
+    let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
+    let args, argHoistings =
+      hoistDeclarationsMap args ~f:(fun { firstBinding; secondBinding; value } ->
+        let value, hoistings = hoistDeclarationsInArray value in
+        ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
+    in
+    ( Expr.IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' })
     , argHoistings @ bodyHoistings )
 
 and hoistDeclarationsInAtom : Expr.atom -> Expr.atom * hoisting list = function
@@ -551,6 +661,16 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
     | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
       let%map arg, hoistings = hoistExpressionsInArray loopBarrier arg in
       Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }), hoistings
+    | IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }) ->
+      let%map arg1, hoistings1 = hoistExpressionsInArray loopBarrier arg1
+      and arg2, hoistings2 = hoistExpressionsInArray loopBarrier arg2 in
+      ( Expr.IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' })
+      , hoistings1 @ hoistings2 )
+    | IntrinsicCall (Filter { array; flags; t; d; cellShape; type' }) ->
+      let%map array, arrayHoistings = hoistExpressionsInArray loopBarrier array
+      and flags, flagHoistings = hoistExpressionsInArray loopBarrier flags in
+      ( Expr.IntrinsicCall (Filter { array; flags; t; d; cellShape; type' })
+      , arrayHoistings @ flagHoistings )
     | IntrinsicCall (Map { args; body; frameShape; type' }) ->
       let%bind args, argHoistings =
         hoistExpressionsMap args ~f:(fun { binding; value } ->
@@ -583,6 +703,20 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       in
       let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings in
       ( Expr.IntrinsicCall (Reduce { args; body; t; dSub1; itemPad; cellShape; type' })
+      , argHoistings @ bodyHoistings )
+    | IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' }) ->
+      let%bind args, argHoistings =
+        hoistExpressionsMap args ~f:(fun { firstBinding; secondBinding; value } ->
+          let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
+          ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
+      in
+      let bindings =
+        args
+        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+        |> BindingSet.of_list
+      in
+      let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings in
+      ( Expr.IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' })
       , argHoistings @ bodyHoistings ))
 
 and hoistExpressionsInAtom loopBarrier

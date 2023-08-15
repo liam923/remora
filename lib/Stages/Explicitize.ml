@@ -34,12 +34,15 @@ let rec funcParamNamesArray env : Nucleus.Expr.array -> string list option = fun
   | Primitive p ->
     Some
       (match p.func with
-       | Reduce -> [ "reduceArg1"; "reduceArg2" ]
        | Add -> [ "+arg1"; "+arg2" ]
        | Sub -> [ "-arg1"; "-arg2" ]
        | Mul -> [ "*arg1"; "*arg2" ]
        | Div -> [ "/arg1"; "/arg2" ]
-       | Length -> [ "lengthArg" ])
+       | Length -> [ "length-arg" ]
+       | Reduce -> [ "reduce-arg1"; "reduce-arg2" ]
+       | Scan -> [ "scan-arg1"; "scan-arg2" ]
+       | Filter -> [ "filter-array"; "filter-flags" ]
+       | Append -> [ "append-arg1"; "append-arg2" ])
 
 and funcParamNamesAtom env : Nucleus.Expr.atom -> string list option = function
   | TermLambda lambda ->

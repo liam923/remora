@@ -124,6 +124,32 @@ module Expr = struct
         ; cellShape : Index.shape
         ; type' : Type.array
         }
+    | Scan of
+        { args : reduceArg list
+        ; body : array
+        ; t : Type.atom
+        ; dSub1 : Index.dimension
+        ; itemPad : Index.shape
+        ; cellShape : Index.shape
+        ; type' : Type.array
+        }
+    | Filter of
+        { array : array
+        ; flags : array
+        ; t : Type.atom
+        ; d : Index.dimension
+        ; cellShape : Index.shape
+        ; type' : Type.array
+        }
+    | Append of
+        { arg1 : array
+        ; arg2 : array
+        ; t : Type.atom
+        ; d1 : Index.dimension
+        ; d2 : Index.dimension
+        ; cellShape : Index.shape
+        ; type' : Type.array
+        }
 
   and literal =
     | IntLiteral of int
@@ -166,7 +192,10 @@ module Expr = struct
       (match instrinsicCall with
        | Map map -> map.type'
        | Length length -> length.type'
-       | Reduce reduce -> reduce.type')
+       | Reduce reduce -> reduce.type'
+       | Scan scan -> scan.type'
+       | Filter filter -> filter.type'
+       | Append append -> append.type')
   ;;
 end
 

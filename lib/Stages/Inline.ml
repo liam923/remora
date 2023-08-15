@@ -521,6 +521,54 @@ and inlineTermApplication subs appStack termApplication =
                   [ "length expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
+     | Append ->
+       assert (List.length args = 2);
+       (match primitive.appStack with
+        | [ IndexApp [ Dimension d1; Dimension d2; Shape cellShape ]; TypeApp [ Atom t ] ]
+          ->
+          let%map arg1, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
+          and arg2, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          ( I.IntrinsicCall
+              (Append
+                 { arg1
+                 ; arg2
+                 ; t = inlineAtomType t
+                 ; d1
+                 ; d2
+                 ; cellShape
+                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 })
+          , FunctionSet.Empty )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "append expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
+     | Filter ->
+       assert (List.length args = 2);
+       (match primitive.appStack with
+        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
+          let%map array, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
+          and flags, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          ( I.IntrinsicCall
+              (Filter
+                 { array
+                 ; flags
+                 ; t = inlineAtomType t
+                 ; d
+                 ; cellShape
+                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 })
+          , FunctionSet.Empty )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "filter expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
      | Reduce ->
        assert (List.length args = 2);
        (match primitive.appStack with
@@ -587,8 +635,8 @@ and inlineTermApplication subs appStack termApplication =
                    | Some (binding, _) -> return binding
                    | None -> InlineState.createId argName
                  in
-                 let%map firstBinding = getBindingFrom bindings1 "reduceArg1"
-                 and secondBinding = getBindingFrom bindings2 "reduceArg2" in
+                 let%map firstBinding = getBindingFrom bindings1 "reduce-arg1"
+                 and secondBinding = getBindingFrom bindings2 "reduce-arg2" in
                  I.{ firstBinding; secondBinding; value = monoValue })
                |> InlineState.all
              in
@@ -602,7 +650,90 @@ and inlineTermApplication subs appStack termApplication =
           raise
             (Unreachable.Error
                (String.concat_lines
-                  [ "length expected a stack of [IndexApp; TypeApp], got"
+                  [ "reduce expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
+     | Scan ->
+       assert (List.length args = 2);
+       (match primitive.appStack with
+        | [ IndexApp [ Dimension dSub1; Shape itemPad; Shape cellShape ]
+          ; TypeApp [ Atom t ]
+          ] ->
+          (match args with
+           | [ f; arrayArg ] ->
+             let%bind _, functions = inlineArray subs [] (Ref f) in
+             let%bind func =
+               match functions with
+               | Empty ->
+                 raise
+                   (Unreachable.Error
+                      "func of scan should've returned at least one function")
+               | One f -> return f
+               | Multiple ->
+                 InlineState.err
+                   (String.concat_lines
+                      [ "Could not determine what function is being passed to scan:"
+                      ; [%sexp_of: E.termApplication] termApplication
+                        |> Sexp.to_string_hum
+                      ])
+             in
+             let%bind fArg1 = InlineState.createId "scan-arg1"
+             and fArg2 = InlineState.createId "scan-arg2" in
+             let body =
+               E.TermApplication
+                 { func = Function.toExplicit func
+                 ; args =
+                     [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
+                     ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
+                     ]
+                 ; type' = { element = t; shape = cellShape }
+                 }
+             in
+             let%bind body, bindings, functions =
+               inlineBodyWithBindings
+                 subs
+                 appStack
+                 body
+                 [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
+             in
+             (* Since fArg1 and fArg2 both come from arrayArg, they need to have
+                the same set of monomorphizations, so we need to merge together
+                their cache entries *)
+             let appStacksToMonoValue =
+               bindings
+               |> List.bind ~f:(fun map ->
+                 map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
+               |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
+             in
+             let bindings1, bindings2 =
+               match bindings with
+               | [ bindings1; bindings2 ] -> bindings1, bindings2
+               | _ -> raise (Unreachable.Error "bindings should have len 2")
+             in
+             let%map args =
+               appStacksToMonoValue
+               |> Map.to_alist
+               |> List.map ~f:(fun (appStack, monoValue) ->
+                 let getBindingFrom argBindings argName =
+                   match Map.find argBindings appStack with
+                   | Some (binding, _) -> return binding
+                   | None -> InlineState.createId argName
+                 in
+                 let%map firstBinding = getBindingFrom bindings1 "scan-arg1"
+                 and secondBinding = getBindingFrom bindings2 "scan-arg2" in
+                 I.{ firstBinding; secondBinding; value = monoValue })
+               |> InlineState.all
+             in
+             let type' = inlineArrayTypeWithStack appStack (Arr type') in
+             ( I.IntrinsicCall
+                 (Scan { args; body; t = type'.element; dSub1; itemPad; cellShape; type' })
+             , functions )
+           | _ -> raise (Unreachable.Error "Scan expected two arguments"))
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "scan expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ]))))
 

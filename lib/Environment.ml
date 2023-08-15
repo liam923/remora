@@ -171,6 +171,191 @@ module Base (Gen : IdentifierGenerator) = struct
                    })
             in
             Expr.Primitive { func = Reduce; type' } )
+        ; ( "scan"
+          , let%map itemPad = Gen.createId "@item-pad"
+            and cellShape = Gen.createId "@cell-shape"
+            and dSub1 = Gen.createId "d-1"
+            and t = Gen.createId "t" in
+            let type' =
+              scalarType
+                (Type.Pi
+                   { parameters =
+                       [ { binding = dSub1; bound = Sort.Dim }
+                       ; { binding = itemPad; bound = Sort.Shape }
+                       ; { binding = cellShape; bound = Sort.Shape }
+                       ]
+                   ; body =
+                       scalarType
+                         (Type.Forall
+                            { parameters = [ { binding = t; bound = Kind.Atom } ]
+                            ; body =
+                                scalarType
+                                  (Type.Func
+                                     { parameters =
+                                         [ scalarType
+                                             (Func
+                                                { parameters =
+                                                    [ Arr
+                                                        { element = AtomRef t
+                                                        ; shape = [ ShapeRef cellShape ]
+                                                        }
+                                                    ; Arr
+                                                        { element = AtomRef t
+                                                        ; shape = [ ShapeRef cellShape ]
+                                                        }
+                                                    ]
+                                                ; return =
+                                                    Arr
+                                                      { element = AtomRef t
+                                                      ; shape = [ ShapeRef cellShape ]
+                                                      }
+                                                })
+                                         ; Arr
+                                             { element = AtomRef t
+                                             ; shape =
+                                                 [ Add
+                                                     { const = 1
+                                                     ; refs =
+                                                         Map.singleton
+                                                           (module Identifier)
+                                                           dSub1
+                                                           1
+                                                     }
+                                                 ; ShapeRef itemPad
+                                                 ; ShapeRef cellShape
+                                                 ]
+                                             }
+                                         ]
+                                     ; return =
+                                         Arr
+                                           { element = AtomRef t
+                                           ; shape =
+                                               [ Add
+                                                   { const = 1
+                                                   ; refs =
+                                                       Map.singleton
+                                                         (module Identifier)
+                                                         dSub1
+                                                         1
+                                                   }
+                                               ; ShapeRef itemPad
+                                               ; ShapeRef cellShape
+                                               ]
+                                           }
+                                     })
+                            })
+                   })
+            in
+            Expr.Primitive { func = Scan; type' } )
+        ; ( "filter"
+          , let%map t = Gen.createId "t"
+            and d = Gen.createId "d"
+            and cellShape = Gen.createId "@cell-shape"
+            and dOut = Gen.createId "@d-out" in
+            let type' =
+              scalarType
+                (Type.Pi
+                   { parameters =
+                       [ { binding = d; bound = Sort.Dim }
+                       ; { binding = cellShape; bound = Sort.Shape }
+                       ]
+                   ; body =
+                       scalarType
+                         (Type.Forall
+                            { parameters = [ { binding = t; bound = Kind.Atom } ]
+                            ; body =
+                                scalarType
+                                  (Type.Func
+                                     { parameters =
+                                         [ Arr
+                                             { element = AtomRef t
+                                             ; shape =
+                                                 [ Add (Index.dimensionRef d)
+                                                 ; ShapeRef cellShape
+                                                 ]
+                                             }
+                                         ; Arr
+                                             { element = Literal BooleanLiteral
+                                             ; shape =
+                                                 [ Add (Index.dimensionRef d)
+                                                 ; ShapeRef cellShape
+                                                 ]
+                                             }
+                                         ]
+                                     ; return =
+                                         scalarType
+                                           (Sigma
+                                              { parameters =
+                                                  [ { binding = dOut; bound = Sort.Dim } ]
+                                              ; body =
+                                                  Arr
+                                                    { element = AtomRef t
+                                                    ; shape =
+                                                        [ Add (Index.dimensionRef dOut)
+                                                        ; ShapeRef cellShape
+                                                        ]
+                                                    }
+                                              })
+                                     })
+                            })
+                   })
+            in
+            Expr.Primitive { func = Filter; type' } )
+        ; ( "append"
+          , let%map t = Gen.createId "t"
+            and d1 = Gen.createId "d1"
+            and d2 = Gen.createId "d2"
+            and cellShape = Gen.createId "@cell-shape" in
+            let type' =
+              scalarType
+                (Type.Pi
+                   { parameters =
+                       [ { binding = d1; bound = Sort.Dim }
+                       ; { binding = d2; bound = Sort.Dim }
+                       ; { binding = cellShape; bound = Sort.Shape }
+                       ]
+                   ; body =
+                       scalarType
+                         (Type.Forall
+                            { parameters = [ { binding = t; bound = Kind.Atom } ]
+                            ; body =
+                                scalarType
+                                  (Type.Func
+                                     { parameters =
+                                         [ Arr
+                                             { element = AtomRef t
+                                             ; shape =
+                                                 [ Add (Index.dimensionRef d1)
+                                                 ; ShapeRef cellShape
+                                                 ]
+                                             }
+                                         ; Arr
+                                             { element = AtomRef t
+                                             ; shape =
+                                                 [ Add (Index.dimensionRef d2)
+                                                 ; ShapeRef cellShape
+                                                 ]
+                                             }
+                                         ]
+                                     ; return =
+                                         Arr
+                                           { element = AtomRef t
+                                           ; shape =
+                                               [ Add
+                                                   { const = 0
+                                                   ; refs =
+                                                       Map.of_alist_exn
+                                                         (module Identifier)
+                                                         [ d1, 1; d2, 1 ]
+                                                   }
+                                               ; ShapeRef cellShape
+                                               ]
+                                           }
+                                     })
+                            })
+                   })
+            in
+            Expr.Primitive { func = Append; type' } )
         ]
     in
     { sorts; kinds; types }

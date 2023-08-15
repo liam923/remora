@@ -95,12 +95,15 @@ module Expr = struct
   [@@deriving sexp, compare, equal]
 
   type primitiveName =
-    | Reduce
     | Add
     | Sub
     | Mul
     | Div
     | Length
+    | Reduce
+    | Scan
+    | Filter
+    | Append
   [@@deriving compare, sexp, equal]
 
   type scalar =
