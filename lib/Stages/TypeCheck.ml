@@ -1416,109 +1416,22 @@ module TypeCheck = struct
   ;;
 end
 
-let baseEnv () =
-  let module B = Environment.Base (CheckerState) in
-  B.make ()
-;;
-
 module Sort = struct
-  let check index =
-    let%bind env = baseEnv () in
-    SortChecker.check env index
-  ;;
-
-  module Stage (SB : Source.BuilderT) = struct
-    type state = CompilerState.state
-    type input = SB.source Ast.Index.t
-    type output = Nucleus.Index.t
-    type error = (SB.source option, string) Source.annotate
-
-    let name = "Sort Check"
-
-    let run input =
-      CompilerPipeline.S.makeF ~f:(fun state ->
-        match CheckerState.run (check input) state with
-        | MOk _ as expr -> expr
-        | Errors errs ->
-          Errors
-            (NeList.map errs ~f:(fun { elem = err; source } ->
-               { elem = errorMessage err; source = Some source })))
-    ;;
-  end
+  let check ~env index = SortChecker.check env index
+  let checkAndExpectDim ~env index = SortChecker.checkAndExpectDim env index
+  let checkAndExpectShape ~env index = SortChecker.checkAndExpectShape env index
 end
 
 module Kind = struct
-  let check type' =
-    let%bind env = baseEnv () in
-    KindChecker.check env type'
-  ;;
-
-  module Stage (SB : Source.BuilderT) = struct
-    type state = CompilerState.state
-    type input = SB.source Ast.Type.t
-    type output = Nucleus.Type.t
-    type error = (SB.source option, string) Source.annotate
-
-    let name = "Kind Check"
-
-    let run input =
-      CompilerPipeline.S.makeF ~f:(fun state ->
-        match CheckerState.run (check input) state with
-        | MOk _ as expr -> expr
-        | Errors errs ->
-          Errors
-            (NeList.map errs ~f:(fun { elem = err; source } ->
-               { elem = errorMessage err; source = Some source })))
-    ;;
-  end
+  let check ~env type' = KindChecker.check env type'
+  let checkAndExpectArray ~env type' = KindChecker.checkAndExpectArray env type'
+  let checkAndExpectAtom ~env type' = KindChecker.checkAndExpectAtom env type'
 end
 
 module Type = struct
-  let check expr =
-    let%bind env = baseEnv () in
-    TypeCheck.check env expr
-  ;;
-
-  module Stage (SB : Source.BuilderT) = struct
-    type state = CompilerState.state
-    type input = SB.source Ast.Expr.t
-    type output = Nucleus.Expr.t
-    type error = (SB.source option, string) Source.annotate
-
-    let name = "Type Check"
-
-    let run input =
-      CompilerPipeline.S.makeF ~f:(fun state ->
-        match CheckerState.run (check input) state with
-        | MOk _ as expr -> expr
-        | Errors errs ->
-          Errors
-            (NeList.map errs ~f:(fun { elem = err; source } ->
-               { elem = errorMessage err; source = Some source })))
-    ;;
-  end
+  let check ~env expr = TypeCheck.check env expr
+  let checkAndExpectArray ~env expr = TypeCheck.checkAndExpectArray env expr
+  let checkAndExpectAtom ~env expr = TypeCheck.checkAndExpectAtom env expr
 end
 
-let check prog =
-  let%bind env = baseEnv () in
-  TypeCheck.checkAndExpectArray env prog
-;;
-
-module Stage (SB : Source.BuilderT) = struct
-  type state = CompilerState.state
-  type input = SB.source Ast.t
-  type output = Nucleus.t
-  type error = (SB.source option, string) Source.annotate
-
-  let name = "Type Check"
-
-  let run input =
-    CompilerPipeline.S.makeF ~f:(fun state ->
-      match CheckerState.run (check input) state with
-      | MOk _ as expr -> expr
-      | Errors errs ->
-        Errors
-          (NeList.map errs ~f:(fun { elem = err; source } ->
-             { elem = errorMessage err; source = Some source })))
-  ;;
-end
+let check ~env prog = TypeCheck.checkAndExpectArray env prog

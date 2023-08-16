@@ -93,3 +93,11 @@ let traverseOpt = function
   | Some r -> map r ~f:(fun e -> Some e)
   | None -> MOk None
 ;;
+
+exception MResultError of string NeList.t [@@deriving sexp]
+
+let assertNoErrors mr ~f =
+  match mr with
+  | MOk value -> value
+  | Errors errors -> raise (MResultError (NeList.map errors ~f))
+;;

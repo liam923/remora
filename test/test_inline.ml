@@ -5,7 +5,7 @@ let%expect_test "check inlining" =
   let pipeline =
     CompilerPipeline.(
       (module Parse.Stage (Source.UnitBuilder))
-      @> (module TypeCheck.Stage (Source.UnitBuilder))
+      @> (module TypeCheckStage.M (Source.UnitBuilder))
       @> (module Explicitize.Stage (Source.UnitBuilder))
       @> (module Inline.Stage (Source.UnitBuilder))
       @> (module Show.Stage (InlineNucleus) (Source.UnitBuilder))
@@ -902,7 +902,7 @@ let%expect_test "check inlining" =
          (type'
           ((element
             (Sigma
-             ((parameters (((binding ((name @d-out) (id 14))) (bound Dim))))
+             ((parameters (((binding ((name d-out) (id 14))) (bound Dim))))
               (body
                ((element (Literal IntLiteral))
                 (shape ((Add ((const 0) (refs ()))))))))))
@@ -910,7 +910,7 @@ let%expect_test "check inlining" =
       (type'
        ((element
          (Sigma
-          ((parameters (((binding ((name @d-out) (id 14))) (bound Dim))))
+          ((parameters (((binding ((name d-out) (id 14))) (bound Dim))))
            (body
             ((element (Literal IntLiteral))
              (shape ((Add ((const 0) (refs ()))))))))))

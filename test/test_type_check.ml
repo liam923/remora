@@ -6,7 +6,7 @@ let%expect_test "check sort" =
     CompilerPipeline.(
       let module Parse = Parse.Make (Source.UnitBuilder) in
       (module Parse.IndexParser.Stage)
-      @> (module TypeCheck.Sort.Stage (Source.UnitBuilder))
+      @> (module TypeCheckStage.Sort (Source.UnitBuilder))
       @> (module Show.Stage (Nucleus.Index) (Source.UnitBuilder))
       @> empty)
   in
@@ -50,7 +50,7 @@ let%expect_test "check kind" =
     CompilerPipeline.(
       let module Parse = Parse.Make (Source.UnitBuilder) in
       (module Parse.TypeParser.Stage)
-      @> (module TypeCheck.Kind.Stage (Source.UnitBuilder))
+      @> (module TypeCheckStage.Kind (Source.UnitBuilder))
       @> (module Show.Stage (Nucleus.Type) (Source.UnitBuilder))
       @> empty)
   in
@@ -197,7 +197,7 @@ let%expect_test "check type" =
     CompilerPipeline.(
       let module Parse = Parse.Make (Source.UnitBuilder) in
       (module Parse.Stage)
-      @> (module TypeCheck.Type.Stage (Source.UnitBuilder))
+      @> (module TypeCheckStage.Type (Source.UnitBuilder))
       @> (module Show.CustomStage
                    (struct
                      type t = Nucleus.Expr.t

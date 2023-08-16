@@ -22,15 +22,13 @@ Minimal basis:
 
 (define (reduce{t | d-1 @item-pad @cell-shape}
           [f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-          [a [t (+ d-1 1) @item-pad @cell-shape]
-          [b [t (+ d-1 1) @item-pad @cell-shape]])
+          [arr [t (+ d-1 1) @item-pad @cell-shape]])
   : [t @item-pad @cell-shape]
   ...)
 
 (define (scan{t | d-1 @item-pad @cell-shape}
           [f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-          [a [t (+ d-1 1) @item-pad @cell-shape]
-          [b [t (+ d-1 1) @item-pad @cell-shape]])
+          [a [t (+ d-1 1) @item-pad @cell-shape]])
   : [t (+ d-1 1) @item-pad @cell-shape]
   ...)
 

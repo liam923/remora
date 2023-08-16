@@ -16,3 +16,4 @@ val require : bool -> 'err -> (unit, 'err) t
 val allNE : ('ok, 'err) t NeList.t -> ('ok NeList.t, 'err) t
 val traverseOpt : ('ok, 'err) t option -> ('ok option, 'err) t
 val both : ('a, 'err) t -> ('b, 'err) t -> ('a * 'b, 'err) t
+val assertNoErrors : ('a, 'err) t -> f:('err -> string) -> 'a

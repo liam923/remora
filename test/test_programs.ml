@@ -37,7 +37,7 @@ let printStages input =
   let pipeline =
     CompilerPipeline.(
       (module Parse.Stage (Source.UnitBuilder))
-      @> (module PrintResult (Nucleus) (TypeCheck.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nucleus) (TypeCheckStage.M (Source.UnitBuilder)))
       @> (module PrintResult (ExplicitNucleus) (Explicitize.Stage (Source.UnitBuilder)))
       @> (module PrintResult (InlineNucleus) (Inline.Stage (Source.UnitBuilder)))
       @> (module PrintResult (InlineNucleus) (Simplify.Stage (Source.UnitBuilder)))
