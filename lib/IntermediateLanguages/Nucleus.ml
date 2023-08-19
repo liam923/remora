@@ -99,6 +99,7 @@ module Expr = struct
     | Sub
     | Mul
     | Div
+    | Equal
     | Length
     | Reduce
     | Scan

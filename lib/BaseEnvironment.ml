@@ -73,6 +73,13 @@ module Stdlib : S = struct
             ; type' = "(-> (int int) int)"
             }
       }
+    ; { name = "="
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { func = Equal; type' })
+            ; type' = "(-> (int int) bool)"
+            }
+      }
     ; { name = "length"
       ; value =
           Intrinsic

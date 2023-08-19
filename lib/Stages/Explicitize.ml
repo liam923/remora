@@ -38,6 +38,7 @@ let rec funcParamNamesArray env : Nucleus.Expr.array -> string list option = fun
        | Sub -> [ "-arg1"; "-arg2" ]
        | Mul -> [ "*arg1"; "*arg2" ]
        | Div -> [ "/arg1"; "/arg2" ]
+       | Equal -> [ "=arg1"; "=arg2" ]
        | Length -> [ "length-arg" ]
        | Reduce -> [ "reduce-arg1"; "reduce-arg2" ]
        | Scan -> [ "scan-arg1"; "scan-arg2" ]

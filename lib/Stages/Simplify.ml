@@ -74,7 +74,13 @@ let getCounts =
     | Scalar { element; type' = _ } -> getCountsAtom element
     | Frame { elements; dimensions = _; type' = _ } ->
       elements |> List.map ~f:getCountsArray |> Counts.merge
-    | Unbox { indexBindings = _; boxBindings = _; body; type' = _ } -> getCountsArray body
+    | Unbox { indexBindings = _; boxBindings; body; type' = _ } ->
+      let boxBindingsCounts =
+        boxBindings
+        |> List.map ~f:(fun { binding = _; box } -> getCountsArray box)
+        |> Counts.merge
+      and bodyCounts = getCountsArray body in
+      Counts.merge [ boxBindingsCounts; bodyCounts ]
     | PrimitiveCall { op = _; args; type' = _ } ->
       args |> List.map ~f:getCountsArray |> Counts.merge
     | IntrinsicCall (Map { args; body; frameShape = _; type' = _ }) ->
@@ -131,6 +137,10 @@ let rec subArray subs : Expr.array -> Expr.array = function
     Frame { elements; dimensions; type' }
   | Unbox { indexBindings; boxBindings; body; type' } ->
     let body = subArray subs body in
+    let boxBindings =
+      List.map boxBindings ~f:(fun { binding; box } : Expr.unboxBinding ->
+        { binding; box = subArray subs box })
+    in
     Unbox { indexBindings; boxBindings; body; type' }
   | PrimitiveCall { op; args; type' } ->
     let args = List.map args ~f:(subArray subs) in

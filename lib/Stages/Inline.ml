@@ -500,6 +500,7 @@ and inlineTermApplication subs appStack termApplication =
      | Sub -> binop Sub
      | Mul -> binop Mul
      | Div -> binop Div
+     | Equal -> binop Equal
      | Length ->
        assert (List.length args = 1);
        (match primitive.appStack with

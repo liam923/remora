@@ -83,6 +83,7 @@ module Expr = struct
     | Sub
     | Mul
     | Div
+    | Equal
 
   and primitiveCall =
     { op : primitiveOp
