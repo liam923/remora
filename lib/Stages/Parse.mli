@@ -8,7 +8,7 @@ module type S = sig
   module type Parser = sig
     type t
 
-    val parseTexps : source Texp.t NeList.t -> t result
+    val parseEsexps : source Esexp.t NeList.t -> t result
     val parseString : string -> t result
     val parseFile : string -> t result
 

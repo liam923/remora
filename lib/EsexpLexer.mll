@@ -1,7 +1,7 @@
 {
 module Make (SourceBuilder : Source.BuilderT) = struct
   open Lexing
-  module P = TexpParser.Make(SourceBuilder)
+  module P = EsexpParser.Make(SourceBuilder)
 
   exception SyntaxError of string * SourceBuilder.source
 }

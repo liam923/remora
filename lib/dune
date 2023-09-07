@@ -1,14 +1,14 @@
 (menhir
- (modules TexpParser))
+ (modules EsexpParser))
 
-(ocamllex TexpLexer)
+(ocamllex EsexpLexer)
 
 (include_subdirs unqualified)
 
 (library
  (name remora)
  (public_name remora)
- (modules :standard TexpParser TexpLexer)
+ (modules :standard EsexpParser EsexpLexer)
  (libraries base)
  (preprocess
   (pps ppx_jane ppx_deriving.eq ppx_deriving.show ppx_deriving.ord)))
