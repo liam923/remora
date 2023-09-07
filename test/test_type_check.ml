@@ -7,7 +7,7 @@ let%expect_test "check sort" =
       let module Parse = Parse.Make (Source.UnitBuilder) in
       (module Parse.IndexParser.Stage)
       @> (module TypeCheckStage.Sort (Source.UnitBuilder))
-      @> (module Show.Stage (Nucleus.Index) (Source.UnitBuilder))
+      @> (module Show.Stage (Typed.Index) (Source.UnitBuilder))
       @> empty)
   in
   let checkAndPrint = TestPipeline.runAndPrint pipeline in
@@ -51,7 +51,7 @@ let%expect_test "check kind" =
       let module Parse = Parse.Make (Source.UnitBuilder) in
       (module Parse.TypeParser.Stage)
       @> (module TypeCheckStage.Kind (Source.UnitBuilder))
-      @> (module Show.Stage (Nucleus.Type) (Source.UnitBuilder))
+      @> (module Show.Stage (Typed.Type) (Source.UnitBuilder))
       @> empty)
   in
   let checkAndPrint = TestPipeline.runAndPrint pipeline in
@@ -200,14 +200,14 @@ let%expect_test "check type" =
       @> (module TypeCheckStage.Type (Source.UnitBuilder))
       @> (module Show.CustomStage
                    (struct
-                     type t = Nucleus.Expr.t
+                     type t = Typed.Expr.t
 
                      let to_string expr =
                        String.concat_lines
-                         [ Sexp.to_string_hum ([%sexp_of: Nucleus.Expr.t] expr)
+                         [ Sexp.to_string_hum ([%sexp_of: Typed.Expr.t] expr)
                          ; "Type:"
                          ; Sexp.to_string_hum
-                             ([%sexp_of: Nucleus.Type.t] (Nucleus.Expr.type' expr))
+                             ([%sexp_of: Typed.Type.t] (Typed.Expr.type' expr))
                          ]
                      ;;
                    end)

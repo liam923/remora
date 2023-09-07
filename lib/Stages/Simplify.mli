@@ -9,11 +9,11 @@ open! Base
     - Remove redundant maps
     - Hoist variables *)
 
-val simplify : InlineNucleus.t -> (CompilerState.state, InlineNucleus.t, _) State.t
+val simplify : Nucleus.t -> (CompilerState.state, Nucleus.t, _) State.t
 
 module Stage (SB : Source.BuilderT) :
   CompilerPipeline.Stage
     with type state = CompilerState.state
-    with type input = InlineNucleus.t
-    with type output = InlineNucleus.t
+    with type input = Nucleus.t
+    with type output = Nucleus.t
     with type error = (SB.source option, string) Source.annotate

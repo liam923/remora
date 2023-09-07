@@ -37,10 +37,10 @@ let printStages input =
   let pipeline =
     CompilerPipeline.(
       (module Parse.Stage (Source.UnitBuilder))
-      @> (module PrintResult (Nucleus) (TypeCheckStage.M (Source.UnitBuilder)))
-      @> (module PrintResult (ExplicitNucleus) (Explicitize.Stage (Source.UnitBuilder)))
-      @> (module PrintResult (InlineNucleus) (Inline.Stage (Source.UnitBuilder)))
-      @> (module PrintResult (InlineNucleus) (Simplify.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Typed) (TypeCheckStage.M (Source.UnitBuilder)))
+      @> (module PrintResult (Explicit) (Explicitize.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nucleus) (Inline.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nucleus) (Simplify.Stage (Source.UnitBuilder)))
       @> empty)
   in
   match

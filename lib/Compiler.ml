@@ -19,7 +19,7 @@ module Make (SB : Source.BuilderT) = struct
       @> (module Explicitize.Stage (SB))
       @> (module Inline.Stage (SB))
       @> (module Simplify.Stage (SB))
-      @> (module Show.Stage (InlineNucleus) (SB))
+      @> (module Show.Stage (Nucleus) (SB))
       @> empty)
   ;;
 

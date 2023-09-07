@@ -1,7 +1,7 @@
 open! Base
-module Index = Nucleus.Index
-module Type = Nucleus.Type
-module Canonical = Nucleus.Canonical
+module Index = Typed.Index
+module Type = Typed.Type
+module Canonical = Typed.Canonical
 
 type application =
   | TypeApp of Type.t list
@@ -34,11 +34,11 @@ end
 module Function = struct
   type t =
     | Lambda of
-        { lambda : ExplicitNucleus.Expr.termLambda
+        { lambda : Explicit.Expr.termLambda
         ; id : Identifier.t
         }
     | Primitive of
-        { func : ExplicitNucleus.Expr.primitive
+        { func : Explicit.Expr.primitive
         ; appStack : appStack
         }
   [@@deriving sexp_of]
@@ -46,12 +46,12 @@ module Function = struct
   let equal a b =
     match a, b with
     | Lambda a, Lambda b -> Identifier.equal a.id b.id
-    | Primitive a, Primitive b -> ExplicitNucleus.Expr.equal_primitive a.func b.func
+    | Primitive a, Primitive b -> Explicit.Expr.equal_primitive a.func b.func
     | Lambda _, Primitive _ | Primitive _, Lambda _ -> false
   ;;
 
   let toExplicit =
-    let module E = ExplicitNucleus.Expr in
+    let module E = Explicit.Expr in
     function
     | Lambda { lambda; id = _ } ->
       E.Scalar
@@ -86,13 +86,13 @@ end
 
 type cacheEntry =
   { binding : Identifier.t
-  ; monoValue : InlineNucleus.Expr.array
+  ; monoValue : Nucleus.Expr.array
   ; functions : FunctionSet.t
   }
 [@@deriving sexp_of]
 
 type envEntry =
-  { polyValue : ExplicitNucleus.Expr.array
+  { polyValue : Explicit.Expr.array
   ; cache : cacheEntry Map.M(CanonicalAppStack).t
   }
 [@@deriving sexp_of]
@@ -124,7 +124,7 @@ module InlineState = struct
   let err error = returnF (MResult.Errors (error :: []))
 end
 
-let rec inlineAtomType : Nucleus.Type.atom -> InlineNucleus.Type.atom = function
+let rec inlineAtomType : Typed.Type.atom -> Nucleus.Type.atom = function
   | AtomRef _ ->
     raise (Unreachable.Error "There should be no type refs left after inlining")
   | Sigma { parameters; body } -> Sigma { parameters; body = inlineArrayType body }
@@ -136,13 +136,13 @@ let rec inlineAtomType : Nucleus.Type.atom -> InlineNucleus.Type.atom = function
   | Forall _ -> Literal UnitLiteral
   | Pi _ -> Literal UnitLiteral
 
-and inlineArrayType : Nucleus.Type.array -> InlineNucleus.Type.array = function
+and inlineArrayType : Typed.Type.array -> Nucleus.Type.array = function
   | ArrayRef _ ->
     raise (Unreachable.Error "There should be no type refs left after inlining")
   | Arr { element; shape } -> { element = inlineAtomType element; shape }
 ;;
 
-let rec inlineAtomTypeWithStack appStack : Nucleus.Type.atom -> InlineNucleus.Type.array
+let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
   = function
   | AtomRef _ ->
     raise (Unreachable.Error "There should be no type refs left after inlining")
@@ -162,7 +162,7 @@ let rec inlineAtomTypeWithStack appStack : Nucleus.Type.atom -> InlineNucleus.Ty
               ~init:(Map.empty (module Identifier))
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
-       let subbedBody = ExplicitNucleus.Substitute.Type.subTypesIntoArray typeSubs body in
+       let subbedBody = Explicit.Substitute.Type.subTypesIntoArray typeSubs body in
        inlineArrayTypeWithStack restStack subbedBody
      | [] ->
        (* Empty stack means the Forall's value is not passed to a type
@@ -184,9 +184,7 @@ let rec inlineAtomTypeWithStack appStack : Nucleus.Type.atom -> InlineNucleus.Ty
               ~init:(Map.empty (module Identifier))
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
-       let subbedBody =
-         ExplicitNucleus.Substitute.Type.subIndicesIntoArray indexSubs body
-       in
+       let subbedBody = Explicit.Substitute.Type.subIndicesIntoArray indexSubs body in
        inlineArrayTypeWithStack restStack subbedBody
      | [] ->
        (* Empty stack means the Pi's value is not passed to an index
@@ -200,25 +198,24 @@ let rec inlineAtomTypeWithStack appStack : Nucleus.Type.atom -> InlineNucleus.Ty
                ; [%sexp_of: appStack] stack |> Sexp.to_string_hum
                ])))
 
-and inlineArrayTypeWithStack appStack : Nucleus.Type.array -> InlineNucleus.Type.array
-  = function
+and inlineArrayTypeWithStack appStack : Typed.Type.array -> Nucleus.Type.array = function
   | ArrayRef _ ->
     raise (Unreachable.Error "There should be no type refs left after inlining")
   | Arr { element; shape = outerShape } ->
-    let ({ element; shape = innerShape } : InlineNucleus.Type.array) =
+    let ({ element; shape = innerShape } : Nucleus.Type.array) =
       inlineAtomTypeWithStack appStack element
     in
     { element; shape = outerShape @ innerShape }
 
-and inlineSigmaTypeWithStack appStack ({ parameters; body } : Nucleus.Type.sigma)
-  : InlineNucleus.Type.sigma
+and inlineSigmaTypeWithStack appStack ({ parameters; body } : Typed.Type.sigma)
+  : Nucleus.Type.sigma
   =
   { parameters; body = inlineArrayTypeWithStack appStack body }
 ;;
 
 let assertValueRestriction value =
   let isPolymorphicType =
-    let open ExplicitNucleus.Type in
+    let open Explicit.Type in
     let rec isPolymorphicArray = function
       | ArrayRef _ -> false
       | Arr arr -> isPolymorphicAtom arr.element
@@ -236,7 +233,7 @@ let assertValueRestriction value =
     isPolymorphicArray
   in
   let isValue =
-    let open ExplicitNucleus.Expr in
+    let open Explicit.Expr in
     let rec isValueArray = function
       | Ref _ -> true
       | Scalar scalar -> isValueAtom scalar.element
@@ -260,27 +257,27 @@ let assertValueRestriction value =
     in
     isValueArray
   in
-  if isPolymorphicType (ExplicitNucleus.Expr.arrayType value) && not (isValue value)
+  if isPolymorphicType (Explicit.Expr.arrayType value) && not (isValue value)
   then
     InlineState.err
       (String.concat_lines
          [ "Polymorphic variables and function arguments must be a value type, got \
             not-value:"
-         ; [%sexp_of: ExplicitNucleus.Expr.array] value |> Sexp.to_string_hum
+         ; [%sexp_of: Explicit.Expr.array] value |> Sexp.to_string_hum
          ])
   else InlineState.return ()
 ;;
 
 let scalar atom =
-  InlineNucleus.Expr.(
+  Nucleus.Expr.(
     Scalar { element = atom; type' = { element = atomType atom; shape = [] } })
 ;;
 
-let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.array)
-  : (InlineNucleus.Expr.array * FunctionSet.t) InlineState.u
+let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
+  : (Nucleus.Expr.array * FunctionSet.t) InlineState.u
   =
-  let module E = ExplicitNucleus.Expr in
-  let module I = InlineNucleus.Expr in
+  let module E = Explicit.Expr in
+  let module I = Nucleus.Expr in
   let open InlineState.Let_syntax in
   match array with
   | Ref { id; type' } ->
@@ -367,11 +364,11 @@ let rec inlineArray subs (appStack : appStack) (array : ExplicitNucleus.Expr.arr
         (Map { args; body; frameShape; type' = inlineArrayTypeWithStack appStack type' })
     , functions )
 
-and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
-  : (InlineNucleus.Expr.array * FunctionSet.t) InlineState.u
+and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
+  : (Nucleus.Expr.array * FunctionSet.t) InlineState.u
   =
-  let module E = ExplicitNucleus.Expr in
-  let module I = InlineNucleus.Expr in
+  let module E = Explicit.Expr in
+  let module I = Nucleus.Expr in
   let open InlineState.Let_syntax in
   match atom with
   | TermLambda lambda ->
@@ -388,7 +385,7 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
               ~init:(Map.empty (module Identifier))
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
-       let subbedBody = ExplicitNucleus.Substitute.Expr.subTypesIntoArray typeSubs body in
+       let subbedBody = Explicit.Substitute.Expr.subTypesIntoArray typeSubs body in
        inlineArray subs restStack subbedBody
      | [] ->
        (* Empty stack means the type lambda's value is not passed to a type
@@ -410,9 +407,7 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
               ~init:(Map.empty (module Identifier))
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
-       let subbedBody =
-         ExplicitNucleus.Substitute.Expr.subIndicesIntoArray indexSubs body
-       in
+       let subbedBody = Explicit.Substitute.Expr.subIndicesIntoArray indexSubs body in
        inlineArray subs restStack subbedBody
      | [] ->
        (* Empty stack means the index lambda's value is not passed to an index
@@ -443,8 +438,8 @@ and inlineAtom subs (appStack : appStack) (atom : ExplicitNucleus.Expr.atom)
     return (scalar (I.Literal (BooleanLiteral b)), FunctionSet.Empty)
 
 and inlineTermApplication subs appStack termApplication =
-  let module E = ExplicitNucleus.Expr in
-  let module I = InlineNucleus.Expr in
+  let module E = Explicit.Expr in
+  let module I = Nucleus.Expr in
   let open InlineState.Let_syntax in
   let ({ func; args; type' } : E.termApplication) = termApplication in
   let args =
@@ -783,9 +778,7 @@ and inlineBodyWithBindings subs appStack body bindings =
   body, inlinedBindings, functions
 ;;
 
-let inline (prog : ExplicitNucleus.t)
-  : (CompilerState.state, InlineNucleus.t, string) CompilerState.t
-  =
+let inline (prog : Explicit.t) : (CompilerState.state, Nucleus.t, string) CompilerState.t =
   CompilerState.makeF ~f:(fun compilerState ->
     let%map.MResult state, (result, _) =
       InlineState.run
@@ -797,8 +790,8 @@ let inline (prog : ExplicitNucleus.t)
 
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
-  type input = ExplicitNucleus.t
-  type output = InlineNucleus.t
+  type input = Explicit.t
+  type output = Nucleus.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Inline and Monomorphize"

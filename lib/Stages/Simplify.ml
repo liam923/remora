@@ -1,5 +1,5 @@
 open! Base
-open InlineNucleus
+open Nucleus
 
 module BindingSet = struct
   type t =
@@ -46,7 +46,7 @@ end = struct
 end
 
 let scalar atom =
-  InlineNucleus.Expr.(
+  Nucleus.Expr.(
     Scalar { element = atom; type' = { element = atomType atom; shape = [] } })
 ;;
 
@@ -304,8 +304,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
              let firstElement = List.hd_exn elements in
              let elementType = Expr.arrayType firstElement in
              let dimsAsShape =
-               List.map restDims ~f:(fun d ->
-                 InlineNucleus.Index.(Add (dimensionConstant d)))
+               List.map restDims ~f:(fun d -> Nucleus.Index.(Add (dimensionConstant d)))
              in
              Expr.Frame
                { elements
@@ -797,8 +796,8 @@ let simplify expr =
 
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
-  type input = InlineNucleus.t
-  type output = InlineNucleus.t
+  type input = Nucleus.t
+  type output = Nucleus.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Simplify"

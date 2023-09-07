@@ -9,7 +9,7 @@ let%expect_test "check simplifying" =
       @> (module Explicitize.Stage (Source.UnitBuilder))
       @> (module Inline.Stage (Source.UnitBuilder))
       @> (module Simplify.Stage (Source.UnitBuilder))
-      @> (module Show.Stage (InlineNucleus) (Source.UnitBuilder))
+      @> (module Show.Stage (Nucleus) (Source.UnitBuilder))
       @> empty)
   in
   let checkAndPrint = TestPipeline.runAndPrint pipeline in

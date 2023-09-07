@@ -7,7 +7,7 @@ let%expect_test "check explicitizing" =
       (module Parse.Stage (Source.UnitBuilder))
       @> (module TypeCheckStage.M (Source.UnitBuilder))
       @> (module Explicitize.Stage (Source.UnitBuilder))
-      @> (module Show.Stage (ExplicitNucleus) (Source.UnitBuilder))
+      @> (module Show.Stage (Explicit) (Source.UnitBuilder))
       @> empty)
   in
   let checkAndPrint = TestPipeline.runAndPrint pipeline in

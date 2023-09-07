@@ -1,11 +1,11 @@
 open! Base
 
-(* The ExplicitNucleus language represents a Remora program where maps have been made explicit *)
+(* The Explicit language represents a Remora program where maps have been made explicit *)
 
-type 't param = 't Nucleus.param [@@deriving sexp, eq]
+type 't param = 't Typed.param [@@deriving sexp, eq]
 
-module Index = Nucleus.Index
-module Type = Nucleus.Type
+module Index = Typed.Index
+module Type = Typed.Type
 
 module Expr = struct
   type ref =
@@ -93,8 +93,8 @@ module Expr = struct
     ; value : array
     }
 
-  and primitive = Nucleus.Expr.primitive
-  and literal = Nucleus.Expr.literal
+  and primitive = Typed.Expr.primitive
+  and literal = Typed.Expr.literal
 
   and map =
     { args : mapArg list
@@ -156,8 +156,8 @@ end
 type t = Expr.array [@@deriving sexp]
 
 module Substitute = struct
-  module Index = Nucleus.Substitute.Index
-  module Type = Nucleus.Substitute.Type
+  module Index = Typed.Substitute.Index
+  module Type = Typed.Substitute.Type
 
   module Expr = struct
     let rec subTypesIntoArray types =

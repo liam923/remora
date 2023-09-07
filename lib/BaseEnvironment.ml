@@ -1,5 +1,5 @@
 open! Base
-open Nucleus
+open Typed
 
 module type S = sig
   val make : unit -> (CompilerState.state, Environment.t, _) CompilerState.t

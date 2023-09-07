@@ -3,7 +3,7 @@ open! Base
 module Sort (SB : Source.BuilderT) = struct
   type state = CompilerState.state
   type input = SB.source Ast.Index.t
-  type output = Nucleus.Index.t
+  type output = Typed.Index.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Sort Check"
@@ -25,7 +25,7 @@ end
 module Kind (SB : Source.BuilderT) = struct
   type state = CompilerState.state
   type input = SB.source Ast.Type.t
-  type output = Nucleus.Type.t
+  type output = Typed.Type.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Kind Check"
@@ -47,7 +47,7 @@ end
 module Type (SB : Source.BuilderT) = struct
   type state = CompilerState.state
   type input = SB.source Ast.Expr.t
-  type output = Nucleus.Expr.t
+  type output = Typed.Expr.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Type Check"
@@ -69,7 +69,7 @@ end
 module M (SB : Source.BuilderT) = struct
   type state = CompilerState.state
   type input = SB.source Ast.t
-  type output = Nucleus.t
+  type output = Typed.t
   type error = (SB.source option, string) Source.annotate
 
   let name = "Type Check"

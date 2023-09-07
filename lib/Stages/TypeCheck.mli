@@ -9,45 +9,45 @@ type ('s, 't) checkResult =
   (CompilerState.state, 't, ('s, error) Source.annotate) CompilerState.t
 
 module Sort : sig
-  val check : env:Environment.t -> 's Ast.Index.t -> ('s, Nucleus.Index.t) checkResult
+  val check : env:Environment.t -> 's Ast.Index.t -> ('s, Typed.Index.t) checkResult
 
   val checkAndExpectDim
     :  env:Environment.t
     -> 's Ast.Index.t
-    -> ('s, Nucleus.Index.dimension) checkResult
+    -> ('s, Typed.Index.dimension) checkResult
 
   val checkAndExpectShape
     :  env:Environment.t
     -> 's Ast.Index.t
-    -> ('s, Nucleus.Index.shape) checkResult
+    -> ('s, Typed.Index.shape) checkResult
 end
 
 module Kind : sig
-  val check : env:Environment.t -> 's Ast.Type.t -> ('s, Nucleus.Type.t) checkResult
+  val check : env:Environment.t -> 's Ast.Type.t -> ('s, Typed.Type.t) checkResult
 
   val checkAndExpectArray
     :  env:Environment.t
     -> 's Ast.Type.t
-    -> ('s, Nucleus.Type.array) checkResult
+    -> ('s, Typed.Type.array) checkResult
 
   val checkAndExpectAtom
     :  env:Environment.t
     -> 's Ast.Type.t
-    -> ('s, Nucleus.Type.atom) checkResult
+    -> ('s, Typed.Type.atom) checkResult
 end
 
 module Type : sig
-  val check : env:Environment.t -> 's Ast.Expr.t -> ('s, Nucleus.Expr.t) checkResult
+  val check : env:Environment.t -> 's Ast.Expr.t -> ('s, Typed.Expr.t) checkResult
 
   val checkAndExpectArray
     :  env:Environment.t
     -> 's Ast.Expr.t
-    -> ('s, Nucleus.Expr.array) checkResult
+    -> ('s, Typed.Expr.array) checkResult
 
   val checkAndExpectAtom
     :  env:Environment.t
     -> 's Ast.Expr.t
-    -> ('s, Nucleus.Expr.atom) checkResult
+    -> ('s, Typed.Expr.atom) checkResult
 end
 
-val check : env:Environment.t -> 's Ast.t -> ('s, Nucleus.t) checkResult
+val check : env:Environment.t -> 's Ast.t -> ('s, Typed.t) checkResult
