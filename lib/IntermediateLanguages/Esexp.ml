@@ -1,14 +1,12 @@
 open! Base
 
-type braceType =
-  | Paren
-  | Square
-[@@deriving sexp_of]
-
 type 's t =
-  | List of
-      { braceType : braceType
-      ; elements : 's t list (* The source of the left and right brace *)
+  | ParenList of
+      { elements : 's t list
+      ; braceSources : 's * 's
+      }
+  | SquareList of
+      { elements : 's t list
       ; braceSources : 's * 's
       }
   | WithCurlies of
@@ -25,8 +23,8 @@ type 's t =
 
 let source (type s) (module SB : Source.BuilderT with type source = s) : s t -> s
   = function
-  | List { braceType = _; elements = _; braceSources = left, right } ->
-    SB.merge left right
+  | ParenList { elements = _; braceSources = left, right } -> SB.merge left right
+  | SquareList { elements = _; braceSources = left, right } -> SB.merge left right
   | WithCurlies
       { base = _
       ; leftElements = _

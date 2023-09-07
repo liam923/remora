@@ -1,14 +1,13 @@
 open! Base
 
-type braceType =
-  | Paren
-  | Square
-
 type 's t =
-  | List of
-      { braceType : braceType
-      ; elements : 's t list (* The source of the left and right brace *)
-      ; braceSources : 's * 's
+  | ParenList of
+      { elements : 's t list
+      ; braceSources : 's * 's (* The source of the left and right parens *)
+      }
+  | SquareList of
+      { elements : 's t list
+      ; braceSources : 's * 's (* The source of the left and right brackets *)
       }
   | WithCurlies of
       { base : 's t
