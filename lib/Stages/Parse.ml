@@ -629,6 +629,30 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `reshape` syntax"
            , infixListSource components ~before:reshapeSource ~after:rParenSource ))
     | ParenList
+        { elements = Symbol ("reify-dimension", reifySource) :: components
+        ; braceSources = _, rParenSource
+        } as reifyExpr ->
+      (match components with
+       | [ dimension ] ->
+         let%map dimension = parseIndex dimension in
+         Source.{ elem = Expr.ReifyDimension dimension; source = esexpSource reifyExpr }
+       | _ ->
+         MResult.err
+           ( "Bad `reify` syntax"
+           , infixListSource components ~before:reifySource ~after:rParenSource ))
+    | ParenList
+        { elements = Symbol ("reify-shape", reifySource) :: components
+        ; braceSources = _, rParenSource
+        } as reifyExpr ->
+      (match components with
+       | [ shape ] ->
+         let%map shape = parseIndex shape in
+         Source.{ elem = Expr.ReifyShape shape; source = esexpSource reifyExpr }
+       | _ ->
+         MResult.err
+           ( "Bad `reify` syntax"
+           , infixListSource components ~before:reifySource ~after:rParenSource ))
+    | ParenList
         { elements = Symbol ("let", letSource) :: components
         ; braceSources = _, rParenSource
         } as letExpr ->

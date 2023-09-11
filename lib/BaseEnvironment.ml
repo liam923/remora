@@ -37,7 +37,7 @@ module Stdlib : S = struct
         { makeValue : Type.array -> Expr.array
         ; type' : string
         }
-  (* | Expression of string *)
+    | Expression of string
 
   type entry =
     { name : string
@@ -82,10 +82,11 @@ module Stdlib : S = struct
       }
     ; { name = "length"
       ; value =
-          Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Length; type' })
-            ; type' = "(Pi (d @cell-shape) (Forall (t) (-> ([t d @cell-shape]) int)))"
-            }
+          Expression
+            {|
+            (i-fn (d @cell-shape) (t-fn (t) (fn ([arr [t d @cell-shape]])
+              (reify-dimension d))))
+            |}
       }
     ; { name = "reduce"
       ; value =
@@ -155,20 +156,20 @@ module Stdlib : S = struct
         let typesEnv = env.types in
         let%map value =
           match value with
-          (* | Expression expr ->
-             let%bind parsed =
-             CompilerState.return
-             (MResult.assertNoErrors
-             (Parse.Default.ExprParser.parseString expr)
-             ~f:(fun (err, _) ->
-             [%string "Parsing error when making %{name} in stdlib: %{err}"]))
-             in
-             CompilerState.make ~f:(fun state ->
-             let check = TypeCheck.Type.checkAndExpectArray ~env parsed in
-             let result = CompilerState.run check state in
-             MResult.assertNoErrors result ~f:(fun err ->
-             let errMsg = TypeCheck.errorMessage err.elem in
-             [%string "Type error when making %{name} in stdlib: %{errMsg}"])) *)
+          | Expression expr ->
+            let%bind parsed =
+              CompilerState.return
+                (MResult.assertNoErrors
+                   (Parse.Default.ExprParser.parseString expr)
+                   ~f:(fun (err, _) ->
+                     [%string "Parsing error when making %{name} in stdlib: %{err}"]))
+            in
+            CompilerState.make ~f:(fun state ->
+              let check = TypeCheck.Type.checkAndExpectArray ~env parsed in
+              let result = CompilerState.run check state in
+              MResult.assertNoErrors result ~f:(fun err ->
+                let errMsg = TypeCheck.errorMessage err.elem in
+                [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
           | Intrinsic { makeValue; type' } ->
             let%bind parsed =
               CompilerState.return

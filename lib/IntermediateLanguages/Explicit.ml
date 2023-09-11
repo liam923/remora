@@ -51,6 +51,11 @@ module Expr = struct
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
+  and reifyIndex =
+    { index : Index.t
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
+    }
+
   and termLambda =
     { params : Type.array param list
     ; body : array
@@ -111,6 +116,7 @@ module Expr = struct
     | TypeApplication of typeApplication
     | IndexApplication of indexApplication
     | Unbox of unbox
+    | ReifyIndex of reifyIndex
     | TupleLet of tupleLet
     | Primitive of primitive
     | Map of map
@@ -147,6 +153,7 @@ module Expr = struct
     | TypeApplication typeApplication -> Arr typeApplication.type'
     | IndexApplication indexApplication -> Arr indexApplication.type'
     | Unbox unbox -> Arr unbox.type'
+    | ReifyIndex reifyIndex -> Arr reifyIndex.type'
     | TupleLet tupleLet -> tupleLet.type'
     | Primitive primitive -> primitive.type'
     | Map map -> map.type'
@@ -201,6 +208,8 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; type' = Type.subTypesIntoArr types type'
           }
+      | ReifyIndex { index; type' } ->
+        ReifyIndex { index; type' = Type.subTypesIntoArr types type' }
       | TupleLet { params; value; body; type' } ->
         TupleLet
           { params =
@@ -301,6 +310,11 @@ module Substitute = struct
           ; valueBinding
           ; box = subIndicesIntoArray indices box
           ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | ReifyIndex { index; type' } ->
+        ReifyIndex
+          { index = Index.subIndicesIntoIndex indices index
           ; type' = Type.subIndicesIntoArr indices type'
           }
       | TupleLet { params; value; body; type' } ->

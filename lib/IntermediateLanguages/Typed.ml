@@ -100,7 +100,6 @@ module Expr = struct
     | Mul
     | Div
     | Equal
-    | Length
     | Reduce
     | Scan
     | Filter
@@ -141,6 +140,11 @@ module Expr = struct
     ; valueBinding : Identifier.t
     ; box : array
     ; body : array
+    ; type' : Type.arr [@sexp_drop_if fun _ -> true]
+    }
+
+  and reifyIndex =
+    { index : Index.t
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
@@ -206,6 +210,7 @@ module Expr = struct
     | TypeApplication of typeApplication
     | IndexApplication of indexApplication
     | Unbox of unbox
+    | ReifyIndex of reifyIndex
     | Let of let'
     | TupleLet of tupleLet
     | Primitive of primitive
@@ -242,6 +247,7 @@ module Expr = struct
     | TypeApplication typeApplication -> Arr typeApplication.type'
     | IndexApplication indexApplication -> Arr indexApplication.type'
     | Unbox unbox -> Arr unbox.type'
+    | ReifyIndex reifyIndex -> Arr reifyIndex.type'
     | Let let' -> let'.type'
     | TupleLet tupleLet -> tupleLet.type'
     | Primitive primitive -> primitive.type'
@@ -262,6 +268,7 @@ module Expr = struct
     | IndexApplication indexApplication ->
       IndexApplication { indexApplication with type' }
     | Unbox unbox -> Unbox { unbox with type' }
+    | ReifyIndex reifyIndex -> ReifyIndex { reifyIndex with type' }
     | Let let' -> Let { let' with type' = Arr type' }
     | TupleLet tupleLet -> TupleLet { tupleLet with type' = Arr type' }
     | Primitive primitive -> Primitive { primitive with type' = Arr type' }
@@ -657,6 +664,8 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; type' = Type.subTypesIntoArr types type'
           }
+      | ReifyIndex { index; type' } ->
+        ReifyIndex { index; type' = Type.subTypesIntoArr types type' }
       | Let { binding; value; body; type' } ->
         Let
           { binding
@@ -752,6 +761,11 @@ module Substitute = struct
           ; valueBinding
           ; box = subIndicesIntoArray indices box
           ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | ReifyIndex { index; type' } ->
+        ReifyIndex
+          { index = Index.subIndicesIntoIndex indices index
           ; type' = Type.subIndicesIntoArr indices type'
           }
       | Let { binding; value; body; type' } ->

@@ -71,6 +71,11 @@ module Expr = struct
     ; type' : Type.array
     }
 
+  and reifyIndex =
+    { index : Index.t
+    ; type' : Type.array
+    }
+
   and box =
     { indices : Index.t list
     ; body : array
@@ -107,13 +112,6 @@ module Expr = struct
         { frameShape : Index.shape
         ; args : mapArg list
         ; body : array
-        ; type' : Type.array
-        }
-    | Length of
-        { arg : array
-        ; t : Type.atom
-        ; d : Index.dimension
-        ; cellShape : Index.shape
         ; type' : Type.array
         }
     | Reduce of
@@ -163,6 +161,7 @@ module Expr = struct
     | Scalar of scalar
     | Frame of frame
     | Unbox of unbox
+    | ReifyIndex of reifyIndex
     | PrimitiveCall of primitiveCall
     | IntrinsicCall of intrinsicCall
 
@@ -188,11 +187,11 @@ module Expr = struct
     | Scalar scalar -> scalar.type'
     | Frame frame -> frame.type'
     | Unbox unbox -> unbox.type'
+    | ReifyIndex reifyIndex -> reifyIndex.type'
     | PrimitiveCall primitiveCall -> primitiveCall.type'
     | IntrinsicCall instrinsicCall ->
       (match instrinsicCall with
        | Map map -> map.type'
-       | Length length -> length.type'
        | Reduce reduce -> reduce.type'
        | Scan scan -> scan.type'
        | Filter filter -> filter.type'

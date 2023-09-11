@@ -623,6 +623,8 @@ module TypeCheck = struct
       |> CheckerState.all_unit
     | Let _ -> err
     | Reshape _ -> ok ()
+    | ReifyDimension _ -> ok ()
+    | ReifyShape _ -> ok ()
     | TupleLet _ -> err
     | Tuple elements ->
       elements.elem
@@ -1320,6 +1322,44 @@ module TypeCheck = struct
       in
       let%map () = verifyShapeCompatibility oldShape newShape in
       T.Array (T.replaceTypeOfArray value newType)
+    | U.ReifyDimension dimension ->
+      let%map dimension = SortChecker.checkAndExpectDim env dimension in
+      T.Array
+        (ReifyIndex
+           { index = Dimension dimension
+           ; type' = { element = Literal IntLiteral; shape = [] }
+           })
+    | U.ReifyShape shape ->
+      let%bind shape = SortChecker.checkAndExpectShape env shape in
+      let%map type' =
+        (* If there are shape variables in the shape,
+           then the length is unknown *)
+        if List.for_all shape ~f:(function
+             | Add _ -> true
+             | ShapeRef _ -> false)
+        then
+          ok
+            Typed.Type.
+              { element = Literal IntLiteral
+              ; shape = [ Add (Typed.Index.dimensionConstant (List.length shape)) ]
+              }
+        else (
+          (* Since the length is unknown, we need to box it *)
+          let%map len = CheckerState.createId "len" in
+          Typed.Type.
+            { element =
+                Sigma
+                  { parameters = [ { binding = len; bound = Dim } ]
+                  ; body =
+                      Arr
+                        { element = Literal IntLiteral
+                        ; shape = [ Add (Typed.Index.dimensionRef len) ]
+                        }
+                  }
+            ; shape = []
+            })
+      in
+      T.Array (ReifyIndex { index = Shape shape; type' })
     | U.Let { param; value; body } ->
       let binding = param.elem.binding in
       let bound = param.elem.bound in

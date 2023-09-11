@@ -143,6 +143,9 @@ module Expr = struct
     ; value : 's t
     }
 
+  and 's reifyShape = 's Index.t
+  and 's reifyDimension = 's Index.t
+
   and 's tupleLet =
     { params : ('s, 's Type.t option) paramList
     ; value : 's t
@@ -167,6 +170,8 @@ module Expr = struct
     | Boxes of 's boxes
     | Let of 's let'
     | Reshape of 's reshape
+    | ReifyShape of 's reifyShape
+    | ReifyDimension of 's reifyDimension
     | TupleLet of 's tupleLet
     | Tuple of 's tuple
     | IntLiteral of int

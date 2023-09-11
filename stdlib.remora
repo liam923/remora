@@ -35,7 +35,7 @@ Minimal basis:
 (define (length{t | d @cell-shape}
           [array [t d @cell-shape]])
   : int
-  ...)
+  (reify-dimension d))
 
 (define (filter{t | d @cell-shape}
           [array [t d @cell-shape]

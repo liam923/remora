@@ -27,6 +27,7 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
   | TypeApplication app -> funcParamNamesArray env app.tFunc
   | IndexApplication app -> funcParamNamesArray env app.iFunc
   | Unbox unbox -> funcParamNamesArray env unbox.body
+  | ReifyIndex _ -> None
   | Let l ->
     let env = Map.set env ~key:l.binding ~data:(funcParamNamesArray env l.value) in
     funcParamNamesArray env l.body
@@ -39,7 +40,6 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
        | Mul -> [ "*arg1"; "*arg2" ]
        | Div -> [ "/arg1"; "/arg2" ]
        | Equal -> [ "=arg1"; "=arg2" ]
-       | Length -> [ "length-arg" ]
        | Reduce -> [ "reduce-arg1"; "reduce-arg2" ]
        | Scan -> [ "scan-arg1"; "scan-arg2" ]
        | Filter -> [ "filter-array"; "filter-flags" ]
@@ -83,6 +83,7 @@ let rec explicitizeArray paramNamesEnv array
     let%map box = explicitizeArray paramNamesEnv box
     and body = explicitizeArray paramNamesEnv body in
     E.Unbox { indexBindings; valueBinding; box; body; type' }
+  | T.ReifyIndex { index; type' } -> ExplicitState.return (E.ReifyIndex { index; type' })
   | T.Let { binding; value; body; type' } ->
     let extendedParamNamesEnv =
       Map.set paramNamesEnv ~key:binding ~data:(funcParamNamesArray paramNamesEnv value)

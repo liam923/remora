@@ -59,6 +59,7 @@ let nonComputational =
     | Scalar scalar -> nonComputationalAtom scalar.element
     | Frame frame -> List.for_all frame.elements ~f:nonComputationalArray
     | Unbox _ -> false
+    | ReifyIndex _ -> false
     | PrimitiveCall _ -> false
     | IntrinsicCall _ -> false
   and nonComputationalAtom : Expr.atom -> bool = function
@@ -81,6 +82,7 @@ let getCounts =
         |> Counts.merge
       and bodyCounts = getCountsArray body in
       Counts.merge [ boxBindingsCounts; bodyCounts ]
+    | ReifyIndex { index = _; type' = _ } -> Counts.empty
     | PrimitiveCall { op = _; args; type' = _ } ->
       args |> List.map ~f:getCountsArray |> Counts.merge
     | IntrinsicCall (Map { args; body; frameShape = _; type' = _ }) ->
@@ -109,8 +111,6 @@ let getCounts =
         |> Counts.merge
       and bodyCounts = getCountsArray body in
       Counts.merge [ argsCounts; bodyCounts ]
-    | IntrinsicCall (Length { arg; t = _; d = _; cellShape = _; type' = _ }) ->
-      getCountsArray arg
     | IntrinsicCall (Filter { array; flags; t = _; d = _; cellShape = _; type' = _ }) ->
       Counts.merge [ getCountsArray array; getCountsArray flags ]
     | IntrinsicCall
@@ -142,6 +142,7 @@ let rec subArray subs : Expr.array -> Expr.array = function
         { binding; box = subArray subs box })
     in
     Unbox { indexBindings; boxBindings; body; type' }
+  | ReifyIndex { index; type' } -> ReifyIndex { index; type' }
   | PrimitiveCall { op; args; type' } ->
     let args = List.map args ~f:(subArray subs) in
     PrimitiveCall { op; args; type' }
@@ -163,9 +164,6 @@ let rec subArray subs : Expr.array -> Expr.array = function
         { firstBinding; secondBinding; value = subArray subs value })
     and body = subArray subs body in
     IntrinsicCall (Scan { args; body; t; dSub1; itemPad; cellShape; type' })
-  | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
-    let arg = subArray subs arg in
-    IntrinsicCall (Length { arg; t; d; cellShape; type' })
   | IntrinsicCall (Filter { array; flags; t; d; cellShape; type' }) ->
     let array = subArray subs array
     and flags = subArray subs flags in
@@ -256,6 +254,28 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         ({ binding; box } : Expr.unboxBinding))
     in
     Expr.Unbox { indexBindings; boxBindings; body; type' }
+  | ReifyIndex { index = Dimension d; type' = _ } as original ->
+    if Map.is_empty d.refs
+    then
+      (* The dimension is known, so we can sub it in *)
+      scalar (Literal (IntLiteral d.const))
+    else original
+  | ReifyIndex { index = Shape shape; type' } as original ->
+    let revDims =
+      List.fold shape ~init:(Some []) ~f:(fun revDims nextDim ->
+        match revDims, nextDim with
+        | Some revDims, Add d when Map.is_empty d.refs -> Some (d.const :: revDims)
+        | _ -> None)
+    in
+    (match revDims with
+     | Some revDims ->
+       let dims = List.rev revDims in
+       Expr.Frame
+         { elements = List.map dims ~f:(fun dim -> scalar (Literal (IntLiteral dim)))
+         ; dimensions = [ List.length dims ]
+         ; type'
+         }
+     | None -> original)
   | PrimitiveCall { op; args; type' } ->
     let args = List.map args ~f:optimizeArray in
     (* Do constant folding: *)
@@ -283,13 +303,6 @@ let rec optimizeArray : Expr.array -> Expr.array = function
          ] ) -> scalar (Literal (IntLiteral (a / b)))
      | Div, [ value; Scalar { element = Literal (IntLiteral 1); type' = _ } ] -> value
      | _ -> Expr.PrimitiveCall { op; args; type' })
-  | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
-    if Map.is_empty d.refs
-    then (* The dimension is known statically *)
-      scalar (Expr.Literal (IntLiteral d.const))
-    else (
-      let arg = optimizeArray arg in
-      Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }))
   | IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }) as append ->
     let arg1 = optimizeArray arg1
     and arg2 = optimizeArray arg2 in
@@ -471,12 +484,10 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     in
     ( Expr.Unbox { indexBindings; boxBindings; body; type' }
     , boxBindingHoistings @ bodyHoistings )
+  | ReifyIndex _ as reify -> reify, []
   | PrimitiveCall { op; args; type' } ->
     let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarationsInArray in
     PrimitiveCall { op; args; type' }, hoistings
-  | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
-    let arg, hoistings = hoistDeclarationsInArray arg in
-    Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }), hoistings
   | IntrinsicCall (Filter { array; flags; t; d; cellShape; type' }) ->
     let array, arrayHoistings = hoistDeclarationsInArray array
     and flags, flagHoistings = hoistDeclarationsInArray flags in
@@ -667,9 +678,7 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
         hoistExpressionsMap args ~f:(hoistExpressionsInArray loopBarrier)
       in
       Expr.PrimitiveCall { op; args; type' }, hoistings
-    | IntrinsicCall (Length { arg; t; d; cellShape; type' }) ->
-      let%map arg, hoistings = hoistExpressionsInArray loopBarrier arg in
-      Expr.IntrinsicCall (Length { arg; t; d; cellShape; type' }), hoistings
+    | ReifyIndex _ as reify -> return (reify, [])
     | IntrinsicCall (Append { arg1; arg2; t; d1; d2; cellShape; type' }) ->
       let%map arg1, hoistings1 = hoistExpressionsInArray loopBarrier arg1
       and arg2, hoistings2 = hoistExpressionsInArray loopBarrier arg2 in

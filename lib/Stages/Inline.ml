@@ -242,6 +242,7 @@ let assertValueRestriction value =
       | TypeApplication _ -> false
       | IndexApplication _ -> false
       | Unbox _ -> false
+      | ReifyIndex _ -> true
       | TupleLet _ -> false
       | Primitive _ -> true
       | Map _ -> false
@@ -344,6 +345,10 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
         ; type' = inlineArrayTypeWithStack appStack (Arr type')
         }
     , functions )
+  | ReifyIndex { index; type' } ->
+    return
+      ( I.ReifyIndex { index; type' = inlineArrayTypeWithStack appStack (Arr type') }
+      , FunctionSet.Empty )
   | TupleLet _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Primitive primitive ->
     return
@@ -496,27 +501,6 @@ and inlineTermApplication subs appStack termApplication =
      | Mul -> binop Mul
      | Div -> binop Div
      | Equal -> binop Equal
-     | Length ->
-       assert (List.length args = 1);
-       (match primitive.appStack with
-        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
-          let%map arg, _ = inlineArray subs [] (Ref (List.hd_exn args)) in
-          ( I.IntrinsicCall
-              (Length
-                 { arg
-                 ; t = inlineAtomType t
-                 ; d
-                 ; cellShape
-                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
-                 })
-          , FunctionSet.Empty )
-        | _ ->
-          raise
-            (Unreachable.Error
-               (String.concat_lines
-                  [ "length expected a stack of [IndexApp; TypeApp], got"
-                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
-                  ])))
      | Append ->
        assert (List.length args = 2);
        (match primitive.appStack with
