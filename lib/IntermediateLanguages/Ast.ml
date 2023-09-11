@@ -138,6 +138,11 @@ module Expr = struct
     ; body : 's t
     }
 
+  and 's reshape =
+    { newShape : 's Index.t
+    ; value : 's t
+    }
+
   and 's tupleLet =
     { params : ('s, 's Type.t option) paramList
     ; value : 's t
@@ -161,6 +166,7 @@ module Expr = struct
     | IndexLambda of 's indexLambda
     | Boxes of 's boxes
     | Let of 's let'
+    | Reshape of 's reshape
     | TupleLet of 's tupleLet
     | Tuple of 's tuple
     | IntLiteral of int

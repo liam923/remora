@@ -51,6 +51,10 @@ type error =
   | ArgumentTypeDisagreement of Typed.Type.t expectedActual
   | CellShapeDisagreement of Typed.Index.shape expectedActual
   | PrincipalFrameDisagreement of Typed.Index.shape expectedActual
+  | IncompatibleShapes of
+      { originalShape : Typed.Index.shape
+      ; newShape : Typed.Index.shape
+      }
 
 module Show : sig
   val sort : Sort.t -> string
@@ -212,6 +216,10 @@ let errorMessage = function
     [%string
       "Function call has principal frame `%{Show.shape expected}`, got frame \
        `%{Show.shape actual}`"]
+  | IncompatibleShapes { originalShape; newShape } ->
+    [%string
+      "Array has shape `%{Show.shape originalShape}`, which is not compatible with \
+       wanted shape `%{Show.shape newShape}`"]
 ;;
 
 let errorType = function
@@ -245,7 +253,8 @@ let errorType = function
   | EscapingRef _
   | ArgumentTypeDisagreement _
   | CellShapeDisagreement _
-  | PrincipalFrameDisagreement _ -> `Type
+  | PrincipalFrameDisagreement _
+  | IncompatibleShapes _ -> `Type
 ;;
 
 type ('s, 't) checkResult =
@@ -613,6 +622,7 @@ module TypeCheck = struct
       |> List.map ~f:(fun b -> requireValue b.elem.body)
       |> CheckerState.all_unit
     | Let _ -> err
+    | Reshape _ -> ok ()
     | TupleLet _ -> err
     | Tuple elements ->
       elements.elem
@@ -1278,6 +1288,38 @@ module TypeCheck = struct
                  T.Scalar { element = e; type' = { element = T.atomType e; shape = [] } })
            ; type' = { element = Typed.Type.Sigma sigmaType; shape }
            })
+    | U.Reshape { newShape; value } ->
+      let valueSource = value.source in
+      let%bind newShape = SortChecker.checkAndExpectShape env newShape
+      and value = checkAndExpectArray env value in
+      let%bind oldType = checkForArrType valueSource (T.arrayType value) in
+      let newType = Typed.Type.{ element = oldType.element; shape = newShape } in
+      let oldShape = oldType.shape in
+      let verifyShapeCompatibility oldShape newShape =
+        let multiplySequentials shape =
+          let rec loop original collapsed =
+            match original with
+            | [] -> collapsed
+            | [ e ] -> e :: collapsed
+            | Typed.Index.Add { const = a; refs = aRefs }
+              :: Typed.Index.Add { const = b; refs = bRefs }
+              :: rest
+              when Map.is_empty aRefs && Map.is_empty bRefs ->
+              loop
+                (Add { const = a * b; refs = Map.empty (module Identifier) } :: rest)
+                collapsed
+            | a :: b :: rest -> loop rest (b :: a :: collapsed)
+          in
+          List.rev (loop shape [])
+        in
+        let oldShapeCollapsed = multiplySequentials oldShape
+        and newShapeCollapsed = multiplySequentials newShape in
+        CheckerState.require
+          (Typed.Index.equal_shape oldShapeCollapsed newShapeCollapsed)
+          { elem = IncompatibleShapes { originalShape = oldShape; newShape }; source }
+      in
+      let%map () = verifyShapeCompatibility oldShape newShape in
+      T.Array (T.replaceTypeOfArray value newType)
     | U.Let { param; value; body } ->
       let binding = param.elem.binding in
       let bound = param.elem.bound in

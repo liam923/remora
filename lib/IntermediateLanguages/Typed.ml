@@ -251,6 +251,21 @@ module Expr = struct
     | Array array -> Array (arrayType array)
     | Atom atom -> Atom (atomType atom)
   ;;
+
+  let replaceTypeOfArray array type' =
+    match array with
+    | Ref ref -> Ref { ref with type' = Arr type' }
+    | Scalar scalar -> Scalar { scalar with type' }
+    | Frame frame -> Frame { frame with type' }
+    | TermApplication termApplication -> TermApplication { termApplication with type' }
+    | TypeApplication typeApplication -> TypeApplication { typeApplication with type' }
+    | IndexApplication indexApplication ->
+      IndexApplication { indexApplication with type' }
+    | Unbox unbox -> Unbox { unbox with type' }
+    | Let let' -> Let { let' with type' = Arr type' }
+    | TupleLet tupleLet -> TupleLet { tupleLet with type' = Arr type' }
+    | Primitive primitive -> Primitive { primitive with type' = Arr type' }
+  ;;
 end
 
 type t = Expr.array [@@deriving sexp]

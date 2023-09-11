@@ -1513,5 +1513,115 @@ let%expect_test "check type" =
     {|
     Error: Expected an Arr type, got `@t`
     Error: Expected an Arr type, got `@t`
-    Error: Expected an Arr type, got `@t` |}]
+    Error: Expected an Arr type, got `@t` |}];
+  checkAndPrint {| (reshape [1 2 3] [[1 2 3] [4 5 6]]) |};
+  [%expect {|
+    (Array
+     (Frame
+      ((dimensions (2))
+       (elements
+        ((Frame
+          ((dimensions (3))
+           (elements
+            ((Scalar ((element (Literal (IntLiteral 1)))))
+             (Scalar ((element (Literal (IntLiteral 2)))))
+             (Scalar ((element (Literal (IntLiteral 3)))))))))
+         (Frame
+          ((dimensions (3))
+           (elements
+            ((Scalar ((element (Literal (IntLiteral 4)))))
+             (Scalar ((element (Literal (IntLiteral 5)))))
+             (Scalar ((element (Literal (IntLiteral 6))))))))))))))
+    Type:
+    (Array
+     (Arr
+      ((element (Literal IntLiteral))
+       (shape
+        ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
+         (Add ((const 3) (refs ())))))))) |}];
+  checkAndPrint {| (reshape [1 2 3] [1 2 3]) |};
+  [%expect {| Error: Array has shape `[3]`, which is not compatible with wanted shape `[1 2 3]` |}];
+  checkAndPrint {| (i-fn (l) (fn ([x [int 4 l 2 2]]) (reshape [2 2 l 4] x))) |};
+  [%expect {|
+    (Atom
+     (IndexLambda
+      ((params (((binding ((name l) (id 19))) (bound Dim))))
+       (body
+        (Scalar
+         ((element
+           (TermLambda
+            ((params
+              (((binding ((name x) (id 20)))
+                (bound
+                 (Arr
+                  ((element (Literal IntLiteral))
+                   (shape
+                    ((Add ((const 4) (refs ())))
+                     (Add ((const 0) (refs ((((name l) (id 19)) 1)))))
+                     (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))))))
+             (body (Ref ((id ((name x) (id 20)))))))))))))))
+    Type:
+    (Atom
+     (Pi
+      ((parameters (((binding ((name l) (id 19))) (bound Dim))))
+       (body
+        (Arr
+         ((element
+           (Func
+            ((parameters
+              ((Arr
+                ((element (Literal IntLiteral))
+                 (shape
+                  ((Add ((const 4) (refs ())))
+                   (Add ((const 0) (refs ((((name l) (id 19)) 1)))))
+                   (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))))
+             (return
+              (Arr
+               ((element (Literal IntLiteral))
+                (shape
+                 ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))
+                  (Add ((const 0) (refs ((((name l) (id 19)) 1)))))
+                  (Add ((const 4) (refs ())))))))))))
+          (shape ()))))))) |}];
+  checkAndPrint {| (i-fn (@l) (fn ([x [int 4 @l 2 2]]) (reshape [2 2 @l 4] x))) |};
+  [%expect {|
+    (Atom
+     (IndexLambda
+      ((params (((binding ((name @l) (id 19))) (bound Shape))))
+       (body
+        (Scalar
+         ((element
+           (TermLambda
+            ((params
+              (((binding ((name x) (id 20)))
+                (bound
+                 (Arr
+                  ((element (Literal IntLiteral))
+                   (shape
+                    ((Add ((const 4) (refs ()))) (ShapeRef ((name @l) (id 19)))
+                     (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))))))
+             (body (Ref ((id ((name x) (id 20)))))))))))))))
+    Type:
+    (Atom
+     (Pi
+      ((parameters (((binding ((name @l) (id 19))) (bound Shape))))
+       (body
+        (Arr
+         ((element
+           (Func
+            ((parameters
+              ((Arr
+                ((element (Literal IntLiteral))
+                 (shape
+                  ((Add ((const 4) (refs ()))) (ShapeRef ((name @l) (id 19)))
+                   (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))))
+             (return
+              (Arr
+               ((element (Literal IntLiteral))
+                (shape
+                 ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))
+                  (ShapeRef ((name @l) (id 19))) (Add ((const 4) (refs ())))))))))))
+          (shape ()))))))) |}];
+  checkAndPrint {| (i-fn (@l) (fn ([x [int 4 @l 2 2]]) (reshape [2 @l 4] x))) |};
+  [%expect {| Error: Array has shape `[4 @l 2 2]`, which is not compatible with wanted shape `[2 @l 4]` |}]
 ;;

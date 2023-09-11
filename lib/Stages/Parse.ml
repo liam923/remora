@@ -615,6 +615,20 @@ module Make (SB : Source.BuilderT) = struct
       in
       Source.{ elem = Expr.Tuple parsedElements; source = esexpSource tupleExpr }
     | ParenList
+        { elements = Symbol ("reshape", reshapeSource) :: components
+        ; braceSources = _, rParenSource
+        } as reshapeExpr ->
+      (match components with
+       | [ newShape; value ] ->
+         let%map newShape = parseIndex newShape
+         and value = parseExpr value in
+         Source.
+           { elem = Expr.Reshape { newShape; value }; source = esexpSource reshapeExpr }
+       | _ ->
+         MResult.err
+           ( "Bad `reshape` syntax"
+           , infixListSource components ~before:reshapeSource ~after:rParenSource ))
+    | ParenList
         { elements = Symbol ("let", letSource) :: components
         ; braceSources = _, rParenSource
         } as letExpr ->
