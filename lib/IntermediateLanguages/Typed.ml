@@ -100,8 +100,12 @@ module Expr = struct
     | Mul
     | Div
     | Equal
-    | Reduce
-    | Scan
+    | Reduce of
+        { associative : bool
+        ; explicitZero : bool
+        ; character : [ `Reduce | `Scan | `OpenScan ]
+        }
+    | Fold of { character : [ `Fold | `Trace | `OpenTrace ] }
     | Filter
     | Append
   [@@deriving compare, sexp, equal]

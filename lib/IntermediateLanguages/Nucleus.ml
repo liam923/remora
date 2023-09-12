@@ -116,20 +116,25 @@ module Expr = struct
         }
     | Reduce of
         { args : reduceArg list
+        ; zero : array option
         ; body : array
         ; t : Type.atom
-        ; dSub1 : Index.dimension
+        ; d : Index.dimension
         ; itemPad : Index.shape
         ; cellShape : Index.shape
+        ; associative : bool
+        ; character : [ `Reduce | `Scan | `OpenScan ]
         ; type' : Type.array
         }
-    | Scan of
+    | Fold of
         { args : reduceArg list
+        ; zero : array
         ; body : array
-        ; t : Type.atom
-        ; dSub1 : Index.dimension
+        ; u : Type.array
+        ; d : Index.dimension
         ; itemPad : Index.shape
         ; cellShape : Index.shape
+        ; character : [ `Fold | `Trace | `OpenTrace ]
         ; type' : Type.array
         }
     | Filter of
@@ -193,7 +198,7 @@ module Expr = struct
       (match instrinsicCall with
        | Map map -> map.type'
        | Reduce reduce -> reduce.type'
-       | Scan scan -> scan.type'
+       | Fold fold -> fold.type'
        | Filter filter -> filter.type'
        | Append append -> append.type')
   ;;

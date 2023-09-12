@@ -31,7 +31,7 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Map (frameShape ((Add ((const 3) (refs ())))))
       (args
-       (((binding ((name +arg1) (id 26)))
+       (((binding ((name +arg1) (id 31)))
          (value
           (Frame
            ((dimensions (3))
@@ -53,7 +53,7 @@ let%expect_test "check simplifying" =
         ((op Add)
          (args
           ((Ref
-            ((id ((name +arg1) (id 26)))
+            ((id ((name +arg1) (id 31)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Scalar
             ((element (Literal (IntLiteral 4)))
@@ -141,8 +141,8 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Reduce
       (args
-       (((firstBinding ((name reduceArg1) (id 28)))
-         (secondBinding ((name reduceArg2) (id 29)))
+       (((firstBinding ((name reduceArg1) (id 33)))
+         (secondBinding ((name reduceArg2) (id 34)))
          (value
           (Frame
            ((dimensions (5))
@@ -165,19 +165,21 @@ let%expect_test "check simplifying" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 5) (refs ())))))))))))))
+      (zero ())
       (body
        (PrimitiveCall
         ((op Add)
          (args
           ((Ref
-            ((id ((name reduceArg1) (id 28)))
+            ((id ((name reduceArg1) (id 33)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Ref
-            ((id ((name reduceArg2) (id 29)))
+            ((id ((name reduceArg2) (id 34)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (t (Literal IntLiteral)) (dSub1 ((const 4) (refs ()))) (itemPad ())
-      (cellShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (t (Literal IntLiteral)) (d ((const 5) (refs ()))) (itemPad ())
+      (cellShape ()) (associative true) (character Reduce)
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define (id{@t| } [x @t]) x)
@@ -220,8 +222,8 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Reduce
       (args
-       (((firstBinding ((name reduce-arg1) (id 49)))
-         (secondBinding ((name reduceArg2) (id 46)))
+       (((firstBinding ((name reduce-arg1) (id 54)))
+         (secondBinding ((name reduceArg2) (id 51)))
          (value
           (Frame
            ((dimensions (2))
@@ -235,8 +237,8 @@ let%expect_test "check simplifying" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((firstBinding ((name reduceArg1) (id 43)))
-         (secondBinding ((name reduce-arg2) (id 50)))
+        ((firstBinding ((name reduceArg1) (id 48)))
+         (secondBinding ((name reduce-arg2) (id 55)))
          (value
           (Frame
            ((dimensions (2))
@@ -250,19 +252,21 @@ let%expect_test "check simplifying" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))))
+      (zero ())
       (body
        (PrimitiveCall
         ((op Add)
          (args
           ((Ref
-            ((id ((name reduceArg1) (id 43)))
+            ((id ((name reduceArg1) (id 48)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Ref
-            ((id ((name reduceArg2) (id 46)))
+            ((id ((name reduceArg2) (id 51)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (t (Literal IntLiteral)) (dSub1 ((const 1) (refs ()))) (itemPad ())
-      (cellShape ()) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (t (Literal IntLiteral)) (d ((const 2) (refs ()))) (itemPad ())
+      (cellShape ()) (associative true) (character Reduce)
+      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define (foo [x int])
@@ -275,12 +279,12 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name y) (id 51)))
+       (((binding ((name y) (id 56)))
          (value
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg1) (id 49)))
+             (((binding ((name +arg1) (id 54)))
                (value
                 (Frame
                  ((dimensions (3))
@@ -302,7 +306,7 @@ let%expect_test "check simplifying" =
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name +arg1) (id 49)))
+                  ((id ((name +arg1) (id 54)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Scalar
                   ((element (Literal (IntLiteral 4)))
@@ -315,22 +319,22 @@ let%expect_test "check simplifying" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name hoistedExp) (id 58)))
+          (((binding ((name hoistedExp) (id 63)))
             (value
              (IntrinsicCall
               (Map (frameShape ((Add ((const 3) (refs ())))))
                (args
-                (((binding ((name +arg1) (id 53)))
+                (((binding ((name +arg1) (id 58)))
                   (value
                    (Ref
-                    ((id ((name y) (id 51)))
+                    ((id ((name y) (id 56)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))
-                 ((binding ((name +arg2) (id 55)))
+                 ((binding ((name +arg2) (id 60)))
                   (value
                    (Ref
-                    ((id ((name y) (id 51)))
+                    ((id ((name y) (id 56)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -339,10 +343,10 @@ let%expect_test "check simplifying" =
                  ((op Add)
                   (args
                    ((Ref
-                     ((id ((name +arg1) (id 53)))
+                     ((id ((name +arg1) (id 58)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))
                     (Ref
-                     ((id ((name +arg2) (id 55)))
+                     ((id ((name +arg2) (id 60)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
@@ -352,7 +356,7 @@ let%expect_test "check simplifying" =
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name x) (id 44)))
+             (((binding ((name x) (id 49)))
                (value
                 (Frame
                  ((dimensions (3))
@@ -373,10 +377,10 @@ let%expect_test "check simplifying" =
              (IntrinsicCall
               (Map (frameShape ((Add ((const 3) (refs ())))))
                (args
-                (((binding ((name +arg2) (id 57)))
+                (((binding ((name +arg2) (id 62)))
                   (value
                    (Ref
-                    ((id ((name hoistedExp) (id 58)))
+                    ((id ((name hoistedExp) (id 63)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -385,10 +389,10 @@ let%expect_test "check simplifying" =
                  ((op Add)
                   (args
                    ((Ref
-                     ((id ((name x) (id 44)))
+                     ((id ((name x) (id 49)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))
                     (Ref
-                     ((id ((name +arg2) (id 57)))
+                     ((id ((name +arg2) (id 62)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
@@ -415,12 +419,12 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name hoistedExp) (id 48)))
+       (((binding ((name hoistedExp) (id 53)))
          (value
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg1) (id 43)))
+             (((binding ((name +arg1) (id 48)))
                (value
                 (Frame
                  ((dimensions (3))
@@ -442,7 +446,7 @@ let%expect_test "check simplifying" =
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name +arg1) (id 43)))
+                  ((id ((name +arg1) (id 48)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Scalar
                   ((element (Literal (IntLiteral 4)))
@@ -455,7 +459,7 @@ let%expect_test "check simplifying" =
        (IntrinsicCall
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
-          (((binding ((name x) (id 39)))
+          (((binding ((name x) (id 44)))
             (value
              (Frame
               ((dimensions (3))
@@ -476,10 +480,10 @@ let%expect_test "check simplifying" =
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 47)))
+             (((binding ((name +arg2) (id 52)))
                (value
                 (Ref
-                 ((id ((name hoistedExp) (id 48)))
+                 ((id ((name hoistedExp) (id 53)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -488,10 +492,10 @@ let%expect_test "check simplifying" =
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name x) (id 39)))
+                  ((id ((name x) (id 44)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name +arg2) (id 47)))
+                  ((id ((name +arg2) (id 52)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
@@ -515,12 +519,12 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name y) (id 49)))
+       (((binding ((name y) (id 54)))
          (value
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg1) (id 47)))
+             (((binding ((name +arg1) (id 52)))
                (value
                 (Frame
                  ((dimensions (3))
@@ -542,7 +546,7 @@ let%expect_test "check simplifying" =
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name +arg1) (id 47)))
+                  ((id ((name +arg1) (id 52)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Scalar
                   ((element (Literal (IntLiteral 4)))
@@ -555,22 +559,22 @@ let%expect_test "check simplifying" =
        (IntrinsicCall
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
-          (((binding ((name +arg2) (id 55)))
+          (((binding ((name +arg2) (id 60)))
             (value
              (IntrinsicCall
               (Map (frameShape ((Add ((const 3) (refs ())))))
                (args
-                (((binding ((name +arg1) (id 51)))
+                (((binding ((name +arg1) (id 56)))
                   (value
                    (Ref
-                    ((id ((name y) (id 49)))
+                    ((id ((name y) (id 54)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))
-                 ((binding ((name +arg2) (id 53)))
+                 ((binding ((name +arg2) (id 58)))
                   (value
                    (Ref
-                    ((id ((name y) (id 49)))
+                    ((id ((name y) (id 54)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -579,10 +583,10 @@ let%expect_test "check simplifying" =
                  ((op Add)
                   (args
                    ((Ref
-                     ((id ((name +arg1) (id 51)))
+                     ((id ((name +arg1) (id 56)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))
                     (Ref
-                     ((id ((name +arg2) (id 53)))
+                     ((id ((name +arg2) (id 58)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
@@ -596,7 +600,7 @@ let%expect_test "check simplifying" =
                ((element (Literal (IntLiteral 5)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name +arg2) (id 55)))
+               ((id ((name +arg2) (id 60)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type'
@@ -615,7 +619,7 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Map (frameShape ((Add ((const 3) (refs ())))))
       (args
-       (((binding ((name x) (id 44)))
+       (((binding ((name x) (id 49)))
          (value
           (Frame
            ((dimensions (3))
@@ -636,12 +640,12 @@ let%expect_test "check simplifying" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name y) (id 51)))
+          (((binding ((name y) (id 56)))
             (value
              (IntrinsicCall
               (Map (frameShape ((Add ((const 3) (refs ())))))
                (args
-                (((binding ((name +arg1) (id 49)))
+                (((binding ((name +arg1) (id 54)))
                   (value
                    (Frame
                     ((dimensions (3))
@@ -663,10 +667,10 @@ let%expect_test "check simplifying" =
                  ((op Add)
                   (args
                    ((Ref
-                     ((id ((name +arg1) (id 49)))
+                     ((id ((name +arg1) (id 54)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))
                     (Ref
-                     ((id ((name x) (id 44)))
+                     ((id ((name x) (id 49)))
                       (type' ((element (Literal IntLiteral)) (shape ())))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
@@ -676,22 +680,22 @@ let%expect_test "check simplifying" =
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 57)))
+             (((binding ((name +arg2) (id 62)))
                (value
                 (IntrinsicCall
                  (Map (frameShape ((Add ((const 3) (refs ())))))
                   (args
-                   (((binding ((name +arg1) (id 53)))
+                   (((binding ((name +arg1) (id 58)))
                      (value
                       (Ref
-                       ((id ((name y) (id 51)))
+                       ((id ((name y) (id 56)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name +arg2) (id 55)))
+                    ((binding ((name +arg2) (id 60)))
                      (value
                       (Ref
-                       ((id ((name y) (id 51)))
+                       ((id ((name y) (id 56)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))))
@@ -700,10 +704,10 @@ let%expect_test "check simplifying" =
                     ((op Add)
                      (args
                       ((Ref
-                        ((id ((name +arg1) (id 53)))
+                        ((id ((name +arg1) (id 58)))
                          (type' ((element (Literal IntLiteral)) (shape ())))))
                        (Ref
-                        ((id ((name +arg2) (id 55)))
+                        ((id ((name +arg2) (id 60)))
                          (type' ((element (Literal IntLiteral)) (shape ())))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type'
@@ -714,10 +718,10 @@ let%expect_test "check simplifying" =
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name x) (id 44)))
+                  ((id ((name x) (id 49)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name +arg2) (id 57)))
+                  ((id ((name +arg2) (id 62)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
@@ -740,7 +744,7 @@ let%expect_test "check simplifying" =
     (IntrinsicCall
      (Map (frameShape ((Add ((const 3) (refs ())))))
       (args
-       (((binding ((name x) (id 40)))
+       (((binding ((name x) (id 45)))
          (value
           (Frame
            ((dimensions (3))
@@ -762,7 +766,7 @@ let%expect_test "check simplifying" =
         ((op Add)
          (args
           ((Ref
-            ((id ((name x) (id 40)))
+            ((id ((name x) (id 45)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Scalar
             ((element (Literal (IntLiteral 14)))
@@ -824,7 +828,7 @@ let%expect_test "check simplifying" =
         (IntrinsicCall
          (Map (frameShape ((Add ((const 2) (refs ())))))
           (args
-           (((binding ((name +arg1) (id 27)))
+           (((binding ((name +arg1) (id 32)))
              (value
               (Frame
                ((dimensions (2))
@@ -838,7 +842,7 @@ let%expect_test "check simplifying" =
                 (type'
                  ((element (Literal IntLiteral))
                   (shape ((Add ((const 2) (refs ())))))))))))
-            ((binding ((name +arg2) (id 29)))
+            ((binding ((name +arg2) (id 34)))
              (value
               (Frame
                ((dimensions (2))
@@ -857,10 +861,10 @@ let%expect_test "check simplifying" =
             ((op Add)
              (args
               ((Ref
-                ((id ((name +arg1) (id 27)))
+                ((id ((name +arg1) (id 32)))
                  (type' ((element (Literal IntLiteral)) (shape ())))))
                (Ref
-                ((id ((name +arg2) (id 29)))
+                ((id ((name +arg2) (id 34)))
                  (type' ((element (Literal IntLiteral)) (shape ())))))))
              (type' ((element (Literal IntLiteral)) (shape ()))))))
           (type'
@@ -884,50 +888,6 @@ let%expect_test "check simplifying" =
        ((dimensions (2 3))
         (elements
          ((IntrinsicCall
-           (Map (frameShape ((Add ((const 2) (refs ())))))
-            (args
-             (((binding ((name +arg1) (id 37)))
-               (value
-                (Frame
-                 ((dimensions (2))
-                  (elements
-                   ((Scalar
-                     ((element (Literal (IntLiteral 1)))
-                      (type' ((element (Literal IntLiteral)) (shape ())))))
-                    (Scalar
-                     ((element (Literal (IntLiteral 2)))
-                      (type' ((element (Literal IntLiteral)) (shape ())))))))
-                  (type'
-                   ((element (Literal IntLiteral))
-                    (shape ((Add ((const 2) (refs ())))))))))))
-              ((binding ((name +arg2) (id 39)))
-               (value
-                (Frame
-                 ((dimensions (2))
-                  (elements
-                   ((Scalar
-                     ((element (Literal (IntLiteral 3)))
-                      (type' ((element (Literal IntLiteral)) (shape ())))))
-                    (Scalar
-                     ((element (Literal (IntLiteral 4)))
-                      (type' ((element (Literal IntLiteral)) (shape ())))))))
-                  (type'
-                   ((element (Literal IntLiteral))
-                    (shape ((Add ((const 2) (refs ())))))))))))))
-            (body
-             (PrimitiveCall
-              ((op Add)
-               (args
-                ((Ref
-                  ((id ((name +arg1) (id 37)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))
-                 (Ref
-                  ((id ((name +arg2) (id 39)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-               (type' ((element (Literal IntLiteral)) (shape ()))))))
-            (type'
-             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
-          (IntrinsicCall
            (Map (frameShape ((Add ((const 2) (refs ())))))
             (args
              (((binding ((name +arg1) (id 42)))
@@ -1011,6 +971,50 @@ let%expect_test "check simplifying" =
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
                   ((id ((name +arg2) (id 49)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type'
+             ((element (Literal IntLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+          (IntrinsicCall
+           (Map (frameShape ((Add ((const 2) (refs ())))))
+            (args
+             (((binding ((name +arg1) (id 52)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 1)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 2)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))
+              ((binding ((name +arg2) (id 54)))
+               (value
+                (Frame
+                 ((dimensions (2))
+                  (elements
+                   ((Scalar
+                     ((element (Literal (IntLiteral 3)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))
+                    (Scalar
+                     ((element (Literal (IntLiteral 4)))
+                      (type' ((element (Literal IntLiteral)) (shape ())))))))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape ((Add ((const 2) (refs ())))))))))))))
+            (body
+             (PrimitiveCall
+              ((op Add)
+               (args
+                ((Ref
+                  ((id ((name +arg1) (id 52)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))
+                 (Ref
+                  ((id ((name +arg2) (id 54)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
@@ -1178,7 +1182,7 @@ let%expect_test "check simplifying" =
         (IntrinsicCall
          (Map (frameShape ((Add ((const 2) (refs ())))))
           (args
-           (((binding ((name +arg1) (id 26)))
+           (((binding ((name +arg1) (id 31)))
              (value
               (Frame
                ((dimensions (2))
@@ -1197,7 +1201,7 @@ let%expect_test "check simplifying" =
             ((op Add)
              (args
               ((Ref
-                ((id ((name +arg1) (id 26)))
+                ((id ((name +arg1) (id 31)))
                  (type' ((element (Literal IntLiteral)) (shape ())))))
                (Scalar
                 ((element (Literal (IntLiteral 1)))
@@ -1239,7 +1243,7 @@ let%expect_test "check simplifying" =
         (IntrinsicCall
          (Map (frameShape ((Add ((const 2) (refs ())))))
           (args
-           (((binding ((name +arg1) (id 30)))
+           (((binding ((name +arg1) (id 35)))
              (value
               (Frame
                ((dimensions (2))
@@ -1258,7 +1262,7 @@ let%expect_test "check simplifying" =
             ((op Add)
              (args
               ((Ref
-                ((id ((name +arg1) (id 30)))
+                ((id ((name +arg1) (id 35)))
                  (type' ((element (Literal IntLiteral)) (shape ())))))
                (Scalar
                 ((element (Literal (IntLiteral 1)))

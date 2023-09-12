@@ -549,173 +549,198 @@ and inlineTermApplication subs appStack termApplication =
                   [ "filter expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
-     | Reduce ->
-       assert (List.length args = 2);
+     | Reduce { associative; explicitZero; character } ->
        (match primitive.appStack with
-        | [ IndexApp [ Dimension dSub1; Shape itemPad; Shape cellShape ]
-          ; TypeApp [ Atom t ]
-          ] ->
-          (match args with
-           | [ f; arrayArg ] ->
-             let%bind _, functions = inlineArray subs [] (Ref f) in
-             let%bind func =
-               match functions with
-               | Empty ->
-                 raise
-                   (Unreachable.Error
-                      "func of reduce should've returned at least one function")
-               | One f -> return f
-               | Multiple ->
-                 InlineState.err
-                   (String.concat_lines
-                      [ "Could not determine what function is being passed to reduce:"
-                      ; [%sexp_of: E.termApplication] termApplication
-                        |> Sexp.to_string_hum
-                      ])
-             in
-             let%bind fArg1 = InlineState.createId "reduceArg1"
-             and fArg2 = InlineState.createId "reduceArg2" in
-             let body =
-               E.TermApplication
-                 { func = Function.toExplicit func
-                 ; args =
-                     [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
-                     ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
-                     ]
-                 ; type' = { element = t; shape = cellShape }
-                 }
-             in
-             let%bind body, bindings, functions =
-               inlineBodyWithBindings
-                 subs
-                 appStack
-                 body
-                 [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
-             in
-             (* Since fArg1 and fArg2 both come from arrayArg, they need to have
-                the same set of monomorphizations, so we need to merge together
-                their cache entries *)
-             let appStacksToMonoValue =
-               bindings
-               |> List.bind ~f:(fun map ->
-                 map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
-               |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
-             in
-             let bindings1, bindings2 =
-               match bindings with
-               | [ bindings1; bindings2 ] -> bindings1, bindings2
-               | _ -> raise (Unreachable.Error "bindings should have len 2")
-             in
-             let%map args =
-               appStacksToMonoValue
-               |> Map.to_alist
-               |> List.map ~f:(fun (appStack, monoValue) ->
-                 let getBindingFrom argBindings argName =
-                   match Map.find argBindings appStack with
-                   | Some (binding, _) -> return binding
-                   | None -> InlineState.createId argName
-                 in
-                 let%map firstBinding = getBindingFrom bindings1 "reduce-arg1"
-                 and secondBinding = getBindingFrom bindings2 "reduce-arg2" in
-                 I.{ firstBinding; secondBinding; value = monoValue })
-               |> InlineState.all
-             in
-             let type' = inlineArrayTypeWithStack appStack (Arr type') in
-             ( I.IntrinsicCall
-                 (Reduce
-                    { args; body; t = type'.element; dSub1; itemPad; cellShape; type' })
-             , functions )
-           | _ -> raise (Unreachable.Error "Reduce expected two arguments"))
-        | _ ->
-          raise
-            (Unreachable.Error
-               (String.concat_lines
-                  [ "reduce expected a stack of [IndexApp; TypeApp], got"
-                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
-                  ])))
-     | Scan ->
-       assert (List.length args = 2);
+        | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]; TypeApp [ Atom t ] ]
+          ->
+          (* If there is no explicit zero, the index argument for d is
+             actually d-1 *)
+          let d = if explicitZero then d else { const = d.const + 1; refs = d.refs } in
+          (* Extract the arguments to the function. Note that the arguments
+             differ depending on explicitZero *)
+          let f, zero, arrayArg =
+            if explicitZero
+            then (
+              match args with
+              | [ f; zero; arrayArg ] -> f, Some zero, arrayArg
+              | _ ->
+                raise
+                  (Unreachable.Error "Reduce with explicit zero expected three arguments"))
+            else (
+              match args with
+              | [ f; arrayArg ] -> f, None, arrayArg
+              | _ ->
+                raise
+                  (Unreachable.Error "Reduce with explicit zero expected two arguments"))
+          in
+          let%bind _, functions = inlineArray subs [] (Ref f) in
+          let%bind func =
+            match functions with
+            | Empty ->
+              raise
+                (Unreachable.Error
+                   "func of reduce should've returned at least one function")
+            | One f -> return f
+            | Multiple ->
+              InlineState.err
+                (String.concat_lines
+                   [ "Could not determine what function is being passed to reduce:"
+                   ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
+                   ])
+          in
+          let%bind fArg1 = InlineState.createId "reduceArg1"
+          and fArg2 = InlineState.createId "reduceArg2" in
+          let body =
+            E.TermApplication
+              { func = Function.toExplicit func
+              ; args =
+                  [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
+                  ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
+                  ]
+              ; type' = { element = t; shape = cellShape }
+              }
+          in
+          let%bind body, bindings, functions =
+            inlineBodyWithBindings
+              subs
+              appStack
+              body
+              [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
+          in
+          (* Since fArg1 and fArg2 both come from arrayArg, they need to have
+             the same set of monomorphizations, so we need to merge together
+             their cache entries *)
+          let appStacksToMonoValue =
+            bindings
+            |> List.bind ~f:(fun map ->
+              map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
+            |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
+          in
+          let bindings1, bindings2 =
+            match bindings with
+            | [ bindings1; bindings2 ] -> bindings1, bindings2
+            | _ -> raise (Unreachable.Error "bindings should have len 2")
+          in
+          let%bind args =
+            appStacksToMonoValue
+            |> Map.to_alist
+            |> List.map ~f:(fun (appStack, monoValue) ->
+              let getBindingFrom argBindings argName =
+                match Map.find argBindings appStack with
+                | Some (binding, _) -> return binding
+                | None -> InlineState.createId argName
+              in
+              let%map firstBinding = getBindingFrom bindings1 "reduce-arg1"
+              and secondBinding = getBindingFrom bindings2 "reduce-arg2" in
+              I.{ firstBinding; secondBinding; value = monoValue })
+            |> InlineState.all
+          in
+          let type' = inlineArrayTypeWithStack appStack (Arr type') in
+          let%map zero =
+            match zero with
+            | Some zero ->
+              let%map zero, _ = inlineArray subs [] (Ref zero) in
+              Some zero
+            | None -> return None
+          in
+          ( I.IntrinsicCall
+              (Reduce
+                 { args
+                 ; body
+                 ; zero
+                 ; t = (Nucleus.Expr.arrayType body).element
+                 ; d
+                 ; itemPad
+                 ; cellShape
+                 ; associative
+                 ; character
+                 ; type'
+                 })
+          , functions )
+        | _ -> raise Unimplemented.default)
+     | Fold { character } ->
        (match primitive.appStack with
-        | [ IndexApp [ Dimension dSub1; Shape itemPad; Shape cellShape ]
-          ; TypeApp [ Atom t ]
+        | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]
+          ; TypeApp [ Atom t; Array _ ]
           ] ->
-          (match args with
-           | [ f; arrayArg ] ->
-             let%bind _, functions = inlineArray subs [] (Ref f) in
-             let%bind func =
-               match functions with
-               | Empty ->
-                 raise
-                   (Unreachable.Error
-                      "func of scan should've returned at least one function")
-               | One f -> return f
-               | Multiple ->
-                 InlineState.err
-                   (String.concat_lines
-                      [ "Could not determine what function is being passed to scan:"
-                      ; [%sexp_of: E.termApplication] termApplication
-                        |> Sexp.to_string_hum
-                      ])
-             in
-             let%bind fArg1 = InlineState.createId "scan-arg1"
-             and fArg2 = InlineState.createId "scan-arg2" in
-             let body =
-               E.TermApplication
-                 { func = Function.toExplicit func
-                 ; args =
-                     [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
-                     ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
-                     ]
-                 ; type' = { element = t; shape = cellShape }
-                 }
-             in
-             let%bind body, bindings, functions =
-               inlineBodyWithBindings
-                 subs
-                 appStack
-                 body
-                 [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
-             in
-             (* Since fArg1 and fArg2 both come from arrayArg, they need to have
-                the same set of monomorphizations, so we need to merge together
-                their cache entries *)
-             let appStacksToMonoValue =
-               bindings
-               |> List.bind ~f:(fun map ->
-                 map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
-               |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
-             in
-             let bindings1, bindings2 =
-               match bindings with
-               | [ bindings1; bindings2 ] -> bindings1, bindings2
-               | _ -> raise (Unreachable.Error "bindings should have len 2")
-             in
-             let%map args =
-               appStacksToMonoValue
-               |> Map.to_alist
-               |> List.map ~f:(fun (appStack, monoValue) ->
-                 let getBindingFrom argBindings argName =
-                   match Map.find argBindings appStack with
-                   | Some (binding, _) -> return binding
-                   | None -> InlineState.createId argName
-                 in
-                 let%map firstBinding = getBindingFrom bindings1 "scan-arg1"
-                 and secondBinding = getBindingFrom bindings2 "scan-arg2" in
-                 I.{ firstBinding; secondBinding; value = monoValue })
-               |> InlineState.all
-             in
-             let type' = inlineArrayTypeWithStack appStack (Arr type') in
-             ( I.IntrinsicCall
-                 (Scan { args; body; t = type'.element; dSub1; itemPad; cellShape; type' })
-             , functions )
-           | _ -> raise (Unreachable.Error "Scan expected two arguments"))
-        | _ ->
-          raise
-            (Unreachable.Error
-               (String.concat_lines
-                  [ "scan expected a stack of [IndexApp; TypeApp], got"
-                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
-                  ]))))
+          (* Extract the arguments to the function. Note that the arguments
+             differ depending on explicitZero *)
+          let f, zero, arrayArg =
+            match args with
+            | [ f; zero; arrayArg ] -> f, zero, arrayArg
+            | _ ->
+              raise
+                (Unreachable.Error "Reduce with explicit zero expected three arguments")
+          in
+          let%bind _, functions = inlineArray subs [] (Ref f) in
+          let%bind func =
+            match functions with
+            | Empty ->
+              raise
+                (Unreachable.Error
+                   "func of reduce should've returned at least one function")
+            | One f -> return f
+            | Multiple ->
+              InlineState.err
+                (String.concat_lines
+                   [ "Could not determine what function is being passed to reduce:"
+                   ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
+                   ])
+          in
+          let%bind fArg1 = InlineState.createId "reduceArg1"
+          and fArg2 = InlineState.createId "reduceArg2" in
+          let body =
+            E.TermApplication
+              { func = Function.toExplicit func
+              ; args =
+                  [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
+                  ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
+                  ]
+              ; type' = { element = t; shape = cellShape }
+              }
+          in
+          let%bind body, bindings, functions =
+            inlineBodyWithBindings
+              subs
+              appStack
+              body
+              [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
+          in
+          (* Since fArg1 and fArg2 both come from arrayArg, they need to have
+             the same set of monomorphizations, so we need to merge together
+             their cache entries *)
+          let appStacksToMonoValue =
+            bindings
+            |> List.bind ~f:(fun map ->
+              map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
+            |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
+          in
+          let bindings1, bindings2 =
+            match bindings with
+            | [ bindings1; bindings2 ] -> bindings1, bindings2
+            | _ -> raise (Unreachable.Error "bindings should have len 2")
+          in
+          let%bind args =
+            appStacksToMonoValue
+            |> Map.to_alist
+            |> List.map ~f:(fun (appStack, monoValue) ->
+              let getBindingFrom argBindings argName =
+                match Map.find argBindings appStack with
+                | Some (binding, _) -> return binding
+                | None -> InlineState.createId argName
+              in
+              let%map firstBinding = getBindingFrom bindings1 "reduce-arg1"
+              and secondBinding = getBindingFrom bindings2 "reduce-arg2" in
+              I.{ firstBinding; secondBinding; value = monoValue })
+            |> InlineState.all
+          in
+          let type' = inlineArrayTypeWithStack appStack (Arr type') in
+          let%map zero, _ = inlineArray subs [] (Ref zero) in
+          ( I.IntrinsicCall
+              (Fold
+                 { args; body; zero; u = type'; d; itemPad; cellShape; character; type' })
+          , functions )
+        | _ -> raise Unimplemented.default))
 
 (* Handle cases where there values bound to variables and then used in some
    body of code *)
