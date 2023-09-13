@@ -177,9 +177,8 @@ let%expect_test "check simplifying" =
             ((id ((name reduceArg2) (id 34)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (t (Literal IntLiteral)) (d ((const 5) (refs ()))) (itemPad ())
-      (cellShape ()) (associative true) (character Reduce)
-      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (d ((const 5) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
+      (character Reduce) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define (id{@t| } [x @t]) x)
@@ -264,9 +263,8 @@ let%expect_test "check simplifying" =
             ((id ((name reduceArg2) (id 51)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (t (Literal IntLiteral)) (d ((const 2) (refs ()))) (itemPad ())
-      (cellShape ()) (associative true) (character Reduce)
-      (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
+      (d ((const 2) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
+      (character Reduce) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define (foo [x int])

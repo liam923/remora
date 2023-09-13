@@ -118,7 +118,6 @@ module Expr = struct
         { args : reduceArg list
         ; zero : array option
         ; body : array
-        ; t : Type.atom
         ; d : Index.dimension
         ; itemPad : Index.shape
         ; cellShape : Index.shape
@@ -130,7 +129,6 @@ module Expr = struct
         { args : reduceArg list
         ; zero : array
         ; body : array
-        ; u : Type.array
         ; d : Index.dimension
         ; itemPad : Index.shape
         ; cellShape : Index.shape
@@ -140,7 +138,6 @@ module Expr = struct
     | Filter of
         { array : array
         ; flags : array
-        ; t : Type.atom
         ; d : Index.dimension
         ; cellShape : Index.shape
         ; type' : Type.array
@@ -148,7 +145,6 @@ module Expr = struct
     | Append of
         { arg1 : array
         ; arg2 : array
-        ; t : Type.atom
         ; d1 : Index.dimension
         ; d2 : Index.dimension
         ; cellShape : Index.shape

@@ -124,24 +124,6 @@ module InlineState = struct
   let err error = returnF (MResult.Errors (error :: []))
 end
 
-let rec inlineAtomType : Typed.Type.atom -> Nucleus.Type.atom = function
-  | AtomRef _ ->
-    raise (Unreachable.Error "There should be no type refs left after inlining")
-  | Sigma { parameters; body } -> Sigma { parameters; body = inlineArrayType body }
-  | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
-  | Literal CharacterLiteral -> Literal CharacterLiteral
-  | Literal IntLiteral -> Literal IntLiteral
-  | Literal BooleanLiteral -> Literal BooleanLiteral
-  | Func _ -> Literal UnitLiteral
-  | Forall _ -> Literal UnitLiteral
-  | Pi _ -> Literal UnitLiteral
-
-and inlineArrayType : Typed.Type.array -> Nucleus.Type.array = function
-  | ArrayRef _ ->
-    raise (Unreachable.Error "There should be no type refs left after inlining")
-  | Arr { element; shape } -> { element = inlineAtomType element; shape }
-;;
-
 let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
   = function
   | AtomRef _ ->
@@ -504,7 +486,7 @@ and inlineTermApplication subs appStack termApplication =
      | Append ->
        assert (List.length args = 2);
        (match primitive.appStack with
-        | [ IndexApp [ Dimension d1; Dimension d2; Shape cellShape ]; TypeApp [ Atom t ] ]
+        | [ IndexApp [ Dimension d1; Dimension d2; Shape cellShape ]; TypeApp [ Atom _ ] ]
           ->
           let%map arg1, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
           and arg2, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
@@ -512,7 +494,6 @@ and inlineTermApplication subs appStack termApplication =
               (Append
                  { arg1
                  ; arg2
-                 ; t = inlineAtomType t
                  ; d1
                  ; d2
                  ; cellShape
@@ -529,14 +510,13 @@ and inlineTermApplication subs appStack termApplication =
      | Filter ->
        assert (List.length args = 2);
        (match primitive.appStack with
-        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
+        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom _ ] ] ->
           let%map array, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
           and flags, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
           ( I.IntrinsicCall
               (Filter
                  { array
                  ; flags
-                 ; t = inlineAtomType t
                  ; d
                  ; cellShape
                  ; type' = inlineArrayTypeWithStack appStack (Arr type')
@@ -648,7 +628,6 @@ and inlineTermApplication subs appStack termApplication =
                  { args
                  ; body
                  ; zero
-                 ; t = (Nucleus.Expr.arrayType body).element
                  ; d
                  ; itemPad
                  ; cellShape
@@ -737,8 +716,7 @@ and inlineTermApplication subs appStack termApplication =
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
           let%map zero, _ = inlineArray subs [] (Ref zero) in
           ( I.IntrinsicCall
-              (Fold
-                 { args; body; zero; u = type'; d; itemPad; cellShape; character; type' })
+              (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
           , functions )
         | _ -> raise Unimplemented.default))
 

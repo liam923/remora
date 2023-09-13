@@ -372,9 +372,8 @@ let%expect_test "check inlining" =
                ((id ((name reduceArg2) (id 34)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (t (Literal IntLiteral)) (d ((const 5) (refs ()))) (itemPad ())
-         (cellShape ()) (associative true) (character Reduce)
-         (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (d ((const 5) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
+         (character Reduce) (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| ([+ -] 1 2) |};
   [%expect
@@ -624,9 +623,8 @@ let%expect_test "check inlining" =
               ((id ((name sum) (id 53)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (t (Literal IntLiteral)) (d ((const 2) (refs ()))) (itemPad ())
-         (cellShape ()) (associative true) (character Reduce)
-         (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (d ((const 2) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
+         (character Reduce) (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {| (reduce{int | 2 [] []} [+ -] [1 2 3]) |};
   [%expect
@@ -709,8 +707,8 @@ let%expect_test "check inlining" =
                ((id ((name reduceArg2) (id 34)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
-         (t (Literal IntLiteral)) (d ((const 3) (refs ()))) (itemPad ())
-         (cellShape ()) (associative true) (character Scan)
+         (d ((const 3) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
+         (character Scan)
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))))
       (type'
@@ -775,7 +773,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal BooleanLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))
-         (t (Literal IntLiteral)) (d ((const 3) (refs ()))) (cellShape ())
+         (d ((const 3) (refs ()))) (cellShape ())
          (type'
           ((element
             (Sigma
@@ -849,8 +847,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ()))))))))))
-         (t (Literal IntLiteral)) (d1 ((const 3) (refs ())))
-         (d2 ((const 2) (refs ()))) (cellShape ())
+         (d1 ((const 3) (refs ()))) (d2 ((const 2) (refs ()))) (cellShape ())
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))))
       (type'
