@@ -138,6 +138,9 @@ let getCounts =
     | IntrinsicCall (Iota { s = _; type' = _ }) -> Counts.empty
     | IntrinsicCall (Index { arrayArg; indexArg; s = _; cellShape = _; l = _; type' = _ })
       -> Counts.merge [ getCountsArray arrayArg; getCountsArray indexArg ]
+    | IntrinsicCall
+        (Scatter { valuesArg; indicesArg; dIn = _; dOut = _; cellShape = _; type' = _ })
+      -> Counts.merge [ getCountsArray valuesArg; getCountsArray indicesArg ]
   and getCountsAtom : Expr.atom -> Counts.t = function
     | Literal (IntLiteral _) -> Counts.empty
     | Literal (CharacterLiteral _) -> Counts.empty
@@ -200,6 +203,10 @@ let rec subArray subs : Expr.array -> Expr.array = function
     let arrayArg = subArray subs arrayArg
     and indexArg = subArray subs indexArg in
     IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
+  | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+    let valuesArg = subArray subs valuesArg
+    and indicesArg = subArray subs indicesArg in
+    Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
 
 and subAtom subs : Expr.atom -> Expr.atom = function
   | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit -> lit
@@ -460,6 +467,10 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     let arrayArg = optimizeArray arrayArg
     and indexArg = optimizeArray indexArg in
     Expr.IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
+  | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+    let valuesArg = optimizeArray valuesArg
+    and indicesArg = optimizeArray indicesArg in
+    Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
 
 and optimizeAtom : Expr.atom -> Expr.atom = function
   | Box { indices; body; bodyType; type' } ->
@@ -596,6 +607,11 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     and indexArg, indexHoistings = hoistDeclarationsInArray indexArg in
     ( Expr.IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
     , arrayHoistings @ indexHoistings )
+  | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+    let valuesArg, valuesHoistings = hoistDeclarationsInArray valuesArg
+    and indicesArg, indicesHoistings = hoistDeclarationsInArray indicesArg in
+    ( Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
+    , valuesHoistings @ indicesHoistings )
 
 and hoistDeclarationsInAtom : Expr.atom -> Expr.atom * hoisting list = function
   | Box { indices; body; bodyType; type' } ->
@@ -799,7 +815,12 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       let%map arrayArg, arrayHoistings = hoistExpressionsInArray loopBarrier arrayArg
       and indexArg, indexHoistings = hoistExpressionsInArray loopBarrier indexArg in
       ( Expr.IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
-      , arrayHoistings @ indexHoistings ))
+      , arrayHoistings @ indexHoistings )
+    | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+      let%map valuesArg, valuesHoistings = hoistExpressionsInArray loopBarrier valuesArg
+      and indicesArg, indicesHoistings = hoistExpressionsInArray loopBarrier indicesArg in
+      ( Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
+      , valuesHoistings @ indicesHoistings ))
 
 and hoistExpressionsInAtom loopBarrier
   : Expr.atom -> (Expr.atom * hoisting list, _) HoistState.u

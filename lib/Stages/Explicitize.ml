@@ -45,7 +45,8 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Reduce _ -> [ "reduce-arg1"; "reduce-arg2" ]
           | Fold _ -> [ "fold-arg1"; "fold-arg2" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
-          | Index -> [ "index-array"; "index-index" ])
+          | Index -> [ "index-array"; "index-index" ]
+          | Scatter -> [ "scatter-values"; "scatter-indices" ])
      | Val _ -> None)
 
 and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function

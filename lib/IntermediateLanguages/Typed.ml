@@ -108,6 +108,7 @@ module Expr = struct
     | Fold of { character : [ `Fold | `Trace | `OpenTrace ] }
     | Append
     | Index
+    | Scatter
   [@@deriving compare, sexp, equal]
 
   type primitiveValName = Iota [@@deriving compare, sexp, equal]

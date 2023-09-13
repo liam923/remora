@@ -733,6 +733,31 @@ and inlineTermApplication subs appStack termApplication =
                (String.concat_lines
                   [ "index expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
+     | Scatter ->
+       assert (List.length args = 2);
+       (match primitive.appStack with
+        | [ IndexApp [ Dimension dIn; Dimension dOut; Shape cellShape ]
+          ; TypeApp [ Atom _ ]
+          ] ->
+          let%map valuesArg, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
+          and indicesArg, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          ( I.IntrinsicCall
+              (Scatter
+                 { valuesArg
+                 ; indicesArg
+                 ; dIn
+                 ; dOut
+                 ; cellShape
+                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 })
+          , FunctionSet.Empty )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "scatter expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ]))))
 
 (* Handle cases where there are values bound to variables and then used in some

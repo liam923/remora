@@ -10,12 +10,13 @@ Minimal basis:
  - scan
  - fold
  - trace
- - filter? - can be implemented in terms of scan and index
+ - filter? - can be implemented in terms of scan and scatter
  - reshape
  - append
  - iota
  - index
  - reify-index - given a Dim index, returns that int. replaces length
+ - scatter
  - subarray?
  - rotate?
  - transpose?
@@ -39,15 +40,25 @@ Minimal basis:
   (reify-dimension d))
 
 (define (filter{t | d @cell-shape}
-          [array [t d @cell-shape]
-          [flags [int d @cell-shape]])
+          [array [t d @cell-shape]]
+          [flags [int d]])
   : (Sigma (d-out) [t d-out @cell-shape])
-  (define total-keep (reduce-zero{int | d [] @cell-shape} + 0 flags))
-  (define new-index (scan-zero{int | d [] @cell-shape} + 0 flags))
-  ...)
+  ; Since there are no if statements yet, can't use bool for flags
+  (define total-keep (reduce-zero{int | d [] []} + 0 flags))
+  (define new-indices (scan-zero{int | d [] []} + 0 flags))
+  (define flags-as-multipliers (- (* flags 2) 1)) ; 1 if true, -1 if false
+  (define scatter-indices (* flags-as-multipliers new-indices))
+  (lift ([d-out total-keep])
+    (scatter{t | d d-out @cell-shape} array scatter-indices)))
 
 (define (append{t | d1 d2 @cell-shape}
           [a [t d1 @cell-shape]]
           [b [t d2 @cell-shape]])
   : [t (+ d1 d2) @cell-shape]
+  ...)
+
+(define (scatter{t | d-in d-out @cell-shape}
+          [values [t d-in @cell-shape]]
+          [indices [int d-in]])
+  : [t [d-out @cell-shape]]
   ...)

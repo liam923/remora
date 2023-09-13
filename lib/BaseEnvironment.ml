@@ -113,6 +113,32 @@ module Stdlib : S = struct
                 |}
             }
       }
+    ; { name = "reduce-zero"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = true
+                             ; character = `Reduce
+                             })
+                    ; type'
+                    })
+            ; type' =
+                {|
+                (Pi (d @item-pad @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                         [t @cell-shape]
+                         [t d @item-pad @cell-shape])
+                        [t @item-pad @cell-shape])))
+                |}
+            }
+      }
     ; { name = "scan"
       ; value =
           Intrinsic
@@ -135,6 +161,32 @@ module Stdlib : S = struct
                     (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
                          [t (+ d-1 1) @item-pad @cell-shape])
                         [t (+ d-1 1) @item-pad @cell-shape])))
+                |}
+            }
+      }
+    ; { name = "scan-zero"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = true
+                             ; character = `Scan
+                             })
+                    ; type'
+                    })
+            ; type' =
+                {|
+                (Pi (d @item-pad @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                         [t @cell-shape]
+                         [t d @item-pad @cell-shape])
+                        [t d @item-pad @cell-shape])))
                 |}
             }
       }
@@ -183,9 +235,24 @@ module Stdlib : S = struct
                 {|
                 (Pi (@s @cell-shape l)
                   (Forall (t)
-                    (-> ([t @s @cell-shape] [int l])
+                    (-> ([t @s @cell-shape]
+                         [int l])
                         [t @cell-shape])))
                 |}
+            }
+      }
+    ; { name = "scatter"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Scatter; type' })
+            ; type' =
+                {|
+                  (Pi (d-in d-out @cell-shape)
+                    (Forall (t)
+                      (-> ([t d-in @cell-shape]
+                           [int d-in])
+                          [t [d-out @cell-shape]])))
+                  |}
             }
       }
     ]

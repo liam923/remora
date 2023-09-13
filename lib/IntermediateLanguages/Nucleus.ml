@@ -155,6 +155,14 @@ module Expr = struct
         ; l : Index.dimension
         ; type' : Type.array
         }
+    | Scatter of
+        { valuesArg : array
+        ; indicesArg : array
+        ; dIn : Index.dimension
+        ; dOut : Index.dimension
+        ; cellShape : Index.shape
+        ; type' : Type.array
+        }
 
   and literal =
     | IntLiteral of int
@@ -202,7 +210,8 @@ module Expr = struct
        | Fold fold -> fold.type'
        | Append append -> append.type'
        | Iota iota -> iota.type'
-       | Index index -> index.type')
+       | Index index -> index.type'
+       | Scatter scatter -> scatter.type')
   ;;
 end
 
