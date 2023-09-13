@@ -10,16 +10,17 @@ Minimal basis:
  - scan
  - fold
  - trace
- - filter? - can be implemented in terms of scan and scatter
  - reshape
  - append
  - iota
  - index
- - reify-index - given a Dim index, returns that int. replaces length
+ - reify-index
  - scatter
  - subarray?
  - rotate?
  - transpose?
+ - reverse?
+ - replicate?
 |#
 
 (define (reduce{t | d-1 @item-pad @cell-shape}

@@ -9,6 +9,7 @@ Remora was designed as the [PhD thesis of Justin Slepak](https://ccs.neu.edu/~jr
 This project, which is currently in-progress, aims to compile Remora code into efficient CUDA C code for GPU execution.
 
 An interim report is available in this repository at [./interim-report.pdf](./interim-report.pdf).
+This report describes in detail what has been done so far (at the time of writing it) for the project, as well as what the next steps are.
 
 ## Usage
 
