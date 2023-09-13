@@ -94,7 +94,7 @@ module Expr = struct
     }
   [@@deriving sexp, compare, equal]
 
-  type primitiveName =
+  type primitiveFuncName =
     | Add
     | Sub
     | Mul
@@ -108,6 +108,14 @@ module Expr = struct
     | Fold of { character : [ `Fold | `Trace | `OpenTrace ] }
     | Filter
     | Append
+    | Index
+  [@@deriving compare, sexp, equal]
+
+  type primitiveValName = Iota [@@deriving compare, sexp, equal]
+
+  type primitiveName =
+    | Func of primitiveFuncName
+    | Val of primitiveValName
   [@@deriving compare, sexp, equal]
 
   type scalar =
@@ -197,7 +205,7 @@ module Expr = struct
     }
 
   and primitive =
-    { func : primitiveName
+    { name : primitiveName
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
@@ -686,8 +694,8 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; type' = Type.subTypesIntoArray types type'
           }
-      | Primitive { func; type' } ->
-        Primitive { func; type' = Type.subTypesIntoArray types type' }
+      | Primitive { name; type' } ->
+        Primitive { name; type' = Type.subTypesIntoArray types type' }
 
     and subTypesIntoAtom types = function
       | TermLambda lambda -> TermLambda (subTypesIntoTermLambda types lambda)
@@ -788,8 +796,8 @@ module Substitute = struct
           ; body = subIndicesIntoArray indices body
           ; type' = Type.subIndicesIntoArray indices type'
           }
-      | Primitive { func; type' } ->
-        Primitive { func; type' = Type.subIndicesIntoArray indices type' }
+      | Primitive { name; type' } ->
+        Primitive { name; type' = Type.subIndicesIntoArray indices type' }
 
     and subIndicesIntoAtom indices = function
       | TermLambda lambda -> TermLambda (subIndicesIntoTermLambda indices lambda)

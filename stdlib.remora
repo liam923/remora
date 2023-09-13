@@ -9,6 +9,7 @@ Minimal basis:
  - reduce
  - scan
  - fold
+ - trace
  - filter
  - reshape
  - append

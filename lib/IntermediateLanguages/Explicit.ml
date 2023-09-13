@@ -219,8 +219,8 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; type' = Type.subTypesIntoArray types type'
           }
-      | Primitive { func; type' } ->
-        Primitive { func; type' = Type.subTypesIntoArray types type' }
+      | Primitive { name; type' } ->
+        Primitive { name; type' = Type.subTypesIntoArray types type' }
       | Map { args; body; frameShape; type' } ->
         Map
           { args =
@@ -326,8 +326,8 @@ module Substitute = struct
           ; body = subIndicesIntoArray indices body
           ; type' = Type.subIndicesIntoArray indices type'
           }
-      | Primitive { func; type' } ->
-        Primitive { func; type' = Type.subIndicesIntoArray indices type' }
+      | Primitive { name; type' } ->
+        Primitive { name; type' = Type.subIndicesIntoArray indices type' }
       | Map { args; body; frameShape; type' } ->
         Map
           { args =

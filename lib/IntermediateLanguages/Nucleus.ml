@@ -150,6 +150,18 @@ module Expr = struct
         ; cellShape : Index.shape
         ; type' : Type.array
         }
+    | Iota of
+        { s : Index.shape
+        ; type' : Type.array
+        }
+    | Index of
+        { arrayArg : array
+        ; indexArg : array
+        ; s : Index.shape
+        ; cellShape : Index.shape
+        ; l : Index.dimension
+        ; type' : Type.array
+        }
 
   and literal =
     | IntLiteral of int
@@ -196,7 +208,9 @@ module Expr = struct
        | Reduce reduce -> reduce.type'
        | Fold fold -> fold.type'
        | Filter filter -> filter.type'
-       | Append append -> append.type')
+       | Append append -> append.type'
+       | Iota iota -> iota.type'
+       | Index index -> index.type')
   ;;
 end
 

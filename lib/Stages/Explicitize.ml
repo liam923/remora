@@ -33,17 +33,21 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
     funcParamNamesArray env l.body
   | TupleLet l -> funcParamNamesArray env l.body
   | Primitive p ->
-    Some
-      (match p.func with
-       | Add -> [ "+arg1"; "+arg2" ]
-       | Sub -> [ "-arg1"; "-arg2" ]
-       | Mul -> [ "*arg1"; "*arg2" ]
-       | Div -> [ "/arg1"; "/arg2" ]
-       | Equal -> [ "=arg1"; "=arg2" ]
-       | Reduce _ -> [ "reduce-arg1"; "reduce-arg2" ]
-       | Fold _ -> [ "fold-arg1"; "fold-arg2" ]
-       | Filter -> [ "filter-array"; "filter-flags" ]
-       | Append -> [ "append-arg1"; "append-arg2" ])
+    (match p.name with
+     | Func func ->
+       Some
+         (match func with
+          | Add -> [ "+arg1"; "+arg2" ]
+          | Sub -> [ "-arg1"; "-arg2" ]
+          | Mul -> [ "*arg1"; "*arg2" ]
+          | Div -> [ "/arg1"; "/arg2" ]
+          | Equal -> [ "=arg1"; "=arg2" ]
+          | Reduce _ -> [ "reduce-arg1"; "reduce-arg2" ]
+          | Fold _ -> [ "fold-arg1"; "fold-arg2" ]
+          | Filter -> [ "filter-array"; "filter-flags" ]
+          | Append -> [ "append-arg1"; "append-arg2" ]
+          | Index -> [ "index-array"; "index-index" ])
+     | Val _ -> None)
 
 and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function
   | TermLambda lambda ->
@@ -96,7 +100,7 @@ let rec explicitizeArray paramNamesEnv array
     (* Copy propogation is not followed through tuple lets *)
     and body = explicitizeArray paramNamesEnv body in
     E.TupleLet { params; value; body; type' }
-  | T.Primitive { func; type' } -> return (E.Primitive { func; type' })
+  | T.Primitive { name; type' } -> return (E.Primitive { name; type' })
 
 and explicitizeAtom paramNamesEnv atom
   : (CompilerState.state, Explicit.Expr.atom, _) ExplicitState.t

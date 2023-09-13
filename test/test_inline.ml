@@ -24,17 +24,17 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 28)))
+       (((binding ((name f) (id 33)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name +arg1) (id 29)))
+        ((binding ((name +arg1) (id 34)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 30)))
+        ((binding ((name +arg2) (id 35)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 2)))
@@ -44,10 +44,10 @@ let%expect_test "check inlining" =
         ((op Add)
          (args
           ((Ref
-            ((id ((name +arg1) (id 29)))
+            ((id ((name +arg1) (id 34)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Ref
-            ((id ((name +arg2) (id 30)))
+            ((id ((name +arg2) (id 35)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
@@ -57,12 +57,12 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 29)))
+       (((binding ((name f) (id 34)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name +arg1) (id 30)))
+        ((binding ((name +arg1) (id 35)))
          (value
           (Frame
            ((dimensions (3))
@@ -79,7 +79,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name +arg2) (id 32)))
+        ((binding ((name +arg2) (id 37)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 4)))
@@ -88,10 +88,10 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 31)))
+          (((binding ((name +arg1) (id 36)))
             (value
              (Ref
-              ((id ((name +arg1) (id 30)))
+              ((id ((name +arg1) (id 35)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))))
@@ -100,10 +100,10 @@ let%expect_test "check inlining" =
            ((op Add)
             (args
              ((Ref
-               ((id ((name +arg1) (id 31)))
+               ((id ((name +arg1) (id 36)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name +arg2) (id 32)))
+               ((id ((name +arg2) (id 37)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type'
@@ -145,7 +145,7 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 31)))
+       (((binding ((name id) (id 36)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -154,19 +154,19 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 32)))
+          (((binding ((name f) (id 37)))
             (value
              (Ref
-              ((id ((name id) (id 31)))
+              ((id ((name id) (id 36)))
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
-           ((binding ((name x) (id 33)))
+           ((binding ((name x) (id 38)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name x) (id 33)))
+           ((id ((name x) (id 38)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
@@ -180,47 +180,7 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 34)))
-         (value
-          (Scalar
-           ((element (Literal UnitLiteral))
-            (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name id) (id 32)))
-         (value
-          (Scalar
-           ((element (Literal UnitLiteral))
-            (type' ((element (Literal UnitLiteral)) (shape ())))))))))
-      (body
-       (IntrinsicCall
-        (Map (frameShape ())
-         (args
-          (((binding ((name f) (id 33)))
-            (value
-             (Ref
-              ((id ((name id) (id 32)))
-               (type' ((element (Literal UnitLiteral)) (shape ())))))))
-           ((binding ((name x) (id 35)))
-            (value
-             (Ref
-              ((id ((name id) (id 34)))
-               (type' ((element (Literal UnitLiteral)) (shape ())))))))))
-         (body
-          (Ref
-           ((id ((name x) (id 35)))
-            (type' ((element (Literal UnitLiteral)) (shape ()))))))
-         (type' ((element (Literal UnitLiteral)) (shape ()))))))
-      (type' ((element (Literal UnitLiteral)) (shape ()))))) |}];
-  checkAndPrint
-    {|
-      (define (id{@t| } [x @t]) x)
-      ((t-app ((t-app id (Forall (@t) (-> (@t) @t))) id) int) 5)
-    |};
-  [%expect
-    {|
-    (IntrinsicCall
-     (Map (frameShape ())
-      (args
-       (((binding ((name id) (id 34)))
+       (((binding ((name id) (id 39)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -234,34 +194,74 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 39)))
+          (((binding ((name f) (id 38)))
+            (value
+             (Ref
+              ((id ((name id) (id 37)))
+               (type' ((element (Literal UnitLiteral)) (shape ())))))))
+           ((binding ((name x) (id 40)))
+            (value
+             (Ref
+              ((id ((name id) (id 39)))
+               (type' ((element (Literal UnitLiteral)) (shape ())))))))))
+         (body
+          (Ref
+           ((id ((name x) (id 40)))
+            (type' ((element (Literal UnitLiteral)) (shape ()))))))
+         (type' ((element (Literal UnitLiteral)) (shape ()))))))
+      (type' ((element (Literal UnitLiteral)) (shape ()))))) |}];
+  checkAndPrint
+    {|
+      (define (id{@t| } [x @t]) x)
+      ((t-app ((t-app id (Forall (@t) (-> (@t) @t))) id) int) 5)
+    |};
+  [%expect
+    {|
+    (IntrinsicCall
+     (Map (frameShape ())
+      (args
+       (((binding ((name id) (id 39)))
+         (value
+          (Scalar
+           ((element (Literal UnitLiteral))
+            (type' ((element (Literal UnitLiteral)) (shape ())))))))
+        ((binding ((name id) (id 42)))
+         (value
+          (Scalar
+           ((element (Literal UnitLiteral))
+            (type' ((element (Literal UnitLiteral)) (shape ())))))))))
+      (body
+       (IntrinsicCall
+        (Map (frameShape ())
+         (args
+          (((binding ((name f) (id 44)))
             (value
              (IntrinsicCall
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 35)))
+                (((binding ((name f) (id 40)))
                   (value
                    (Ref
-                    ((id ((name id) (id 34)))
+                    ((id ((name id) (id 39)))
                      (type' ((element (Literal UnitLiteral)) (shape ())))))))
-                 ((binding ((name x) (id 38)))
+                 ((binding ((name x) (id 43)))
                   (value
                    (Ref
-                    ((id ((name id) (id 37)))
+                    ((id ((name id) (id 42)))
                      (type' ((element (Literal UnitLiteral)) (shape ())))))))))
                (body
                 (Ref
-                 ((id ((name x) (id 38)))
+                 ((id ((name x) (id 43)))
                   (type' ((element (Literal UnitLiteral)) (shape ()))))))
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
-           ((binding ((name arg0) (id 40)))
+           ((binding ((name arg0) (id 45)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name arg0) (id 40)))
+           ((id ((name arg0) (id 45)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
@@ -274,19 +274,19 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 31)))
+       (((binding ((name f) (id 36)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name x) (id 32)))
+        ((binding ((name x) (id 37)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 10)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))))
       (body
        (Ref
-        ((id ((name x) (id 32)))
+        ((id ((name x) (id 37)))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {|
@@ -297,7 +297,7 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 28)))
+       (((binding ((name f) (id 33)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -315,17 +315,17 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 28)))
+       (((binding ((name f) (id 33)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name reduce-arg1) (id 29)))
+        ((binding ((name reduce-arg1) (id 34)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name reduce-arg2) (id 32)))
+        ((binding ((name reduce-arg2) (id 37)))
          (value
           (Frame
            ((dimensions (5))
@@ -352,11 +352,11 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Reduce
          (args
-          (((firstBinding ((name reduceArg1) (id 33)))
-            (secondBinding ((name reduceArg2) (id 34)))
+          (((firstBinding ((name reduceArg1) (id 38)))
+            (secondBinding ((name reduceArg2) (id 39)))
             (value
              (Ref
-              ((id ((name reduce-arg2) (id 32)))
+              ((id ((name reduce-arg2) (id 37)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 5) (refs ())))))))))))))
@@ -366,10 +366,10 @@ let%expect_test "check inlining" =
            ((op Add)
             (args
              ((Ref
-               ((id ((name reduceArg1) (id 33)))
+               ((id ((name reduceArg1) (id 38)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name reduceArg2) (id 34)))
+               ((id ((name reduceArg2) (id 39)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (d ((const 5) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
@@ -379,8 +379,8 @@ let%expect_test "check inlining" =
   [%expect
     {|
     Error: Could not determine what function is being called in function call:
-    ((func (Ref ((id ((name f) (id 28))))))
-     (args (((id ((name +arg1) (id 25)))) ((id ((name +arg2) (id 26))))))
+    ((func (Ref ((id ((name f) (id 33))))))
+     (args (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 31))))))
      (type' ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint
     {|
@@ -392,7 +392,7 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 32)))
+       (((binding ((name id) (id 37)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -401,24 +401,24 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 33)))
+          (((binding ((name f) (id 38)))
             (value
              (Frame
               ((dimensions (3))
                (elements
                 ((Ref
-                  ((id ((name id) (id 32)))
+                  ((id ((name id) (id 37)))
                    (type' ((element (Literal UnitLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name id) (id 32)))
+                  ((id ((name id) (id 37)))
                    (type' ((element (Literal UnitLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name id) (id 32)))
+                  ((id ((name id) (id 37)))
                    (type' ((element (Literal UnitLiteral)) (shape ())))))))
                (type'
                 ((element (Literal UnitLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))
-           ((binding ((name x) (id 35)))
+           ((binding ((name x) (id 40)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
@@ -427,16 +427,16 @@ let%expect_test "check inlining" =
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name f) (id 34)))
+             (((binding ((name f) (id 39)))
                (value
                 (Ref
-                 ((id ((name f) (id 33)))
+                 ((id ((name f) (id 38)))
                   (type'
                    ((element (Literal UnitLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
             (body
              (Ref
-              ((id ((name x) (id 35)))
+              ((id ((name x) (id 40)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
              ((element (Literal IntLiteral))
@@ -460,17 +460,17 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 35)))
+          (((binding ((name f) (id 40)))
             (value
              (Scalar
               ((element (Literal UnitLiteral))
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
-           ((binding ((name +arg1) (id 38)))
+           ((binding ((name +arg1) (id 43)))
             (value
              (IntrinsicCall
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 37)))
+                (((binding ((name f) (id 42)))
                   (value
                    (Scalar
                     ((element (Literal UnitLiteral))
@@ -480,12 +480,12 @@ let%expect_test "check inlining" =
                  ((index (Dimension ((const 5) (refs ()))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name +arg2) (id 41)))
+           ((binding ((name +arg2) (id 46)))
             (value
              (IntrinsicCall
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 40)))
+                (((binding ((name f) (id 45)))
                   (value
                    (Scalar
                     ((element (Literal UnitLiteral))
@@ -500,10 +500,10 @@ let%expect_test "check inlining" =
            ((op Add)
             (args
              ((Ref
-               ((id ((name +arg1) (id 38)))
+               ((id ((name +arg1) (id 43)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name +arg2) (id 41)))
+               ((id ((name +arg2) (id 46)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
@@ -523,17 +523,17 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 40)))
+       (((binding ((name f) (id 45)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name reduce-arg1) (id 42)))
+        ((binding ((name reduce-arg1) (id 47)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name reduce-arg2) (id 50)))
+        ((binding ((name reduce-arg2) (id 55)))
          (value
           (Frame
            ((dimensions (2))
@@ -547,7 +547,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name reduce-arg2) (id 47)))
+        ((binding ((name reduce-arg2) (id 52)))
          (value
           (Frame
            ((dimensions (2))
@@ -565,19 +565,19 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Reduce
          (args
-          (((firstBinding ((name reduce-arg1) (id 54)))
-            (secondBinding ((name reduceArg2) (id 51)))
+          (((firstBinding ((name reduce-arg1) (id 59)))
+            (secondBinding ((name reduceArg2) (id 56)))
             (value
              (Ref
-              ((id ((name reduce-arg2) (id 50)))
+              ((id ((name reduce-arg2) (id 55)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))
-           ((firstBinding ((name reduceArg1) (id 48)))
-            (secondBinding ((name reduce-arg2) (id 55)))
+           ((firstBinding ((name reduceArg1) (id 53)))
+            (secondBinding ((name reduce-arg2) (id 60)))
             (value
              (Ref
-              ((id ((name reduce-arg2) (id 47)))
+              ((id ((name reduce-arg2) (id 52)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))))
@@ -586,41 +586,41 @@ let%expect_test "check inlining" =
           (IntrinsicCall
            (Map (frameShape ())
             (args
-             (((binding ((name sum) (id 53)))
+             (((binding ((name sum) (id 58)))
                (value
                 (IntrinsicCall
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 46)))
+                   (((binding ((name f) (id 51)))
                      (value
                       (Scalar
                        ((element (Literal UnitLiteral))
                         (type' ((element (Literal UnitLiteral)) (shape ())))))))
-                    ((binding ((name +arg1) (id 49)))
+                    ((binding ((name +arg1) (id 54)))
                      (value
                       (Ref
-                       ((id ((name reduceArg1) (id 48)))
+                       ((id ((name reduceArg1) (id 53)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name +arg2) (id 52)))
+                    ((binding ((name +arg2) (id 57)))
                      (value
                       (Ref
-                       ((id ((name reduceArg2) (id 51)))
+                       ((id ((name reduceArg2) (id 56)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
                    (PrimitiveCall
                     ((op Add)
                      (args
                       ((Ref
-                        ((id ((name +arg1) (id 49)))
+                        ((id ((name +arg1) (id 54)))
                          (type' ((element (Literal IntLiteral)) (shape ())))))
                        (Ref
-                        ((id ((name +arg2) (id 52)))
+                        ((id ((name +arg2) (id 57)))
                          (type' ((element (Literal IntLiteral)) (shape ())))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (Ref
-              ((id ((name sum) (id 53)))
+              ((id ((name sum) (id 58)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (d ((const 2) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
@@ -630,9 +630,9 @@ let%expect_test "check inlining" =
   [%expect
     {|
     Error: Could not determine what function is being passed to reduce:
-    ((func (Ref ((id ((name f) (id 27))))))
+    ((func (Ref ((id ((name f) (id 32))))))
      (args
-      (((id ((name reduce-arg1) (id 28)))) ((id ((name reduce-arg2) (id 26))))))
+      (((id ((name reduce-arg1) (id 33)))) ((id ((name reduce-arg2) (id 31))))))
      (type' ((element (Literal IntLiteral)) (shape ())))) |}];
   checkAndPrint {| (length{(Forall (@x) int) | 2 []} [(t-fn (@x) 5) (t-fn (@x) 5)]) |};
   [%expect
@@ -640,7 +640,7 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 31)))
+       (((binding ((name f) (id 36)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -656,17 +656,17 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 28)))
+       (((binding ((name f) (id 33)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name reduce-arg1) (id 29)))
+        ((binding ((name reduce-arg1) (id 34)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name reduce-arg2) (id 32)))
+        ((binding ((name reduce-arg2) (id 37)))
          (value
           (Frame
            ((dimensions (3))
@@ -687,11 +687,11 @@ let%expect_test "check inlining" =
        (IntrinsicCall
         (Reduce
          (args
-          (((firstBinding ((name reduceArg1) (id 33)))
-            (secondBinding ((name reduceArg2) (id 34)))
+          (((firstBinding ((name reduceArg1) (id 38)))
+            (secondBinding ((name reduceArg2) (id 39)))
             (value
              (Ref
-              ((id ((name reduce-arg2) (id 32)))
+              ((id ((name reduce-arg2) (id 37)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))))
@@ -701,10 +701,10 @@ let%expect_test "check inlining" =
            ((op Add)
             (args
              ((Ref
-               ((id ((name reduceArg1) (id 33)))
+               ((id ((name reduceArg1) (id 38)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name reduceArg2) (id 34)))
+               ((id ((name reduceArg2) (id 39)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (d ((const 3) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
@@ -719,12 +719,12 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 28)))
+       (((binding ((name f) (id 33)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name filter-array) (id 29)))
+        ((binding ((name filter-array) (id 34)))
          (value
           (Frame
            ((dimensions (3))
@@ -741,7 +741,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name filter-flags) (id 30)))
+        ((binding ((name filter-flags) (id 35)))
          (value
           (Frame
            ((dimensions (3))
@@ -763,13 +763,13 @@ let%expect_test "check inlining" =
         (Filter
          (array
           (Ref
-           ((id ((name filter-array) (id 29)))
+           ((id ((name filter-array) (id 34)))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))
          (flags
           (Ref
-           ((id ((name filter-flags) (id 30)))
+           ((id ((name filter-flags) (id 35)))
             (type'
              ((element (Literal BooleanLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))
@@ -796,12 +796,12 @@ let%expect_test "check inlining" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 28)))
+       (((binding ((name f) (id 33)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name append-arg1) (id 29)))
+        ((binding ((name append-arg1) (id 34)))
          (value
           (Frame
            ((dimensions (3))
@@ -818,7 +818,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name append-arg2) (id 30)))
+        ((binding ((name append-arg2) (id 35)))
          (value
           (Frame
            ((dimensions (2))
@@ -837,13 +837,13 @@ let%expect_test "check inlining" =
         (Append
          (arg1
           (Ref
-           ((id ((name append-arg1) (id 29)))
+           ((id ((name append-arg1) (id 34)))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))
          (arg2
           (Ref
-           ((id ((name append-arg2) (id 30)))
+           ((id ((name append-arg2) (id 35)))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ()))))))))))

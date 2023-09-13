@@ -18,15 +18,15 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27))) (value (Primitive ((func Add)))))
-        ((binding ((name +arg1) (id 25)))
+       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 30)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 27))))))
-         (args (((id ((name +arg1) (id 25)))) ((id ((name +arg2) (id 26))))))
+        ((func (Ref ((id ((name f) (id 32))))))
+         (args (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 31))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ())))))) |}];
   checkAndPrint {| (+ [1 2 3] 4) |};
@@ -34,8 +34,8 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27))) (value (Primitive ((func Add)))))
-        ((binding ((name +arg1) (id 25)))
+       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 30)))
          (value
           (Frame
            ((dimensions (3))
@@ -43,17 +43,17 @@ let%expect_test "check explicitizing" =
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))
               (Scalar ((element (Literal (IntLiteral 3)))))))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value (Scalar ((element (Literal (IntLiteral 4)))))))))
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 28)))
-            (value (Ref ((id ((name +arg1) (id 25)))))))))
+          (((binding ((name +arg1) (id 33)))
+            (value (Ref ((id ((name +arg1) (id 30)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 27))))))
-            (args (((id ((name +arg1) (id 28)))) ((id ((name +arg2) (id 26))))))
+           ((func (Ref ((id ((name f) (id 32))))))
+            (args (((id ((name +arg1) (id 33)))) ((id ((name +arg2) (id 31))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
@@ -68,8 +68,8 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27))) (value (Primitive ((func Add)))))
-        ((binding ((name +arg1) (id 25)))
+       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 30)))
          (value
           (Frame
            ((dimensions (3))
@@ -77,7 +77,7 @@ let%expect_test "check explicitizing" =
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))
               (Scalar ((element (Literal (IntLiteral 3)))))))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value
           (Frame
            ((dimensions (3))
@@ -88,14 +88,14 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 28)))
-            (value (Ref ((id ((name +arg1) (id 25)))))))
-           ((binding ((name +arg2) (id 29)))
-            (value (Ref ((id ((name +arg2) (id 26)))))))))
+          (((binding ((name +arg1) (id 33)))
+            (value (Ref ((id ((name +arg1) (id 30)))))))
+           ((binding ((name +arg2) (id 34)))
+            (value (Ref ((id ((name +arg2) (id 31)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 27))))))
-            (args (((id ((name +arg1) (id 28)))) ((id ((name +arg2) (id 29))))))
+           ((func (Ref ((id ((name f) (id 32))))))
+            (args (((id ((name +arg1) (id 33)))) ((id ((name +arg2) (id 34))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
@@ -110,8 +110,8 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27))) (value (Primitive ((func Add)))))
-        ((binding ((name +arg1) (id 25)))
+       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 30)))
          (value
           (Frame
            ((dimensions (1))
@@ -121,7 +121,7 @@ let%expect_test "check explicitizing" =
                 (elements
                  ((Scalar ((element (Literal (IntLiteral 1)))))
                   (Scalar ((element (Literal (IntLiteral 2)))))))))))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value
           (Frame
            ((dimensions (1))
@@ -129,20 +129,20 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name +arg2) (id 28)))
-            (value (Ref ((id ((name +arg2) (id 26)))))))
-           ((binding ((name +arg1) (id 29)))
-            (value (Ref ((id ((name +arg1) (id 25)))))))))
+          (((binding ((name +arg2) (id 33)))
+            (value (Ref ((id ((name +arg2) (id 31)))))))
+           ((binding ((name +arg1) (id 34)))
+            (value (Ref ((id ((name +arg1) (id 30)))))))))
          (body
           (Map
            ((args
-             (((binding ((name +arg1) (id 30)))
-               (value (Ref ((id ((name +arg1) (id 29)))))))))
+             (((binding ((name +arg1) (id 35)))
+               (value (Ref ((id ((name +arg1) (id 34)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 27))))))
+              ((func (Ref ((id ((name f) (id 32))))))
                (args
-                (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 28))))))
+                (((id ((name +arg1) (id 35)))) ((id ((name +arg2) (id 33))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 2) (refs ())))))
             (type'
@@ -164,10 +164,10 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27))) (value (Primitive ((func Add)))))
-        ((binding ((name +arg1) (id 25)))
+       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 30)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value
           (Frame
            ((dimensions (3))
@@ -178,12 +178,12 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name +arg2) (id 28)))
-            (value (Ref ((id ((name +arg2) (id 26)))))))))
+          (((binding ((name +arg2) (id 33)))
+            (value (Ref ((id ((name +arg2) (id 31)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 27))))))
-            (args (((id ((name +arg1) (id 25)))) ((id ((name +arg2) (id 28))))))
+           ((func (Ref ((id ((name f) (id 32))))))
+            (args (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 33))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
@@ -198,10 +198,10 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27))) (value (Primitive ((func Add)))))
-        ((binding ((name +arg1) (id 25)))
+       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 30)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value
           (Frame
            ((dimensions (1))
@@ -224,12 +224,12 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name +arg2) (id 28)))
-            (value (Ref ((id ((name +arg2) (id 26)))))))))
+          (((binding ((name +arg2) (id 33)))
+            (value (Ref ((id ((name +arg2) (id 31)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 27))))))
-            (args (((id ((name +arg1) (id 25)))) ((id ((name +arg2) (id 28))))))
+           ((func (Ref ((id ((name f) (id 32))))))
+            (args (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 33))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape
           ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
@@ -255,9 +255,9 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name foo) (id 25)))
+       (((binding ((name foo) (id 30)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))))
-      (body (Ref ((id ((name foo) (id 25)))))) (frameShape ())
+      (body (Ref ((id ((name foo) (id 30)))))) (frameShape ())
       (type' (Arr ((element (Literal IntLiteral)) (shape ())))))) |}];
   checkAndPrint
     {|
@@ -268,15 +268,15 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name foo) (id 25)))
+       (((binding ((name foo) (id 30)))
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name a) (id 26)))
+                (((binding ((name a) (id 31)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name b) (id 27)))
+                 ((binding ((name b) (id 32)))
                   (bound
                    (Arr
                     ((element (Literal IntLiteral))
@@ -287,11 +287,11 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name f) (id 30)))
-            (value (Ref ((id ((name foo) (id 25)))))))
-           ((binding ((name a) (id 28)))
+          (((binding ((name f) (id 35)))
+            (value (Ref ((id ((name foo) (id 30)))))))
+           ((binding ((name a) (id 33)))
             (value (Scalar ((element (Literal (IntLiteral 0)))))))
-           ((binding ((name b) (id 29)))
+           ((binding ((name b) (id 34)))
             (value
              (Frame
               ((dimensions (1))
@@ -313,8 +313,8 @@ let%expect_test "check explicitizing" =
                          (Scalar ((element (Literal (IntLiteral 6)))))))))))))))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 30))))))
-            (args (((id ((name a) (id 28)))) ((id ((name b) (id 29))))))
+           ((func (Ref ((id ((name f) (id 35))))))
+            (args (((id ((name a) (id 33)))) ((id ((name b) (id 34))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -328,15 +328,15 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name foo) (id 25)))
+       (((binding ((name foo) (id 30)))
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name a) (id 26)))
+                (((binding ((name a) (id 31)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name b) (id 27)))
+                 ((binding ((name b) (id 32)))
                   (bound
                    (Arr
                     ((element (Literal IntLiteral))
@@ -347,16 +347,16 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name f) (id 30)))
-            (value (Ref ((id ((name foo) (id 25)))))))
-           ((binding ((name a) (id 28)))
+          (((binding ((name f) (id 35)))
+            (value (Ref ((id ((name foo) (id 30)))))))
+           ((binding ((name a) (id 33)))
             (value
              (Frame
               ((dimensions (2))
                (elements
                 ((Scalar ((element (Literal (IntLiteral -1)))))
                  (Scalar ((element (Literal (IntLiteral 0)))))))))))
-           ((binding ((name b) (id 29)))
+           ((binding ((name b) (id 34)))
             (value
              (Frame
               ((dimensions (1))
@@ -379,12 +379,12 @@ let%expect_test "check explicitizing" =
          (body
           (Map
            ((args
-             (((binding ((name a) (id 31)))
-               (value (Ref ((id ((name a) (id 28)))))))))
+             (((binding ((name a) (id 36)))
+               (value (Ref ((id ((name a) (id 33)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 30))))))
-               (args (((id ((name a) (id 31)))) ((id ((name b) (id 29))))))
+              ((func (Ref ((id ((name f) (id 35))))))
+               (args (((id ((name a) (id 36)))) ((id ((name b) (id 34))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 2) (refs ())))))
             (type'
@@ -404,25 +404,25 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27)))
+       (((binding ((name f) (id 32)))
          (value
           (Frame
            ((dimensions (3))
             (elements
-             ((Primitive ((func Add))) (Primitive ((func Sub)))
-              (Primitive ((func Mul)))))))))
-        ((binding ((name +arg1) (id 25)))
+             ((Primitive ((name (Func Add)))) (Primitive ((name (Func Sub))))
+              (Primitive ((name (Func Mul))))))))))
+        ((binding ((name +arg1) (id 30)))
          (value (Scalar ((element (Literal (IntLiteral 0)))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 28))) (value (Ref ((id ((name f) (id 27)))))))))
+          (((binding ((name f) (id 33))) (value (Ref ((id ((name f) (id 32)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 28))))))
-            (args (((id ((name +arg1) (id 25)))) ((id ((name +arg2) (id 26))))))
+           ((func (Ref ((id ((name f) (id 33))))))
+            (args (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 31))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
@@ -437,14 +437,14 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27)))
+       (((binding ((name f) (id 32)))
          (value
           (Frame
            ((dimensions (3))
             (elements
-             ((Primitive ((func Add))) (Primitive ((func Sub)))
-              (Primitive ((func Mul)))))))))
-        ((binding ((name +arg1) (id 25)))
+             ((Primitive ((name (Func Add)))) (Primitive ((name (Func Sub))))
+              (Primitive ((name (Func Mul))))))))))
+        ((binding ((name +arg1) (id 30)))
          (value
           (Frame
            ((dimensions (3))
@@ -452,18 +452,18 @@ let%expect_test "check explicitizing" =
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))
               (Scalar ((element (Literal (IntLiteral 3)))))))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 28))) (value (Ref ((id ((name f) (id 27)))))))
-           ((binding ((name +arg1) (id 29)))
-            (value (Ref ((id ((name +arg1) (id 25)))))))))
+          (((binding ((name f) (id 33))) (value (Ref ((id ((name f) (id 32)))))))
+           ((binding ((name +arg1) (id 34)))
+            (value (Ref ((id ((name +arg1) (id 30)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 28))))))
-            (args (((id ((name +arg1) (id 29)))) ((id ((name +arg2) (id 26))))))
+           ((func (Ref ((id ((name f) (id 33))))))
+            (args (((id ((name +arg1) (id 34)))) ((id ((name +arg2) (id 31))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
@@ -478,14 +478,14 @@ let%expect_test "check explicitizing" =
     {|
     (Map
      ((args
-       (((binding ((name f) (id 27)))
+       (((binding ((name f) (id 32)))
          (value
           (Frame
            ((dimensions (3))
             (elements
-             ((Primitive ((func Add))) (Primitive ((func Sub)))
-              (Primitive ((func Mul)))))))))
-        ((binding ((name +arg1) (id 25)))
+             ((Primitive ((name (Func Add)))) (Primitive ((name (Func Sub))))
+              (Primitive ((name (Func Mul))))))))))
+        ((binding ((name +arg1) (id 30)))
          (value
           (Frame
            ((dimensions (3))
@@ -493,7 +493,7 @@ let%expect_test "check explicitizing" =
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))
               (Scalar ((element (Literal (IntLiteral 3)))))))))))
-        ((binding ((name +arg2) (id 26)))
+        ((binding ((name +arg2) (id 31)))
          (value
           (Frame
            ((dimensions (3))
@@ -504,15 +504,15 @@ let%expect_test "check explicitizing" =
       (body
        (Map
         ((args
-          (((binding ((name f) (id 28))) (value (Ref ((id ((name f) (id 27)))))))
-           ((binding ((name +arg1) (id 29)))
-            (value (Ref ((id ((name +arg1) (id 25)))))))
-           ((binding ((name +arg2) (id 30)))
-            (value (Ref ((id ((name +arg2) (id 26)))))))))
+          (((binding ((name f) (id 33))) (value (Ref ((id ((name f) (id 32)))))))
+           ((binding ((name +arg1) (id 34)))
+            (value (Ref ((id ((name +arg1) (id 30)))))))
+           ((binding ((name +arg2) (id 35)))
+            (value (Ref ((id ((name +arg2) (id 31)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 28))))))
-            (args (((id ((name +arg1) (id 29)))) ((id ((name +arg2) (id 30))))))
+           ((func (Ref ((id ((name f) (id 33))))))
+            (args (((id ((name +arg1) (id 34)))) ((id ((name +arg2) (id 35))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'

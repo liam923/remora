@@ -38,7 +38,8 @@ module Function = struct
         ; id : Identifier.t
         }
     | Primitive of
-        { func : Explicit.Expr.primitive
+        { func : Typed.Expr.primitiveFuncName
+        ; type' : Explicit.Type.array
         ; appStack : appStack
         }
   [@@deriving sexp_of]
@@ -46,7 +47,7 @@ module Function = struct
   let equal a b =
     match a, b with
     | Lambda a, Lambda b -> Identifier.equal a.id b.id
-    | Primitive a, Primitive b -> Explicit.Expr.equal_primitive a.func b.func
+    | Primitive a, Primitive b -> Typed.Expr.equal_primitiveFuncName a.func b.func
     | Lambda _, Primitive _ | Primitive _, Lambda _ -> false
   ;;
 
@@ -58,7 +59,7 @@ module Function = struct
         { element = TermLambda lambda
         ; type' = { element = Func lambda.type'; shape = [] }
         }
-    | Primitive { func; appStack = _ } -> Primitive func
+    | Primitive { func; type'; appStack = _ } -> Primitive { name = Func func; type' }
   ;;
 end
 
@@ -332,10 +333,25 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
       ( I.ReifyIndex { index; type' = inlineArrayTypeWithStack appStack (Arr type') }
       , FunctionSet.Empty )
   | TupleLet _ -> raise (Unimplemented.Error "Tuples are not supported")
-  | Primitive primitive ->
-    return
-      ( scalar (I.Literal UnitLiteral)
-      , FunctionSet.One (Primitive { func = primitive; appStack }) )
+  | Primitive { name; type' } ->
+    (match name with
+     | Func func ->
+       return
+         ( scalar (I.Literal UnitLiteral)
+         , FunctionSet.One (Primitive { func; type'; appStack }) )
+     | Val Iota ->
+       (match appStack with
+        | [ IndexApp [ Shape s ] ] ->
+          return
+            ( I.IntrinsicCall (Iota { s; type' = inlineArrayTypeWithStack appStack type' })
+            , FunctionSet.Empty )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "iota expected a stack of [IndexApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ]))))
   | Map { args; body; frameShape; type' } ->
     let args = List.map args ~f:(fun { binding; value } -> binding, value) in
     let%map body, args, functions = inlineBodyWithBindings subs appStack body args in
@@ -477,7 +493,7 @@ and inlineTermApplication subs appStack termApplication =
       ( I.PrimitiveCall { op; args; type' = inlineArrayTypeWithStack appStack (Arr type') }
       , FunctionSet.Empty )
     in
-    (match primitive.func.func with
+    (match primitive.func with
      | Add -> binop Add
      | Sub -> binop Sub
      | Mul -> binop Mul
@@ -648,26 +664,24 @@ and inlineTermApplication subs appStack termApplication =
             match args with
             | [ f; zero; arrayArg ] -> f, zero, arrayArg
             | _ ->
-              raise
-                (Unreachable.Error "Reduce with explicit zero expected three arguments")
+              raise (Unreachable.Error "Fold with explicit zero expected three arguments")
           in
           let%bind _, functions = inlineArray subs [] (Ref f) in
           let%bind func =
             match functions with
             | Empty ->
               raise
-                (Unreachable.Error
-                   "func of reduce should've returned at least one function")
+                (Unreachable.Error "func of fold should've returned at least one function")
             | One f -> return f
             | Multiple ->
               InlineState.err
                 (String.concat_lines
-                   [ "Could not determine what function is being passed to reduce:"
+                   [ "Could not determine what function is being passed to fold:"
                    ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
                    ])
           in
-          let%bind fArg1 = InlineState.createId "reduceArg1"
-          and fArg2 = InlineState.createId "reduceArg2" in
+          let%bind fArg1 = InlineState.createId "foldArg1"
+          and fArg2 = InlineState.createId "foldArg2" in
           let body =
             E.TermApplication
               { func = Function.toExplicit func
@@ -708,8 +722,8 @@ and inlineTermApplication subs appStack termApplication =
                 | Some (binding, _) -> return binding
                 | None -> InlineState.createId argName
               in
-              let%map firstBinding = getBindingFrom bindings1 "reduce-arg1"
-              and secondBinding = getBindingFrom bindings2 "reduce-arg2" in
+              let%map firstBinding = getBindingFrom bindings1 "fold-arg1"
+              and secondBinding = getBindingFrom bindings2 "fold-arg2" in
               I.{ firstBinding; secondBinding; value = monoValue })
             |> InlineState.all
           in
@@ -718,9 +732,32 @@ and inlineTermApplication subs appStack termApplication =
           ( I.IntrinsicCall
               (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
           , functions )
-        | _ -> raise Unimplemented.default))
+        | _ -> raise Unimplemented.default)
+     | Index ->
+       assert (List.length args = 2);
+       (match primitive.appStack with
+        | [ IndexApp [ Shape s; Shape cellShape; Dimension l ]; TypeApp [ Atom _ ] ] ->
+          let%map arrayArg, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
+          and indexArg, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          ( I.IntrinsicCall
+              (Index
+                 { arrayArg
+                 ; indexArg
+                 ; s
+                 ; cellShape
+                 ; l
+                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 })
+          , FunctionSet.Empty )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "index expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ]))))
 
-(* Handle cases where there values bound to variables and then used in some
+(* Handle cases where there are values bound to variables and then used in some
    body of code *)
 and inlineBodyWithBindings subs appStack body bindings =
   let open InlineState.Let_syntax in

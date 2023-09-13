@@ -48,35 +48,35 @@ module Stdlib : S = struct
     [ { name = "+"
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Add; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Add; type' })
             ; type' = "(-> (int int) int)"
             }
       }
     ; { name = "-"
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Sub; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Sub; type' })
             ; type' = "(-> (int int) int)"
             }
       }
     ; { name = "*"
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Mul; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Mul; type' })
             ; type' = "(-> (int int) int)"
             }
       }
     ; { name = "/"
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Div; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Div; type' })
             ; type' = "(-> (int int) int)"
             }
       }
     ; { name = "="
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Equal; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Equal; type' })
             ; type' = "(-> (int int) bool)"
             }
       }
@@ -94,12 +94,13 @@ module Stdlib : S = struct
             { makeValue =
                 (fun type' ->
                   Expr.Primitive
-                    { func =
-                        Reduce
-                          { associative = true
-                          ; explicitZero = false
-                          ; character = `Reduce
-                          }
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = false
+                             ; character = `Reduce
+                             })
                     ; type'
                     })
             ; type' =
@@ -118,9 +119,13 @@ module Stdlib : S = struct
             { makeValue =
                 (fun type' ->
                   Expr.Primitive
-                    { func =
-                        Reduce
-                          { associative = true; explicitZero = false; character = `Scan }
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = false
+                             ; character = `Scan
+                             })
                     ; type'
                     })
             ; type' =
@@ -137,7 +142,8 @@ module Stdlib : S = struct
       ; value =
           Intrinsic
             { makeValue =
-                (fun type' -> Expr.Primitive { func = Fold { character = `Fold }; type' })
+                (fun type' ->
+                  Expr.Primitive { name = Func (Fold { character = `Fold }); type' })
             ; type' =
                 {|
                 (Pi (d @item-pad @cell-shape)
@@ -151,7 +157,7 @@ module Stdlib : S = struct
     ; { name = "filter"
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Filter; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Filter; type' })
             ; type' =
                 {|
                 (Pi (d @cell-shape)
@@ -165,7 +171,7 @@ module Stdlib : S = struct
     ; { name = "append"
       ; value =
           Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { func = Append; type' })
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Append; type' })
             ; type' =
                 {|
                 (Pi (d1 d2 @cell-shape)
@@ -173,6 +179,26 @@ module Stdlib : S = struct
                     (-> ([t d1 @cell-shape]
                          [t d2 @cell-shape])
                         [t (+ d1 d2) @cell-shape])))
+                |}
+            }
+      }
+    ; { name = "iota"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Val Iota; type' })
+            ; type' = {| (Pi (@s) [int @s]) |}
+            }
+      }
+    ; { name = "index"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Index; type' })
+            ; type' =
+                {|
+                (Pi (@s @cell-shape l)
+                  (Forall (t)
+                    (-> ([t @s @cell-shape] [int l])
+                        [t @cell-shape])))
                 |}
             }
       }
