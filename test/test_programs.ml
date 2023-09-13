@@ -66,32 +66,32 @@ let%expect_test "simple addition" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 30)))
+       (((binding ((name f) (id 28))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 26)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 31)))
+        ((binding ((name +arg2) (id 27)))
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 32))))))
-         (args (((id ((name +arg1) (id 30)))) ((id ((name +arg2) (id 31))))))
+        ((func (Ref ((id ((name f) (id 28))))))
+         (args (((id ((name +arg1) (id 26)))) ((id ((name +arg2) (id 27))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 33)))
+       (((binding ((name f) (id 29)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name +arg1) (id 34)))
+        ((binding ((name +arg1) (id 30)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 35)))
+        ((binding ((name +arg2) (id 31)))
          (value
           (Scalar
            ((element (Literal (IntLiteral 2)))
@@ -101,10 +101,10 @@ let%expect_test "simple addition" =
         ((op Add)
          (args
           ((Ref
-            ((id ((name +arg1) (id 34)))
+            ((id ((name +arg1) (id 30)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (Ref
-            ((id ((name +arg2) (id 35)))
+            ((id ((name +arg2) (id 31)))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
@@ -123,71 +123,71 @@ let%expect_test "simple function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name add) (id 30)))
+     ((binding ((name add) (id 26)))
       (value
        (Scalar
         ((element
           (TermLambda
            ((params
-             (((binding ((name x) (id 31)))
+             (((binding ((name x) (id 27)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-              ((binding ((name y) (id 32)))
+              ((binding ((name y) (id 28)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (body
              (TermApplication
               ((func (Primitive ((name (Func Add)))))
                (args
-                ((Ref ((id ((name x) (id 31))))) (Ref ((id ((name y) (id 32))))))))))))))))
+                ((Ref ((id ((name x) (id 27))))) (Ref ((id ((name y) (id 28))))))))))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name add) (id 30))))))
+        ((func (Ref ((id ((name add) (id 26))))))
          (args
           ((Scalar ((element (Literal (IntLiteral 5)))))
            (Scalar ((element (Literal (IntLiteral 10))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name add) (id 30)))
+       (((binding ((name add) (id 26)))
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name x) (id 31)))
+                (((binding ((name x) (id 27)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name y) (id 32)))
+                 ((binding ((name y) (id 28)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 35)))
+                   (((binding ((name f) (id 31)))
                      (value (Primitive ((name (Func Add))))))
-                    ((binding ((name +arg1) (id 33)))
-                     (value (Ref ((id ((name x) (id 31)))))))
-                    ((binding ((name +arg2) (id 34)))
-                     (value (Ref ((id ((name y) (id 32)))))))))
+                    ((binding ((name +arg1) (id 29)))
+                     (value (Ref ((id ((name x) (id 27)))))))
+                    ((binding ((name +arg2) (id 30)))
+                     (value (Ref ((id ((name y) (id 28)))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 35))))))
+                    ((func (Ref ((id ((name f) (id 31))))))
                      (args
-                      (((id ((name +arg1) (id 33))))
-                       ((id ((name +arg2) (id 34))))))
+                      (((id ((name +arg1) (id 29))))
+                       ((id ((name +arg2) (id 30))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 38)))
-            (value (Ref ((id ((name add) (id 30)))))))
-           ((binding ((name x) (id 36)))
+          (((binding ((name f) (id 34)))
+            (value (Ref ((id ((name add) (id 26)))))))
+           ((binding ((name x) (id 32)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))
-           ((binding ((name y) (id 37)))
+           ((binding ((name y) (id 33)))
             (value (Scalar ((element (Literal (IntLiteral 10)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 38))))))
-            (args (((id ((name x) (id 36)))) ((id ((name y) (id 37))))))
+           ((func (Ref ((id ((name f) (id 34))))))
+            (args (((id ((name x) (id 32)))) ((id ((name y) (id 33))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -196,7 +196,7 @@ let%expect_test "simple function definition and call" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name add) (id 40)))
+       (((binding ((name add) (id 36)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -205,17 +205,17 @@ let%expect_test "simple function definition and call" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 41)))
+          (((binding ((name f) (id 37)))
             (value
              (Ref
-              ((id ((name add) (id 40)))
+              ((id ((name add) (id 36)))
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
-           ((binding ((name x) (id 43)))
+           ((binding ((name x) (id 39)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name y) (id 45)))
+           ((binding ((name y) (id 41)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 10)))
@@ -224,30 +224,30 @@ let%expect_test "simple function definition and call" =
           (IntrinsicCall
            (Map (frameShape ())
             (args
-             (((binding ((name f) (id 42)))
+             (((binding ((name f) (id 38)))
                (value
                 (Scalar
                  ((element (Literal UnitLiteral))
                   (type' ((element (Literal UnitLiteral)) (shape ())))))))
-              ((binding ((name +arg1) (id 44)))
+              ((binding ((name +arg1) (id 40)))
                (value
                 (Ref
-                 ((id ((name x) (id 43)))
+                 ((id ((name x) (id 39)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name +arg2) (id 46)))
+              ((binding ((name +arg2) (id 42)))
                (value
                 (Ref
-                 ((id ((name y) (id 45)))
+                 ((id ((name y) (id 41)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (PrimitiveCall
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name +arg1) (id 44)))
+                  ((id ((name +arg1) (id 40)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name +arg2) (id 46)))
+                  ((id ((name +arg2) (id 42)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
@@ -268,58 +268,58 @@ let%expect_test "polymorphic function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name id) (id 30)))
+     ((binding ((name id) (id 26)))
       (value
        (Scalar
         ((element
           (TypeLambda
-           ((params (((binding ((name @t) (id 31))) (bound Array))))
+           ((params (((binding ((name @t) (id 27))) (bound Array))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name e) (id 32)))
-                     (bound (ArrayRef ((name @t) (id 31)))))))
-                  (body (Ref ((id ((name e) (id 32))))))))))))))))))
+                   (((binding ((name e) (id 28)))
+                     (bound (ArrayRef ((name @t) (id 27)))))))
+                  (body (Ref ((id ((name e) (id 28))))))))))))))))))
       (body
        (TermApplication
         ((func
           (TypeApplication
-           ((tFunc (Ref ((id ((name id) (id 30))))))
+           ((tFunc (Ref ((id ((name id) (id 26))))))
             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
          (args ((Scalar ((element (Literal (IntLiteral 5))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name id) (id 30)))
+       (((binding ((name id) (id 26)))
          (value
           (Scalar
            ((element
              (TypeLambda
-              ((params (((binding ((name @t) (id 31))) (bound Array))))
+              ((params (((binding ((name @t) (id 27))) (bound Array))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name e) (id 32)))
-                        (bound (ArrayRef ((name @t) (id 31)))))))
-                     (body (Ref ((id ((name e) (id 32)))))))))))))))))))))
+                      (((binding ((name e) (id 28)))
+                        (bound (ArrayRef ((name @t) (id 27)))))))
+                     (body (Ref ((id ((name e) (id 28)))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 34)))
+          (((binding ((name f) (id 30)))
             (value
              (TypeApplication
-              ((tFunc (Ref ((id ((name id) (id 30))))))
+              ((tFunc (Ref ((id ((name id) (id 26))))))
                (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-           ((binding ((name e) (id 33)))
+           ((binding ((name e) (id 29)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 34))))))
-            (args (((id ((name e) (id 33))))))
+           ((func (Ref ((id ((name f) (id 30))))))
+            (args (((id ((name e) (id 29))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -328,7 +328,7 @@ let%expect_test "polymorphic function definition and call" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 36)))
+       (((binding ((name id) (id 32)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
@@ -337,19 +337,19 @@ let%expect_test "polymorphic function definition and call" =
        (IntrinsicCall
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 37)))
+          (((binding ((name f) (id 33)))
             (value
              (Ref
-              ((id ((name id) (id 36)))
+              ((id ((name id) (id 32)))
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
-           ((binding ((name e) (id 38)))
+           ((binding ((name e) (id 34)))
             (value
              (Scalar
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name e) (id 38)))
+           ((id ((name e) (id 34)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
@@ -390,15 +390,15 @@ let%expect_test "function call with implicit map" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 32))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 30)))
+       (((binding ((name f) (id 28))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 26)))
          (value
           (Frame
            ((dimensions (2))
             (elements
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))))))))
-        ((binding ((name +arg2) (id 31)))
+        ((binding ((name +arg2) (id 27)))
          (value
           (Frame
            ((dimensions (2))
@@ -418,20 +418,20 @@ let%expect_test "function call with implicit map" =
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 33)))
-            (value (Ref ((id ((name +arg1) (id 30)))))))
-           ((binding ((name +arg2) (id 34)))
-            (value (Ref ((id ((name +arg2) (id 31)))))))))
+          (((binding ((name +arg1) (id 29)))
+            (value (Ref ((id ((name +arg1) (id 26)))))))
+           ((binding ((name +arg2) (id 30)))
+            (value (Ref ((id ((name +arg2) (id 27)))))))))
          (body
           (Map
            ((args
-             (((binding ((name +arg2) (id 35)))
-               (value (Ref ((id ((name +arg2) (id 34)))))))))
+             (((binding ((name +arg2) (id 31)))
+               (value (Ref ((id ((name +arg2) (id 30)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 32))))))
+              ((func (Ref ((id ((name f) (id 28))))))
                (args
-                (((id ((name +arg1) (id 33)))) ((id ((name +arg2) (id 35))))))
+                (((id ((name +arg1) (id 29)))) ((id ((name +arg2) (id 31))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 3) (refs ())))))
             (type'
@@ -452,12 +452,12 @@ let%expect_test "function call with implicit map" =
     (IntrinsicCall
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 36)))
+       (((binding ((name f) (id 32)))
          (value
           (Scalar
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
-        ((binding ((name +arg1) (id 37)))
+        ((binding ((name +arg1) (id 33)))
          (value
           (Frame
            ((dimensions (2))
@@ -471,7 +471,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 39)))
+        ((binding ((name +arg2) (id 35)))
          (value
           (Frame
            ((dimensions (2))
@@ -513,17 +513,17 @@ let%expect_test "function call with implicit map" =
        (IntrinsicCall
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 38)))
+          (((binding ((name +arg1) (id 34)))
             (value
              (Ref
-              ((id ((name +arg1) (id 37)))
+              ((id ((name +arg1) (id 33)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))
-           ((binding ((name +arg2) (id 40)))
+           ((binding ((name +arg2) (id 36)))
             (value
              (Ref
-              ((id ((name +arg2) (id 39)))
+              ((id ((name +arg2) (id 35)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape
@@ -532,10 +532,10 @@ let%expect_test "function call with implicit map" =
           (IntrinsicCall
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 41)))
+             (((binding ((name +arg2) (id 37)))
                (value
                 (Ref
-                 ((id ((name +arg2) (id 40)))
+                 ((id ((name +arg2) (id 36)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -544,10 +544,10 @@ let%expect_test "function call with implicit map" =
               ((op Add)
                (args
                 ((Ref
-                  ((id ((name +arg1) (id 38)))
+                  ((id ((name +arg1) (id 34)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name +arg2) (id 41)))
+                  ((id ((name +arg2) (id 37)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
@@ -563,7 +563,7 @@ let%expect_test "function call with implicit map" =
     (IntrinsicCall
      (Map (frameShape ((Add ((const 2) (refs ())))))
       (args
-       (((binding ((name +arg1) (id 38)))
+       (((binding ((name +arg1) (id 34)))
          (value
           (Frame
            ((dimensions (2))
@@ -577,7 +577,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 40)))
+        ((binding ((name +arg2) (id 36)))
          (value
           (Frame
            ((dimensions (2 3))
@@ -607,10 +607,10 @@ let%expect_test "function call with implicit map" =
        (IntrinsicCall
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
-          (((binding ((name +arg2) (id 41)))
+          (((binding ((name +arg2) (id 37)))
             (value
              (Ref
-              ((id ((name +arg2) (id 40)))
+              ((id ((name +arg2) (id 36)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))))
@@ -619,10 +619,10 @@ let%expect_test "function call with implicit map" =
            ((op Add)
             (args
              ((Ref
-               ((id ((name +arg1) (id 38)))
+               ((id ((name +arg1) (id 34)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
               (Ref
-               ((id ((name +arg2) (id 41)))
+               ((id ((name +arg2) (id 37)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type'
@@ -647,7 +647,7 @@ let%expect_test "box and unbox" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name words) (id 30)))
+     ((binding ((name words) (id 26)))
       (value
        (Frame
         ((dimensions (2))
@@ -666,7 +666,7 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 31)) 1)))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 27)) 1)))))))))))))))
            (Scalar
             ((element
               (Box
@@ -680,12 +680,12 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 31)) 1))))))))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 27)) 1))))))))))))))))))))
       (body
        (Unbox
-        ((indexBindings (((name len) (id 32))))
-         (valueBinding ((name word) (id 33)))
-         (box (Ref ((id ((name words) (id 30))))))
+        ((indexBindings (((name len) (id 28))))
+         (valueBinding ((name word) (id 29)))
+         (box (Ref ((id ((name words) (id 26))))))
          (body
           (TermApplication
            ((func (Primitive ((name (Func Equal)))))
@@ -733,14 +733,14 @@ let%expect_test "box and unbox" =
                                              ((const 0)
                                               (refs ((((name d) (id 0)) 1)))))))))))))))))))))))))))
                       (args
-                       ((Dimension ((const 0) (refs ((((name len) (id 32)) 1)))))
+                       ((Dimension ((const 0) (refs ((((name len) (id 28)) 1)))))
                         (Shape ()))))))
                    (args ((Atom (Literal CharacterLiteral)))))))
-                (args ((Ref ((id ((name word) (id 33)))))))))))))))))))
+                (args ((Ref ((id ((name word) (id 29)))))))))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name words) (id 30)))
+       (((binding ((name words) (id 26)))
          (value
           (Frame
            ((dimensions (2))
@@ -760,7 +760,7 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 31)) 1)))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 27)) 1)))))))))))))))
               (Scalar
                ((element
                  (Box
@@ -775,24 +775,24 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 31)) 1)))))))))))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 27)) 1)))))))))))))))))))))))
       (body
        (Unbox
-        ((indexBindings (((name len) (id 32))))
-         (valueBinding ((name word) (id 33)))
-         (box (Ref ((id ((name words) (id 30))))))
+        ((indexBindings (((name len) (id 28))))
+         (valueBinding ((name word) (id 29)))
+         (box (Ref ((id ((name words) (id 26))))))
          (body
           (Map
            ((args
-             (((binding ((name f) (id 38)))
+             (((binding ((name f) (id 34)))
                (value (Primitive ((name (Func Equal))))))
-              ((binding ((name =arg1) (id 34)))
+              ((binding ((name =arg1) (id 30)))
                (value (Scalar ((element (Literal (IntLiteral 3)))))))
-              ((binding ((name =arg2) (id 37)))
+              ((binding ((name =arg2) (id 33)))
                (value
                 (Map
                  ((args
-                   (((binding ((name f) (id 36)))
+                   (((binding ((name f) (id 32)))
                      (value
                       (TypeApplication
                        ((tFunc
@@ -837,23 +837,23 @@ let%expect_test "box and unbox" =
                                                    (refs ((((name d) (id 0)) 1)))))))))))))))))))))))))))
                            (args
                             ((Dimension
-                              ((const 0) (refs ((((name len) (id 32)) 1)))))
+                              ((const 0) (refs ((((name len) (id 28)) 1)))))
                              (Shape ()))))))
                         (args ((Atom (Literal CharacterLiteral))))))))
-                    ((binding ((name arr) (id 35)))
-                     (value (Ref ((id ((name word) (id 33)))))))))
+                    ((binding ((name arr) (id 31)))
+                     (value (Ref ((id ((name word) (id 29)))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 36))))))
-                     (args (((id ((name arr) (id 35))))))
+                    ((func (Ref ((id ((name f) (id 32))))))
+                     (args (((id ((name arr) (id 31))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 38))))))
+              ((func (Ref ((id ((name f) (id 34))))))
                (args
-                (((id ((name =arg1) (id 34)))) ((id ((name =arg2) (id 37))))))
+                (((id ((name =arg1) (id 30)))) ((id ((name =arg2) (id 33))))))
                (type' ((element (Literal BooleanLiteral)) (shape ()))))))
             (frameShape ())
             (type' (Arr ((element (Literal BooleanLiteral)) (shape ()))))))))))
@@ -867,27 +867,27 @@ let%expect_test "box and unbox" =
      (Map (frameShape ()) (args ())
       (body
        (Unbox
-        ((indexBindings (((name len) (id 32)))) (boxBindings ())
+        ((indexBindings (((name len) (id 28)))) (boxBindings ())
          (body
           (IntrinsicCall
            (Map (frameShape ())
             (args
-             (((binding ((name f) (id 39)))
+             (((binding ((name f) (id 35)))
                (value
                 (Scalar
                  ((element (Literal UnitLiteral))
                   (type' ((element (Literal UnitLiteral)) (shape ())))))))
-              ((binding ((name =arg1) (id 40)))
+              ((binding ((name =arg1) (id 36)))
                (value
                 (Scalar
                  ((element (Literal (IntLiteral 3)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name =arg2) (id 43)))
+              ((binding ((name =arg2) (id 39)))
                (value
                 (IntrinsicCall
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 42)))
+                   (((binding ((name f) (id 38)))
                      (value
                       (Scalar
                        ((element (Literal UnitLiteral))
@@ -895,7 +895,7 @@ let%expect_test "box and unbox" =
                   (body
                    (ReifyIndex
                     ((index
-                      (Dimension ((const 0) (refs ((((name len) (id 32)) 1))))))
+                      (Dimension ((const 0) (refs ((((name len) (id 28)) 1))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
@@ -903,10 +903,10 @@ let%expect_test "box and unbox" =
               ((op Equal)
                (args
                 ((Ref
-                  ((id ((name =arg1) (id 40)))
+                  ((id ((name =arg1) (id 36)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name =arg2) (id 43)))
+                  ((id ((name =arg2) (id 39)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type' ((element (Literal BooleanLiteral)) (shape ()))))))
             (type' ((element (Literal BooleanLiteral)) (shape ()))))))
@@ -917,7 +917,7 @@ let%expect_test "box and unbox" =
        ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ())))))))))
     Result of stage Simplify:
     (Unbox
-     ((indexBindings (((name len) (id 32)))) (boxBindings ())
+     ((indexBindings (((name len) (id 28)))) (boxBindings ())
       (body
        (PrimitiveCall
         ((op Equal)
@@ -926,7 +926,7 @@ let%expect_test "box and unbox" =
             ((element (Literal (IntLiteral 3)))
              (type' ((element (Literal IntLiteral)) (shape ())))))
            (ReifyIndex
-            ((index (Dimension ((const 0) (refs ((((name len) (id 32)) 1))))))
+            ((index (Dimension ((const 0) (refs ((((name len) (id 28)) 1))))))
              (type' ((element (Literal IntLiteral)) (shape ())))))))
          (type' ((element (Literal BooleanLiteral)) (shape ()))))))
       (type'

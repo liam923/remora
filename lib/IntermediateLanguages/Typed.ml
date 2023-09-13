@@ -106,7 +106,6 @@ module Expr = struct
         ; character : [ `Reduce | `Scan | `OpenScan ]
         }
     | Fold of { character : [ `Fold | `Trace | `OpenTrace ] }
-    | Filter
     | Append
     | Index
   [@@deriving compare, sexp, equal]

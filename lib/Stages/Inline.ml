@@ -523,28 +523,6 @@ and inlineTermApplication subs appStack termApplication =
                   [ "append expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
-     | Filter ->
-       assert (List.length args = 2);
-       (match primitive.appStack with
-        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom _ ] ] ->
-          let%map array, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
-          and flags, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
-          ( I.IntrinsicCall
-              (Filter
-                 { array
-                 ; flags
-                 ; d
-                 ; cellShape
-                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
-                 })
-          , FunctionSet.Empty )
-        | _ ->
-          raise
-            (Unreachable.Error
-               (String.concat_lines
-                  [ "filter expected a stack of [IndexApp; TypeApp], got"
-                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
-                  ])))
      | Reduce { associative; explicitZero; character } ->
        (match primitive.appStack with
         | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]; TypeApp [ Atom t ] ]

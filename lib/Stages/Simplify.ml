@@ -133,8 +133,6 @@ let getCounts =
       and bodyCounts = getCountsArray body
       and zeroCounts = getCountsArray zero in
       Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
-    | IntrinsicCall (Filter { array; flags; d = _; cellShape = _; type' = _ }) ->
-      Counts.merge [ getCountsArray array; getCountsArray flags ]
     | IntrinsicCall (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
       Counts.merge [ getCountsArray arg1; getCountsArray arg2 ]
     | IntrinsicCall (Iota { s = _; type' = _ }) -> Counts.empty
@@ -193,10 +191,6 @@ let rec subArray subs : Expr.array -> Expr.array = function
     and body = subArray subs body
     and zero = subArray subs zero in
     IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-  | IntrinsicCall (Filter { array; flags; d; cellShape; type' }) ->
-    let array = subArray subs array
-    and flags = subArray subs flags in
-    IntrinsicCall (Filter { array; flags; d; cellShape; type' })
   | IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
     let arg1 = subArray subs arg1
     and arg2 = subArray subs arg2 in
@@ -376,10 +370,6 @@ let rec optimizeArray : Expr.array -> Expr.array = function
        in
        optimizeArray frame
      | _ -> Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }))
-  | IntrinsicCall (Filter { array; flags; d; cellShape; type' }) ->
-    let array = optimizeArray array
-    and flags = optimizeArray flags in
-    IntrinsicCall (Filter { array; flags; d; cellShape; type' })
   | IntrinsicCall (Map { args; body; frameShape = []; type' }) ->
     (* Do an initial simplification of the argument values and the body *)
     let args =
@@ -533,11 +523,6 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
   | PrimitiveCall { op; args; type' } ->
     let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarationsInArray in
     PrimitiveCall { op; args; type' }, hoistings
-  | IntrinsicCall (Filter { array; flags; d; cellShape; type' }) ->
-    let array, arrayHoistings = hoistDeclarationsInArray array
-    and flags, flagHoistings = hoistDeclarationsInArray flags in
-    ( Expr.IntrinsicCall (Filter { array; flags; d; cellShape; type' })
-    , arrayHoistings @ flagHoistings )
   | IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
     let arg1, hoistings1 = hoistDeclarationsInArray arg1
     and arg2, hoistings2 = hoistDeclarationsInArray arg2 in
@@ -747,11 +732,6 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       and arg2, hoistings2 = hoistExpressionsInArray loopBarrier arg2 in
       ( Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
       , hoistings1 @ hoistings2 )
-    | IntrinsicCall (Filter { array; flags; d; cellShape; type' }) ->
-      let%map array, arrayHoistings = hoistExpressionsInArray loopBarrier array
-      and flags, flagHoistings = hoistExpressionsInArray loopBarrier flags in
-      ( Expr.IntrinsicCall (Filter { array; flags; d; cellShape; type' })
-      , arrayHoistings @ flagHoistings )
     | IntrinsicCall (Map { args; body; frameShape; type' }) ->
       let%bind args, argHoistings =
         hoistExpressionsMap args ~f:(fun { binding; value } ->

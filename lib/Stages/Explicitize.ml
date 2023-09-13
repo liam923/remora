@@ -44,7 +44,6 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Equal -> [ "=arg1"; "=arg2" ]
           | Reduce _ -> [ "reduce-arg1"; "reduce-arg2" ]
           | Fold _ -> [ "fold-arg1"; "fold-arg2" ]
-          | Filter -> [ "filter-array"; "filter-flags" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
           | Index -> [ "index-array"; "index-index" ])
      | Val _ -> None)

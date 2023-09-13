@@ -154,20 +154,6 @@ module Stdlib : S = struct
                 |}
             }
       }
-    ; { name = "filter"
-      ; value =
-          Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { name = Func Filter; type' })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t)
-                    (-> ([t d @cell-shape]
-                         [bool d @cell-shape])
-                        (Sigma (d-out) [t d-out @cell-shape]))))
-                |}
-            }
-      }
     ; { name = "append"
       ; value =
           Intrinsic

@@ -10,7 +10,7 @@ Minimal basis:
  - scan
  - fold
  - trace
- - filter
+ - filter? - can be implemented in terms of scan and index
  - reshape
  - append
  - iota
@@ -40,8 +40,10 @@ Minimal basis:
 
 (define (filter{t | d @cell-shape}
           [array [t d @cell-shape]
-          [flags [bool d @cell-shape]])
+          [flags [int d @cell-shape]])
   : (Sigma (d-out) [t d-out @cell-shape])
+  (define total-keep (reduce-zero{int | d [] @cell-shape} + 0 flags))
+  (define new-index (scan-zero{int | d [] @cell-shape} + 0 flags))
   ...)
 
 (define (append{t | d1 d2 @cell-shape}

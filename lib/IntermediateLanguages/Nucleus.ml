@@ -135,13 +135,6 @@ module Expr = struct
         ; character : [ `Fold | `Trace | `OpenTrace ]
         ; type' : Type.array
         }
-    | Filter of
-        { array : array
-        ; flags : array
-        ; d : Index.dimension
-        ; cellShape : Index.shape
-        ; type' : Type.array
-        }
     | Append of
         { arg1 : array
         ; arg2 : array
@@ -207,7 +200,6 @@ module Expr = struct
        | Map map -> map.type'
        | Reduce reduce -> reduce.type'
        | Fold fold -> fold.type'
-       | Filter filter -> filter.type'
        | Append append -> append.type'
        | Iota iota -> iota.type'
        | Index index -> index.type')
