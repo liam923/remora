@@ -513,6 +513,17 @@ let hoistDeclarationsMap l ~f =
   results, List.join hoistings
 ;;
 
+let minDimensionSize (dimension : Index.dimension) = dimension.const
+
+let minShapeSize (shape : Index.shape) =
+  let minComponentSizes =
+    List.map shape ~f:(function
+      | Add d -> minDimensionSize d
+      | ShapeRef _ -> 0)
+  in
+  List.fold minComponentSizes ~init:1 ~f:( * )
+;;
+
 (* Hoist variables that can be hoisted. Maps are also cleaned up while doing
    this. (nested maps with empty frames that can be flattened are, and maps
    with empty frames and no args are removed) *)
@@ -567,8 +578,17 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     body, argHoistings @ argsAsHoistings @ bodyHoistings
   | IntrinsicCall (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
     ->
-    let argBindings = args |> List.map ~f:(fun arg -> arg.binding) in
-    let bindings = Option.to_list iotaVar @ argBindings |> BindingSet.of_list in
+    let bindings =
+      if minShapeSize frameShape > 0
+      then (
+        (* The loop will be run at least once, so hoisting out of the loop
+           is ok *)
+        let argBindings = args |> List.map ~f:(fun arg -> arg.binding) in
+        Option.to_list iotaVar @ argBindings |> BindingSet.of_list)
+      else
+        (* The loop could be run 0 times, so nothing can be hoisted out *)
+        BindingSet.All
+    in
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let args, argHoistings =
       hoistDeclarationsMap args ~f:(fun { binding; value } ->
@@ -581,9 +601,14 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     ->
     let bindings =
-      args
-      |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-      |> BindingSet.of_list
+      if minDimensionSize d >= 2
+      then
+        args
+        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+        |> BindingSet.of_list
+      else
+        (* The body of the reduce is not guaranteed to run, so hoisting is unsafe *)
+        BindingSet.All
     in
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let args, argHoistings =
@@ -603,9 +628,14 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     , argHoistings @ bodyHoistings @ zeroHoistings )
   | IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
     let bindings =
-      args
-      |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-      |> BindingSet.of_list
+      if minDimensionSize d >= 2
+      then
+        args
+        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+        |> BindingSet.of_list
+      else
+        (* The body of the fold is not guaranteed to run, so hoisting is unsafe *)
+        BindingSet.All
     in
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let args, argHoistings =
@@ -770,8 +800,17 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
           let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
           ({ binding; value } : Expr.mapArg), hoistings)
       in
-      let argBindings = args |> List.map ~f:(fun arg -> arg.binding) in
-      let bindings = Option.to_list iotaVar @ argBindings |> BindingSet.of_list in
+      let bindings =
+        if minShapeSize frameShape > 0
+        then (
+          (* The loop will be run at least once, so hoisting out of the loop
+             is ok *)
+          let argBindings = args |> List.map ~f:(fun arg -> arg.binding) in
+          Option.to_list iotaVar @ argBindings |> BindingSet.of_list)
+        else
+          (* The loop could be run 0 times, so nothing can be hoisted out *)
+          BindingSet.All
+      in
       (* If the map is not just a let, then we update the loop barrier to be
          the args of the map *)
       let bodyLoopBarrier =
@@ -793,9 +832,14 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
           ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
       in
       let bindings =
-        args
-        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-        |> BindingSet.of_list
+        if minDimensionSize d >= 2
+        then
+          args
+          |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+          |> BindingSet.of_list
+        else
+          (* The body of the reduce is not guaranteed to run, so hoisting is unsafe *)
+          BindingSet.All
       in
       let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings
       and zero, zeroHoistings =
@@ -817,9 +861,14 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
           ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
       in
       let bindings =
-        args
-        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-        |> BindingSet.of_list
+        if minDimensionSize d >= 2
+        then
+          args
+          |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+          |> BindingSet.of_list
+        else
+          (* The body of the fold is not guaranteed to run, so hoisting is unsafe *)
+          BindingSet.All
       in
       let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings
       and zero, zeroHoistings = hoistExpressionsInArray loopBarrier zero in

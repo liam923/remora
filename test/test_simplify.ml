@@ -1356,5 +1356,51 @@ let%expect_test "check simplifying" =
       (l ((const 3) (refs ())))
       (type'
        ((element (Literal IntLiteral))
-        (shape ((Add ((const 4) (refs ()))) (Add ((const 5) (refs ()))))))))) |}]
+        (shape ((Add ((const 4) (refs ()))) (Add ((const 5) (refs ()))))))))) |}];
+  checkAndPrint
+    {|
+    (define (foo [x int])
+      (+ [1 2 3] 4))
+    (foo (array [0] int))
+    |};
+  [%expect {|
+    (IntrinsicCall
+     (Map (frameShape ((Add ((const 0) (refs ()))))) (args ())
+      (body
+       (IntrinsicCall
+        (Map (frameShape ((Add ((const 3) (refs ())))))
+         (args
+          (((binding ((name +arg1) (id 52)))
+            (value
+             (Frame
+              ((dimensions (3))
+               (elements
+                ((Scalar
+                  ((element (Literal (IntLiteral 1)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))
+                 (Scalar
+                  ((element (Literal (IntLiteral 2)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))
+                 (Scalar
+                  ((element (Literal (IntLiteral 3)))
+                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+               (type'
+                ((element (Literal IntLiteral))
+                 (shape ((Add ((const 3) (refs ())))))))))))))
+         (body
+          (PrimitiveCall
+           ((op Add)
+            (args
+             ((Ref
+               ((id ((name +arg1) (id 52)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))
+              (Scalar
+               ((element (Literal (IntLiteral 4)))
+                (type' ((element (Literal IntLiteral)) (shape ())))))))
+            (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (type'
+          ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))))
+      (type'
+       ((element (Literal IntLiteral))
+        (shape ((Add ((const 0) (refs ()))) (Add ((const 3) (refs ()))))))))) |}]
 ;;
