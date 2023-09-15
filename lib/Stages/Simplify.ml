@@ -47,7 +47,7 @@ end
 
 let scalar atom =
   Nucleus.Expr.(
-    Scalar { element = atom; type' = { element = atomType atom; shape = [] } })
+    AtomAsArray { element = atom; type' = { element = atomType atom; shape = [] } })
 ;;
 
 (* Determine if an expression is a constant expression or if it requires
@@ -56,15 +56,16 @@ let scalar atom =
 let nonComputational =
   let rec nonComputationalArray : Expr.array -> bool = function
     | Ref _ -> true
-    | Scalar scalar -> nonComputationalAtom scalar.element
+    | AtomAsArray atomicArray -> nonComputationalAtom atomicArray.element
     | Frame frame -> List.for_all frame.elements ~f:nonComputationalArray
     | Unbox _ -> false
     | ReifyIndex _ -> false
-    | PrimitiveCall _ -> false
-    | IntrinsicCall _ -> false
+    | ArrayPrimitive _ -> false
   and nonComputationalAtom : Expr.atom -> bool = function
     | Box _ -> false
     | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _ | UnitLiteral) -> true
+    | ArrayAsAtom arrayAtomic -> nonComputationalArray arrayAtomic.array
+    | AtomicPrimitive _ -> false
   in
   nonComputationalArray
 ;;
@@ -72,7 +73,7 @@ let nonComputational =
 let getCounts =
   let rec getCountsArray : Expr.array -> Counts.t = function
     | Ref { id; type' = _ } -> Counts.one id
-    | Scalar { element; type' = _ } -> getCountsAtom element
+    | AtomAsArray { element; type' = _ } -> getCountsAtom element
     | Frame { elements; dimensions = _; type' = _ } ->
       elements |> List.map ~f:getCountsArray |> Counts.merge
     | Unbox { indexBindings = _; boxBindings; body; type' = _ } ->
@@ -83,16 +84,14 @@ let getCounts =
       and bodyCounts = getCountsArray body in
       Counts.merge [ boxBindingsCounts; bodyCounts ]
     | ReifyIndex { index = _; type' = _ } -> Counts.empty
-    | PrimitiveCall { op = _; args; type' = _ } ->
-      args |> List.map ~f:getCountsArray |> Counts.merge
-    | IntrinsicCall (Map { args; iotaVar = _; body; frameShape = _; type' = _ }) ->
+    | ArrayPrimitive (Map { args; iotaVar = _; body; frameShape = _; type' = _ }) ->
       let argsCounts =
         args
         |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
         |> Counts.merge
       and bodyCounts = getCountsArray body in
       Counts.merge [ argsCounts; bodyCounts ]
-    | IntrinsicCall
+    | ArrayPrimitive
         (Reduce
           { args
           ; body
@@ -114,7 +113,7 @@ let getCounts =
         zero |> Option.map ~f:getCountsArray |> Option.value ~default:Counts.empty
       in
       Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
-    | IntrinsicCall
+    | ArrayPrimitive
         (Fold
           { args
           ; body
@@ -133,11 +132,12 @@ let getCounts =
       and bodyCounts = getCountsArray body
       and zeroCounts = getCountsArray zero in
       Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
-    | IntrinsicCall (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
+    | ArrayPrimitive (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
       Counts.merge [ getCountsArray arg1; getCountsArray arg2 ]
-    | IntrinsicCall (Index { arrayArg; indexArg; s = _; cellShape = _; l = _; type' = _ })
-      -> Counts.merge [ getCountsArray arrayArg; getCountsArray indexArg ]
-    | IntrinsicCall
+    | ArrayPrimitive
+        (Index { arrayArg; indexArg; s = _; cellShape = _; l = _; type' = _ }) ->
+      Counts.merge [ getCountsArray arrayArg; getCountsArray indexArg ]
+    | ArrayPrimitive
         (Scatter { valuesArg; indicesArg; dIn = _; dOut = _; cellShape = _; type' = _ })
       -> Counts.merge [ getCountsArray valuesArg; getCountsArray indicesArg ]
   and getCountsAtom : Expr.atom -> Counts.t = function
@@ -146,6 +146,9 @@ let getCounts =
     | Literal (BooleanLiteral _) -> Counts.empty
     | Literal UnitLiteral -> Counts.empty
     | Box { indices = _; body; bodyType = _; type' = _ } -> getCountsArray body
+    | ArrayAsAtom { array; type' = _ } -> getCountsArray array
+    | AtomicPrimitive { op = _; args; type' = _ } ->
+      args |> List.map ~f:getCountsAtom |> Counts.merge
   in
   getCountsArray
 ;;
@@ -155,7 +158,8 @@ let rec subArray subs : Expr.array -> Expr.array = function
     (match Map.find subs id with
      | Some subValue -> subValue
      | None -> expr)
-  | Scalar { element; type' } -> Scalar { element = subAtom subs element; type' }
+  | AtomAsArray { element; type' } ->
+    AtomAsArray { element = subAtom subs element; type' }
   | Frame { elements; dimensions; type' } ->
     let elements = List.map elements ~f:(subArray subs) in
     Frame { elements; dimensions; type' }
@@ -167,16 +171,13 @@ let rec subArray subs : Expr.array -> Expr.array = function
     in
     Unbox { indexBindings; boxBindings; body; type' }
   | ReifyIndex { index; type' } -> ReifyIndex { index; type' }
-  | PrimitiveCall { op; args; type' } ->
-    let args = List.map args ~f:(subArray subs) in
-    PrimitiveCall { op; args; type' }
-  | IntrinsicCall (Map { args; iotaVar; body; frameShape; type' }) ->
+  | ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' }) ->
     let args =
       List.map args ~f:(fun { binding; value } : Expr.mapArg ->
         { binding; value = subArray subs value })
     and body = subArray subs body in
-    IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
-  | IntrinsicCall
+    ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
+  | ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     ->
     let args =
@@ -184,27 +185,27 @@ let rec subArray subs : Expr.array -> Expr.array = function
         { firstBinding; secondBinding; value = subArray subs value })
     and body = subArray subs body
     and zero = Option.map zero ~f:(subArray subs) in
-    IntrinsicCall
+    ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
-  | IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
+  | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
     let args =
       List.map args ~f:(fun { firstBinding; secondBinding; value } : Expr.reduceArg ->
         { firstBinding; secondBinding; value = subArray subs value })
     and body = subArray subs body
     and zero = subArray subs zero in
-    IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-  | IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
+    ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
+  | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
     let arg1 = subArray subs arg1
     and arg2 = subArray subs arg2 in
-    IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
-  | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
+    ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' })
+  | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg = subArray subs arrayArg
     and indexArg = subArray subs indexArg in
-    IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
-  | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+    ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' })
+  | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
     let valuesArg = subArray subs valuesArg
     and indicesArg = subArray subs indicesArg in
-    Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
+    Expr.ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
 
 and subAtom subs : Expr.atom -> Expr.atom = function
   | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit -> lit
@@ -212,6 +213,12 @@ and subAtom subs : Expr.atom -> Expr.atom = function
   | Box { indices; body; bodyType; type' } ->
     let body = subArray subs body in
     Box { indices; body; bodyType; type' }
+  | ArrayAsAtom { array; type' } ->
+    let array = subArray subs array in
+    ArrayAsAtom { array; type' }
+  | AtomicPrimitive { op; args; type' } ->
+    let args = List.map args ~f:(subAtom subs) in
+    AtomicPrimitive { op; args; type' }
 ;;
 
 (* Perform the following optimizations:
@@ -222,9 +229,9 @@ and subAtom subs : Expr.atom -> Expr.atom = function
    - Constant folding *)
 let rec optimizeArray : Expr.array -> Expr.array = function
   | Ref _ as ref -> ref
-  | Scalar { element; type' } ->
+  | AtomAsArray { element; type' } ->
     let element = optimizeAtom element in
-    Expr.Scalar { element; type' }
+    Expr.AtomAsArray { element; type' }
   | Frame { elements; dimensions; type' } ->
     let elements = List.map elements ~f:optimizeArray in
     (* Flatten the frame if all elements are frames *)
@@ -309,34 +316,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
          ; type'
          }
      | None -> original)
-  | PrimitiveCall { op; args; type' } ->
-    let args = List.map args ~f:optimizeArray in
-    (* Do constant folding: *)
-    (match op, args with
-     | ( Add
-       , [ Scalar { element = Literal (IntLiteral a); type' = _ }
-         ; Scalar { element = Literal (IntLiteral b); type' = _ }
-         ] ) -> scalar (Literal (IntLiteral (a + b)))
-     | Add, [ Scalar { element = Literal (IntLiteral 0); type' = _ }; value ]
-     | Add, [ value; Scalar { element = Literal (IntLiteral 0); type' = _ } ] -> value
-     | ( Sub
-       , [ Scalar { element = Literal (IntLiteral a); type' = _ }
-         ; Scalar { element = Literal (IntLiteral b); type' = _ }
-         ] ) -> scalar (Literal (IntLiteral (a - b)))
-     | Sub, [ value; Scalar { element = Literal (IntLiteral 0); type' = _ } ] -> value
-     | ( Mul
-       , [ Scalar { element = Literal (IntLiteral a); type' = _ }
-         ; Scalar { element = Literal (IntLiteral b); type' = _ }
-         ] ) -> scalar (Literal (IntLiteral (a * b)))
-     | Mul, [ Scalar { element = Literal (IntLiteral 1); type' = _ }; value ]
-     | Mul, [ value; Scalar { element = Literal (IntLiteral 1); type' = _ } ] -> value
-     | ( Div
-       , [ Scalar { element = Literal (IntLiteral a); type' = _ }
-         ; Scalar { element = Literal (IntLiteral b); type' = _ }
-         ] ) -> scalar (Literal (IntLiteral (a / b)))
-     | Div, [ value; Scalar { element = Literal (IntLiteral 1); type' = _ } ] -> value
-     | _ -> Expr.PrimitiveCall { op; args; type' })
-  | IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }) as append ->
+  | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) as append ->
     let arg1 = optimizeArray arg1
     and arg2 = optimizeArray arg2 in
     (match arg1, arg2 with
@@ -374,16 +354,16 @@ let rec optimizeArray : Expr.array -> Expr.array = function
            }
        in
        optimizeArray frame
-     | _ -> Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }))
-  | IntrinsicCall (Map { args; iotaVar = Some iotaVar; body; frameShape = []; type' }) ->
+     | _ -> Expr.ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }))
+  | ArrayPrimitive (Map { args; iotaVar = Some iotaVar; body; frameShape = []; type' }) ->
     let body =
       subArray
         (Map.singleton (module Identifier) iotaVar (scalar (Literal (IntLiteral 0))))
         body
     in
     optimizeArray
-      (Expr.IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }))
-  | IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }) ->
+      (Expr.ArrayPrimitive (Map { args; iotaVar = None; body; frameShape = []; type' }))
+  | ArrayPrimitive (Map { args; iotaVar = None; body; frameShape = []; type' }) ->
     (* Do an initial simplification of the argument values and the body *)
     let args =
       List.map args ~f:(fun { binding; value } : Expr.mapArg ->
@@ -421,8 +401,8 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     (* If args are now empty, just return the body, as the map is now redundant *)
     (match args with
      | [] -> body
-     | args -> IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }))
-  | IntrinsicCall (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
+     | args -> ArrayPrimitive (Map { args; iotaVar = None; body; frameShape = []; type' }))
+  | ArrayPrimitive (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
     ->
     let body = optimizeArray body in
     (* Simplify the args, removing unused ones *)
@@ -434,8 +414,8 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         let value = optimizeArray value in
         ({ binding; value } : Expr.mapArg))
     in
-    Expr.IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
-  | IntrinsicCall
+    Expr.ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
+  | ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     ->
     let body = optimizeArray body
@@ -451,9 +431,9 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         let value = optimizeArray value in
         ({ firstBinding; secondBinding; value } : Expr.reduceArg))
     in
-    Expr.IntrinsicCall
+    Expr.ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
-  | IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
+  | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
     let body = optimizeArray body
     and zero = optimizeArray zero in
     (* Simplify the args, removing unused ones *)
@@ -467,22 +447,46 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         let value = optimizeArray value in
         ({ firstBinding; secondBinding; value } : Expr.reduceArg))
     in
-    Expr.IntrinsicCall
+    Expr.ArrayPrimitive
       (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-  | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
+  | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg = optimizeArray arrayArg
     and indexArg = optimizeArray indexArg in
-    Expr.IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
-  | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+    Expr.ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' })
+  | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
     let valuesArg = optimizeArray valuesArg
     and indicesArg = optimizeArray indicesArg in
-    Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
+    Expr.ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
 
 and optimizeAtom : Expr.atom -> Expr.atom = function
   | Box { indices; body; bodyType; type' } ->
     let body = optimizeArray body in
     Expr.Box { indices; body; bodyType; type' }
   | Literal _ as literal -> literal
+  | ArrayAsAtom { array; type' } ->
+    let array = optimizeArray array in
+    (match array with
+     | AtomAsArray { element; type' = _ } -> element
+     | _ -> Expr.ArrayAsAtom { array; type' })
+  | AtomicPrimitive { op; args; type' } ->
+    let args = List.map args ~f:optimizeAtom in
+    (* Do constant folding: *)
+    (match op, args with
+     | Add, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (IntLiteral (a + b))
+     | Add, [ Literal (IntLiteral 0); value ] | Add, [ value; Literal (IntLiteral 0) ] ->
+       value
+     | Sub, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (IntLiteral (a - b))
+     | Sub, [ value; Literal (IntLiteral 0) ] -> value
+     | Mul, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (IntLiteral (a * b))
+     | Mul, [ Literal (IntLiteral 1); value ] | Mul, [ value; Literal (IntLiteral 1) ] ->
+       value
+     | Div, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (IntLiteral (a / b))
+     | Div, [ value; Literal (IntLiteral 1) ] -> value
+     | _ -> Expr.AtomicPrimitive { op; args; type' })
 ;;
 
 module HoistState = struct
@@ -529,9 +533,9 @@ let minShapeSize (shape : Index.shape) =
    with empty frames and no args are removed) *)
 let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = function
   | Ref _ as ref -> ref, []
-  | Scalar { element; type' } ->
+  | AtomAsArray { element; type' } ->
     let element, hoistings = hoistDeclarationsInAtom element in
-    Expr.Scalar { element; type' }, hoistings
+    Expr.AtomAsArray { element; type' }, hoistings
   | Frame { elements; dimensions; type' } ->
     let elements, hoistings = hoistDeclarationsMap elements ~f:hoistDeclarationsInArray in
     Expr.Frame { elements; dimensions; type' }, hoistings
@@ -548,23 +552,20 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     ( Expr.Unbox { indexBindings; boxBindings; body; type' }
     , boxBindingHoistings @ bodyHoistings )
   | ReifyIndex _ as reify -> reify, []
-  | PrimitiveCall { op; args; type' } ->
-    let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarationsInArray in
-    PrimitiveCall { op; args; type' }, hoistings
-  | IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
+  | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
     let arg1, hoistings1 = hoistDeclarationsInArray arg1
     and arg2, hoistings2 = hoistDeclarationsInArray arg2 in
-    ( Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
+    ( Expr.ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' })
     , hoistings1 @ hoistings2 )
-  | IntrinsicCall (Map { args; iotaVar = Some iotaVar; body; frameShape = []; type' }) ->
+  | ArrayPrimitive (Map { args; iotaVar = Some iotaVar; body; frameShape = []; type' }) ->
     let body =
       subArray
         (Map.singleton (module Identifier) iotaVar (scalar (Literal (IntLiteral 0))))
         body
     in
     hoistDeclarationsInArray
-      (Expr.IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }))
-  | IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' = _ }) ->
+      (Expr.ArrayPrimitive (Map { args; iotaVar = None; body; frameShape = []; type' }))
+  | ArrayPrimitive (Map { args; iotaVar = None; body; frameShape = []; type' = _ }) ->
     let body, bodyHoistings = hoistDeclarationsInArray body in
     let args, argHoistings =
       hoistDeclarationsMap args ~f:(fun { binding; value } ->
@@ -576,7 +577,7 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
         { variableDeclaration = arg; counts = getCounts arg.value })
     in
     body, argHoistings @ argsAsHoistings @ bodyHoistings
-  | IntrinsicCall (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
+  | ArrayPrimitive (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
     ->
     let bindings =
       if minShapeSize frameShape > 0
@@ -595,9 +596,9 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
         let value, hoistings = hoistDeclarationsInArray value in
         ({ binding; value } : Expr.mapArg), hoistings)
     in
-    ( Expr.IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
+    ( Expr.ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
     , argHoistings @ bodyHoistings )
-  | IntrinsicCall
+  | ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     ->
     let bindings =
@@ -623,10 +624,10 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
         let zero, hoistings = hoistDeclarationsInArray zero in
         Some zero, hoistings
     in
-    ( Expr.IntrinsicCall
+    ( Expr.ArrayPrimitive
         (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     , argHoistings @ bodyHoistings @ zeroHoistings )
-  | IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
+  | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
     let bindings =
       if minDimensionSize d >= 2
       then
@@ -644,18 +645,18 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
         ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
     in
     let zero, zeroHoistings = hoistDeclarationsInArray zero in
-    ( Expr.IntrinsicCall
+    ( Expr.ArrayPrimitive
         (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
     , argHoistings @ bodyHoistings @ zeroHoistings )
-  | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
+  | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg, arrayHoistings = hoistDeclarationsInArray arrayArg
     and indexArg, indexHoistings = hoistDeclarationsInArray indexArg in
-    ( Expr.IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
+    ( Expr.ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' })
     , arrayHoistings @ indexHoistings )
-  | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+  | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
     let valuesArg, valuesHoistings = hoistDeclarationsInArray valuesArg
     and indicesArg, indicesHoistings = hoistDeclarationsInArray indicesArg in
-    ( Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
+    ( Expr.ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
     , valuesHoistings @ indicesHoistings )
 
 and hoistDeclarationsInAtom : Expr.atom -> Expr.atom * hoisting list = function
@@ -663,6 +664,12 @@ and hoistDeclarationsInAtom : Expr.atom -> Expr.atom * hoisting list = function
     let body, hoistings = hoistDeclarationsInArray body in
     Box { indices; body; bodyType; type' }, hoistings
   | Literal _ as literal -> literal, []
+  | ArrayAsAtom { array; type' } ->
+    let array, hoistings = hoistDeclarationsInArray array in
+    ArrayAsAtom { array; type' }, hoistings
+  | AtomicPrimitive { op; args; type' } ->
+    let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarationsInAtom in
+    AtomicPrimitive { op; args; type' }, hoistings
 
 and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
   (* Simplify the body *)
@@ -726,7 +733,7 @@ and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
   (* Modify the body to declare the hoistings *)
   let body =
     List.fold hoistingsToDeclare ~init:body ~f:(fun body hoistings ->
-      Expr.IntrinsicCall
+      Expr.ArrayPrimitive
         (Map
            { args = List.map hoistings ~f:(fun h -> h.variableDeclaration)
            ; iotaVar = None
@@ -763,9 +770,9 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
   else (
     match array with
     | Ref _ as ref -> return (ref, [])
-    | Scalar { element; type' } ->
+    | AtomAsArray { element; type' } ->
       let%map element, hoistings = hoistExpressionsInAtom loopBarrier element in
-      Expr.Scalar { element; type' }, hoistings
+      Expr.AtomAsArray { element; type' }, hoistings
     | Frame { elements; dimensions; type' } ->
       let%map elements, hoistings =
         hoistExpressionsMap elements ~f:(hoistExpressionsInArray loopBarrier)
@@ -783,18 +790,13 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       let%map body, bodyHoistings = hoistExpressionsInBody loopBarrier body ~bindings in
       ( Expr.Unbox { indexBindings; boxBindings; body; type' }
       , boxBindingHoistings @ bodyHoistings )
-    | PrimitiveCall { op; args; type' } ->
-      let%map args, hoistings =
-        hoistExpressionsMap args ~f:(hoistExpressionsInArray loopBarrier)
-      in
-      Expr.PrimitiveCall { op; args; type' }, hoistings
     | ReifyIndex _ as reify -> return (reify, [])
-    | IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
+    | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
       let%map arg1, hoistings1 = hoistExpressionsInArray loopBarrier arg1
       and arg2, hoistings2 = hoistExpressionsInArray loopBarrier arg2 in
-      ( Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
+      ( Expr.ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' })
       , hoistings1 @ hoistings2 )
-    | IntrinsicCall (Map { args; iotaVar; body; frameShape; type' }) ->
+    | ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' }) ->
       let%bind args, argHoistings =
         hoistExpressionsMap args ~f:(fun { binding; value } ->
           let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
@@ -821,9 +823,9 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       let%map body, bodyHoistings =
         hoistExpressionsInBody bodyLoopBarrier body ~bindings
       in
-      ( Expr.IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
+      ( Expr.ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
       , argHoistings @ bodyHoistings )
-    | IntrinsicCall
+    | ArrayPrimitive
         (Reduce
           { args; body; zero; d; itemPad; cellShape; associative; character; type' }) ->
       let%bind args, argHoistings =
@@ -849,11 +851,11 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
           let%map zero, hoistings = hoistExpressionsInArray loopBarrier zero in
           Some zero, hoistings
       in
-      ( Expr.IntrinsicCall
+      ( Expr.ArrayPrimitive
           (Reduce
              { args; body; zero; d; itemPad; cellShape; associative; character; type' })
       , argHoistings @ bodyHoistings @ zeroHoistings )
-    | IntrinsicCall (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
+    | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
       ->
       let%bind args, argHoistings =
         hoistExpressionsMap args ~f:(fun { firstBinding; secondBinding; value } ->
@@ -872,18 +874,19 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       in
       let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings
       and zero, zeroHoistings = hoistExpressionsInArray loopBarrier zero in
-      ( Expr.IntrinsicCall
+      ( Expr.ArrayPrimitive
           (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
       , argHoistings @ bodyHoistings @ zeroHoistings )
-    | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
+    | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
       let%map arrayArg, arrayHoistings = hoistExpressionsInArray loopBarrier arrayArg
       and indexArg, indexHoistings = hoistExpressionsInArray loopBarrier indexArg in
-      ( Expr.IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' })
+      ( Expr.ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' })
       , arrayHoistings @ indexHoistings )
-    | IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+    | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
       let%map valuesArg, valuesHoistings = hoistExpressionsInArray loopBarrier valuesArg
       and indicesArg, indicesHoistings = hoistExpressionsInArray loopBarrier indicesArg in
-      ( Expr.IntrinsicCall (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
+      ( Expr.ArrayPrimitive
+          (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
       , valuesHoistings @ indicesHoistings ))
 
 and hoistExpressionsInAtom loopBarrier
@@ -895,6 +898,14 @@ and hoistExpressionsInAtom loopBarrier
     let%map body, hoistings = hoistExpressionsInArray loopBarrier body in
     Expr.Box { indices; body; bodyType; type' }, hoistings
   | Literal _ as literal -> return (literal, [])
+  | ArrayAsAtom { array; type' } ->
+    let%map array, hoistings = hoistExpressionsInArray loopBarrier array in
+    Expr.ArrayAsAtom { array; type' }, hoistings
+  | AtomicPrimitive { op; args; type' } ->
+    let%map args, hoistings =
+      hoistExpressionsMap args ~f:(hoistExpressionsInAtom loopBarrier)
+    in
+    Expr.AtomicPrimitive { op; args; type' }, hoistings
 
 and hoistExpressionsInBody loopBarrier body ~bindings =
   let open HoistState.Let_syntax in
@@ -923,7 +934,7 @@ and hoistExpressionsInBody loopBarrier body ~bindings =
       body
     | _ :: _ as hoistingsToDeclare ->
       (* There are some to be declared, so wrap the body in a map *)
-      Expr.IntrinsicCall
+      Expr.ArrayPrimitive
         (Map
            { args = hoistingsToDeclare
            ; iotaVar = None

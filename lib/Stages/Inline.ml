@@ -254,7 +254,7 @@ let assertValueRestriction value =
 
 let scalar atom =
   Nucleus.Expr.(
-    Scalar { element = atom; type' = { element = atomType atom; shape = [] } })
+    AtomAsArray { element = atom; type' = { element = atomType atom; shape = [] } })
 ;;
 
 let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
@@ -343,7 +343,7 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
        (match appStack with
         | [ IndexApp [ Shape s ] ] ->
           let%map iota = InlineState.createId "iota" in
-          ( I.IntrinsicCall
+          ( I.ArrayPrimitive
               (Map
                  { frameShape = s
                  ; args = []
@@ -372,7 +372,7 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
         |> List.map ~f:(fun (_, (binding, value)) : I.mapArg -> { binding; value }))
       |> List.join
     in
-    ( I.IntrinsicCall
+    ( I.ArrayPrimitive
         (Map
            { args
            ; body
@@ -497,7 +497,7 @@ and inlineTermApplication subs appStack termApplication =
     in
     inlineArray subs appStack body
   | Primitive primitive ->
-    let binop op =
+    let scalarBinop op =
       assert (List.length args = 2);
       let%map args, _ =
         args
@@ -505,15 +505,21 @@ and inlineTermApplication subs appStack termApplication =
         |> InlineState.all
         |> InlineState.unzip
       in
-      ( I.PrimitiveCall { op; args; type' = inlineArrayTypeWithStack appStack (Arr type') }
+      let args =
+        List.map args ~f:(fun arg ->
+          I.ArrayAsAtom { array = arg; type' = (I.arrayType arg).element })
+      in
+      ( scalar
+          (I.AtomicPrimitive
+             { op; args; type' = (inlineArrayTypeWithStack appStack (Arr type')).element })
       , FunctionSet.Empty )
     in
     (match primitive.func with
-     | Add -> binop Add
-     | Sub -> binop Sub
-     | Mul -> binop Mul
-     | Div -> binop Div
-     | Equal -> binop Equal
+     | Add -> scalarBinop Add
+     | Sub -> scalarBinop Sub
+     | Mul -> scalarBinop Mul
+     | Div -> scalarBinop Div
+     | Equal -> scalarBinop Equal
      | Append ->
        assert (List.length args = 2);
        (match primitive.appStack with
@@ -521,7 +527,7 @@ and inlineTermApplication subs appStack termApplication =
           ->
           let%map arg1, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
           and arg2, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
-          ( I.IntrinsicCall
+          ( I.ArrayPrimitive
               (Append
                  { arg1
                  ; arg2
@@ -632,7 +638,7 @@ and inlineTermApplication subs appStack termApplication =
               Some zero
             | None -> return None
           in
-          ( I.IntrinsicCall
+          ( I.ArrayPrimitive
               (Reduce
                  { args
                  ; body
@@ -722,7 +728,7 @@ and inlineTermApplication subs appStack termApplication =
           in
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
           let%map zero, _ = inlineArray subs [] (Ref zero) in
-          ( I.IntrinsicCall
+          ( I.ArrayPrimitive
               (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
           , functions )
         | _ -> raise Unimplemented.default)
@@ -732,7 +738,7 @@ and inlineTermApplication subs appStack termApplication =
         | [ IndexApp [ Shape s; Shape cellShape; Dimension l ]; TypeApp [ Atom _ ] ] ->
           let%map arrayArg, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
           and indexArg, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
-          ( I.IntrinsicCall
+          ( I.ArrayPrimitive
               (Index
                  { arrayArg
                  ; indexArg
@@ -757,7 +763,7 @@ and inlineTermApplication subs appStack termApplication =
           ] ->
           let%map valuesArg, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
           and indicesArg, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
-          ( I.IntrinsicCall
+          ( I.ArrayPrimitive
               (Scatter
                  { valuesArg
                  ; indicesArg

@@ -48,9 +48,14 @@ module Expr = struct
     }
   [@@deriving sexp, equal]
 
-  type scalar =
+  type atomicArray =
     { element : atom
     ; type' : Type.array
+    }
+
+  and arrayAtomic =
+    { array : array
+    ; type' : Type.atom
     }
 
   and frame =
@@ -83,17 +88,17 @@ module Expr = struct
     ; type' : Type.sigma
     }
 
-  and primitiveOp =
+  and scalarOp =
     | Add
     | Sub
     | Mul
     | Div
     | Equal
 
-  and primitiveCall =
-    { op : primitiveOp
-    ; args : array list
-    ; type' : Type.array
+  and atomicPrimitive =
+    { op : scalarOp
+    ; args : atom list
+    ; type' : Type.atom
     }
 
   and mapArg =
@@ -107,7 +112,7 @@ module Expr = struct
     ; value : array
     }
 
-  and intrinsicCall =
+  and arrayPrimitive =
     | Map of
         { frameShape : Index.shape
         ; args : mapArg list
@@ -170,16 +175,17 @@ module Expr = struct
 
   and array =
     | Ref of ref
-    | Scalar of scalar
+    | AtomAsArray of atomicArray
     | Frame of frame
     | Unbox of unbox
     | ReifyIndex of reifyIndex
-    | PrimitiveCall of primitiveCall
-    | IntrinsicCall of intrinsicCall
+    | ArrayPrimitive of arrayPrimitive
 
   and atom =
     | Box of box
     | Literal of literal
+    | ArrayAsAtom of arrayAtomic
+    | AtomicPrimitive of atomicPrimitive
 
   and t =
     | Array of array
@@ -192,17 +198,18 @@ module Expr = struct
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
     | Literal UnitLiteral -> Literal UnitLiteral
+    | ArrayAsAtom arrayAtomic -> arrayAtomic.type'
+    | AtomicPrimitive atomicPrimitive -> atomicPrimitive.type'
   ;;
 
   let arrayType : array -> Type.array = function
     | Ref ref -> ref.type'
-    | Scalar scalar -> scalar.type'
+    | AtomAsArray atomicArray -> atomicArray.type'
     | Frame frame -> frame.type'
     | Unbox unbox -> unbox.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
-    | PrimitiveCall primitiveCall -> primitiveCall.type'
-    | IntrinsicCall instrinsicCall ->
-      (match instrinsicCall with
+    | ArrayPrimitive arrayPrimitive ->
+      (match arrayPrimitive with
        | Map map -> map.type'
        | Reduce reduce -> reduce.type'
        | Fold fold -> fold.type'

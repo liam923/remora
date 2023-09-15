@@ -78,38 +78,47 @@ let%expect_test "simple addition" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
-    (IntrinsicCall
+    (ArrayPrimitive
      (Map (frameShape ())
       (args
        (((binding ((name f) (id 41)))
          (value
-          (Scalar
+          (AtomAsArray
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
         ((binding ((name +arg1) (id 42)))
          (value
-          (Scalar
+          (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
         ((binding ((name +arg2) (id 43)))
          (value
-          (Scalar
+          (AtomAsArray
            ((element (Literal (IntLiteral 2)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))))
       (body
-       (PrimitiveCall
-        ((op Add)
-         (args
-          ((Ref
-            ((id ((name +arg1) (id 42)))
-             (type' ((element (Literal IntLiteral)) (shape ())))))
-           (Ref
-            ((id ((name +arg2) (id 43)))
-             (type' ((element (Literal IntLiteral)) (shape ())))))))
+       (AtomAsArray
+        ((element
+          (AtomicPrimitive
+           ((op Add)
+            (args
+             ((ArrayAsAtom
+               ((array
+                 (Ref
+                  ((id ((name +arg1) (id 42)))
+                   (type' ((element (Literal IntLiteral)) (shape ()))))))
+                (type' (Literal IntLiteral))))
+              (ArrayAsAtom
+               ((array
+                 (Ref
+                  ((id ((name +arg2) (id 43)))
+                   (type' ((element (Literal IntLiteral)) (shape ()))))))
+                (type' (Literal IntLiteral))))))
+            (type' (Literal IntLiteral)))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Simplify:
-    (Scalar
+    (AtomAsArray
      ((element (Literal (IntLiteral 3)))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;
@@ -193,16 +202,16 @@ let%expect_test "simple function definition and call" =
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
-    (IntrinsicCall
+    (ArrayPrimitive
      (Map (frameShape ())
       (args
        (((binding ((name add) (id 48)))
          (value
-          (Scalar
+          (AtomAsArray
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
-       (IntrinsicCall
+       (ArrayPrimitive
         (Map (frameShape ())
          (args
           (((binding ((name f) (id 49)))
@@ -212,21 +221,21 @@ let%expect_test "simple function definition and call" =
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
            ((binding ((name x) (id 51)))
             (value
-             (Scalar
+             (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
            ((binding ((name y) (id 53)))
             (value
-             (Scalar
+             (AtomAsArray
               ((element (Literal (IntLiteral 10)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
-          (IntrinsicCall
+          (ArrayPrimitive
            (Map (frameShape ())
             (args
              (((binding ((name f) (id 50)))
                (value
-                (Scalar
+                (AtomAsArray
                  ((element (Literal UnitLiteral))
                   (type' ((element (Literal UnitLiteral)) (shape ())))))))
               ((binding ((name +arg1) (id 52)))
@@ -240,21 +249,30 @@ let%expect_test "simple function definition and call" =
                  ((id ((name y) (id 53)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
-             (PrimitiveCall
-              ((op Add)
-               (args
-                ((Ref
-                  ((id ((name +arg1) (id 52)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))
-                 (Ref
-                  ((id ((name +arg2) (id 54)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+             (AtomAsArray
+              ((element
+                (AtomicPrimitive
+                 ((op Add)
+                  (args
+                   ((ArrayAsAtom
+                     ((array
+                       (Ref
+                        ((id ((name +arg1) (id 52)))
+                         (type' ((element (Literal IntLiteral)) (shape ()))))))
+                      (type' (Literal IntLiteral))))
+                    (ArrayAsAtom
+                     ((array
+                       (Ref
+                        ((id ((name +arg2) (id 54)))
+                         (type' ((element (Literal IntLiteral)) (shape ()))))))
+                      (type' (Literal IntLiteral))))))
+                  (type' (Literal IntLiteral)))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Simplify:
-    (Scalar
+    (AtomAsArray
      ((element (Literal (IntLiteral 15)))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;
@@ -325,16 +343,16 @@ let%expect_test "polymorphic function definition and call" =
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
-    (IntrinsicCall
+    (ArrayPrimitive
      (Map (frameShape ())
       (args
        (((binding ((name id) (id 44)))
          (value
-          (Scalar
+          (AtomAsArray
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))))
       (body
-       (IntrinsicCall
+       (ArrayPrimitive
         (Map (frameShape ())
          (args
           (((binding ((name f) (id 45)))
@@ -344,7 +362,7 @@ let%expect_test "polymorphic function definition and call" =
                (type' ((element (Literal UnitLiteral)) (shape ())))))))
            ((binding ((name e) (id 46)))
             (value
-             (Scalar
+             (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
@@ -354,7 +372,7 @@ let%expect_test "polymorphic function definition and call" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Simplify:
-    (Scalar
+    (AtomAsArray
      ((element (Literal (IntLiteral 5)))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
 ;;
@@ -449,12 +467,12 @@ let%expect_test "function call with implicit map" =
         ((element (Literal IntLiteral))
          (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ()))))))))))
     Result of stage Inline and Monomorphize:
-    (IntrinsicCall
+    (ArrayPrimitive
      (Map (frameShape ())
       (args
        (((binding ((name f) (id 44)))
          (value
-          (Scalar
+          (AtomAsArray
            ((element (Literal UnitLiteral))
             (type' ((element (Literal UnitLiteral)) (shape ())))))))
         ((binding ((name +arg1) (id 45)))
@@ -462,10 +480,10 @@ let%expect_test "function call with implicit map" =
           (Frame
            ((dimensions (2))
             (elements
-             ((Scalar
+             ((AtomAsArray
                ((element (Literal (IntLiteral 1)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 2)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type'
@@ -479,13 +497,13 @@ let%expect_test "function call with implicit map" =
              ((Frame
                ((dimensions (3))
                 (elements
-                 ((Scalar
+                 ((AtomAsArray
                    ((element (Literal (IntLiteral 3)))
                     (type' ((element (Literal IntLiteral)) (shape ())))))
-                  (Scalar
+                  (AtomAsArray
                    ((element (Literal (IntLiteral 4)))
                     (type' ((element (Literal IntLiteral)) (shape ())))))
-                  (Scalar
+                  (AtomAsArray
                    ((element (Literal (IntLiteral 5)))
                     (type' ((element (Literal IntLiteral)) (shape ())))))))
                 (type'
@@ -494,13 +512,13 @@ let%expect_test "function call with implicit map" =
               (Frame
                ((dimensions (3))
                 (elements
-                 ((Scalar
+                 ((AtomAsArray
                    ((element (Literal (IntLiteral 6)))
                     (type' ((element (Literal IntLiteral)) (shape ())))))
-                  (Scalar
+                  (AtomAsArray
                    ((element (Literal (IntLiteral 7)))
                     (type' ((element (Literal IntLiteral)) (shape ())))))
-                  (Scalar
+                  (AtomAsArray
                    ((element (Literal (IntLiteral 8)))
                     (type' ((element (Literal IntLiteral)) (shape ())))))))
                 (type'
@@ -510,7 +528,7 @@ let%expect_test "function call with implicit map" =
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))))))
       (body
-       (IntrinsicCall
+       (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
           (((binding ((name +arg1) (id 46)))
@@ -529,7 +547,7 @@ let%expect_test "function call with implicit map" =
                  (shape
                   ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))))))
          (body
-          (IntrinsicCall
+          (ArrayPrimitive
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
              (((binding ((name +arg2) (id 49)))
@@ -540,15 +558,24 @@ let%expect_test "function call with implicit map" =
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
             (body
-             (PrimitiveCall
-              ((op Add)
-               (args
-                ((Ref
-                  ((id ((name +arg1) (id 46)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))
-                 (Ref
-                  ((id ((name +arg2) (id 49)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+             (AtomAsArray
+              ((element
+                (AtomicPrimitive
+                 ((op Add)
+                  (args
+                   ((ArrayAsAtom
+                     ((array
+                       (Ref
+                        ((id ((name +arg1) (id 46)))
+                         (type' ((element (Literal IntLiteral)) (shape ()))))))
+                      (type' (Literal IntLiteral))))
+                    (ArrayAsAtom
+                     ((array
+                       (Ref
+                        ((id ((name +arg2) (id 49)))
+                         (type' ((element (Literal IntLiteral)) (shape ()))))))
+                      (type' (Literal IntLiteral))))))
+                  (type' (Literal IntLiteral)))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
              ((element (Literal IntLiteral))
@@ -560,7 +587,7 @@ let%expect_test "function call with implicit map" =
        ((element (Literal IntLiteral))
         (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))
     Result of stage Simplify:
-    (IntrinsicCall
+    (ArrayPrimitive
      (Map (frameShape ((Add ((const 2) (refs ())))))
       (args
        (((binding ((name +arg1) (id 46)))
@@ -568,10 +595,10 @@ let%expect_test "function call with implicit map" =
           (Frame
            ((dimensions (2))
             (elements
-             ((Scalar
+             ((AtomAsArray
                ((element (Literal (IntLiteral 1)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 2)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type'
@@ -582,29 +609,29 @@ let%expect_test "function call with implicit map" =
           (Frame
            ((dimensions (2 3))
             (elements
-             ((Scalar
+             ((AtomAsArray
                ((element (Literal (IntLiteral 3)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 4)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 5)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 6)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 7)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Scalar
+              (AtomAsArray
                ((element (Literal (IntLiteral 8)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))))))
       (body
-       (IntrinsicCall
+       (ArrayPrimitive
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
           (((binding ((name +arg2) (id 49)))
@@ -615,15 +642,24 @@ let%expect_test "function call with implicit map" =
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))))
          (body
-          (PrimitiveCall
-           ((op Add)
-            (args
-             ((Ref
-               ((id ((name +arg1) (id 46)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (Ref
-               ((id ((name +arg2) (id 49)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))))
+          (AtomAsArray
+           ((element
+             (AtomicPrimitive
+              ((op Add)
+               (args
+                ((ArrayAsAtom
+                  ((array
+                    (Ref
+                     ((id ((name +arg1) (id 46)))
+                      (type' ((element (Literal IntLiteral)) (shape ()))))))
+                   (type' (Literal IntLiteral))))
+                 (ArrayAsAtom
+                  ((array
+                    (Ref
+                     ((id ((name +arg2) (id 49)))
+                      (type' ((element (Literal IntLiteral)) (shape ()))))))
+                   (type' (Literal IntLiteral))))))
+               (type' (Literal IntLiteral)))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))))
@@ -863,33 +899,33 @@ let%expect_test "box and unbox" =
         ((element (Literal BooleanLiteral))
          (shape ((Add ((const 2) (refs ()))))))))))
     Result of stage Inline and Monomorphize:
-    (IntrinsicCall
+    (ArrayPrimitive
      (Map (frameShape ()) (args ())
       (body
        (Unbox
         ((indexBindings (((name len) (id 40)))) (boxBindings ())
          (body
-          (IntrinsicCall
+          (ArrayPrimitive
            (Map (frameShape ())
             (args
              (((binding ((name f) (id 47)))
                (value
-                (Scalar
+                (AtomAsArray
                  ((element (Literal UnitLiteral))
                   (type' ((element (Literal UnitLiteral)) (shape ())))))))
               ((binding ((name =arg1) (id 48)))
                (value
-                (Scalar
+                (AtomAsArray
                  ((element (Literal (IntLiteral 3)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
               ((binding ((name =arg2) (id 51)))
                (value
-                (IntrinsicCall
+                (ArrayPrimitive
                  (Map (frameShape ())
                   (args
                    (((binding ((name f) (id 50)))
                      (value
-                      (Scalar
+                      (AtomAsArray
                        ((element (Literal UnitLiteral))
                         (type' ((element (Literal UnitLiteral)) (shape ())))))))))
                   (body
@@ -899,15 +935,24 @@ let%expect_test "box and unbox" =
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
-             (PrimitiveCall
-              ((op Equal)
-               (args
-                ((Ref
-                  ((id ((name =arg1) (id 48)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))
-                 (Ref
-                  ((id ((name =arg2) (id 51)))
-                   (type' ((element (Literal IntLiteral)) (shape ())))))))
+             (AtomAsArray
+              ((element
+                (AtomicPrimitive
+                 ((op Equal)
+                  (args
+                   ((ArrayAsAtom
+                     ((array
+                       (Ref
+                        ((id ((name =arg1) (id 48)))
+                         (type' ((element (Literal IntLiteral)) (shape ()))))))
+                      (type' (Literal IntLiteral))))
+                    (ArrayAsAtom
+                     ((array
+                       (Ref
+                        ((id ((name =arg2) (id 51)))
+                         (type' ((element (Literal IntLiteral)) (shape ()))))))
+                      (type' (Literal IntLiteral))))))
+                  (type' (Literal BooleanLiteral)))))
                (type' ((element (Literal BooleanLiteral)) (shape ()))))))
             (type' ((element (Literal BooleanLiteral)) (shape ()))))))
          (type'
@@ -919,15 +964,20 @@ let%expect_test "box and unbox" =
     (Unbox
      ((indexBindings (((name len) (id 40)))) (boxBindings ())
       (body
-       (PrimitiveCall
-        ((op Equal)
-         (args
-          ((Scalar
-            ((element (Literal (IntLiteral 3)))
-             (type' ((element (Literal IntLiteral)) (shape ())))))
-           (ReifyIndex
-            ((index (Dimension ((const 0) (refs ((((name len) (id 40)) 1))))))
-             (type' ((element (Literal IntLiteral)) (shape ())))))))
+       (AtomAsArray
+        ((element
+          (AtomicPrimitive
+           ((op Equal)
+            (args
+             ((Literal (IntLiteral 3))
+              (ArrayAsAtom
+               ((array
+                 (ReifyIndex
+                  ((index
+                    (Dimension ((const 0) (refs ((((name len) (id 40)) 1))))))
+                   (type' ((element (Literal IntLiteral)) (shape ()))))))
+                (type' (Literal IntLiteral))))))
+            (type' (Literal BooleanLiteral)))))
          (type' ((element (Literal BooleanLiteral)) (shape ()))))))
       (type'
        ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ()))))))))) |}]
