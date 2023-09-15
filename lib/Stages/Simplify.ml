@@ -85,7 +85,7 @@ let getCounts =
     | ReifyIndex { index = _; type' = _ } -> Counts.empty
     | PrimitiveCall { op = _; args; type' = _ } ->
       args |> List.map ~f:getCountsArray |> Counts.merge
-    | IntrinsicCall (Map { args; body; frameShape = _; type' = _ }) ->
+    | IntrinsicCall (Map { args; iotaVar = _; body; frameShape = _; type' = _ }) ->
       let argsCounts =
         args
         |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
@@ -135,7 +135,6 @@ let getCounts =
       Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
     | IntrinsicCall (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
       Counts.merge [ getCountsArray arg1; getCountsArray arg2 ]
-    | IntrinsicCall (Iota { s = _; type' = _ }) -> Counts.empty
     | IntrinsicCall (Index { arrayArg; indexArg; s = _; cellShape = _; l = _; type' = _ })
       -> Counts.merge [ getCountsArray arrayArg; getCountsArray indexArg ]
     | IntrinsicCall
@@ -171,12 +170,12 @@ let rec subArray subs : Expr.array -> Expr.array = function
   | PrimitiveCall { op; args; type' } ->
     let args = List.map args ~f:(subArray subs) in
     PrimitiveCall { op; args; type' }
-  | IntrinsicCall (Map { args; body; frameShape; type' }) ->
+  | IntrinsicCall (Map { args; iotaVar; body; frameShape; type' }) ->
     let args =
       List.map args ~f:(fun { binding; value } : Expr.mapArg ->
         { binding; value = subArray subs value })
     and body = subArray subs body in
-    IntrinsicCall (Map { args; body; frameShape; type' })
+    IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
   | IntrinsicCall
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     ->
@@ -198,7 +197,6 @@ let rec subArray subs : Expr.array -> Expr.array = function
     let arg1 = subArray subs arg1
     and arg2 = subArray subs arg2 in
     IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
-  | IntrinsicCall (Iota { s; type' }) -> IntrinsicCall (Iota { s; type' })
   | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg = subArray subs arrayArg
     and indexArg = subArray subs indexArg in
@@ -377,7 +375,15 @@ let rec optimizeArray : Expr.array -> Expr.array = function
        in
        optimizeArray frame
      | _ -> Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' }))
-  | IntrinsicCall (Map { args; body; frameShape = []; type' }) ->
+  | IntrinsicCall (Map { args; iotaVar = Some iotaVar; body; frameShape = []; type' }) ->
+    let body =
+      subArray
+        (Map.singleton (module Identifier) iotaVar (scalar (Literal (IntLiteral 0))))
+        body
+    in
+    optimizeArray
+      (Expr.IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }))
+  | IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }) ->
     (* Do an initial simplification of the argument values and the body *)
     let args =
       List.map args ~f:(fun { binding; value } : Expr.mapArg ->
@@ -415,8 +421,9 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     (* If args are now empty, just return the body, as the map is now redundant *)
     (match args with
      | [] -> body
-     | _ :: _ as args -> IntrinsicCall (Map { args; body; frameShape = []; type' }))
-  | IntrinsicCall (Map { args; body; frameShape = _ :: _ as frameShape; type' }) ->
+     | args -> IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }))
+  | IntrinsicCall (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
+    ->
     let body = optimizeArray body in
     (* Simplify the args, removing unused ones *)
     let bodyCounts = getCounts body in
@@ -427,7 +434,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
         let value = optimizeArray value in
         ({ binding; value } : Expr.mapArg))
     in
-    Expr.IntrinsicCall (Map { args; body; frameShape; type' })
+    Expr.IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
   | IntrinsicCall
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     ->
@@ -462,7 +469,6 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     in
     Expr.IntrinsicCall
       (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-  | IntrinsicCall (Iota { s; type' }) -> Expr.IntrinsicCall (Iota { s; type' })
   | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg = optimizeArray arrayArg
     and indexArg = optimizeArray indexArg in
@@ -539,7 +545,15 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     and arg2, hoistings2 = hoistDeclarationsInArray arg2 in
     ( Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
     , hoistings1 @ hoistings2 )
-  | IntrinsicCall (Map { args; body; frameShape = []; type' = _ }) ->
+  | IntrinsicCall (Map { args; iotaVar = Some iotaVar; body; frameShape = []; type' }) ->
+    let body =
+      subArray
+        (Map.singleton (module Identifier) iotaVar (scalar (Literal (IntLiteral 0))))
+        body
+    in
+    hoistDeclarationsInArray
+      (Expr.IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' }))
+  | IntrinsicCall (Map { args; iotaVar = None; body; frameShape = []; type' = _ }) ->
     let body, bodyHoistings = hoistDeclarationsInArray body in
     let args, argHoistings =
       hoistDeclarationsMap args ~f:(fun { binding; value } ->
@@ -551,15 +565,17 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
         { variableDeclaration = arg; counts = getCounts arg.value })
     in
     body, argHoistings @ argsAsHoistings @ bodyHoistings
-  | IntrinsicCall (Map { args; body; frameShape = _ :: _ as frameShape; type' }) ->
-    let bindings = args |> List.map ~f:(fun arg -> arg.binding) |> BindingSet.of_list in
+  | IntrinsicCall (Map { args; iotaVar; body; frameShape = _ :: _ as frameShape; type' })
+    ->
+    let argBindings = args |> List.map ~f:(fun arg -> arg.binding) in
+    let bindings = Option.to_list iotaVar @ argBindings |> BindingSet.of_list in
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     let args, argHoistings =
       hoistDeclarationsMap args ~f:(fun { binding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
         ({ binding; value } : Expr.mapArg), hoistings)
     in
-    ( Expr.IntrinsicCall (Map { args; body; frameShape; type' })
+    ( Expr.IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
     , argHoistings @ bodyHoistings )
   | IntrinsicCall
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
@@ -601,7 +617,6 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     ( Expr.IntrinsicCall
         (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
     , argHoistings @ bodyHoistings @ zeroHoistings )
-  | IntrinsicCall (Iota { s; type' }) -> Expr.IntrinsicCall (Iota { s; type' }), []
   | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg, arrayHoistings = hoistDeclarationsInArray arrayArg
     and indexArg, indexHoistings = hoistDeclarationsInArray indexArg in
@@ -684,6 +699,7 @@ and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
       Expr.IntrinsicCall
         (Map
            { args = List.map hoistings ~f:(fun h -> h.variableDeclaration)
+           ; iotaVar = None
            ; body
            ; frameShape = []
            ; type' = Expr.arrayType body
@@ -748,13 +764,14 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       and arg2, hoistings2 = hoistExpressionsInArray loopBarrier arg2 in
       ( Expr.IntrinsicCall (Append { arg1; arg2; d1; d2; cellShape; type' })
       , hoistings1 @ hoistings2 )
-    | IntrinsicCall (Map { args; body; frameShape; type' }) ->
+    | IntrinsicCall (Map { args; iotaVar; body; frameShape; type' }) ->
       let%bind args, argHoistings =
         hoistExpressionsMap args ~f:(fun { binding; value } ->
           let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
           ({ binding; value } : Expr.mapArg), hoistings)
       in
-      let bindings = args |> List.map ~f:(fun arg -> arg.binding) |> BindingSet.of_list in
+      let argBindings = args |> List.map ~f:(fun arg -> arg.binding) in
+      let bindings = Option.to_list iotaVar @ argBindings |> BindingSet.of_list in
       (* If the map is not just a let, then we update the loop barrier to be
          the args of the map *)
       let bodyLoopBarrier =
@@ -765,7 +782,7 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       let%map body, bodyHoistings =
         hoistExpressionsInBody bodyLoopBarrier body ~bindings
       in
-      ( Expr.IntrinsicCall (Map { args; body; frameShape; type' })
+      ( Expr.IntrinsicCall (Map { args; iotaVar; body; frameShape; type' })
       , argHoistings @ bodyHoistings )
     | IntrinsicCall
         (Reduce
@@ -809,8 +826,6 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       ( Expr.IntrinsicCall
           (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
       , argHoistings @ bodyHoistings @ zeroHoistings )
-    | IntrinsicCall (Iota { s; type' }) ->
-      return (Expr.IntrinsicCall (Iota { s; type' }), [])
     | IntrinsicCall (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
       let%map arrayArg, arrayHoistings = hoistExpressionsInArray loopBarrier arrayArg
       and indexArg, indexHoistings = hoistExpressionsInArray loopBarrier indexArg in
@@ -862,6 +877,7 @@ and hoistExpressionsInBody loopBarrier body ~bindings =
       Expr.IntrinsicCall
         (Map
            { args = hoistingsToDeclare
+           ; iotaVar = None
            ; body
            ; frameShape = []
            ; type' = Expr.arrayType body

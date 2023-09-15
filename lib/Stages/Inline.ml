@@ -342,9 +342,18 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
      | Val Iota ->
        (match appStack with
         | [ IndexApp [ Shape s ] ] ->
-          return
-            ( I.IntrinsicCall (Iota { s; type' = inlineArrayTypeWithStack appStack type' })
-            , FunctionSet.Empty )
+          let%map iota = InlineState.createId "iota" in
+          ( I.IntrinsicCall
+              (Map
+                 { frameShape = s
+                 ; args = []
+                 ; iotaVar = Some iota
+                 ; body =
+                     Ref
+                       { id = iota; type' = { element = Literal IntLiteral; shape = [] } }
+                 ; type' = inlineArrayTypeWithStack appStack type'
+                 })
+          , FunctionSet.Empty )
         | _ ->
           raise
             (Unreachable.Error
@@ -364,7 +373,13 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
       |> List.join
     in
     ( I.IntrinsicCall
-        (Map { args; body; frameShape; type' = inlineArrayTypeWithStack appStack type' })
+        (Map
+           { args
+           ; body
+           ; iotaVar = None
+           ; frameShape
+           ; type' = inlineArrayTypeWithStack appStack type'
+           })
     , functions )
 
 and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)

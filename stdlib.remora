@@ -5,22 +5,22 @@
 
 #|
 Minimal basis:
- - map
- - reduce
- - scan
- - fold
- - trace
- - reshape
- - append
- - iota
- - index
- - reify-index
- - scatter
- - subarray?
- - rotate?
- - transpose?
- - reverse?
- - replicate?
+ - map - producer
+ - reduce - consumer
+ - scan - consumer
+ - fold - consumer
+ - trace - consumer
+ - reshape - producer
+ - append - producer
+ - iota - producer
+ - index - producer
+ - reify-index - producer
+ - scatter - consumer
+ - subarray? - producer
+ - rotate? - producer
+ - transpose? - producer
+ - reverse? - producer
+ - replicate? - producer
 |#
 
 (define (reduce{t | d-1 @item-pad @cell-shape}

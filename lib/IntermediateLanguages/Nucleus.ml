@@ -111,6 +111,8 @@ module Expr = struct
     | Map of
         { frameShape : Index.shape
         ; args : mapArg list
+        ; iotaVar : Identifier.t option
+             [@default None] [@sexp_drop_if fun i -> Option.is_none i]
         ; body : array
         ; type' : Type.array
         }
@@ -141,10 +143,6 @@ module Expr = struct
         ; d1 : Index.dimension
         ; d2 : Index.dimension
         ; cellShape : Index.shape
-        ; type' : Type.array
-        }
-    | Iota of
-        { s : Index.shape
         ; type' : Type.array
         }
     | Index of
@@ -209,7 +207,6 @@ module Expr = struct
        | Reduce reduce -> reduce.type'
        | Fold fold -> fold.type'
        | Append append -> append.type'
-       | Iota iota -> iota.type'
        | Index index -> index.type'
        | Scatter scatter -> scatter.type')
   ;;

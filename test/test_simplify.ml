@@ -1297,10 +1297,15 @@ let%expect_test "check simplifying" =
   [%expect
     {|
     (IntrinsicCall
-     (Iota
-      (s
+     (Map
+      (frameShape
        ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
         (Add ((const 3) (refs ())))))
+      (args ()) (iotaVar (((name iota) (id 38))))
+      (body
+       (Ref
+        ((id ((name iota) (id 38)))
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type'
        ((element (Literal IntLiteral))
         (shape
@@ -1313,11 +1318,16 @@ let%expect_test "check simplifying" =
      (Index
       (arrayArg
        (IntrinsicCall
-        (Iota
-         (s
+        (Map
+         (frameShape
           ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
            (Add ((const 3) (refs ()))) (Add ((const 4) (refs ())))
            (Add ((const 5) (refs ())))))
+         (args ()) (iotaVar (((name iota) (id 42))))
+         (body
+          (Ref
+           ((id ((name iota) (id 42)))
+            (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type'
           ((element (Literal IntLiteral))
            (shape
