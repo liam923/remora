@@ -248,12 +248,6 @@ module Make (SB : Source.BuilderT) = struct
               }
         ; source = esexpSource arrExp
         }
-    | ParenList { elements = Symbol ("Tuple", _) :: elements; braceSources = _ } as tupExp
-      ->
-      let%map parsedElements =
-        parseList elements ~f:parseType ~source:(esexpSource tupExp)
-      in
-      Source.map parsedElements ~f:(fun elements -> Type.Tuple elements)
     | type' -> MResult.err ("Bad type syntax", esexpSource type')
 
   and parseExpr : 's Esexp.t -> ('s Expr.t, error) MResult.t =
@@ -607,14 +601,6 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `box` syntax"
            , infixListSource components ~before:boxSource ~after:rParenSource ))
     | ParenList
-        { elements = Symbol ("tuple", tupleSource) :: elements
-        ; braceSources = _, rParenSource
-        } as tupleExpr ->
-      let%map parsedElements =
-        parseInfixList elements ~f:parseExpr ~before:tupleSource ~after:rParenSource
-      in
-      Source.{ elem = Expr.Tuple parsedElements; source = esexpSource tupleExpr }
-    | ParenList
         { elements = Symbol ("reshape", reshapeSource) :: components
         ; braceSources = _, rParenSource
         } as reshapeExpr ->
@@ -694,57 +680,6 @@ module Make (SB : Source.BuilderT) = struct
        | _ ->
          MResult.err
            ( "Bad `let` syntax"
-           , infixListSource components ~before:letSource ~after:rParenSource ))
-    | ParenList
-        { elements = Symbol ("let-tuple", letSource) :: components
-        ; braceSources = _, rParenSource
-        } as letExpr ->
-      (match components with
-       | SquareList
-           { elements = declarationComponents; braceSources = decLBrack, decRBrack }
-         :: bodyHead
-         :: bodyTail ->
-         (match declarationComponents with
-          | [ ParenList { elements = params; braceSources = _ }; value ] ->
-            let parseParam = function
-              | Esexp.ParenList
-                  { elements = [ binding; Symbol (":", _); bound ]; braceSources = _ } as
-                paramExp ->
-                let%map parsedBinding = parseBinding binding
-                and parsedBound = parseType bound in
-                Source.
-                  { elem = { binding = parsedBinding; bound = Some parsedBound }
-                  ; source = esexpSource paramExp
-                  }
-              | binding ->
-                let%map parsedBinding = parseBinding binding in
-                Source.
-                  { elem = { binding = parsedBinding; bound = None }
-                  ; source = parsedBinding.source
-                  }
-            in
-            let%map parsedValue = parseExpr value
-            and parsedParams =
-              parseInfixList
-                params
-                ~before:decLBrack
-                ~after:(esexpSource value)
-                ~f:parseParam
-            and parsedBody = parseExprBody (bodyHead :: bodyTail) in
-            Source.
-              { elem =
-                  Expr.TupleLet
-                    { params = parsedParams; value = parsedValue; body = parsedBody }
-              ; source = esexpSource letExpr
-              }
-          | _ ->
-            MResult.err
-              ( "Bad `let-tuple` syntax - bad declaration"
-              , infixListSource declarationComponents ~before:decLBrack ~after:decRBrack
-              ))
-       | _ ->
-         MResult.err
-           ( "Bad `let-tuple` syntax"
            , infixListSource components ~before:letSource ~after:rParenSource ))
     | ParenList
         { elements = Symbol (lambda, lambdaSource) :: components

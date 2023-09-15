@@ -35,17 +35,13 @@ type error =
   | SigmaBodyTypeDisagreement of Typed.Type.t expectedActual
   | ExpectedAtomicExpr of { actual : Typed.Type.t }
   | ExpectedArrType of { actual : Typed.Type.t }
-  | ExpectedTupleType of { actual : Typed.Type.t }
   | ExpectedSigmaType of { actual : Typed.Type.t }
   | ExpectedFuncType of { actual : Typed.Type.t }
   | ExpectedValue
   | ExpectedForall of { actual : Typed.Type.t }
   | WrongNumberOfArguments of int expectedActual
-  | WrongNumberOfBindings of int expectedActual
   | WrongNumberOfUnboxParameters of int expectedActual
-  | DuplicateTupleBindingName of string
   | LetTypeDisagreement of Typed.Type.t expectedActual
-  | TupleLetTypeDisagreement of Typed.Type.t expectedActual
   | UnexpectedSortBoundInUnbox of Sort.t expectedActual
   | EscapingRef of string
   | ArgumentTypeDisagreement of Typed.Type.t expectedActual
@@ -129,10 +125,6 @@ end = struct
     | Sigma { parameters; body } ->
       let paramsString = parameters |> showList showParam in
       [%string "(Σ (%{paramsString}) %{showArray body})"]
-    | Tuple [ element ] -> [%string "(%{showAtom element} *)"]
-    | Tuple elements ->
-      let elementsString = elements |> List.map ~f:showAtom |> String.concat ~sep:" * " in
-      [%string "(%{elementsString})"]
     | Literal IntLiteral -> "int"
     | Literal CharacterLiteral -> "char"
     | Literal BooleanLiteral -> "bool"
@@ -177,8 +169,6 @@ let errorMessage = function
     [%string "Expected atomic expression, got type `%{Show.type' actual}`"]
   | ExpectedArrType { actual } ->
     [%string "Expected an Arr type, got `%{Show.type' actual}`"]
-  | ExpectedTupleType { actual } ->
-    [%string "Expected a Tuple type, got `%{Show.type' actual}`"]
   | ExpectedSigmaType { actual } ->
     [%string "Expected a Sigma type, got `%{Show.type' actual}`"]
   | ExpectedFuncType { actual } ->
@@ -188,18 +178,11 @@ let errorMessage = function
     [%string "Expected an expression with a Forall type, got `%{Show.type' actual}`"]
   | WrongNumberOfArguments { expected; actual } ->
     [%string "Expected %{expected#Int} arguements, got %{actual#Int}"]
-  | WrongNumberOfBindings { expected; actual } ->
-    [%string "Expected %{expected#Int} bindings for tuple, got %{actual#Int}"]
   | WrongNumberOfUnboxParameters { expected; actual } ->
     [%string "Expected %{expected#Int} parameters for unboxing, got %{actual#Int}"]
-  | DuplicateTupleBindingName name -> [%string "Duplicate variable name `%{name}`"]
   | LetTypeDisagreement { expected; actual } ->
     [%string
       "Let expected a value of type `%{Show.type' expected}`, got `%{Show.type' actual}`"]
-  | TupleLetTypeDisagreement { expected; actual } ->
-    [%string
-      "Tuple-Let expected an element of type `%{Show.type' expected}`, got `%{Show.type' \
-       actual}`"]
   | UnexpectedSortBoundInUnbox { expected; actual } ->
     [%string
       "Unexpected bound: expected `%{Show.sort expected}`, got `%{Show.sort actual}`"]
@@ -238,17 +221,13 @@ let errorType = function
   | SigmaBodyTypeDisagreement _
   | ExpectedAtomicExpr _
   | ExpectedArrType _
-  | ExpectedTupleType _
   | ExpectedSigmaType _
   | ExpectedFuncType _
   | ExpectedValue
   | ExpectedForall _
   | WrongNumberOfArguments _
-  | WrongNumberOfBindings _
   | WrongNumberOfUnboxParameters _
-  | DuplicateTupleBindingName _
   | LetTypeDisagreement _
-  | TupleLetTypeDisagreement _
   | UnexpectedSortBoundInUnbox _
   | EscapingRef _
   | ArgumentTypeDisagreement _
@@ -516,11 +495,6 @@ module KindChecker = struct
       let extendedEnv = { env with sorts = extendeSorts } in
       let%map body = checkAndExpectArray extendedEnv body in
       T.Atom (T.Sigma { parameters; body })
-    | U.Tuple elements ->
-      let%map kindedElements =
-        elements |> List.map ~f:(checkAndExpectAtom env) |> CheckerState.all
-      in
-      T.Atom (T.Tuple kindedElements)
 
   and checkAndExpectArray env type' =
     let open Typed.Type in
@@ -574,13 +548,6 @@ module TypeCheck = struct
       CheckerState.err { source; elem = ExpectedArrType { actual = Array type' } }
   ;;
 
-  let checkForTupleType source type' =
-    let open Typed.Type in
-    match type' with
-    | Tuple tup -> ok tup
-    | _ -> CheckerState.err { source; elem = ExpectedTupleType { actual = Atom type' } }
-  ;;
-
   let checkForSigmaType source type' =
     let open Typed.Type in
     match type' with
@@ -625,12 +592,6 @@ module TypeCheck = struct
     | Reshape _ -> ok ()
     | ReifyDimension _ -> ok ()
     | ReifyShape _ -> ok ()
-    | TupleLet _ -> err
-    | Tuple elements ->
-      elements.elem
-      |> List.map ~f:requireValue
-      |> CheckerState.all
-      |> CheckerState.ignore_m
     | IntLiteral _ -> ok ()
     | CharacterLiteral _ -> ok ()
     | BooleanLiteral _ -> ok ()
@@ -696,7 +657,6 @@ module TypeCheck = struct
           }
         in
         findInType extendedEnv (Array body)
-      | Atom (Tuple elements) -> List.bind elements ~f:(fun a -> findInType env (Atom a))
       | Atom (Literal IntLiteral) -> []
       | Atom (Literal CharacterLiteral) -> []
       | Atom (Literal BooleanLiteral) -> []
@@ -1405,70 +1365,6 @@ module TypeCheck = struct
            ; body = bodyTyped
            ; type' = T.arrayType bodyTyped
            })
-    | U.TupleLet { params; value; body } ->
-      let%bind valueTyped = checkAndExpectArray env value in
-      let%bind valueType = checkForArrType value.source (T.arrayType valueTyped) in
-      let%bind valueElementType = checkForTupleType value.source valueType.element in
-      let%bind zippedBindings =
-        zipLists ~expected:valueElementType ~actual:params.elem ~makeError:(fun ea ->
-          { source = params.source; elem = WrongNumberOfBindings ea })
-      in
-      let%bind newEnvEntries, revParamsTyped =
-        List.fold
-          zippedBindings
-          ~init:(ok (Map.empty (module String), []))
-          ~f:(fun acc (type', param) ->
-            let%bind envEntriesSoFar, paramsSoFar = acc in
-            let%bind id = CheckerState.createId param.elem.binding.elem in
-            let%bind boundTyped =
-              match param.elem.bound with
-              | Some bound ->
-                let%bind boundTyped = KindChecker.checkAndExpectAtom env bound in
-                let%map () =
-                  requireType
-                    ~expected:(Atom type')
-                    ~actual:(Atom boundTyped)
-                    ~makeError:(fun ea ->
-                      { source = bound.source; elem = TupleLetTypeDisagreement ea })
-                in
-                boundTyped
-              | None -> ok type'
-            in
-            let bindingType =
-              Typed.Type.Arr { element = boundTyped; shape = valueType.shape }
-            in
-            let paramTyped = Typed.{ binding = id; bound = boundTyped } in
-            match
-              Map.add
-                envEntriesSoFar
-                ~key:param.elem.binding.elem
-                ~data:(Typed.Expr.Ref { id; type' = bindingType })
-            with
-            | `Ok envEntries -> ok (envEntries, paramTyped :: paramsSoFar)
-            | `Duplicate ->
-              CheckerState.err
-                { source = param.elem.binding.source
-                ; elem = DuplicateTupleBindingName param.elem.binding.elem
-                })
-      in
-      let extendedTypesEnv =
-        Map.merge_skewed env.types newEnvEntries ~combine:(fun ~key:_ _ e -> e)
-      in
-      let extendedEnv = { env with types = extendedTypesEnv } in
-      let%map bodyTyped = checkAndExpectArray extendedEnv body in
-      T.Array
-        (TupleLet
-           { params = List.rev revParamsTyped
-           ; value = valueTyped
-           ; body = bodyTyped
-           ; type' = T.arrayType bodyTyped
-           })
-    | U.Tuple elements ->
-      let%map elements =
-        elements.elem |> List.map ~f:(checkAndExpectAtom env) |> CheckerState.all
-      in
-      let elementTypes = List.map elements ~f:(fun e -> T.atomType e) in
-      T.Atom (T.Tuple { elements; type' = elementTypes })
     | U.IntLiteral i -> CheckerState.return (T.Atom (Literal (IntLiteral i)))
     | U.CharacterLiteral c -> CheckerState.return (T.Atom (Literal (CharacterLiteral c)))
     | U.BooleanLiteral b -> CheckerState.return (T.Atom (Literal (BooleanLiteral b)))

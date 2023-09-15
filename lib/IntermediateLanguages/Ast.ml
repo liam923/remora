@@ -51,7 +51,6 @@ module Type = struct
   and 's forall = ('s, ('s, Kind.t) Source.annotate) abstraction
   and 's pi = ('s, ('s, Sort.t) Source.annotate) abstraction
   and 's sigma = ('s, ('s, Sort.t) Source.annotate) abstraction
-  and 's tuple = 's t list
 
   and 's raw =
     | Ref of ref
@@ -60,7 +59,6 @@ module Type = struct
     | Forall of 's forall
     | Pi of 's pi
     | Sigma of 's sigma
-    | Tuple of 's tuple
 
   and 's t = ('s, 's raw) Source.annotate [@@deriving sexp_of]
 end
@@ -146,14 +144,6 @@ module Expr = struct
   and 's reifyShape = 's Index.t
   and 's reifyDimension = 's Index.t
 
-  and 's tupleLet =
-    { params : ('s, 's Type.t option) paramList
-    ; value : 's t
-    ; body : 's t
-    }
-
-  and 's tuple = ('s, 's t list) Source.annotate
-
   and 's raw =
     | Ref of ref
     | Arr of 's arrOrFrame
@@ -172,8 +162,6 @@ module Expr = struct
     | Reshape of 's reshape
     | ReifyShape of 's reifyShape
     | ReifyDimension of 's reifyDimension
-    | TupleLet of 's tupleLet
-    | Tuple of 's tuple
     | IntLiteral of int
     | CharacterLiteral of char
     | BooleanLiteral of bool

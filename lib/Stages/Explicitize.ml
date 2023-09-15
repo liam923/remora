@@ -31,7 +31,6 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
   | Let l ->
     let env = Map.set env ~key:l.binding ~data:(funcParamNamesArray env l.value) in
     funcParamNamesArray env l.body
-  | TupleLet l -> funcParamNamesArray env l.body
   | Primitive p ->
     (match p.name with
      | Func func ->
@@ -55,7 +54,6 @@ and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function
   | TypeLambda lambda -> funcParamNamesArray env lambda.body
   | IndexLambda lambda -> funcParamNamesArray env lambda.body
   | Box box -> funcParamNamesArray env box.body
-  | Tuple _ -> None
   | Literal _ -> None
 ;;
 
@@ -95,11 +93,6 @@ let rec explicitizeArray paramNamesEnv array
     let%bind value = explicitizeArray paramNamesEnv value in
     let%map body = explicitizeArray extendedParamNamesEnv body in
     E.Map { body; args = [ { binding; value } ]; frameShape = []; type' }
-  | T.TupleLet { params; value; body; type' } ->
-    let%map value = explicitizeArray paramNamesEnv value
-    (* Copy propogation is not followed through tuple lets *)
-    and body = explicitizeArray paramNamesEnv body in
-    E.TupleLet { params; value; body; type' }
   | T.Primitive { name; type' } -> return (E.Primitive { name; type' })
 
 and explicitizeAtom paramNamesEnv atom
@@ -121,11 +114,6 @@ and explicitizeAtom paramNamesEnv atom
   | T.Box { indices; body; bodyType; type' } ->
     let%map body = explicitizeArray paramNamesEnv body in
     E.Box { indices; body; bodyType; type' }
-  | T.Tuple { elements; type' } ->
-    let%map elements =
-      elements |> List.map ~f:(explicitizeAtom paramNamesEnv) |> ExplicitState.all
-    in
-    E.Tuple { elements; type' }
   | T.Literal literal -> return (E.Literal literal)
 
 and explicitizeTermApplication

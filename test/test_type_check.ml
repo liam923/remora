@@ -187,9 +187,7 @@ let%expect_test "check kind" =
           (shape
            ((Add ((const 0) (refs ((((name j) (id 39)) 1)))))
             (ShapeRef ((name @i) (id 38))) (Add ((const 5) (refs ())))
-            (Add ((const 10) (refs ((((name j) (id 39)) 1))))))))))))) |}];
-  checkAndPrint {| (Tuple int char) |};
-  [%expect {| (Atom (Tuple ((Literal IntLiteral) (Literal CharacterLiteral)))) |}]
+            (Add ((const 10) (refs ((((name j) (id 39)) 1))))))))))))) |}]
 ;;
 
 let%expect_test "check type" =
@@ -792,22 +790,6 @@ let%expect_test "check type" =
   checkAndPrint {| (define x : int "hello") x |};
   [%expect {|
     Error: Let expected a value of type `int`, got `[char 5]` |}];
-  checkAndPrint {| (define x : (Tuple int int) (tuple 5 5)) x |};
-  [%expect
-    {|
-    (Array
-     (Let
-      ((binding ((name x) (id 38)))
-       (value
-        (Scalar
-         ((element
-           (Tuple
-            ((elements ((Literal (IntLiteral 5)) (Literal (IntLiteral 5))))))))))
-       (body (Ref ((id ((name x) (id 38)))))))))
-    Type:
-    (Array
-     (Arr
-      ((element (Tuple ((Literal IntLiteral) (Literal IntLiteral)))) (shape ())))) |}];
   checkAndPrint
     {|
     (define weekdays

@@ -56,7 +56,6 @@ module Type = struct
   and forall = Kind.t abstraction
   and pi = Sort.t abstraction
   and sigma = Sort.t abstraction
-  and tuple = atom list
 
   and literal =
     | IntLiteral
@@ -73,7 +72,6 @@ module Type = struct
     | Forall of forall
     | Pi of pi
     | Sigma of sigma
-    | Tuple of tuple
     | Literal of literal
 
   and t =
@@ -192,18 +190,6 @@ module Expr = struct
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
-  and tupleLet =
-    { params : Type.atom param list
-    ; value : array
-    ; body : array
-    ; type' : Type.array [@sexp_drop_if fun _ -> true]
-    }
-
-  and tuple =
-    { elements : atom list
-    ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
-    }
-
   and primitive =
     { name : primitiveName
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
@@ -224,7 +210,6 @@ module Expr = struct
     | Unbox of unbox
     | ReifyIndex of reifyIndex
     | Let of let'
-    | TupleLet of tupleLet
     | Primitive of primitive
 
   and atom =
@@ -232,7 +217,6 @@ module Expr = struct
     | TypeLambda of typeLambda
     | IndexLambda of indexLambda
     | Box of box
-    | Tuple of tuple
     | Literal of literal
 
   and t =
@@ -245,7 +229,6 @@ module Expr = struct
     | TypeLambda typeLambda -> Forall typeLambda.type'
     | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
-    | Tuple tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
@@ -261,7 +244,6 @@ module Expr = struct
     | Unbox unbox -> Arr unbox.type'
     | ReifyIndex reifyIndex -> Arr reifyIndex.type'
     | Let let' -> let'.type'
-    | TupleLet tupleLet -> tupleLet.type'
     | Primitive primitive -> primitive.type'
   ;;
 
@@ -282,7 +264,6 @@ module Expr = struct
     | Unbox unbox -> Unbox { unbox with type' }
     | ReifyIndex reifyIndex -> ReifyIndex { reifyIndex with type' }
     | Let let' -> Let { let' with type' = Arr type' }
-    | TupleLet tupleLet -> TupleLet { tupleLet with type' = Arr type' }
     | Primitive primitive -> Primitive { primitive with type' = Arr type' }
   ;;
 end
@@ -388,7 +369,6 @@ end = struct
       and forall = Kind.t abstraction
       and pi = Sort.t abstraction
       and sigma = Sort.t abstraction
-      and tuple = atom list
 
       and literal =
         | IntLiteral
@@ -405,7 +385,6 @@ end = struct
         | Forall of forall
         | Pi of pi
         | Sigma of sigma
-        | Tuple of tuple
         | Literal of literal
 
       and t =
@@ -462,7 +441,6 @@ end = struct
                let depth = depth + 1 in
                arrayFrom env depth body)
           }
-      | Type.Tuple elements -> Tuple (List.map elements ~f:(atomFrom env depth))
       | Type.Literal IntLiteral -> Literal IntLiteral
       | Type.Literal CharacterLiteral -> Literal CharacterLiteral
       | Type.Literal BooleanLiteral -> Literal BooleanLiteral
@@ -546,7 +524,6 @@ module Substitute = struct
       | Forall forall -> Forall (subIndicesIntoForall indices forall)
       | Pi pi -> Pi (subIndicesIntoPi indices pi)
       | Sigma sigma -> Sigma (subIndicesIntoSigma indices sigma)
-      | Tuple tuple -> Tuple (subIndicesIntoTuple indices tuple)
       | Literal IntLiteral -> Literal IntLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
       | Literal BooleanLiteral -> Literal BooleanLiteral
@@ -565,8 +542,6 @@ module Substitute = struct
 
     and subIndicesIntoSigma indices Type.{ parameters; body } =
       Type.{ parameters; body = subIndicesIntoArray indices body }
-
-    and subIndicesIntoTuple indices = List.map ~f:(subIndicesIntoAtom indices)
 
     and subIndicesIntoType indices =
       let open Type in
@@ -604,7 +579,6 @@ module Substitute = struct
       | Forall forall -> Forall (subTypesIntoForall types forall)
       | Pi pi -> Pi (subTypesIntoPi types pi)
       | Sigma sigma -> Sigma (subTypesIntoSigma types sigma)
-      | Tuple tuple -> Tuple (subTypesIntoTuple types tuple)
       | Literal IntLiteral -> Literal IntLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
       | Literal BooleanLiteral -> Literal BooleanLiteral
@@ -623,8 +597,6 @@ module Substitute = struct
 
     and subTypesIntoSigma types Type.{ parameters; body } =
       Type.{ parameters; body = subTypesIntoArray types body }
-
-    and subTypesIntoTuple types = List.map ~f:(subTypesIntoAtom types)
 
     and subTypesIntoType types =
       let open Type in
@@ -685,15 +657,6 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; type' = Type.subTypesIntoArray types type'
           }
-      | TupleLet { params; value; body; type' } ->
-        TupleLet
-          { params =
-              List.map params ~f:(fun { binding; bound } ->
-                { binding; bound = Type.subTypesIntoAtom types bound })
-          ; value = subTypesIntoArray types value
-          ; body = subTypesIntoArray types body
-          ; type' = Type.subTypesIntoArray types type'
-          }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subTypesIntoArray types type' }
 
@@ -717,11 +680,6 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; bodyType = Type.subTypesIntoArray types bodyType
           ; type' = Type.subTypesIntoSigma types type'
-          }
-      | Tuple { elements; type' } ->
-        Tuple
-          { elements = List.map elements ~f:(subTypesIntoAtom types)
-          ; type' = Type.subTypesIntoTuple types type'
           }
       | Literal _ as literal -> literal
 
@@ -787,15 +745,6 @@ module Substitute = struct
           ; body = subIndicesIntoArray indices body
           ; type' = Type.subIndicesIntoArray indices type'
           }
-      | TupleLet { params; value; body; type' } ->
-        TupleLet
-          { params =
-              List.map params ~f:(fun { binding; bound } ->
-                { binding; bound = Type.subIndicesIntoAtom indices bound })
-          ; value = subIndicesIntoArray indices value
-          ; body = subIndicesIntoArray indices body
-          ; type' = Type.subIndicesIntoArray indices type'
-          }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subIndicesIntoArray indices type' }
 
@@ -819,11 +768,6 @@ module Substitute = struct
           ; body = subIndicesIntoArray indices body
           ; bodyType = Type.subIndicesIntoArray indices bodyType
           ; type' = Type.subIndicesIntoSigma indices type'
-          }
-      | Tuple { elements; type' } ->
-        Tuple
-          { elements = List.map elements ~f:(subIndicesIntoAtom indices)
-          ; type' = Type.subIndicesIntoTuple indices type'
           }
       | Literal _ as literal -> literal
 

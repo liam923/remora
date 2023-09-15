@@ -141,9 +141,7 @@ let%expect_test "parse type" =
       (body
        (Arr
         ((element (Ref a))
-         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}];
-  parseAndPrint "(Tuple int char)";
-  [%expect {| (Tuple ((Ref int) (Ref char))) |}]
+         (shape (Slice ((Dimension 1) (Dimension 2) (Dimension 3))))))))) |}]
 ;;
 
 let%expect_test "parse expression" =
@@ -212,13 +210,6 @@ let%expect_test "parse expression" =
       (elements ((IntLiteral 1) (IntLiteral 2) (IntLiteral 3) (IntLiteral 4))))) |}];
   parseAndPrint "(frame [2 0 2] int)";
   [%expect {| (EmptyFrame ((dimensions (2 0 2)) (elementType (Ref int)))) |}];
-  parseAndPrint "(tuple 1 \"hi\")";
-  [%expect
-    {|
-    (Tuple
-     ((IntLiteral 1)
-      (Arr
-       ((dimensions (2)) (elements ((CharacterLiteral h) (CharacterLiteral i))))))) |}];
   parseAndPrint "(let [x 5] x)";
   [%expect
     {|
@@ -230,21 +221,6 @@ let%expect_test "parse expression" =
     (Let
      ((param ((binding x) (bound ((Ref int))))) (value (IntLiteral 5))
       (body (Ref x)))) |}];
-  parseAndPrint "(let-tuple [(x y) (tuple 1 2)] (+ x y))";
-  [%expect
-    {|
-    (TupleLet
-     ((params (((binding x) (bound ())) ((binding y) (bound ()))))
-      (value (Tuple ((IntLiteral 1) (IntLiteral 2))))
-      (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y)))))))) |}];
-  parseAndPrint "(let-tuple [((x : int) (y : char)) (tuple 1 2)] (+ x y))";
-  [%expect
-    {|
-    (TupleLet
-     ((params
-       (((binding x) (bound ((Ref int)))) ((binding y) (bound ((Ref char))))))
-      (value (Tuple ((IntLiteral 1) (IntLiteral 2))))
-      (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y)))))))) |}];
   parseAndPrint "(define foo 5) foo";
   [%expect
     {|

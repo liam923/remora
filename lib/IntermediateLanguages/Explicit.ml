@@ -81,18 +81,6 @@ module Expr = struct
     ; type' : Type.sigma [@sexp_drop_if fun _ -> true]
     }
 
-  and tupleLet =
-    { params : Type.atom param list
-    ; value : array
-    ; body : array
-    ; type' : Type.array [@sexp_drop_if fun _ -> true]
-    }
-
-  and tuple =
-    { elements : atom list
-    ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
-    }
-
   and mapArg =
     { binding : Identifier.t
     ; value : array
@@ -117,7 +105,6 @@ module Expr = struct
     | IndexApplication of indexApplication
     | Unbox of unbox
     | ReifyIndex of reifyIndex
-    | TupleLet of tupleLet
     | Primitive of primitive
     | Map of map
 
@@ -126,7 +113,6 @@ module Expr = struct
     | TypeLambda of typeLambda
     | IndexLambda of indexLambda
     | Box of box
-    | Tuple of tuple
     | Literal of literal
 
   and t =
@@ -139,7 +125,6 @@ module Expr = struct
     | TypeLambda typeLambda -> Forall typeLambda.type'
     | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
-    | Tuple tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
@@ -154,7 +139,6 @@ module Expr = struct
     | IndexApplication indexApplication -> Arr indexApplication.type'
     | Unbox unbox -> Arr unbox.type'
     | ReifyIndex reifyIndex -> Arr reifyIndex.type'
-    | TupleLet tupleLet -> tupleLet.type'
     | Primitive primitive -> primitive.type'
     | Map map -> map.type'
   ;;
@@ -210,15 +194,6 @@ module Substitute = struct
           }
       | ReifyIndex { index; type' } ->
         ReifyIndex { index; type' = Type.subTypesIntoArr types type' }
-      | TupleLet { params; value; body; type' } ->
-        TupleLet
-          { params =
-              List.map params ~f:(fun { binding; bound } : 'u param ->
-                { binding; bound = Type.subTypesIntoAtom types bound })
-          ; value = subTypesIntoArray types value
-          ; body = subTypesIntoArray types body
-          ; type' = Type.subTypesIntoArray types type'
-          }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subTypesIntoArray types type' }
       | Map { args; body; frameShape; type' } ->
@@ -254,11 +229,6 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; bodyType = Type.subTypesIntoArray types bodyType
           ; type' = Type.subTypesIntoSigma types type'
-          }
-      | Tuple { elements; type' } ->
-        Tuple
-          { elements = List.map elements ~f:(subTypesIntoAtom types)
-          ; type' = Type.subTypesIntoTuple types type'
           }
       | Literal _ as literal -> literal
 
@@ -317,15 +287,6 @@ module Substitute = struct
           { index = Index.subIndicesIntoIndex indices index
           ; type' = Type.subIndicesIntoArr indices type'
           }
-      | TupleLet { params; value; body; type' } ->
-        TupleLet
-          { params =
-              List.map params ~f:(fun { binding; bound } : 'u param ->
-                { binding; bound = Type.subIndicesIntoAtom indices bound })
-          ; value = subIndicesIntoArray indices value
-          ; body = subIndicesIntoArray indices body
-          ; type' = Type.subIndicesIntoArray indices type'
-          }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subIndicesIntoArray indices type' }
       | Map { args; body; frameShape; type' } ->
@@ -361,11 +322,6 @@ module Substitute = struct
           ; body = subIndicesIntoArray indices body
           ; bodyType = Type.subIndicesIntoArray indices bodyType
           ; type' = Type.subIndicesIntoSigma indices type'
-          }
-      | Tuple { elements; type' } ->
-        Tuple
-          { elements = List.map elements ~f:(subIndicesIntoAtom indices)
-          ; type' = Type.subIndicesIntoTuple indices type'
           }
       | Literal _ as literal -> literal
 

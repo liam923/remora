@@ -131,7 +131,6 @@ let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
     raise (Unreachable.Error "There should be no type refs left after inlining")
   | Sigma sigma ->
     { element = Sigma (inlineSigmaTypeWithStack appStack sigma); shape = [] }
-  | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Literal CharacterLiteral -> { element = Literal CharacterLiteral; shape = [] }
   | Literal IntLiteral -> { element = Literal IntLiteral; shape = [] }
   | Literal BooleanLiteral -> { element = Literal BooleanLiteral; shape = [] }
@@ -208,7 +207,6 @@ let assertValueRestriction value =
       | Forall _ -> true
       | Pi _ -> true
       | Sigma sigma -> isPolymorphicArray sigma.body
-      | Tuple elements -> List.exists elements ~f:isPolymorphicAtom
       | Literal IntLiteral -> false
       | Literal CharacterLiteral -> false
       | Literal BooleanLiteral -> false
@@ -226,7 +224,6 @@ let assertValueRestriction value =
       | IndexApplication _ -> false
       | Unbox _ -> false
       | ReifyIndex _ -> true
-      | TupleLet _ -> false
       | Primitive _ -> true
       | Map _ -> false
     and isValueAtom = function
@@ -234,7 +231,6 @@ let assertValueRestriction value =
       | TypeLambda _ -> true
       | IndexLambda _ -> true
       | Box box -> isValueArray box.body
-      | Tuple tuple -> List.for_all tuple.elements ~f:isValueAtom
       | Literal (IntLiteral _) -> true
       | Literal (CharacterLiteral _) -> true
       | Literal (BooleanLiteral _) -> true
@@ -332,7 +328,6 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
     return
       ( I.ReifyIndex { index; type' = inlineArrayTypeWithStack appStack (Arr type') }
       , FunctionSet.Empty )
-  | TupleLet _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Primitive { name; type' } ->
     (match name with
      | Func func ->
@@ -448,7 +443,6 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
            ; type' = inlineSigmaTypeWithStack appStack type'
            })
     , functions )
-  | Tuple _ -> raise (Unimplemented.Error "Tuples are not supported")
   | Literal (CharacterLiteral c) ->
     return (scalar (I.Literal (CharacterLiteral c)), FunctionSet.Empty)
   | Literal (IntLiteral i) -> return (scalar (I.Literal (IntLiteral i)), FunctionSet.Empty)
