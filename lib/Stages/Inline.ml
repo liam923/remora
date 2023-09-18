@@ -36,6 +36,7 @@ module Function = struct
     | Lambda of
         { lambda : Explicit.Expr.termLambda
         ; id : Identifier.t
+        ; captures : Set.M(Identifier).t
         }
     | Primitive of
         { func : Typed.Expr.primitiveFuncName
@@ -54,7 +55,7 @@ module Function = struct
   let toExplicit =
     let module E = Explicit.Expr in
     function
-    | Lambda { lambda; id = _ } ->
+    | Lambda { lambda; id = _; captures = _ } ->
       E.Scalar
         { element = TermLambda lambda
         ; type' = { element = Func lambda.type'; shape = [] }
@@ -388,7 +389,59 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
     (* Since all function calls gget inlined, the value of the lambda is
        never used, so it can be safely replaced with unit *)
     let%map id = InlineState.createId "lambda" in
-    scalar (I.Literal UnitLiteral), FunctionSet.One (Lambda { lambda; id })
+    let captures =
+      let rec arrayCaptures = function
+        | E.Ref { id; type' = _ } -> Set.singleton (module Identifier) id
+        | E.Scalar { element; type' = _ } -> atomCaptures element
+        | E.Frame { elements; dimensions = _; type' = _ } ->
+          elements |> List.map ~f:arrayCaptures |> Set.union_list (module Identifier)
+        | E.TermApplication { func; args; type' = _ } ->
+          let funcCaptures = arrayCaptures func
+          and argCaptures =
+            args |> List.map ~f:(fun arg -> arg.id) |> Set.of_list (module Identifier)
+          in
+          Set.union funcCaptures argCaptures
+        | E.TypeApplication { tFunc; args = _; type' = _ } -> arrayCaptures tFunc
+        | E.IndexApplication { iFunc; args = _; type' = _ } -> arrayCaptures iFunc
+        | E.Unbox { indexBindings; valueBinding; box; body; type' = _ } ->
+          let variablesUsed = Set.union (arrayCaptures box) (arrayCaptures body) in
+          let variablesDeclared =
+            Set.of_list (module Identifier) (valueBinding :: indexBindings)
+          in
+          Set.diff variablesUsed variablesDeclared
+        | E.Map { args; body; frameShape = _; type' = _ } ->
+          let bodyCaptures = arrayCaptures body
+          and argCaptures = List.map args ~f:(fun arg -> arrayCaptures arg.value) in
+          let variablesUsed =
+            Set.union_list (module Identifier) (bodyCaptures :: argCaptures)
+          in
+          let variablesDeclared =
+            args
+            |> List.map ~f:(fun arg -> arg.binding)
+            |> Set.of_list (module Identifier)
+          in
+          Set.diff variablesUsed variablesDeclared
+        | E.ReifyIndex { index = _; type' = _ } -> Set.empty (module Identifier)
+        | E.Primitive { name = _; type' = _ } -> Set.empty (module Identifier)
+      and atomCaptures = function
+        | E.TermLambda { params; body; type' = _ } ->
+          let variablesUsed = arrayCaptures body in
+          let variablesDeclared =
+            params
+            |> List.map ~f:(fun param -> param.binding)
+            |> Set.of_list (module Identifier)
+          in
+          Set.diff variablesUsed variablesDeclared
+        | E.TypeLambda { params = _; body; type' = _ } -> arrayCaptures body
+        | E.IndexLambda { params = _; body; type' = _ } -> arrayCaptures body
+        | E.Box { indices = _; body; bodyType = _; type' = _ } -> arrayCaptures body
+        | E.Literal (IntLiteral _) -> Set.empty (module Identifier)
+        | E.Literal (CharacterLiteral _) -> Set.empty (module Identifier)
+        | E.Literal (BooleanLiteral _) -> Set.empty (module Identifier)
+      in
+      atomCaptures (E.TermLambda lambda)
+    in
+    scalar (I.Literal UnitLiteral), FunctionSet.One (Lambda { lambda; id; captures })
   | TypeLambda { params; body; type' = _ } ->
     (match appStack with
      | TypeApp types :: restStack ->
@@ -472,7 +525,25 @@ and inlineTermApplication subs appStack termApplication =
            ])
   in
   match func with
-  | Lambda { lambda = { params; body; type' = _ }; id = _ } ->
+  | Lambda { lambda = { params; body; type' = _ }; captures; id = _ } ->
+    (* Verify that all the variables captured by the function are declared.
+       If not, throw an error (this should change in the future because it
+       should be allowed) *)
+    let%bind env = InlineState.getEnv () in
+    let escapedVariables =
+      captures
+      |> Set.to_list
+      |> List.filter ~f:(fun capturedVar -> Map.find env capturedVar |> Option.is_none)
+    in
+    let%bind () =
+      match escapedVariables with
+      | escapedVar :: _ ->
+        InlineState.err
+          [%string
+            "Lambda captures variable %{Identifier.name escapedVar}, which escapes its \
+             definition"]
+      | [] -> return ()
+    in
     (* Simply return the lambda's body inlined, with the parameters
        replaced with the args. The args are already guaranteed to be variables
        bound to a map due to how the Explicitize stage works, so we don't
@@ -645,7 +716,13 @@ and inlineTermApplication subs appStack termApplication =
                  ; type'
                  })
           , functions )
-        | _ -> raise Unimplemented.default)
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "reduce expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
      | Fold { character } ->
        (match primitive.appStack with
         | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]
@@ -725,7 +802,13 @@ and inlineTermApplication subs appStack termApplication =
           ( I.ArrayPrimitive
               (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
           , functions )
-        | _ -> raise Unimplemented.default)
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "fold expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
      | Index ->
        assert (List.length args = 2);
        (match primitive.appStack with

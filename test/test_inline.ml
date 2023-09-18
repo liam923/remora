@@ -907,5 +907,12 @@ let%expect_test "check inlining" =
          (type'
           ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))))
       (type'
-       ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))) |}]
+       ((element (Literal IntLiteral)) (shape ((Add ((const 5) (refs ()))))))))) |}];
+  checkAndPrint
+    {|
+      (define foo
+        (let [x 5]
+          (fn () x)))
+      (foo) |};
+  [%expect {| Error: Lambda captures variable x, which escapes its definition |}]
 ;;
