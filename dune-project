@@ -25,4 +25,4 @@
  (tags
   (topics "to describe" your project)))
 
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
+(map_workspace_root false)
