@@ -201,6 +201,7 @@ module Stdlib : S = struct
                 (Pi (d @item-pad @cell-shape)
                   (Forall (t @u)
                     (-> ((-> (@u [t @cell-shape]) @u)
+                         @u
                          [t d @item-pad @cell-shape])
                         @u)))
                 |}

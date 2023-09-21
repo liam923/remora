@@ -365,7 +365,7 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
       |> List.map ~f:(fun bindings ->
         bindings
         |> Map.to_alist
-        |> List.map ~f:(fun (_, (binding, value)) : I.mapArg -> { binding; value }))
+        |> List.map ~f:(fun (_, (binding, value)) : I.arg -> { binding; value }))
       |> List.join
     in
     ( I.ArrayPrimitive
@@ -648,8 +648,8 @@ and inlineTermApplication subs appStack termApplication =
                    ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
                    ])
           in
-          let%bind fArg1 = InlineState.createId "reduceArg1"
-          and fArg2 = InlineState.createId "reduceArg2" in
+          let%bind fArg1 = InlineState.createId "reduce-arg1"
+          and fArg2 = InlineState.createId "reduce-arg2" in
           let body =
             E.TermApplication
               { func = Function.toExplicit func
@@ -659,6 +659,17 @@ and inlineTermApplication subs appStack termApplication =
                   ]
               ; type' = { element = t; shape = cellShape }
               }
+          in
+          let%bind () =
+            (* Need to check the value restriction on the body.*)
+            match func with
+            | Lambda lambda ->
+              (* Special case - just need to check to see if the body of the
+                 lambda is a value. The term application around it isn't
+                 technically a value, but it involves no computation since it
+                 simply re-assigns variables *)
+              assertValueRestriction lambda.lambda.body
+            | Primitive _ -> assertValueRestriction body
           in
           let%bind body, bindings, functions =
             inlineBodyWithBindings
@@ -676,25 +687,41 @@ and inlineTermApplication subs appStack termApplication =
               map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
             |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
           in
-          let bindings1, bindings2 =
-            match bindings with
-            | [ bindings1; bindings2 ] -> bindings1, bindings2
-            | _ -> raise (Unreachable.Error "bindings should have len 2")
+          (* If the reduce's type is not-polymorphic, then the app stack
+             has to be empty. Thus, there is a unique app stack. If it is
+             polymorphic, the body must be a value because of the value
+             restriction. In this case, there cannot be any type applications
+             in the body, so the only possible type stack origin is on the result
+             of the reduce. Therefore, in both cases, the only app stack that
+             can be used is the one applied to the result of the reduce. Thus,
+             the length has to be less than or equal to 1. This is important
+             because it ensures that the number of monomorphizations of the args
+             is contained.
+          *)
+          assert (Map.length appStacksToMonoValue <= 1);
+          let canonicalAppStack = CanonicalAppStack.from appStack in
+          let%bind arrayArgMono =
+            match Map.find appStacksToMonoValue canonicalAppStack with
+            | Some monoValue -> return monoValue
+            | None ->
+              let%map monoValue, _ = inlineArray subs appStack (Ref arrayArg) in
+              monoValue
           in
-          let%bind args =
-            appStacksToMonoValue
-            |> Map.to_alist
-            |> List.map ~f:(fun (appStack, monoValue) ->
-              let getBindingFrom argBindings argName =
-                match Map.find argBindings appStack with
-                | Some (binding, _) -> return binding
-                | None -> InlineState.createId argName
-              in
+          assert (Map.is_empty (Map.remove appStacksToMonoValue canonicalAppStack));
+          let getBindingFrom argBindings argName =
+            match Map.find argBindings canonicalAppStack with
+            | Some (binding, _) -> return binding
+            | None -> InlineState.createId argName
+          in
+          let%bind firstBinding, secondBinding =
+            match bindings with
+            | [ bindings1; bindings2 ] ->
               let%map firstBinding = getBindingFrom bindings1 "reduce-arg1"
               and secondBinding = getBindingFrom bindings2 "reduce-arg2" in
-              I.{ firstBinding; secondBinding; value = monoValue })
-            |> InlineState.all
+              firstBinding, secondBinding
+            | _ -> raise (Unreachable.Error "bindings should have len 2")
           in
+          let args = [ I.{ firstBinding; secondBinding; value = arrayArgMono } ] in
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
           let%map zero =
             match zero with
@@ -726,15 +753,14 @@ and inlineTermApplication subs appStack termApplication =
      | Fold { character } ->
        (match primitive.appStack with
         | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]
-          ; TypeApp [ Atom t; Array _ ]
+          ; TypeApp [ Atom t; Array u ]
           ] ->
           (* Extract the arguments to the function. Note that the arguments
              differ depending on explicitZero *)
           let f, zero, arrayArg =
             match args with
             | [ f; zero; arrayArg ] -> f, zero, arrayArg
-            | _ ->
-              raise (Unreachable.Error "Fold with explicit zero expected three arguments")
+            | _ -> raise (Unreachable.Error "Fold expected three arguments")
           in
           let%bind _, functions = inlineArray subs [] (Ref f) in
           let%bind func =
@@ -750,63 +776,87 @@ and inlineTermApplication subs appStack termApplication =
                    ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
                    ])
           in
-          let%bind fArg1 = InlineState.createId "foldArg1"
-          and fArg2 = InlineState.createId "foldArg2" in
+          let%bind fZeroArg = InlineState.createId "fold-zero-arg"
+          and fArrayArg = InlineState.createId "fold-array-arg" in
           let body =
             E.TermApplication
               { func = Function.toExplicit func
               ; args =
-                  [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
-                  ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
+                  [ { id = fZeroArg; type' = u }
+                  ; { id = fArrayArg; type' = Arr { element = t; shape = cellShape } }
                   ]
               ; type' = { element = t; shape = cellShape }
               }
+          in
+          let%bind () =
+            (* Need to check the value restriction on the body.*)
+            match func with
+            | Lambda lambda ->
+              (* Special case - just need to check to see if the body of the
+                 lambda is a value. The term application around it isn't
+                 technically a value, but it involves no computation since it
+                 simply re-assigns variables *)
+              assertValueRestriction lambda.lambda.body
+            | Primitive _ -> assertValueRestriction body
           in
           let%bind body, bindings, functions =
             inlineBodyWithBindings
               subs
               appStack
               body
-              [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
+              [ fZeroArg, Ref zero; fArrayArg, Ref arrayArg ]
           in
-          (* Since fArg1 and fArg2 both come from arrayArg, they need to have
-             the same set of monomorphizations, so we need to merge together
-             their cache entries *)
-          let appStacksToMonoValue =
-            bindings
-            |> List.bind ~f:(fun map ->
-              map |> Map.map ~f:(fun (_, monoValue) -> monoValue) |> Map.to_alist)
-            |> Map.of_alist_reduce (module CanonicalAppStack) ~f:(fun a _ -> a)
-          in
-          let bindings1, bindings2 =
+          let zeroBindings, arrayBindings =
             match bindings with
-            | [ bindings1; bindings2 ] -> bindings1, bindings2
-            | _ -> raise (Unreachable.Error "bindings should have len 2")
+            | [ zeroBindings; arrayBindings ] -> zeroBindings, arrayBindings
+            | [] | [ _ ] | _ :: _ :: _ :: _ ->
+              raise (Unreachable.Error "bindings should have len 2")
           in
-          let%bind args =
-            appStacksToMonoValue
-            |> Map.to_alist
-            |> List.map ~f:(fun (appStack, monoValue) ->
-              let getBindingFrom argBindings argName =
-                match Map.find argBindings appStack with
-                | Some (binding, _) -> return binding
-                | None -> InlineState.createId argName
-              in
-              let%map firstBinding = getBindingFrom bindings1 "fold-arg1"
-              and secondBinding = getBindingFrom bindings2 "fold-arg2" in
-              I.{ firstBinding; secondBinding; value = monoValue })
-            |> InlineState.all
+          (* If the fold's type is not-polymorphic, then the app stack
+             has to be empty. Thus, there is a unique app stack. If it is
+             polymorphic, the body must be a value because of the value
+             restriction. In this case, there cannot be any type applications
+             in the body, so the only possible type stack origin is on the result
+             of the fold. Therefore, in both cases, the only app stack that
+             can be used is the one applied to the result of the fold. Thus,
+             the length has to be less than or equal to 1. This is important
+             because it ensures that the number of monomorphizations of the args
+             is contained.
+          *)
+          assert (Map.length zeroBindings <= 1);
+          let canonicalAppStack = CanonicalAppStack.from appStack in
+          let%map zeroArgBinding, zeroArgValue =
+            match Map.find zeroBindings canonicalAppStack with
+            | Some (binding, monoValue) -> return (binding, monoValue)
+            | None ->
+              let%map monoValue, _ = inlineArray subs appStack (Ref zero)
+              and binding = InlineState.createId "fold-zero-arg" in
+              binding, monoValue
+          in
+          assert (Map.is_empty (Map.remove zeroBindings canonicalAppStack));
+          let arrayArgs =
+            arrayBindings
+            |> Map.data
+            |> List.map ~f:(fun (binding, value) : I.arg -> { binding; value })
           in
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
-          let%map zero, _ = inlineArray subs [] (Ref zero) in
           ( I.ArrayPrimitive
-              (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
+              (Fold
+                 { zeroArgs = [ { binding = zeroArgBinding; value = zeroArgValue } ]
+                 ; arrayArgs
+                 ; body
+                 ; d
+                 ; itemPad
+                 ; cellShape
+                 ; character
+                 ; type'
+                 })
           , functions )
         | _ ->
           raise
             (Unreachable.Error
                (String.concat_lines
-                  [ "fold expected a stack of [IndexApp; TypeApp], got"
+                  [ "reduce expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
      | Index ->

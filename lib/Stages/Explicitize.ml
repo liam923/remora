@@ -41,8 +41,11 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Mul -> [ "*arg1"; "*arg2" ]
           | Div -> [ "/arg1"; "/arg2" ]
           | Equal -> [ "=arg1"; "=arg2" ]
-          | Reduce _ -> [ "reduce-arg1"; "reduce-arg2" ]
-          | Fold _ -> [ "fold-arg1"; "fold-arg2" ]
+          | Reduce { associative = _; explicitZero = true; character = _ } ->
+            [ "reduce-f-arg"; "reduce-zero-arg"; "reduce-array-arg" ]
+          | Reduce { associative = _; explicitZero = false; character = _ } ->
+            [ "reduce-f-arg"; "reduce-array-arg" ]
+          | Fold _ -> [ "fold-f-arg"; "fold-zero-arg"; "fold-array-arg" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
           | Index -> [ "index-array"; "index-index" ]
           | Scatter -> [ "scatter-values"; "scatter-indices" ])

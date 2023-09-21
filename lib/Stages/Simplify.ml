@@ -115,23 +115,25 @@ let getCounts =
       Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
     | ArrayPrimitive
         (Fold
-          { args
+          { zeroArgs
+          ; arrayArgs
           ; body
-          ; zero
           ; d = _
           ; itemPad = _
           ; cellShape = _
           ; character = _
           ; type' = _
           }) ->
-      let argsCounts =
-        args
-        |> List.map ~f:(fun { firstBinding = _; secondBinding = _; value } ->
-          getCountsArray value)
+      let zeroCounts =
+        zeroArgs
+        |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
         |> Counts.merge
-      and bodyCounts = getCountsArray body
-      and zeroCounts = getCountsArray zero in
-      Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
+      and arrayCounts =
+        arrayArgs
+        |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
+        |> Counts.merge
+      and bodyCounts = getCountsArray body in
+      Counts.merge [ zeroCounts; arrayCounts; bodyCounts ]
     | ArrayPrimitive (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
       Counts.merge [ getCountsArray arg1; getCountsArray arg2 ]
     | ArrayPrimitive
@@ -173,8 +175,8 @@ let rec subArray subs : Expr.array -> Expr.array = function
   | ReifyIndex { index; type' } -> ReifyIndex { index; type' }
   | ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' }) ->
     let args =
-      List.map args ~f:(fun { binding; value } : Expr.mapArg ->
-        { binding; value = subArray subs value })
+      List.map args ~f:(fun { binding; value } ->
+        Expr.{ binding; value = subArray subs value })
     and body = subArray subs body in
     ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
   | ArrayPrimitive
@@ -187,13 +189,17 @@ let rec subArray subs : Expr.array -> Expr.array = function
     and zero = Option.map zero ~f:(subArray subs) in
     ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
-  | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
-    let args =
-      List.map args ~f:(fun { firstBinding; secondBinding; value } : Expr.reduceArg ->
-        { firstBinding; secondBinding; value = subArray subs value })
-    and body = subArray subs body
-    and zero = subArray subs zero in
-    ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
+  | ArrayPrimitive
+      (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' }) ->
+    let zeroArgs =
+      List.map zeroArgs ~f:(fun { binding; value } ->
+        Expr.{ binding; value = subArray subs value })
+    and arrayArgs =
+      List.map arrayArgs ~f:(fun { binding; value } ->
+        Expr.{ binding; value = subArray subs value })
+    and body = subArray subs body in
+    ArrayPrimitive
+      (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' })
   | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
     let arg1 = subArray subs arg1
     and arg2 = subArray subs arg2 in
@@ -366,14 +372,14 @@ let rec optimizeArray : Expr.array -> Expr.array = function
   | ArrayPrimitive (Map { args; iotaVar = None; body; frameShape = []; type' }) ->
     (* Do an initial simplification of the argument values and the body *)
     let args =
-      List.map args ~f:(fun { binding; value } : Expr.mapArg ->
+      List.map args ~f:(fun Expr.{ binding; value } ->
         let value = optimizeArray value in
-        { binding; value })
+        Expr.{ binding; value })
     in
     let body = optimizeArray body in
     (* Until it cannot be done anymore, inline args that can be propogated and then
        simplify the body. Also, remove unused args. *)
-    let rec loop (args : Expr.mapArg list) body =
+    let rec loop (args : Expr.arg list) body =
       let bodyCounts = getCounts body in
       let _, argsToPropogate, args =
         List.partition3_map args ~f:(fun arg ->
@@ -390,7 +396,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
           List.fold
             argsToPropogate
             ~init:(Map.empty (module Identifier))
-            ~f:(fun subs (arg : Expr.mapArg) ->
+            ~f:(fun subs (arg : Expr.arg) ->
               Map.set subs ~key:arg.binding ~data:arg.value)
         in
         let body = subArray subs body in
@@ -412,7 +418,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
       |> List.filter ~f:(fun arg -> Counts.get bodyCounts arg.binding > 0)
       |> List.map ~f:(fun { binding; value } ->
         let value = optimizeArray value in
-        ({ binding; value } : Expr.mapArg))
+        Expr.{ binding; value })
     in
     Expr.ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
   | ArrayPrimitive
@@ -433,22 +439,24 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     in
     Expr.ArrayPrimitive
       (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
-  | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
+  | ArrayPrimitive
+      (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' }) ->
     let body = optimizeArray body
-    and zero = optimizeArray zero in
-    (* Simplify the args, removing unused ones *)
+    and zeroArgs =
+      List.map zeroArgs ~f:(fun { binding; value } ->
+        Expr.{ binding; value = optimizeArray value })
+    in
+    (* Simplify the zero args, removing unused ones *)
     let bodyCounts = getCounts body in
-    let args =
-      args
-      |> List.filter ~f:(fun arg ->
-        Counts.get bodyCounts arg.firstBinding > 0
-        || Counts.get bodyCounts arg.secondBinding > 0)
-      |> List.map ~f:(fun { firstBinding; secondBinding; value } ->
+    let arrayArgs =
+      arrayArgs
+      |> List.filter ~f:(fun arg -> Counts.get bodyCounts arg.binding > 0)
+      |> List.map ~f:(fun { binding; value } ->
         let value = optimizeArray value in
-        ({ firstBinding; secondBinding; value } : Expr.reduceArg))
+        Expr.{ binding; value })
     in
     Expr.ArrayPrimitive
-      (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
+      (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' })
   | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg = optimizeArray arrayArg
     and indexArg = optimizeArray indexArg in
@@ -507,7 +515,7 @@ module HoistState = struct
 end
 
 type hoisting =
-  { variableDeclaration : Expr.mapArg
+  { variableDeclaration : Expr.arg
   ; counts : Counts.t
   }
 [@@deriving sexp_of]
@@ -570,7 +578,7 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     let args, argHoistings =
       hoistDeclarationsMap args ~f:(fun { binding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
-        ({ binding; value } : Expr.mapArg), hoistings)
+        Expr.{ binding; value }, hoistings)
     in
     let argsAsHoistings =
       List.map args ~f:(fun arg ->
@@ -594,7 +602,7 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     let args, argHoistings =
       hoistDeclarationsMap args ~f:(fun { binding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
-        ({ binding; value } : Expr.mapArg), hoistings)
+        Expr.{ binding; value }, hoistings)
     in
     ( Expr.ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' })
     , argHoistings @ bodyHoistings )
@@ -627,27 +635,30 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
     ( Expr.ArrayPrimitive
         (Reduce { args; body; zero; d; itemPad; cellShape; associative; character; type' })
     , argHoistings @ bodyHoistings @ zeroHoistings )
-  | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' }) ->
+  | ArrayPrimitive
+      (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' }) ->
     let bindings =
-      if minDimensionSize d >= 2
+      if minDimensionSize d >= 1
       then
-        args
-        |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-        |> BindingSet.of_list
+        zeroArgs @ arrayArgs |> List.map ~f:(fun arg -> arg.binding) |> BindingSet.of_list
       else
         (* The body of the fold is not guaranteed to run, so hoisting is unsafe *)
         BindingSet.All
     in
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
-    let args, argHoistings =
-      hoistDeclarationsMap args ~f:(fun { firstBinding; secondBinding; value } ->
+    let zeroArgs, zeroArgHoistings =
+      hoistDeclarationsMap zeroArgs ~f:(fun { binding; value } ->
         let value, hoistings = hoistDeclarationsInArray value in
-        ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
+        Expr.{ binding; value }, hoistings)
     in
-    let zero, zeroHoistings = hoistDeclarationsInArray zero in
+    let arrayArgs, arrayArgHoistings =
+      hoistDeclarationsMap arrayArgs ~f:(fun { binding; value } ->
+        let value, hoistings = hoistDeclarationsInArray value in
+        Expr.{ binding; value }, hoistings)
+    in
     ( Expr.ArrayPrimitive
-        (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-    , argHoistings @ bodyHoistings @ zeroHoistings )
+        (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' })
+    , zeroArgHoistings @ arrayArgHoistings @ bodyHoistings )
   | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
     let arrayArg, arrayHoistings = hoistDeclarationsInArray arrayArg
     and indexArg, indexHoistings = hoistDeclarationsInArray indexArg in
@@ -800,7 +811,7 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
       let%bind args, argHoistings =
         hoistExpressionsMap args ~f:(fun { binding; value } ->
           let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
-          ({ binding; value } : Expr.mapArg), hoistings)
+          Expr.{ binding; value }, hoistings)
       in
       let bindings =
         if minShapeSize frameShape > 0
@@ -855,28 +866,31 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
           (Reduce
              { args; body; zero; d; itemPad; cellShape; associative; character; type' })
       , argHoistings @ bodyHoistings @ zeroHoistings )
-    | ArrayPrimitive (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-      ->
-      let%bind args, argHoistings =
-        hoistExpressionsMap args ~f:(fun { firstBinding; secondBinding; value } ->
+    | ArrayPrimitive
+        (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' }) ->
+      let%bind zeroArgs, zeroArgsHoistings =
+        hoistExpressionsMap zeroArgs ~f:(fun { binding; value } ->
           let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
-          ({ firstBinding; secondBinding; value } : Expr.reduceArg), hoistings)
+          Expr.{ binding; value }, hoistings)
+      and arrayArgs, arrayArgsHoistings =
+        hoistExpressionsMap arrayArgs ~f:(fun { binding; value } ->
+          let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
+          Expr.{ binding; value }, hoistings)
       in
       let bindings =
-        if minDimensionSize d >= 2
+        if minDimensionSize d >= 1
         then
-          args
-          |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
+          zeroArgs @ arrayArgs
+          |> List.map ~f:(fun arg -> arg.binding)
           |> BindingSet.of_list
         else
           (* The body of the fold is not guaranteed to run, so hoisting is unsafe *)
           BindingSet.All
       in
-      let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings
-      and zero, zeroHoistings = hoistExpressionsInArray loopBarrier zero in
+      let%map body, bodyHoistings = hoistExpressionsInBody bindings body ~bindings in
       ( Expr.ArrayPrimitive
-          (Fold { args; body; zero; d; itemPad; cellShape; character; type' })
-      , argHoistings @ bodyHoistings @ zeroHoistings )
+          (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' })
+      , zeroArgsHoistings @ arrayArgsHoistings @ bodyHoistings )
     | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' }) ->
       let%map arrayArg, arrayHoistings = hoistExpressionsInArray loopBarrier arrayArg
       and indexArg, indexHoistings = hoistExpressionsInArray loopBarrier indexArg in
@@ -924,7 +938,7 @@ and hoistExpressionsInBody loopBarrier body ~bindings =
   let%map hoistingsToDeclare, moreHoistingsToPropogate =
     hoistExpressionsMap hoistingsToDeclare ~f:(fun { binding; value } ->
       let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
-      ({ binding; value } : Expr.mapArg), hoistings)
+      Expr.{ binding; value }, hoistings)
   in
   (* Declare the hoistings that need to be declared. *)
   let body =

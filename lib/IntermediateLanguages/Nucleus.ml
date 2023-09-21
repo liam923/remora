@@ -101,7 +101,7 @@ module Expr = struct
     ; type' : Type.atom
     }
 
-  and mapArg =
+  and arg =
     { binding : Identifier.t
     ; value : array
     }
@@ -115,7 +115,7 @@ module Expr = struct
   and arrayPrimitive =
     | Map of
         { frameShape : Index.shape
-        ; args : mapArg list
+        ; args : arg list
         ; iotaVar : Identifier.t option
              [@default None] [@sexp_drop_if fun i -> Option.is_none i]
         ; body : array
@@ -133,8 +133,8 @@ module Expr = struct
         ; type' : Type.array
         }
     | Fold of
-        { args : reduceArg list
-        ; zero : array
+        { zeroArgs : arg list
+        ; arrayArgs : arg list
         ; body : array
         ; d : Index.dimension
         ; itemPad : Index.shape

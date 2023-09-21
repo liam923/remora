@@ -145,8 +145,8 @@ let%expect_test "check simplifying" =
     (ArrayPrimitive
      (Reduce
       (args
-       (((firstBinding ((name reduceArg1) (id 46)))
-         (secondBinding ((name reduceArg2) (id 47)))
+       (((firstBinding ((name reduce-arg1) (id 46)))
+         (secondBinding ((name reduce-arg2) (id 47)))
          (value
           (Frame
            ((dimensions (5))
@@ -179,13 +179,13 @@ let%expect_test "check simplifying" =
              ((ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name reduceArg1) (id 46)))
+                  ((id ((name reduce-arg1) (id 46)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))
               (ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name reduceArg2) (id 47)))
+                  ((id ((name reduce-arg2) (id 47)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))))
             (type' (Literal IntLiteral)))))
@@ -219,74 +219,6 @@ let%expect_test "check simplifying" =
     (AtomAsArray
      ((element (Literal (IntLiteral 7)))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
-  checkAndPrint
-    {|
-      (t-app
-        (reduce{(Forall (@t) int) | 1 [] []}
-          (fn ([a (Forall (@a) int)] [b (Forall (@b) int)])
-            (define sum (+ (t-app a char) (t-app b int)))
-            (t-fn (@u) sum))
-          [(t-fn (@x) 1) (t-fn (@y) 2)])
-        int)
-    |};
-  [%expect
-    {|
-    (ArrayPrimitive
-     (Reduce
-      (args
-       (((firstBinding ((name reduce-arg1) (id 67)))
-         (secondBinding ((name reduceArg2) (id 64)))
-         (value
-          (Frame
-           ((dimensions (2))
-            (elements
-             ((AtomAsArray
-               ((element (Literal (IntLiteral 1)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (AtomAsArray
-               ((element (Literal (IntLiteral 2)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))))
-            (type'
-             ((element (Literal IntLiteral))
-              (shape ((Add ((const 2) (refs ())))))))))))
-        ((firstBinding ((name reduceArg1) (id 61)))
-         (secondBinding ((name reduce-arg2) (id 68)))
-         (value
-          (Frame
-           ((dimensions (2))
-            (elements
-             ((AtomAsArray
-               ((element (Literal (IntLiteral 1)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (AtomAsArray
-               ((element (Literal (IntLiteral 2)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))))
-            (type'
-             ((element (Literal IntLiteral))
-              (shape ((Add ((const 2) (refs ())))))))))))))
-      (zero ())
-      (body
-       (AtomAsArray
-        ((element
-          (AtomicPrimitive
-           ((op Add)
-            (args
-             ((ArrayAsAtom
-               ((array
-                 (Ref
-                  ((id ((name reduceArg1) (id 61)))
-                   (type' ((element (Literal IntLiteral)) (shape ()))))))
-                (type' (Literal IntLiteral))))
-              (ArrayAsAtom
-               ((array
-                 (Ref
-                  ((id ((name reduceArg2) (id 64)))
-                   (type' ((element (Literal IntLiteral)) (shape ()))))))
-                (type' (Literal IntLiteral))))))
-            (type' (Literal IntLiteral)))))
-         (type' ((element (Literal IntLiteral)) (shape ()))))))
-      (d ((const 2) (refs ()))) (itemPad ()) (cellShape ()) (associative true)
-      (character Reduce) (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define (foo [x int])
