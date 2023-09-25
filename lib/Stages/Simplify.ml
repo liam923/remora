@@ -63,9 +63,10 @@ let nonComputational =
     | ArrayPrimitive _ -> false
   and nonComputationalAtom : Expr.atom -> bool = function
     | Box _ -> false
-    | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _ | UnitLiteral) -> true
+    | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) -> true
     | ArrayAsAtom arrayAtomic -> nonComputationalArray arrayAtomic.array
     | AtomicPrimitive _ -> false
+    | Values values -> List.for_all values.elements ~f:nonComputationalAtom
   in
   nonComputationalArray
 ;;
@@ -146,11 +147,12 @@ let getCounts =
     | Literal (IntLiteral _) -> Counts.empty
     | Literal (CharacterLiteral _) -> Counts.empty
     | Literal (BooleanLiteral _) -> Counts.empty
-    | Literal UnitLiteral -> Counts.empty
     | Box { indices = _; body; bodyType = _; type' = _ } -> getCountsArray body
     | ArrayAsAtom { array; type' = _ } -> getCountsArray array
     | AtomicPrimitive { op = _; args; type' = _ } ->
       args |> List.map ~f:getCountsAtom |> Counts.merge
+    | Values { elements; type' = _ } ->
+      elements |> List.map ~f:getCountsAtom |> Counts.merge
   in
   getCountsArray
 ;;
@@ -215,7 +217,6 @@ let rec subArray subs : Expr.array -> Expr.array = function
 
 and subAtom subs : Expr.atom -> Expr.atom = function
   | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit -> lit
-  | Literal UnitLiteral as lit -> lit
   | Box { indices; body; bodyType; type' } ->
     let body = subArray subs body in
     Box { indices; body; bodyType; type' }
@@ -225,6 +226,9 @@ and subAtom subs : Expr.atom -> Expr.atom = function
   | AtomicPrimitive { op; args; type' } ->
     let args = List.map args ~f:(subAtom subs) in
     AtomicPrimitive { op; args; type' }
+  | Values { elements; type' } ->
+    let elements = List.map elements ~f:(subAtom subs) in
+    Values { elements; type' }
 ;;
 
 (* Perform the following optimizations:
@@ -294,7 +298,9 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     let bodyCounts = getCounts body in
     let boxBindings =
       boxBindings
-      |> List.filter ~f:(fun binding -> Counts.get bodyCounts binding.binding > 0)
+      |> List.filter ~f:(fun binding ->
+        (* DISCARD!!! *)
+        Counts.get bodyCounts binding.binding > 0)
       |> List.map ~f:(fun { binding; box } ->
         let box = optimizeArray box in
         ({ binding; box } : Expr.unboxBinding))
@@ -384,7 +390,9 @@ let rec optimizeArray : Expr.array -> Expr.array = function
       let _, argsToPropogate, args =
         List.partition3_map args ~f:(fun arg ->
           match Counts.get bodyCounts arg.binding with
-          | 0 -> `Fst ()
+          | 0 ->
+            (* DISCARD!!! *)
+            `Fst ()
           | 1 -> `Snd arg
           | _ when nonComputational arg.value -> `Snd arg
           | _ -> `Trd arg)
@@ -415,7 +423,8 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     let bodyCounts = getCounts body in
     let args =
       args
-      |> List.filter ~f:(fun arg -> Counts.get bodyCounts arg.binding > 0)
+      |> List.filter ~f:(fun arg -> (* DISCARD!!! *)
+                                    Counts.get bodyCounts arg.binding > 0)
       |> List.map ~f:(fun { binding; value } ->
         let value = optimizeArray value in
         Expr.{ binding; value })
@@ -431,6 +440,7 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     let args =
       args
       |> List.filter ~f:(fun arg ->
+        (* DISCARD!!! *)
         Counts.get bodyCounts arg.firstBinding > 0
         || Counts.get bodyCounts arg.secondBinding > 0)
       |> List.map ~f:(fun { firstBinding; secondBinding; value } ->
@@ -450,7 +460,8 @@ let rec optimizeArray : Expr.array -> Expr.array = function
     let bodyCounts = getCounts body in
     let arrayArgs =
       arrayArgs
-      |> List.filter ~f:(fun arg -> Counts.get bodyCounts arg.binding > 0)
+      |> List.filter ~f:(fun arg -> (* DISCARD!!! *)
+                                    Counts.get bodyCounts arg.binding > 0)
       |> List.map ~f:(fun { binding; value } ->
         let value = optimizeArray value in
         Expr.{ binding; value })
@@ -491,28 +502,17 @@ and optimizeAtom : Expr.atom -> Expr.atom = function
        Literal (IntLiteral (a * b))
      | Mul, [ Literal (IntLiteral 1); value ] | Mul, [ value; Literal (IntLiteral 1) ] ->
        value
+     | Mul, [ Literal (IntLiteral 0); _ ] | Mul, [ _; Literal (IntLiteral 0) ] ->
+       (* DISCARD!!! *)
+       Literal (IntLiteral 0)
      | Div, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
        Literal (IntLiteral (a / b))
      | Div, [ value; Literal (IntLiteral 1) ] -> value
      | _ -> Expr.AtomicPrimitive { op; args; type' })
+  | Values { elements; type' } ->
+    let elements = List.map elements ~f:optimizeAtom in
+    Values { elements; type' }
 ;;
-
-module HoistState = struct
-  include State
-
-  type state = CompilerState.state
-  type ('a, 'e) u = (state, 'a, 'e) t
-
-  let createId name =
-    make ~f:(fun state ->
-      State.run
-        (Identifier.create
-           name
-           ~getCounter:(fun (s : state) -> s.idCounter)
-           ~setCounter:(fun _ idCounter -> CompilerState.{ idCounter }))
-        state)
-  ;;
-end
 
 type hoisting =
   { variableDeclaration : Expr.arg
@@ -681,6 +681,9 @@ and hoistDeclarationsInAtom : Expr.atom -> Expr.atom * hoisting list = function
   | AtomicPrimitive { op; args; type' } ->
     let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarationsInAtom in
     AtomicPrimitive { op; args; type' }, hoistings
+  | Values { elements; type' } ->
+    let elements, hoistings = hoistDeclarationsMap elements ~f:hoistDeclarationsInAtom in
+    Values { elements; type' }, hoistings
 
 and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
   (* Simplify the body *)
@@ -755,6 +758,25 @@ and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
   in
   body, hoistingsToPropogate
 ;;
+
+module HoistState = struct
+  include State
+
+  type state = CompilerState.state
+  type ('a, 'e) u = (state, 'a, 'e) t
+
+  let createId name =
+    make ~f:(fun state ->
+      State.run
+        (Identifier.create
+           name
+           ~getCounter:(fun (s : state) -> s.idCounter)
+           ~setCounter:(fun _ idCounter -> CompilerState.{ idCounter }))
+        state)
+  ;;
+
+  let toSimplifyState (s : ('t, _) u) : (CompilerState.state, 't, _) State.t = s
+end
 
 let hoistExpressionsMap l ~f =
   let open HoistState.Let_syntax in
@@ -920,6 +942,11 @@ and hoistExpressionsInAtom loopBarrier
       hoistExpressionsMap args ~f:(hoistExpressionsInAtom loopBarrier)
     in
     Expr.AtomicPrimitive { op; args; type' }, hoistings
+  | Values { elements; type' } ->
+    let%map elements, hoistings =
+      hoistExpressionsMap elements ~f:(hoistExpressionsInAtom loopBarrier)
+    in
+    Expr.Values { elements; type' }, hoistings
 
 and hoistExpressionsInBody loopBarrier body ~bindings =
   let open HoistState.Let_syntax in
@@ -961,16 +988,18 @@ and hoistExpressionsInBody loopBarrier body ~bindings =
 ;;
 
 let simplify expr =
-  let open HoistState.Let_syntax in
+  let open State.Let_syntax in
   let rec loop expr =
     (* Hoist variables that can be hoisted *)
     let hoisted, hoistings = hoistDeclarationsInBody expr ~bindings:All in
     assert (List.length hoistings = 0);
     let unoptimized = hoisted in
-    let optimized = optimizeArray hoisted in
+    let optimized = optimizeArray unoptimized in
     if Expr.equal_array unoptimized optimized
     then (
-      let%map result, hoistings = hoistExpressionsInBody All optimized ~bindings:All in
+      let%map result, hoistings =
+        hoistExpressionsInBody All optimized ~bindings:All |> HoistState.toSimplifyState
+      in
       assert (List.length hoistings = 0);
       result)
     else loop optimized

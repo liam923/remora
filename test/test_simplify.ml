@@ -108,8 +108,8 @@ let%expect_test "check simplifying" =
   [%expect
     {|
     (AtomAsArray
-     ((element (Literal UnitLiteral))
-      (type' ((element (Literal UnitLiteral)) (shape ()))))) |}];
+     ((element (Values ((elements ()) (type' ()))))
+      (type' ((element (Tuple ())) (shape ()))))) |}];
   checkAndPrint
     {|
       (define id (t-fn (@t) (fn ([x @t]) x)))

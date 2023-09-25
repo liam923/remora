@@ -19,16 +19,17 @@ module Type = struct
     }
 
   and sigma = Sort.t abstraction
+  and tuple = atom list
 
   and literal =
     | IntLiteral
     | CharacterLiteral
     | BooleanLiteral
-    | UnitLiteral
 
   and atom =
     | Sigma of sigma
     | Literal of literal
+    | Tuple of tuple
 
   and t =
     | Array of array
@@ -94,6 +95,7 @@ module Expr = struct
     | Mul
     | Div
     | Equal
+    | TupleDeref of int
 
   and atomicPrimitive =
     { op : scalarOp
@@ -167,11 +169,15 @@ module Expr = struct
         ; type' : Type.array
         }
 
+  and values =
+    { elements : atom list
+    ; type' : Type.tuple
+    }
+
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
     | BooleanLiteral of bool
-    | UnitLiteral
 
   and array =
     | Ref of ref
@@ -184,6 +190,7 @@ module Expr = struct
   and atom =
     | Box of box
     | Literal of literal
+    | Values of values
     | ArrayAsAtom of arrayAtomic
     | AtomicPrimitive of atomicPrimitive
 
@@ -197,9 +204,9 @@ module Expr = struct
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
-    | Literal UnitLiteral -> Literal UnitLiteral
     | ArrayAsAtom arrayAtomic -> arrayAtomic.type'
     | AtomicPrimitive atomicPrimitive -> atomicPrimitive.type'
+    | Values values -> Tuple values.type'
   ;;
 
   let arrayType : array -> Type.array = function

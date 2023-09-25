@@ -135,7 +135,7 @@ let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
   | Literal CharacterLiteral -> { element = Literal CharacterLiteral; shape = [] }
   | Literal IntLiteral -> { element = Literal IntLiteral; shape = [] }
   | Literal BooleanLiteral -> { element = Literal BooleanLiteral; shape = [] }
-  | Func _ -> { element = Literal UnitLiteral; shape = [] }
+  | Func _ -> { element = Tuple []; shape = [] }
   | Forall { parameters; body } ->
     (match appStack with
      | TypeApp types :: restStack ->
@@ -150,7 +150,7 @@ let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
      | [] ->
        (* Empty stack means the Forall's value is not passed to a type
           application, so we can replace it with a unit *)
-       { element = Literal UnitLiteral; shape = [] }
+       { element = Tuple []; shape = [] }
      | _ :: _ as stack ->
        raise
          (Unreachable.Error
@@ -172,7 +172,7 @@ let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
      | [] ->
        (* Empty stack means the Pi's value is not passed to an index
           application, so we can replace it with a unit *)
-       { element = Literal UnitLiteral; shape = [] }
+       { element = Tuple []; shape = [] }
      | _ :: _ as stack ->
        raise
          (Unreachable.Error
@@ -333,7 +333,7 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
     (match name with
      | Func func ->
        return
-         ( scalar (I.Literal UnitLiteral)
+         ( scalar (I.Values { elements = []; type' = [] })
          , FunctionSet.One (Primitive { func; type'; appStack }) )
      | Val Iota ->
        (match appStack with
@@ -441,7 +441,8 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
       in
       atomCaptures (E.TermLambda lambda)
     in
-    scalar (I.Literal UnitLiteral), FunctionSet.One (Lambda { lambda; id; captures })
+    ( scalar (I.Values { elements = []; type' = [] })
+    , FunctionSet.One (Lambda { lambda; id; captures }) )
   | TypeLambda { params; body; type' = _ } ->
     (match appStack with
      | TypeApp types :: restStack ->
@@ -456,7 +457,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
      | [] ->
        (* Empty stack means the type lambda's value is not passed to a type
           application, so we can replace it with a unit *)
-       return (scalar (I.Literal UnitLiteral), FunctionSet.Empty)
+       return (scalar (I.Values { elements = []; type' = [] }), FunctionSet.Empty)
      | _ :: _ as stack ->
        raise
          (Unreachable.Error
@@ -478,7 +479,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
      | [] ->
        (* Empty stack means the index lambda's value is not passed to an index
           application, so we can replace it with a unit *)
-       return (scalar (I.Literal UnitLiteral), FunctionSet.Empty)
+       return (scalar (I.Values { elements = []; type' = [] }), FunctionSet.Empty)
      | _ as stack ->
        raise
          (Unreachable.Error

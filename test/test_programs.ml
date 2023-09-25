@@ -84,8 +84,8 @@ let%expect_test "simple addition" =
        (((binding ((name f) (id 41)))
          (value
           (AtomAsArray
-           ((element (Literal UnitLiteral))
-            (type' ((element (Literal UnitLiteral)) (shape ())))))))
+           ((element (Values ((elements ()) (type' ()))))
+            (type' ((element (Tuple ())) (shape ())))))))
         ((binding ((name +arg1) (id 42)))
          (value
           (AtomAsArray
@@ -208,8 +208,8 @@ let%expect_test "simple function definition and call" =
        (((binding ((name add) (id 48)))
          (value
           (AtomAsArray
-           ((element (Literal UnitLiteral))
-            (type' ((element (Literal UnitLiteral)) (shape ())))))))))
+           ((element (Values ((elements ()) (type' ()))))
+            (type' ((element (Tuple ())) (shape ())))))))))
       (body
        (ArrayPrimitive
         (Map (frameShape ())
@@ -218,7 +218,7 @@ let%expect_test "simple function definition and call" =
             (value
              (Ref
               ((id ((name add) (id 48)))
-               (type' ((element (Literal UnitLiteral)) (shape ())))))))
+               (type' ((element (Tuple ())) (shape ())))))))
            ((binding ((name x) (id 51)))
             (value
              (AtomAsArray
@@ -236,8 +236,8 @@ let%expect_test "simple function definition and call" =
              (((binding ((name f) (id 50)))
                (value
                 (AtomAsArray
-                 ((element (Literal UnitLiteral))
-                  (type' ((element (Literal UnitLiteral)) (shape ())))))))
+                 ((element (Values ((elements ()) (type' ()))))
+                  (type' ((element (Tuple ())) (shape ())))))))
               ((binding ((name +arg1) (id 52)))
                (value
                 (Ref
@@ -349,8 +349,8 @@ let%expect_test "polymorphic function definition and call" =
        (((binding ((name id) (id 44)))
          (value
           (AtomAsArray
-           ((element (Literal UnitLiteral))
-            (type' ((element (Literal UnitLiteral)) (shape ())))))))))
+           ((element (Values ((elements ()) (type' ()))))
+            (type' ((element (Tuple ())) (shape ())))))))))
       (body
        (ArrayPrimitive
         (Map (frameShape ())
@@ -359,7 +359,7 @@ let%expect_test "polymorphic function definition and call" =
             (value
              (Ref
               ((id ((name id) (id 44)))
-               (type' ((element (Literal UnitLiteral)) (shape ())))))))
+               (type' ((element (Tuple ())) (shape ())))))))
            ((binding ((name e) (id 46)))
             (value
              (AtomAsArray
@@ -473,8 +473,8 @@ let%expect_test "function call with implicit map" =
        (((binding ((name f) (id 44)))
          (value
           (AtomAsArray
-           ((element (Literal UnitLiteral))
-            (type' ((element (Literal UnitLiteral)) (shape ())))))))
+           ((element (Values ((elements ()) (type' ()))))
+            (type' ((element (Tuple ())) (shape ())))))))
         ((binding ((name +arg1) (id 45)))
          (value
           (Frame
@@ -911,8 +911,8 @@ let%expect_test "box and unbox" =
              (((binding ((name f) (id 47)))
                (value
                 (AtomAsArray
-                 ((element (Literal UnitLiteral))
-                  (type' ((element (Literal UnitLiteral)) (shape ())))))))
+                 ((element (Values ((elements ()) (type' ()))))
+                  (type' ((element (Tuple ())) (shape ())))))))
               ((binding ((name =arg1) (id 48)))
                (value
                 (AtomAsArray
@@ -926,8 +926,8 @@ let%expect_test "box and unbox" =
                    (((binding ((name f) (id 50)))
                      (value
                       (AtomAsArray
-                       ((element (Literal UnitLiteral))
-                        (type' ((element (Literal UnitLiteral)) (shape ())))))))))
+                       ((element (Values ((elements ()) (type' ()))))
+                        (type' ((element (Tuple ())) (shape ())))))))))
                   (body
                    (ReifyIndex
                     ((index
