@@ -256,6 +256,19 @@ module Stdlib : S = struct
                   |}
             }
       }
+    ; { name = "replicate"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Replicate; type' })
+            ; type' =
+                {|
+                  (Pi (@s @cell-shape)
+                    (Forall (t)
+                      (-> ([t [@cell-shape]])
+                          [t [@s @cell-shape]])))
+                  |}
+            }
+      }
     ]
   ;;
 

@@ -51,6 +51,12 @@ type error =
       { originalShape : Typed.Index.shape
       ; newShape : Typed.Index.shape
       }
+  | LiftShapeGotScalar
+  | LiftShapeGotRef of
+      { shape : Typed.Index.shape
+      ; ref : Identifier.t
+      }
+  | LiftIndexValueNotInteger of Typed.Type.atom
 
 module Show : sig
   val sort : Sort.t -> string
@@ -203,6 +209,16 @@ let errorMessage = function
     [%string
       "Array has shape `%{Show.shape originalShape}`, which is not compatible with \
        wanted shape `%{Show.shape newShape}`"]
+  | LiftShapeGotScalar ->
+    [%string
+      "Array has scalar shape `%{Show.shape []}`, but lifting to a shape requires it to \
+       have rank 1 or greater"]
+  | LiftShapeGotRef { shape; ref } ->
+    [%string
+      "Array has shape `%{Show.shape shape}`, which ends in shape ref `%{Identifier.name \
+       ref}`, but lifting to a shape requires ending in a dimension"]
+  | LiftIndexValueNotInteger t ->
+    [%string "Lifted index must have integer elements, got `%{Show.type' (Atom t)}`"]
 ;;
 
 let errorType = function
@@ -233,7 +249,10 @@ let errorType = function
   | ArgumentTypeDisagreement _
   | CellShapeDisagreement _
   | PrincipalFrameDisagreement _
-  | IncompatibleShapes _ -> `Type
+  | IncompatibleShapes _
+  | LiftShapeGotRef _
+  | LiftShapeGotScalar
+  | LiftIndexValueNotInteger _ -> `Type
 ;;
 
 type ('s, 't) checkResult =
@@ -581,6 +600,7 @@ module TypeCheck = struct
     | TypeApplication _ -> err
     | IndexApplication _ -> err
     | Unbox _ -> err
+    | Lift _ -> err
     | TermLambda _ -> ok ()
     | TypeLambda tl -> requireValue tl.body
     | IndexLambda il -> requireValue il.body
@@ -1060,7 +1080,7 @@ module TypeCheck = struct
                   }
             in
             let subs = Map.set subsSoFar ~key:param.binding ~data:indexRef in
-            let bindings = id :: bindingsSoFar in
+            let bindings = (id, param.bound) :: bindingsSoFar in
             bindings, entries, subs)
       in
       let%bind () =
@@ -1106,6 +1126,56 @@ module TypeCheck = struct
            ; type' =
                { element = bodyType.element; shape = boxArrType.shape @ bodyType.shape }
            })
+    | U.Lift { indexBinding; indexValue; sort; body } ->
+      let indexValueSource = indexValue.source in
+      let%bind id = CheckerState.createId indexBinding.elem in
+      let extendedEnv =
+        { env with
+          sorts =
+            Map.set
+              env.sorts
+              ~key:indexBinding.elem
+              ~data:(sortBoundToEnvEntry sort.elem id)
+        }
+      in
+      let%bind body = checkAndExpectArray extendedEnv body
+      and indexValue = checkAndExpectArray env indexValue in
+      let%bind indexValueType =
+        checkForArrType indexValueSource (T.arrayType indexValue)
+      in
+      let%bind () =
+        match indexValueType.element with
+        | Literal IntLiteral -> return ()
+        | t ->
+          CheckerState.err
+            { elem = LiftIndexValueNotInteger t; source = indexValueSource }
+      in
+      let%map frameShape =
+        match sort.elem with
+        | Dim -> return indexValueType.shape
+        | Shape ->
+          (match List.rev indexValueType.shape with
+           | Add _ :: frameShapeRev -> return (List.rev frameShapeRev)
+           | ShapeRef ref :: _ ->
+             CheckerState.err
+               { source = indexValueSource
+               ; elem = LiftShapeGotRef { shape = indexValueType.shape; ref }
+               }
+           | [] ->
+             CheckerState.err { source = indexValueSource; elem = LiftShapeGotScalar })
+      in
+      let type' =
+        Typed.Type.Arr
+          { element =
+              Sigma
+                { parameters = [ { binding = id; bound = sort.elem } ]
+                ; body = T.arrayType body
+                }
+          ; shape = frameShape
+          }
+      in
+      T.Array
+        (Lift { indexBinding = id; indexValue; sort = sort.elem; frameShape; body; type' })
     | U.TermLambda { params; body } ->
       let%bind kindedParams =
         params.elem

@@ -107,6 +107,7 @@ module Expr = struct
     | Append
     | Index
     | Scatter
+    | Replicate
   [@@deriving compare, sexp, equal]
 
   type primitiveValName = Iota [@@deriving compare, sexp, equal]
@@ -146,7 +147,7 @@ module Expr = struct
     }
 
   and unbox =
-    { indexBindings : Identifier.t list
+    { indexBindings : (Identifier.t * Sort.t) list
     ; valueBinding : Identifier.t
     ; box : array
     ; body : array
@@ -195,6 +196,15 @@ module Expr = struct
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
+  and lift =
+    { indexBinding : Identifier.t
+    ; indexValue : array
+    ; sort : Sort.t
+    ; frameShape : Index.shape
+    ; body : array
+    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    }
+
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
@@ -211,6 +221,7 @@ module Expr = struct
     | ReifyIndex of reifyIndex
     | Let of let'
     | Primitive of primitive
+    | Lift of lift
 
   and atom =
     | TermLambda of termLambda
@@ -245,6 +256,7 @@ module Expr = struct
     | ReifyIndex reifyIndex -> Arr reifyIndex.type'
     | Let let' -> let'.type'
     | Primitive primitive -> primitive.type'
+    | Lift lift -> lift.type'
   ;;
 
   let type' : t -> Type.t = function
@@ -265,6 +277,7 @@ module Expr = struct
     | ReifyIndex reifyIndex -> ReifyIndex { reifyIndex with type' }
     | Let let' -> Let { let' with type' = Arr type' }
     | Primitive primitive -> Primitive { primitive with type' = Arr type' }
+    | Lift lift -> Lift { lift with type' = Arr type' }
   ;;
 end
 
@@ -659,6 +672,15 @@ module Substitute = struct
           }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subTypesIntoArray types type' }
+      | Lift { indexBinding; indexValue; sort; frameShape; body; type' } ->
+        Lift
+          { indexBinding
+          ; indexValue = subTypesIntoArray types indexValue
+          ; sort
+          ; frameShape
+          ; body = subTypesIntoArray types body
+          ; type' = Type.subTypesIntoArray types type'
+          }
 
     and subTypesIntoAtom types = function
       | TermLambda lambda -> TermLambda (subTypesIntoTermLambda types lambda)
@@ -747,6 +769,15 @@ module Substitute = struct
           }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subIndicesIntoArray indices type' }
+      | Lift { indexBinding; indexValue; sort; frameShape; body; type' } ->
+        Lift
+          { indexBinding
+          ; indexValue = subIndicesIntoArray indices indexValue
+          ; sort
+          ; frameShape = Index.subIndicesIntoShape indices frameShape
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArray indices type'
+          }
 
     and subIndicesIntoAtom indices = function
       | TermLambda lambda -> TermLambda (subIndicesIntoTermLambda indices lambda)

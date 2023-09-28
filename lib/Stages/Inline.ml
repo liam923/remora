@@ -223,7 +223,8 @@ let assertValueRestriction value =
       | TermApplication _ -> false
       | TypeApplication _ -> false
       | IndexApplication _ -> false
-      | Unbox _ -> false
+      | BoxValue _ -> false
+      | IndexLet _ -> false
       | ReifyIndex _ -> true
       | Primitive _ -> true
       | Map _ -> false
@@ -254,7 +255,7 @@ let scalar atom =
     AtomAsArray { element = atom; type' = { element = atomType atom; shape = [] } })
 ;;
 
-let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
+let rec inlineArray subs indexEnv (appStack : appStack) (array : Explicit.Expr.array)
   : (Nucleus.Expr.array * FunctionSet.t) InlineState.u
   =
   let module E = Explicit.Expr in
@@ -277,7 +278,7 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
      | None ->
        (* No cache entry exists yet. Create a new monomorphization of the
           variable and put it in the cache. *)
-       let%bind monoValue, functions = inlineArray subs appStack polyValue
+       let%bind monoValue, functions = inlineArray subs indexEnv appStack polyValue
        and binding = InlineState.createId (Identifier.name id) in
        let cacheEntry = { binding; monoValue; functions } in
        (* env may have been updated when computing the monoValue, so
@@ -291,11 +292,11 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
        in
        let%map () = InlineState.setEnv newEnv in
        I.Ref { id = binding; type' = inlineArrayTypeWithStack appStack type' }, functions)
-  | Scalar { element; type' = _ } -> inlineAtom subs appStack element
+  | Scalar { element; type' = _ } -> inlineAtom subs indexEnv appStack element
   | Frame { dimensions; elements; type' } ->
     let%map elements, functions =
       elements
-      |> List.map ~f:(inlineArray subs appStack)
+      |> List.map ~f:(inlineArray subs indexEnv appStack)
       |> InlineState.all
       |> InlineState.unzip
     in
@@ -303,28 +304,35 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
     ( I.Frame
         { dimensions; elements; type' = inlineArrayTypeWithStack appStack (Arr type') }
     , functions )
-  | TermApplication termApplication -> inlineTermApplication subs appStack termApplication
+  | TermApplication termApplication ->
+    inlineTermApplication subs indexEnv appStack termApplication
   | TypeApplication { tFunc; args; type' = _ } ->
-    inlineArray subs (TypeApp args :: appStack) tFunc
+    inlineArray subs indexEnv (TypeApp args :: appStack) tFunc
   | IndexApplication { iFunc; args; type' = _ } ->
-    inlineArray subs (IndexApp args :: appStack) iFunc
-  | Unbox { indexBindings; valueBinding; box; body; type' } ->
-    let args = [ valueBinding, box ] in
-    let%map body, args, functions = inlineBodyWithBindings subs appStack body args in
-    let boxBindings =
-      args
-      |> List.map ~f:(fun bindings ->
-        Map.to_alist bindings
-        |> List.map ~f:(fun (_, (binding, box)) : I.unboxBinding -> { binding; box }))
-      |> List.join
+    inlineArray subs indexEnv (IndexApp args :: appStack) iFunc
+  | BoxValue { box; type' } ->
+    let%map box, functions = inlineArray subs indexEnv appStack box in
+    let type' = inlineArrayTypeWithStack appStack (Arr type') in
+    I.BoxValue { box; type' }, functions
+  | IndexLet { indexArgs; body; type' } ->
+    let extendedIndexEnv =
+      List.fold indexArgs ~init:indexEnv ~f:(fun env arg -> Set.add env arg.indexBinding)
     in
-    ( I.Unbox
-        { indexBindings
-        ; boxBindings
-        ; body
-        ; type' = inlineArrayTypeWithStack appStack (Arr type')
-        }
-    , functions )
+    let%map body, functions = inlineArray subs extendedIndexEnv appStack body
+    and indexArgs =
+      indexArgs
+      |> List.map ~f:(fun { indexBinding; indexValue; sort } ->
+        match indexValue with
+        | Runtime value ->
+          let%map value, _ = inlineArray subs indexEnv [] value in
+          I.{ indexBinding; indexValue = Runtime value; sort }
+        | FromBox { box; i } ->
+          let%map box, _ = inlineArray subs indexEnv [] box in
+          I.{ indexBinding; indexValue = FromBox { box; i }; sort })
+      |> InlineState.all
+    in
+    let type' = inlineArrayTypeWithStack appStack type' in
+    I.IndexLet { indexArgs; body; type' }, functions
   | ReifyIndex { index; type' } ->
     return
       ( I.ReifyIndex { index; type' = inlineArrayTypeWithStack appStack (Arr type') }
@@ -359,7 +367,9 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
                   ]))))
   | Map { args; body; frameShape; type' } ->
     let args = List.map args ~f:(fun { binding; value } -> binding, value) in
-    let%map body, args, functions = inlineBodyWithBindings subs appStack body args in
+    let%map body, args, functions =
+      inlineBodyWithBindings subs indexEnv appStack body args
+    in
     let args =
       args
       |> List.map ~f:(fun bindings ->
@@ -378,7 +388,7 @@ let rec inlineArray subs (appStack : appStack) (array : Explicit.Expr.array)
            })
     , functions )
 
-and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
+and inlineAtom subs indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
   : (Nucleus.Expr.array * FunctionSet.t) InlineState.u
   =
   let module E = Explicit.Expr in
@@ -386,10 +396,20 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
   let open InlineState.Let_syntax in
   match atom with
   | TermLambda lambda ->
-    (* Since all function calls gget inlined, the value of the lambda is
+    (* Since all function calls get inlined, the value of the lambda is
        never used, so it can be safely replaced with unit *)
     let%map id = InlineState.createId "lambda" in
     let captures =
+      let indexCaptures = function
+        | Explicit.Index.Shape dims ->
+          dims
+          |> List.bind ~f:(function
+            | ShapeRef ref -> [ ref ]
+            | Add { const = _; refs } -> Map.keys refs)
+          |> Set.of_list (module Identifier)
+        | Explicit.Index.Dimension { const = _; refs } ->
+          refs |> Map.keys |> Set.of_list (module Identifier)
+      in
       let rec arrayCaptures = function
         | E.Ref { id; type' = _ } -> Set.singleton (module Identifier) id
         | E.Scalar { element; type' = _ } -> atomCaptures element
@@ -403,17 +423,37 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
           Set.union funcCaptures argCaptures
         | E.TypeApplication { tFunc; args = _; type' = _ } -> arrayCaptures tFunc
         | E.IndexApplication { iFunc; args = _; type' = _ } -> arrayCaptures iFunc
-        | E.Unbox { indexBindings; valueBinding; box; body; type' = _ } ->
+        | E.BoxValue { box; type' = _ } -> arrayCaptures box
+        (* | E.Unbox { indexBindings; valueBinding; box; body; type' = _ } ->
           let variablesUsed = Set.union (arrayCaptures box) (arrayCaptures body) in
           let variablesDeclared =
             Set.of_list (module Identifier) (valueBinding :: indexBindings)
           in
-          Set.diff variablesUsed variablesDeclared
-        | E.Map { args; body; frameShape = _; type' = _ } ->
-          let bodyCaptures = arrayCaptures body
-          and argCaptures = List.map args ~f:(fun arg -> arrayCaptures arg.value) in
+          Set.diff variablesUsed variablesDeclared *)
+        | E.IndexLet { indexArgs; body; type' = _ } ->
+          let indexValuesCaptures =
+            List.map indexArgs ~f:(fun arg ->
+              match arg.indexValue with
+              | Runtime value -> arrayCaptures value
+              | FromBox { box; i = _ } -> arrayCaptures box)
+          and bodyCaptures = arrayCaptures body in
           let variablesUsed =
-            Set.union_list (module Identifier) (bodyCaptures :: argCaptures)
+            Set.union_list (module Identifier) (bodyCaptures :: indexValuesCaptures)
+          in
+          let variablesDeclared =
+            indexArgs
+            |> List.map ~f:(fun arg -> arg.indexBinding)
+            |> Set.of_list (module Identifier)
+          in
+          Set.diff variablesUsed variablesDeclared
+        | E.Map { args; body; frameShape; type' = _ } ->
+          let bodyCaptures = arrayCaptures body
+          and argCaptures = List.map args ~f:(fun arg -> arrayCaptures arg.value)
+          and frameCaptures = indexCaptures (Shape frameShape) in
+          let variablesUsed =
+            Set.union_list
+              (module Identifier)
+              (bodyCaptures :: frameCaptures :: argCaptures)
           in
           let variablesDeclared =
             args
@@ -421,7 +461,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
             |> Set.of_list (module Identifier)
           in
           Set.diff variablesUsed variablesDeclared
-        | E.ReifyIndex { index = _; type' = _ } -> Set.empty (module Identifier)
+        | E.ReifyIndex { index; type' = _ } -> indexCaptures index
         | E.Primitive { name = _; type' = _ } -> Set.empty (module Identifier)
       and atomCaptures = function
         | E.TermLambda { params; body; type' = _ } ->
@@ -434,7 +474,10 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
           Set.diff variablesUsed variablesDeclared
         | E.TypeLambda { params = _; body; type' = _ } -> arrayCaptures body
         | E.IndexLambda { params = _; body; type' = _ } -> arrayCaptures body
-        | E.Box { indices = _; body; bodyType = _; type' = _ } -> arrayCaptures body
+        | E.Box { indices; body; bodyType = _; type' = _ } ->
+          let indexCaptures = List.map indices ~f:indexCaptures
+          and bodyCaptures = arrayCaptures body in
+          Set.union_list (module Identifier) (bodyCaptures :: indexCaptures)
         | E.Literal (IntLiteral _) -> Set.empty (module Identifier)
         | E.Literal (CharacterLiteral _) -> Set.empty (module Identifier)
         | E.Literal (BooleanLiteral _) -> Set.empty (module Identifier)
@@ -453,7 +496,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
        let subbedBody = Explicit.Substitute.Expr.subTypesIntoArray typeSubs body in
-       inlineArray subs restStack subbedBody
+       inlineArray subs indexEnv restStack subbedBody
      | [] ->
        (* Empty stack means the type lambda's value is not passed to a type
           application, so we can replace it with a unit *)
@@ -475,7 +518,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
               ~f:(fun subs (param, sub) -> Map.set subs ~key:param.binding ~data:sub)
        in
        let subbedBody = Explicit.Substitute.Expr.subIndicesIntoArray indexSubs body in
-       inlineArray subs restStack subbedBody
+       inlineArray subs indexEnv restStack subbedBody
      | [] ->
        (* Empty stack means the index lambda's value is not passed to an index
           application, so we can replace it with a unit *)
@@ -488,7 +531,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
                ; [%sexp_of: appStack] stack |> Sexp.to_string_hum
                ])))
   | Box { indices; body; bodyType; type' } ->
-    let%map body, functions = inlineArray subs appStack body in
+    let%map body, functions = inlineArray subs indexEnv appStack body in
     ( scalar
         (I.Box
            { indices
@@ -503,7 +546,7 @@ and inlineAtom subs (appStack : appStack) (atom : Explicit.Expr.atom)
   | Literal (BooleanLiteral b) ->
     return (scalar (I.Literal (BooleanLiteral b)), FunctionSet.Empty)
 
-and inlineTermApplication subs appStack termApplication =
+and inlineTermApplication subs indexEnv appStack termApplication =
   let module E = Explicit.Expr in
   let module I = Nucleus.Expr in
   let open InlineState.Let_syntax in
@@ -513,7 +556,7 @@ and inlineTermApplication subs appStack termApplication =
       let id = Map.find subs id |> Option.value ~default:id in
       ({ id; type' } : E.ref))
   in
-  let%bind _, functions = inlineArray subs [] func in
+  let%bind _, functions = inlineArray subs indexEnv [] func in
   let%bind func =
     match functions with
     | Empty -> raise (Unreachable.Error "func should've returned at least one function")
@@ -534,7 +577,8 @@ and inlineTermApplication subs appStack termApplication =
     let escapedVariables =
       captures
       |> Set.to_list
-      |> List.filter ~f:(fun capturedVar -> Map.find env capturedVar |> Option.is_none)
+      |> List.filter ~f:(fun capturedVar ->
+        Map.find env capturedVar |> Option.is_none && not (Set.mem indexEnv capturedVar))
     in
     let%bind () =
       match escapedVariables with
@@ -561,13 +605,13 @@ and inlineTermApplication subs appStack termApplication =
             (Canonical.Type.from (Array arg.type')));
         Map.set subs ~key:param.binding ~data:arg.id)
     in
-    inlineArray subs appStack body
+    inlineArray subs indexEnv appStack body
   | Primitive primitive ->
     let scalarBinop op =
       assert (List.length args = 2);
       let%map args, _ =
         args
-        |> List.map ~f:(fun arg -> inlineArray subs [] (Ref arg))
+        |> List.map ~f:(fun arg -> inlineArray subs indexEnv [] (Ref arg))
         |> InlineState.all
         |> InlineState.unzip
       in
@@ -591,8 +635,8 @@ and inlineTermApplication subs appStack termApplication =
        (match primitive.appStack with
         | [ IndexApp [ Dimension d1; Dimension d2; Shape cellShape ]; TypeApp [ Atom _ ] ]
           ->
-          let%map arg1, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
-          and arg2, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          let%map arg1, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 0))
+          and arg2, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 1)) in
           ( I.ArrayPrimitive
               (Append
                  { arg1
@@ -634,7 +678,7 @@ and inlineTermApplication subs appStack termApplication =
                 raise
                   (Unreachable.Error "Reduce with explicit zero expected two arguments"))
           in
-          let%bind _, functions = inlineArray subs [] (Ref f) in
+          let%bind _, functions = inlineArray subs indexEnv [] (Ref f) in
           let%bind func =
             match functions with
             | Empty ->
@@ -675,6 +719,7 @@ and inlineTermApplication subs appStack termApplication =
           let%bind body, bindings, functions =
             inlineBodyWithBindings
               subs
+              indexEnv
               appStack
               body
               [ fArg1, Ref arrayArg; fArg2, Ref arrayArg ]
@@ -705,7 +750,7 @@ and inlineTermApplication subs appStack termApplication =
             match Map.find appStacksToMonoValue canonicalAppStack with
             | Some monoValue -> return monoValue
             | None ->
-              let%map monoValue, _ = inlineArray subs appStack (Ref arrayArg) in
+              let%map monoValue, _ = inlineArray subs indexEnv appStack (Ref arrayArg) in
               monoValue
           in
           assert (Map.is_empty (Map.remove appStacksToMonoValue canonicalAppStack));
@@ -727,7 +772,7 @@ and inlineTermApplication subs appStack termApplication =
           let%map zero =
             match zero with
             | Some zero ->
-              let%map zero, _ = inlineArray subs [] (Ref zero) in
+              let%map zero, _ = inlineArray subs indexEnv [] (Ref zero) in
               Some zero
             | None -> return None
           in
@@ -763,7 +808,7 @@ and inlineTermApplication subs appStack termApplication =
             | [ f; zero; arrayArg ] -> f, zero, arrayArg
             | _ -> raise (Unreachable.Error "Fold expected three arguments")
           in
-          let%bind _, functions = inlineArray subs [] (Ref f) in
+          let%bind _, functions = inlineArray subs indexEnv [] (Ref f) in
           let%bind func =
             match functions with
             | Empty ->
@@ -803,6 +848,7 @@ and inlineTermApplication subs appStack termApplication =
           let%bind body, bindings, functions =
             inlineBodyWithBindings
               subs
+              indexEnv
               appStack
               body
               [ fZeroArg, Ref zero; fArrayArg, Ref arrayArg ]
@@ -830,7 +876,7 @@ and inlineTermApplication subs appStack termApplication =
             match Map.find zeroBindings canonicalAppStack with
             | Some (binding, monoValue) -> return (binding, monoValue)
             | None ->
-              let%map monoValue, _ = inlineArray subs appStack (Ref zero)
+              let%map monoValue, _ = inlineArray subs indexEnv appStack (Ref zero)
               and binding = InlineState.createId "fold-zero-arg" in
               binding, monoValue
           in
@@ -864,8 +910,8 @@ and inlineTermApplication subs appStack termApplication =
        assert (List.length args = 2);
        (match primitive.appStack with
         | [ IndexApp [ Shape s; Shape cellShape; Dimension l ]; TypeApp [ Atom _ ] ] ->
-          let%map arrayArg, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
-          and indexArg, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          let%map arrayArg, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 0))
+          and indexArg, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 1)) in
           ( I.ArrayPrimitive
               (Index
                  { arrayArg
@@ -889,8 +935,8 @@ and inlineTermApplication subs appStack termApplication =
         | [ IndexApp [ Dimension dIn; Dimension dOut; Shape cellShape ]
           ; TypeApp [ Atom _ ]
           ] ->
-          let%map valuesArg, _ = inlineArray subs [] (Ref (List.nth_exn args 0))
-          and indicesArg, _ = inlineArray subs [] (Ref (List.nth_exn args 1)) in
+          let%map valuesArg, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 0))
+          and indicesArg, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 1)) in
           ( I.ArrayPrimitive
               (Scatter
                  { valuesArg
@@ -907,11 +953,46 @@ and inlineTermApplication subs appStack termApplication =
                (String.concat_lines
                   [ "scatter expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                  ])))
+     | Replicate ->
+       assert (List.length args = 1);
+       (match primitive.appStack with
+        | [ IndexApp [ Shape s; Shape cellShape ]; TypeApp [ Atom _ ] ] ->
+          let%map valueArg, functions =
+            inlineArray subs indexEnv [] (Ref (List.nth_exn args 0))
+          and valueBinding = InlineState.createId "replicated-value" in
+          let valueType = I.arrayType valueArg in
+          let resultType =
+            Nucleus.Type.{ element = valueType.element; shape = s @ cellShape }
+          in
+          ( I.ArrayPrimitive
+              (Map
+                 { args = [ { binding = valueBinding; value = valueArg } ]
+                 ; iotaVar = None
+                 ; frameShape = []
+                 ; body =
+                     ArrayPrimitive
+                       (Map
+                          { args = []
+                          ; iotaVar = None
+                          ; frameShape = s
+                          ; body = Ref { id = valueBinding; type' = valueType }
+                          ; type' = resultType
+                          })
+                 ; type' = resultType
+                 })
+          , functions )
+        | _ ->
+          raise
+            (Unreachable.Error
+               (String.concat_lines
+                  [ "replicate expected a stack of [IndexApp; TypeApp], got"
+                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ]))))
 
 (* Handle cases where there are values bound to variables and then used in some
    body of code *)
-and inlineBodyWithBindings subs appStack body bindings =
+and inlineBodyWithBindings subs indexEnv appStack body bindings =
   let open InlineState.Let_syntax in
   (* Need to assert the value restriction in order to avoid duplicating
      computations. Note that in Remora, the value restriction also applies
@@ -933,7 +1014,7 @@ and inlineBodyWithBindings subs appStack body bindings =
            ~data:{ polyValue = value; cache = Map.empty (module CanonicalAppStack) }))
   in
   (* Inline the body using the extended env *)
-  let%bind body, functions = inlineArray subs appStack body in
+  let%bind body, functions = inlineArray subs indexEnv appStack body in
   (* Inspect the cache entries for each variable. For each application stack
      used on a variable, create a new variable. *)
   let%bind env = InlineState.getEnv () in
@@ -958,7 +1039,11 @@ let inline (prog : Explicit.t) : (CompilerState.state, Nucleus.t, string) Compil
   CompilerState.makeF ~f:(fun compilerState ->
     let%map.MResult state, (result, _) =
       InlineState.run
-        (inlineArray (Map.empty (module Identifier)) [] prog)
+        (inlineArray
+           (Map.empty (module Identifier))
+           (Set.empty (module Identifier))
+           []
+           prog)
         { compilerState; env = Map.empty (module Identifier) }
     in
     state.compilerState, result)

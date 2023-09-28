@@ -27,6 +27,7 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
   | TypeApplication app -> funcParamNamesArray env app.tFunc
   | IndexApplication app -> funcParamNamesArray env app.iFunc
   | Unbox unbox -> funcParamNamesArray env unbox.body
+  | Lift lift -> funcParamNamesArray env lift.body
   | ReifyIndex _ -> None
   | Let l ->
     let env = Map.set env ~key:l.binding ~data:(funcParamNamesArray env l.value) in
@@ -48,7 +49,8 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Fold _ -> [ "fold-f-arg"; "fold-zero-arg"; "fold-array-arg" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
           | Index -> [ "index-array"; "index-index" ]
-          | Scatter -> [ "scatter-values"; "scatter-indices" ])
+          | Scatter -> [ "scatter-values"; "scatter-indices" ]
+          | Replicate -> [ "replicate-value" ])
      | Val _ -> None)
 
 and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function
@@ -85,9 +87,104 @@ let rec explicitizeArray paramNamesEnv array
     let%map iFunc = explicitizeArray paramNamesEnv iFunc in
     E.IndexApplication { iFunc; args; type' }
   | T.Unbox { indexBindings; valueBinding; box; body; type' } ->
-    let%map box = explicitizeArray paramNamesEnv box
-    and body = explicitizeArray paramNamesEnv body in
-    E.Unbox { indexBindings; valueBinding; box; body; type' }
+    let%map boxes = explicitizeArray paramNamesEnv box
+    and body = explicitizeArray paramNamesEnv body
+    and boxBinding = ExplicitState.createId "box" in
+    let getArrType exp =
+      match E.arrayType exp with
+      | Arr arr -> arr
+      | ArrayRef _ -> raise Unreachable.default
+    in
+    let boxesType = getArrType boxes in
+    let boxBindingRef =
+      E.Ref { id = boxBinding; type' = Arr { element = boxesType.element; shape = [] } }
+    in
+    E.Map
+      { args = [ { binding = boxBinding; value = boxes } ]
+      ; frameShape = boxesType.shape
+      ; body =
+          IndexLet
+            { indexArgs =
+                List.mapi indexBindings ~f:(fun i (indexBinding, sort) ->
+                  E.
+                    { indexBinding
+                    ; indexValue = E.FromBox { box = boxBindingRef; i }
+                    ; sort
+                    })
+            ; body =
+                Map
+                  { args =
+                      [ { binding = valueBinding
+                        ; value =
+                            BoxValue
+                              { box = boxBindingRef
+                              ; type' =
+                                  (match E.arrayType boxBindingRef with
+                                   | Arr
+                                       { element =
+                                           Sigma { parameters = _; body = Arr body }
+                                       ; shape = _
+                                       } -> body
+                                   | _ -> raise Unreachable.default)
+                              }
+                        }
+                      ]
+                  ; frameShape = []
+                  ; body
+                  ; type' = E.arrayType body
+                  }
+            ; type' = E.arrayType body
+            }
+      ; type' = Arr type'
+      }
+  | T.Lift { indexBinding; indexValue; sort; frameShape; body; type' } ->
+    let%map indexValue = explicitizeArray paramNamesEnv indexValue
+    and body = explicitizeArray paramNamesEnv body
+    and indexValueBinding = ExplicitState.createId "index-value" in
+    let getArrType exp =
+      match E.arrayType exp with
+      | Arr arr -> arr
+      | ArrayRef _ -> raise Unreachable.default
+    in
+    let box =
+      E.Box
+        { indices =
+            [ (match sort with
+               | Shape -> Shape [ ShapeRef indexBinding ]
+               | Dim -> Dimension (Explicit.Index.dimensionRef indexBinding))
+            ]
+        ; bodyType = E.arrayType body
+        ; body
+        ; type' =
+            { parameters = [ { binding = indexBinding; bound = sort } ]
+            ; body = E.arrayType body
+            }
+        }
+    in
+    E.Map
+      { args = [ { binding = indexValueBinding; value = indexValue } ]
+      ; frameShape
+      ; body =
+          IndexLet
+            { indexArgs =
+                [ { indexBinding
+                  ; indexValue =
+                      Runtime
+                        (Ref
+                           { id = indexValueBinding
+                           ; type' =
+                               Arr
+                                 { element = (getArrType indexValue).element; shape = [] }
+                           })
+                  ; sort
+                  }
+                ]
+            ; body =
+                Scalar { element = box; type' = { element = E.atomType box; shape = [] } }
+            ; type' = Arr { element = E.atomType box; shape = [] }
+            }
+      ; type'
+      }
   | T.ReifyIndex { index; type' } -> ExplicitState.return (E.ReifyIndex { index; type' })
   | T.Let { binding; value; body; type' } ->
     let extendedParamNamesEnv =

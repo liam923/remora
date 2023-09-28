@@ -635,5 +635,49 @@ let%expect_test "parse expression" =
                  (IndexApplication
                   ((iFunc (Ref length)) (args ((Ref len) (Slice ()))))))
                 (args ((Ref char))))))
-             (args ((Ref day))))))))))))|}]
+             (args ((Ref day))))))))))))|}];
+  parseAndPrint {|
+    (lift [i [1 2 3]]
+      (replicate{int | [i] []} 5))
+    |};
+  [%expect
+    {|
+    (Lift
+     ((indexBinding i)
+      (indexValue
+       (Frame
+        ((dimensions (3))
+         (elements ((IntLiteral 1) (IntLiteral 2) (IntLiteral 3))))))
+      (sort Dim)
+      (body
+       (TermApplication
+        ((func
+          (TypeApplication
+           ((tFunc
+             (IndexApplication
+              ((iFunc (Ref replicate)) (args ((Slice ((Ref i))) (Slice ()))))))
+            (args ((Ref int))))))
+         (args ((IntLiteral 5)))))))) |}];
+  parseAndPrint {|
+    (lift [@i [1 2 3]]
+      (replicate{int | @i []} 5))
+    |};
+  [%expect
+    {|
+    (Lift
+     ((indexBinding @i)
+      (indexValue
+       (Frame
+        ((dimensions (3))
+         (elements ((IntLiteral 1) (IntLiteral 2) (IntLiteral 3))))))
+      (sort Shape)
+      (body
+       (TermApplication
+        ((func
+          (TypeApplication
+           ((tFunc
+             (IndexApplication
+              ((iFunc (Ref replicate)) (args ((Ref @i) (Slice ()))))))
+            (args ((Ref int))))))
+         (args ((IntLiteral 5)))))))) |}]
 ;;

@@ -66,32 +66,32 @@ let%expect_test "simple addition" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 40))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 38)))
+       (((binding ((name f) (id 43))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 41)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 39)))
+        ((binding ((name +arg2) (id 42)))
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 40))))))
-         (args (((id ((name +arg1) (id 38)))) ((id ((name +arg2) (id 39))))))
+        ((func (Ref ((id ((name f) (id 43))))))
+         (args (((id ((name +arg1) (id 41)))) ((id ((name +arg2) (id 42))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 41)))
+       (((binding ((name f) (id 44)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 42)))
+        ((binding ((name +arg1) (id 45)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 43)))
+        ((binding ((name +arg2) (id 46)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 2)))
@@ -105,13 +105,13 @@ let%expect_test "simple addition" =
              ((ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg1) (id 42)))
+                  ((id ((name +arg1) (id 45)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))
               (ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg2) (id 43)))
+                  ((id ((name +arg2) (id 46)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))))
             (type' (Literal IntLiteral)))))
@@ -132,71 +132,71 @@ let%expect_test "simple function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name add) (id 38)))
+     ((binding ((name add) (id 41)))
       (value
        (Scalar
         ((element
           (TermLambda
            ((params
-             (((binding ((name x) (id 39)))
+             (((binding ((name x) (id 42)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-              ((binding ((name y) (id 40)))
+              ((binding ((name y) (id 43)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (body
              (TermApplication
               ((func (Primitive ((name (Func Add)))))
                (args
-                ((Ref ((id ((name x) (id 39))))) (Ref ((id ((name y) (id 40))))))))))))))))
+                ((Ref ((id ((name x) (id 42))))) (Ref ((id ((name y) (id 43))))))))))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name add) (id 38))))))
+        ((func (Ref ((id ((name add) (id 41))))))
          (args
           ((Scalar ((element (Literal (IntLiteral 5)))))
            (Scalar ((element (Literal (IntLiteral 10))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name add) (id 38)))
+       (((binding ((name add) (id 41)))
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name x) (id 39)))
+                (((binding ((name x) (id 42)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name y) (id 40)))
+                 ((binding ((name y) (id 43)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 43)))
+                   (((binding ((name f) (id 46)))
                      (value (Primitive ((name (Func Add))))))
-                    ((binding ((name +arg1) (id 41)))
-                     (value (Ref ((id ((name x) (id 39)))))))
-                    ((binding ((name +arg2) (id 42)))
-                     (value (Ref ((id ((name y) (id 40)))))))))
+                    ((binding ((name +arg1) (id 44)))
+                     (value (Ref ((id ((name x) (id 42)))))))
+                    ((binding ((name +arg2) (id 45)))
+                     (value (Ref ((id ((name y) (id 43)))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 43))))))
+                    ((func (Ref ((id ((name f) (id 46))))))
                      (args
-                      (((id ((name +arg1) (id 41))))
-                       ((id ((name +arg2) (id 42))))))
+                      (((id ((name +arg1) (id 44))))
+                       ((id ((name +arg2) (id 45))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 46)))
-            (value (Ref ((id ((name add) (id 38)))))))
-           ((binding ((name x) (id 44)))
+          (((binding ((name f) (id 49)))
+            (value (Ref ((id ((name add) (id 41)))))))
+           ((binding ((name x) (id 47)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))
-           ((binding ((name y) (id 45)))
+           ((binding ((name y) (id 48)))
             (value (Scalar ((element (Literal (IntLiteral 10)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 46))))))
-            (args (((id ((name x) (id 44)))) ((id ((name y) (id 45))))))
+           ((func (Ref ((id ((name f) (id 49))))))
+            (args (((id ((name x) (id 47)))) ((id ((name y) (id 48))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -205,7 +205,7 @@ let%expect_test "simple function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name add) (id 48)))
+       (((binding ((name add) (id 51)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -214,17 +214,17 @@ let%expect_test "simple function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 49)))
+          (((binding ((name f) (id 52)))
             (value
              (Ref
-              ((id ((name add) (id 48)))
+              ((id ((name add) (id 51)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name x) (id 51)))
+           ((binding ((name x) (id 54)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name y) (id 53)))
+           ((binding ((name y) (id 56)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 10)))
@@ -233,20 +233,20 @@ let%expect_test "simple function definition and call" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name f) (id 50)))
+             (((binding ((name f) (id 53)))
                (value
                 (AtomAsArray
                  ((element (Values ((elements ()) (type' ()))))
                   (type' ((element (Tuple ())) (shape ())))))))
-              ((binding ((name +arg1) (id 52)))
+              ((binding ((name +arg1) (id 55)))
                (value
                 (Ref
-                 ((id ((name x) (id 51)))
+                 ((id ((name x) (id 54)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name +arg2) (id 54)))
+              ((binding ((name +arg2) (id 57)))
                (value
                 (Ref
-                 ((id ((name y) (id 53)))
+                 ((id ((name y) (id 56)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (AtomAsArray
@@ -257,13 +257,13 @@ let%expect_test "simple function definition and call" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 52)))
+                        ((id ((name +arg1) (id 55)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 54)))
+                        ((id ((name +arg2) (id 57)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -286,58 +286,58 @@ let%expect_test "polymorphic function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name id) (id 38)))
+     ((binding ((name id) (id 41)))
       (value
        (Scalar
         ((element
           (TypeLambda
-           ((params (((binding ((name @t) (id 39))) (bound Array))))
+           ((params (((binding ((name @t) (id 42))) (bound Array))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name e) (id 40)))
-                     (bound (ArrayRef ((name @t) (id 39)))))))
-                  (body (Ref ((id ((name e) (id 40))))))))))))))))))
+                   (((binding ((name e) (id 43)))
+                     (bound (ArrayRef ((name @t) (id 42)))))))
+                  (body (Ref ((id ((name e) (id 43))))))))))))))))))
       (body
        (TermApplication
         ((func
           (TypeApplication
-           ((tFunc (Ref ((id ((name id) (id 38))))))
+           ((tFunc (Ref ((id ((name id) (id 41))))))
             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
          (args ((Scalar ((element (Literal (IntLiteral 5))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name id) (id 38)))
+       (((binding ((name id) (id 41)))
          (value
           (Scalar
            ((element
              (TypeLambda
-              ((params (((binding ((name @t) (id 39))) (bound Array))))
+              ((params (((binding ((name @t) (id 42))) (bound Array))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name e) (id 40)))
-                        (bound (ArrayRef ((name @t) (id 39)))))))
-                     (body (Ref ((id ((name e) (id 40)))))))))))))))))))))
+                      (((binding ((name e) (id 43)))
+                        (bound (ArrayRef ((name @t) (id 42)))))))
+                     (body (Ref ((id ((name e) (id 43)))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 42)))
+          (((binding ((name f) (id 45)))
             (value
              (TypeApplication
-              ((tFunc (Ref ((id ((name id) (id 38))))))
+              ((tFunc (Ref ((id ((name id) (id 41))))))
                (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-           ((binding ((name e) (id 41)))
+           ((binding ((name e) (id 44)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 42))))))
-            (args (((id ((name e) (id 41))))))
+           ((func (Ref ((id ((name f) (id 45))))))
+            (args (((id ((name e) (id 44))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -346,7 +346,7 @@ let%expect_test "polymorphic function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 44)))
+       (((binding ((name id) (id 47)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -355,19 +355,19 @@ let%expect_test "polymorphic function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 45)))
+          (((binding ((name f) (id 48)))
             (value
              (Ref
-              ((id ((name id) (id 44)))
+              ((id ((name id) (id 47)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name e) (id 46)))
+           ((binding ((name e) (id 49)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name e) (id 46)))
+           ((id ((name e) (id 49)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
@@ -408,15 +408,15 @@ let%expect_test "function call with implicit map" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 40))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 38)))
+       (((binding ((name f) (id 43))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 41)))
          (value
           (Frame
            ((dimensions (2))
             (elements
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))))))))
-        ((binding ((name +arg2) (id 39)))
+        ((binding ((name +arg2) (id 42)))
          (value
           (Frame
            ((dimensions (2))
@@ -436,20 +436,20 @@ let%expect_test "function call with implicit map" =
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 41)))
-            (value (Ref ((id ((name +arg1) (id 38)))))))
-           ((binding ((name +arg2) (id 42)))
-            (value (Ref ((id ((name +arg2) (id 39)))))))))
+          (((binding ((name +arg1) (id 44)))
+            (value (Ref ((id ((name +arg1) (id 41)))))))
+           ((binding ((name +arg2) (id 45)))
+            (value (Ref ((id ((name +arg2) (id 42)))))))))
          (body
           (Map
            ((args
-             (((binding ((name +arg2) (id 43)))
-               (value (Ref ((id ((name +arg2) (id 42)))))))))
+             (((binding ((name +arg2) (id 46)))
+               (value (Ref ((id ((name +arg2) (id 45)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 40))))))
+              ((func (Ref ((id ((name f) (id 43))))))
                (args
-                (((id ((name +arg1) (id 41)))) ((id ((name +arg2) (id 43))))))
+                (((id ((name +arg1) (id 44)))) ((id ((name +arg2) (id 46))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 3) (refs ())))))
             (type'
@@ -470,12 +470,12 @@ let%expect_test "function call with implicit map" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 44)))
+       (((binding ((name f) (id 47)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 45)))
+        ((binding ((name +arg1) (id 48)))
          (value
           (Frame
            ((dimensions (2))
@@ -489,7 +489,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 47)))
+        ((binding ((name +arg2) (id 50)))
          (value
           (Frame
            ((dimensions (2))
@@ -531,17 +531,17 @@ let%expect_test "function call with implicit map" =
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 46)))
+          (((binding ((name +arg1) (id 49)))
             (value
              (Ref
-              ((id ((name +arg1) (id 45)))
+              ((id ((name +arg1) (id 48)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))
-           ((binding ((name +arg2) (id 48)))
+           ((binding ((name +arg2) (id 51)))
             (value
              (Ref
-              ((id ((name +arg2) (id 47)))
+              ((id ((name +arg2) (id 50)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape
@@ -550,10 +550,10 @@ let%expect_test "function call with implicit map" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 49)))
+             (((binding ((name +arg2) (id 52)))
                (value
                 (Ref
-                 ((id ((name +arg2) (id 48)))
+                 ((id ((name +arg2) (id 51)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -566,13 +566,13 @@ let%expect_test "function call with implicit map" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 46)))
+                        ((id ((name +arg1) (id 49)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 49)))
+                        ((id ((name +arg2) (id 52)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -590,7 +590,7 @@ let%expect_test "function call with implicit map" =
     (ArrayPrimitive
      (Map (frameShape ((Add ((const 2) (refs ())))))
       (args
-       (((binding ((name +arg1) (id 46)))
+       (((binding ((name +arg1) (id 49)))
          (value
           (Frame
            ((dimensions (2))
@@ -604,7 +604,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 48)))
+        ((binding ((name +arg2) (id 51)))
          (value
           (Frame
            ((dimensions (2 3))
@@ -634,10 +634,10 @@ let%expect_test "function call with implicit map" =
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
-          (((binding ((name +arg2) (id 49)))
+          (((binding ((name +arg2) (id 52)))
             (value
              (Ref
-              ((id ((name +arg2) (id 48)))
+              ((id ((name +arg2) (id 51)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))))
@@ -650,13 +650,13 @@ let%expect_test "function call with implicit map" =
                 ((ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name +arg1) (id 46)))
+                     ((id ((name +arg1) (id 49)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))
                  (ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name +arg2) (id 49)))
+                     ((id ((name +arg2) (id 52)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))))
                (type' (Literal IntLiteral)))))
@@ -683,7 +683,7 @@ let%expect_test "box and unbox" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name words) (id 38)))
+     ((binding ((name words) (id 41)))
       (value
        (Frame
         ((dimensions (2))
@@ -702,7 +702,7 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 39)) 1)))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))))))))
            (Scalar
             ((element
               (Box
@@ -716,12 +716,12 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 39)) 1))))))))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))))))))))
       (body
        (Unbox
-        ((indexBindings (((name len) (id 40))))
-         (valueBinding ((name word) (id 41)))
-         (box (Ref ((id ((name words) (id 38))))))
+        ((indexBindings ((((name len) (id 43)) Dim)))
+         (valueBinding ((name word) (id 44)))
+         (box (Ref ((id ((name words) (id 41))))))
          (body
           (TermApplication
            ((func (Primitive ((name (Func Equal)))))
@@ -769,14 +769,14 @@ let%expect_test "box and unbox" =
                                              ((const 0)
                                               (refs ((((name d) (id 0)) 1)))))))))))))))))))))))))))
                       (args
-                       ((Dimension ((const 0) (refs ((((name len) (id 40)) 1)))))
+                       ((Dimension ((const 0) (refs ((((name len) (id 43)) 1)))))
                         (Shape ()))))))
                    (args ((Atom (Literal CharacterLiteral)))))))
-                (args ((Ref ((id ((name word) (id 41)))))))))))))))))))
+                (args ((Ref ((id ((name word) (id 44)))))))))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name words) (id 38)))
+       (((binding ((name words) (id 41)))
          (value
           (Frame
            ((dimensions (2))
@@ -796,7 +796,7 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 39)) 1)))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))))))))
               (Scalar
                ((element
                  (Box
@@ -811,88 +811,114 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 39)) 1)))))))))))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))))))))))))))))
       (body
-       (Unbox
-        ((indexBindings (((name len) (id 40))))
-         (valueBinding ((name word) (id 41)))
-         (box (Ref ((id ((name words) (id 38))))))
+       (Map
+        ((args
+          (((binding ((name box) (id 50)))
+            (value (Ref ((id ((name words) (id 41)))))))))
          (body
-          (Map
-           ((args
-             (((binding ((name f) (id 46)))
-               (value (Primitive ((name (Func Equal))))))
-              ((binding ((name =arg1) (id 42)))
-               (value (Scalar ((element (Literal (IntLiteral 3)))))))
-              ((binding ((name =arg2) (id 45)))
-               (value
+          (IndexLet
+           ((indexArgs
+             (((indexBinding ((name len) (id 43)))
+               (indexValue
+                (FromBox (box (Ref ((id ((name box) (id 50)))))) (i 0)))
+               (sort Dim))))
+            (body
+             (Map
+              ((args
+                (((binding ((name word) (id 44)))
+                  (value (BoxValue ((box (Ref ((id ((name box) (id 50))))))))))))
+               (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 44)))
+                   (((binding ((name f) (id 49)))
+                     (value (Primitive ((name (Func Equal))))))
+                    ((binding ((name =arg1) (id 45)))
+                     (value (Scalar ((element (Literal (IntLiteral 3)))))))
+                    ((binding ((name =arg2) (id 48)))
                      (value
-                      (TypeApplication
-                       ((tFunc
-                         (IndexApplication
-                          ((iFunc
-                            (Scalar
-                             ((element
-                               (IndexLambda
-                                ((params
-                                  (((binding ((name d) (id 0))) (bound Dim))
-                                   ((binding ((name @cell-shape) (id 1)))
-                                    (bound Shape))))
-                                 (body
+                      (Map
+                       ((args
+                         (((binding ((name f) (id 47)))
+                           (value
+                            (TypeApplication
+                             ((tFunc
+                               (IndexApplication
+                                ((iFunc
                                   (Scalar
                                    ((element
-                                     (TypeLambda
+                                     (IndexLambda
                                       ((params
-                                        (((binding ((name t) (id 2)))
-                                          (bound Atom))))
+                                        (((binding ((name d) (id 0)))
+                                          (bound Dim))
+                                         ((binding ((name @cell-shape) (id 1)))
+                                          (bound Shape))))
                                        (body
                                         (Scalar
                                          ((element
-                                           (TermLambda
+                                           (TypeLambda
                                             ((params
-                                              (((binding ((name arr) (id 3)))
-                                                (bound
-                                                 (Arr
-                                                  ((element
-                                                    (AtomRef ((name t) (id 2))))
-                                                   (shape
-                                                    ((Add
-                                                      ((const 0)
-                                                       (refs
-                                                        ((((name d) (id 0)) 1)))))
-                                                     (ShapeRef
-                                                      ((name @cell-shape) (id 1)))))))))))
+                                              (((binding ((name t) (id 2)))
+                                                (bound Atom))))
                                              (body
-                                              (ReifyIndex
-                                               ((index
-                                                 (Dimension
-                                                  ((const 0)
-                                                   (refs ((((name d) (id 0)) 1)))))))))))))))))))))))))))
-                           (args
-                            ((Dimension
-                              ((const 0) (refs ((((name len) (id 40)) 1)))))
-                             (Shape ()))))))
-                        (args ((Atom (Literal CharacterLiteral))))))))
-                    ((binding ((name arr) (id 43)))
-                     (value (Ref ((id ((name word) (id 41)))))))))
+                                              (Scalar
+                                               ((element
+                                                 (TermLambda
+                                                  ((params
+                                                    (((binding
+                                                       ((name arr) (id 3)))
+                                                      (bound
+                                                       (Arr
+                                                        ((element
+                                                          (AtomRef
+                                                           ((name t) (id 2))))
+                                                         (shape
+                                                          ((Add
+                                                            ((const 0)
+                                                             (refs
+                                                              ((((name d) (id 0))
+                                                                1)))))
+                                                           (ShapeRef
+                                                            ((name @cell-shape)
+                                                             (id 1)))))))))))
+                                                   (body
+                                                    (ReifyIndex
+                                                     ((index
+                                                       (Dimension
+                                                        ((const 0)
+                                                         (refs
+                                                          ((((name d) (id 0)) 1)))))))))))))))))))))))))))
+                                 (args
+                                  ((Dimension
+                                    ((const 0) (refs ((((name len) (id 43)) 1)))))
+                                   (Shape ()))))))
+                              (args ((Atom (Literal CharacterLiteral))))))))
+                          ((binding ((name arr) (id 46)))
+                           (value (Ref ((id ((name word) (id 44)))))))))
+                        (body
+                         (TermApplication
+                          ((func (Ref ((id ((name f) (id 47))))))
+                           (args (((id ((name arr) (id 46))))))
+                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                        (frameShape ())
+                        (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 44))))))
-                     (args (((id ((name arr) (id 43))))))
-                     (type' ((element (Literal IntLiteral)) (shape ()))))))
+                    ((func (Ref ((id ((name f) (id 49))))))
+                     (args
+                      (((id ((name =arg1) (id 45))))
+                       ((id ((name =arg2) (id 48))))))
+                     (type' ((element (Literal BooleanLiteral)) (shape ()))))))
                   (frameShape ())
-                  (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-            (body
-             (TermApplication
-              ((func (Ref ((id ((name f) (id 46))))))
-               (args
-                (((id ((name =arg1) (id 42)))) ((id ((name =arg2) (id 45))))))
-               (type' ((element (Literal BooleanLiteral)) (shape ()))))))
-            (frameShape ())
-            (type' (Arr ((element (Literal BooleanLiteral)) (shape ()))))))))))
+                  (type' (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
+               (frameShape ())
+               (type' (Arr ((element (Literal BooleanLiteral)) (shape ()))))))))))
+         (frameShape ((Add ((const 2) (refs ())))))
+         (type'
+          (Arr
+           ((element (Literal BooleanLiteral))
+            (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
       (type'
        (Arr
@@ -900,59 +926,196 @@ let%expect_test "box and unbox" =
          (shape ((Add ((const 2) (refs ()))))))))))
     Result of stage Inline and Monomorphize:
     (ArrayPrimitive
-     (Map (frameShape ()) (args ())
+     (Map (frameShape ())
+      (args
+       (((binding ((name words) (id 56)))
+         (value
+          (Frame
+           ((dimensions (2))
+            (elements
+             ((AtomAsArray
+               ((element
+                 (Box
+                  ((indices ((Dimension ((const 3) (refs ())))))
+                   (body
+                    (Frame
+                     ((dimensions (3))
+                      (elements
+                       ((AtomAsArray
+                         ((element (Literal (CharacterLiteral h)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))
+                        (AtomAsArray
+                         ((element (Literal (CharacterLiteral e)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))
+                        (AtomAsArray
+                         ((element (Literal (CharacterLiteral y)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))))
+                      (type'
+                       ((element (Literal CharacterLiteral))
+                        (shape ((Add ((const 3) (refs ()))))))))))
+                   (bodyType
+                    ((element (Literal CharacterLiteral))
+                     (shape
+                      ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))
+                   (type'
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))))
+                (type'
+                 ((element
+                   (Sigma
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                  (shape ())))))
+              (AtomAsArray
+               ((element
+                 (Box
+                  ((indices ((Dimension ((const 2) (refs ())))))
+                   (body
+                    (Frame
+                     ((dimensions (2))
+                      (elements
+                       ((AtomAsArray
+                         ((element (Literal (CharacterLiteral h)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))
+                        (AtomAsArray
+                         ((element (Literal (CharacterLiteral i)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))))
+                      (type'
+                       ((element (Literal CharacterLiteral))
+                        (shape ((Add ((const 2) (refs ()))))))))))
+                   (bodyType
+                    ((element (Literal CharacterLiteral))
+                     (shape
+                      ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))
+                   (type'
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))))
+                (type'
+                 ((element
+                   (Sigma
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                  (shape ())))))))
+            (type'
+             ((element
+               (Sigma
+                ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                 (body
+                  ((element (Literal CharacterLiteral))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+              (shape ((Add ((const 2) (refs ())))))))))))))
       (body
-       (Unbox
-        ((indexBindings (((name len) (id 40)))) (boxBindings ())
+       (ArrayPrimitive
+        (Map (frameShape ((Add ((const 2) (refs ())))))
+         (args
+          (((binding ((name box) (id 57)))
+            (value
+             (Ref
+              ((id ((name words) (id 56)))
+               (type'
+                ((element
+                  (Sigma
+                   ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                    (body
+                     ((element (Literal CharacterLiteral))
+                      (shape
+                       ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                 (shape ((Add ((const 2) (refs ())))))))))))))
          (body
-          (ArrayPrimitive
-           (Map (frameShape ())
-            (args
-             (((binding ((name f) (id 47)))
-               (value
-                (AtomAsArray
-                 ((element (Values ((elements ()) (type' ()))))
-                  (type' ((element (Tuple ())) (shape ())))))))
-              ((binding ((name =arg1) (id 48)))
-               (value
-                (AtomAsArray
-                 ((element (Literal (IntLiteral 3)))
-                  (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name =arg2) (id 51)))
-               (value
+          (IndexLet
+           ((indexArgs
+             (((indexBinding ((name len) (id 43)))
+               (indexValue
+                (FromBox
+                 (box
+                  (Ref
+                   ((id ((name box) (id 57)))
+                    (type'
+                     ((element
+                       (Sigma
+                        ((parameters
+                          (((binding ((name len) (id 42))) (bound Dim))))
+                         (body
+                          ((element (Literal CharacterLiteral))
+                           (shape
+                            ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                      (shape ()))))))
+                 (i 0)))
+               (sort Dim))))
+            (body
+             (ArrayPrimitive
+              (Map (frameShape ()) (args ())
+               (body
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 50)))
+                   (((binding ((name f) (id 51)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
-                        (type' ((element (Tuple ())) (shape ())))))))))
+                        (type' ((element (Tuple ())) (shape ())))))))
+                    ((binding ((name =arg1) (id 52)))
+                     (value
+                      (AtomAsArray
+                       ((element (Literal (IntLiteral 3)))
+                        (type' ((element (Literal IntLiteral)) (shape ())))))))
+                    ((binding ((name =arg2) (id 55)))
+                     (value
+                      (ArrayPrimitive
+                       (Map (frameShape ())
+                        (args
+                         (((binding ((name f) (id 54)))
+                           (value
+                            (AtomAsArray
+                             ((element (Values ((elements ()) (type' ()))))
+                              (type' ((element (Tuple ())) (shape ())))))))))
+                        (body
+                         (ReifyIndex
+                          ((index
+                            (Dimension
+                             ((const 0) (refs ((((name len) (id 43)) 1))))))
+                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                        (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
-                   (ReifyIndex
-                    ((index
-                      (Dimension ((const 0) (refs ((((name len) (id 40)) 1))))))
-                     (type' ((element (Literal IntLiteral)) (shape ()))))))
-                  (type' ((element (Literal IntLiteral)) (shape ())))))))))
-            (body
-             (AtomAsArray
-              ((element
-                (AtomicPrimitive
-                 ((op Equal)
-                  (args
-                   ((ArrayAsAtom
-                     ((array
-                       (Ref
-                        ((id ((name =arg1) (id 48)))
-                         (type' ((element (Literal IntLiteral)) (shape ()))))))
-                      (type' (Literal IntLiteral))))
-                    (ArrayAsAtom
-                     ((array
-                       (Ref
-                        ((id ((name =arg2) (id 51)))
-                         (type' ((element (Literal IntLiteral)) (shape ()))))))
-                      (type' (Literal IntLiteral))))))
-                  (type' (Literal BooleanLiteral)))))
+                   (AtomAsArray
+                    ((element
+                      (AtomicPrimitive
+                       ((op Equal)
+                        (args
+                         ((ArrayAsAtom
+                           ((array
+                             (Ref
+                              ((id ((name =arg1) (id 52)))
+                               (type'
+                                ((element (Literal IntLiteral)) (shape ()))))))
+                            (type' (Literal IntLiteral))))
+                          (ArrayAsAtom
+                           ((array
+                             (Ref
+                              ((id ((name =arg2) (id 55)))
+                               (type'
+                                ((element (Literal IntLiteral)) (shape ()))))))
+                            (type' (Literal IntLiteral))))))
+                        (type' (Literal BooleanLiteral)))))
+                     (type' ((element (Literal BooleanLiteral)) (shape ()))))))
+                  (type' ((element (Literal BooleanLiteral)) (shape ()))))))
                (type' ((element (Literal BooleanLiteral)) (shape ()))))))
             (type' ((element (Literal BooleanLiteral)) (shape ()))))))
          (type'
@@ -961,23 +1124,138 @@ let%expect_test "box and unbox" =
       (type'
        ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ())))))))))
     Result of stage Simplify:
-    (Unbox
-     ((indexBindings (((name len) (id 40)))) (boxBindings ())
+    (ArrayPrimitive
+     (Map (frameShape ((Add ((const 2) (refs ())))))
+      (args
+       (((binding ((name box) (id 57)))
+         (value
+          (Frame
+           ((dimensions (2))
+            (elements
+             ((AtomAsArray
+               ((element
+                 (Box
+                  ((indices ((Dimension ((const 3) (refs ())))))
+                   (body
+                    (Frame
+                     ((dimensions (3))
+                      (elements
+                       ((AtomAsArray
+                         ((element (Literal (CharacterLiteral h)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))
+                        (AtomAsArray
+                         ((element (Literal (CharacterLiteral e)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))
+                        (AtomAsArray
+                         ((element (Literal (CharacterLiteral y)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))))
+                      (type'
+                       ((element (Literal CharacterLiteral))
+                        (shape ((Add ((const 3) (refs ()))))))))))
+                   (bodyType
+                    ((element (Literal CharacterLiteral))
+                     (shape
+                      ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))
+                   (type'
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))))
+                (type'
+                 ((element
+                   (Sigma
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                  (shape ())))))
+              (AtomAsArray
+               ((element
+                 (Box
+                  ((indices ((Dimension ((const 2) (refs ())))))
+                   (body
+                    (Frame
+                     ((dimensions (2))
+                      (elements
+                       ((AtomAsArray
+                         ((element (Literal (CharacterLiteral h)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))
+                        (AtomAsArray
+                         ((element (Literal (CharacterLiteral i)))
+                          (type'
+                           ((element (Literal CharacterLiteral)) (shape ())))))))
+                      (type'
+                       ((element (Literal CharacterLiteral))
+                        (shape ((Add ((const 2) (refs ()))))))))))
+                   (bodyType
+                    ((element (Literal CharacterLiteral))
+                     (shape
+                      ((Add ((const 0) (refs ((((name len) (id 42)) 1)))))))))
+                   (type'
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))))
+                (type'
+                 ((element
+                   (Sigma
+                    ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                     (body
+                      ((element (Literal CharacterLiteral))
+                       (shape
+                        ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                  (shape ())))))))
+            (type'
+             ((element
+               (Sigma
+                ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                 (body
+                  ((element (Literal CharacterLiteral))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+              (shape ((Add ((const 2) (refs ())))))))))))))
       (body
-       (AtomAsArray
-        ((element
-          (AtomicPrimitive
-           ((op Equal)
-            (args
-             ((Literal (IntLiteral 3))
-              (ArrayAsAtom
-               ((array
-                 (ReifyIndex
-                  ((index
-                    (Dimension ((const 0) (refs ((((name len) (id 40)) 1))))))
-                   (type' ((element (Literal IntLiteral)) (shape ()))))))
-                (type' (Literal IntLiteral))))))
-            (type' (Literal BooleanLiteral)))))
+       (IndexLet
+        ((indexArgs
+          (((indexBinding ((name len) (id 43)))
+            (indexValue
+             (FromBox
+              (box
+               (Ref
+                ((id ((name box) (id 57)))
+                 (type'
+                  ((element
+                    (Sigma
+                     ((parameters (((binding ((name len) (id 42))) (bound Dim))))
+                      (body
+                       ((element (Literal CharacterLiteral))
+                        (shape
+                         ((Add ((const 0) (refs ((((name len) (id 42)) 1))))))))))))
+                   (shape ()))))))
+              (i 0)))
+            (sort Dim))))
+         (body
+          (AtomAsArray
+           ((element
+             (AtomicPrimitive
+              ((op Equal)
+               (args
+                ((Literal (IntLiteral 3))
+                 (ArrayAsAtom
+                  ((array
+                    (ReifyIndex
+                     ((index
+                       (Dimension ((const 0) (refs ((((name len) (id 43)) 1))))))
+                      (type' ((element (Literal IntLiteral)) (shape ()))))))
+                   (type' (Literal IntLiteral))))))
+               (type' (Literal BooleanLiteral)))))
+            (type' ((element (Literal BooleanLiteral)) (shape ()))))))
          (type' ((element (Literal BooleanLiteral)) (shape ()))))))
       (type'
        ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ()))))))))) |}]

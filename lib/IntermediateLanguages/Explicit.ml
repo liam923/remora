@@ -43,12 +43,28 @@ module Expr = struct
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
 
-  and unbox =
-    { indexBindings : Identifier.t list
-    ; valueBinding : Identifier.t
-    ; box : array
-    ; body : array
+  and boxValue =
+    { box : array
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
+    }
+
+  and indexValue =
+    | Runtime of array
+    | FromBox of
+        { box : array
+        ; i : int
+        }
+
+  and indexArg =
+    { indexBinding : Identifier.t
+    ; indexValue : indexValue
+    ; sort : Sort.t
+    }
+
+  and indexLet =
+    { indexArgs : indexArg list
+    ; body : array
+    ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
   and reifyIndex =
@@ -103,7 +119,8 @@ module Expr = struct
     | TermApplication of termApplication
     | TypeApplication of typeApplication
     | IndexApplication of indexApplication
-    | Unbox of unbox
+    | BoxValue of boxValue
+    | IndexLet of indexLet
     | ReifyIndex of reifyIndex
     | Primitive of primitive
     | Map of map
@@ -137,7 +154,8 @@ module Expr = struct
     | TermApplication termApplication -> Arr termApplication.type'
     | TypeApplication typeApplication -> Arr typeApplication.type'
     | IndexApplication indexApplication -> Arr indexApplication.type'
-    | Unbox unbox -> Arr unbox.type'
+    | BoxValue boxValue -> Arr boxValue.type'
+    | IndexLet indexLet -> indexLet.type'
     | ReifyIndex reifyIndex -> Arr reifyIndex.type'
     | Primitive primitive -> primitive.type'
     | Map map -> map.type'
@@ -184,13 +202,23 @@ module Substitute = struct
           ; args
           ; type' = Type.subTypesIntoArr types type'
           }
-      | Unbox { indexBindings; valueBinding; box; body; type' } ->
-        Unbox
-          { indexBindings
-          ; valueBinding
-          ; box = subTypesIntoArray types box
+      | BoxValue { box; type' } ->
+        BoxValue
+          { box = subTypesIntoArray types box; type' = Type.subTypesIntoArr types type' }
+      | IndexLet { indexArgs; body; type' } ->
+        IndexLet
+          { indexArgs =
+              List.map indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+                { indexBinding
+                ; indexValue =
+                    (match indexValue with
+                     | Runtime v -> Runtime (subTypesIntoArray types v)
+                     | FromBox { box; i } ->
+                       FromBox { box = subTypesIntoArray types box; i })
+                ; sort
+                })
           ; body = subTypesIntoArray types body
-          ; type' = Type.subTypesIntoArr types type'
+          ; type' = Type.subTypesIntoArray types type'
           }
       | ReifyIndex { index; type' } ->
         ReifyIndex { index; type' = Type.subTypesIntoArr types type' }
@@ -274,13 +302,25 @@ module Substitute = struct
           ; args = List.map args ~f:(Index.subIndicesIntoIndex indices)
           ; type' = Type.subIndicesIntoArr indices type'
           }
-      | Unbox { indexBindings; valueBinding; box; body; type' } ->
-        Unbox
-          { indexBindings
-          ; valueBinding
-          ; box = subIndicesIntoArray indices box
-          ; body = subIndicesIntoArray indices body
+      | BoxValue { box; type' } ->
+        BoxValue
+          { box = subIndicesIntoArray indices box
           ; type' = Type.subIndicesIntoArr indices type'
+          }
+      | IndexLet { indexArgs; body; type' } ->
+        IndexLet
+          { indexArgs =
+              List.map indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+                { indexBinding
+                ; indexValue =
+                    (match indexValue with
+                     | Runtime v -> Runtime (subIndicesIntoArray indices v)
+                     | FromBox { box; i } ->
+                       FromBox { box = subIndicesIntoArray indices box; i })
+                ; sort
+                })
+          ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArray indices type'
           }
       | ReifyIndex { index; type' } ->
         ReifyIndex

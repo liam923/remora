@@ -58,7 +58,8 @@ let nonComputational =
     | Ref _ -> true
     | AtomAsArray atomicArray -> nonComputationalAtom atomicArray.element
     | Frame frame -> List.for_all frame.elements ~f:nonComputationalArray
-    | Unbox _ -> false
+    | BoxValue { box; type' = _ } -> nonComputationalArray box
+    | IndexLet _ -> false
     | ReifyIndex _ -> false
     | ArrayPrimitive _ -> false
   and nonComputationalAtom : Expr.atom -> bool = function
@@ -72,34 +73,48 @@ let nonComputational =
 ;;
 
 let getCounts =
+  let getCountsIndex : Index.t -> Counts.t = function
+    | Shape elements ->
+      elements
+      |> List.map ~f:(function
+        | ShapeRef ref -> Counts.one ref
+        | Add { const = _; refs } ->
+          refs |> Map.keys |> List.map ~f:Counts.one |> Counts.merge)
+      |> Counts.merge
+    | Dimension { const = _; refs } ->
+      refs |> Map.keys |> List.map ~f:Counts.one |> Counts.merge
+  in
   let rec getCountsArray : Expr.array -> Counts.t = function
     | Ref { id; type' = _ } -> Counts.one id
     | AtomAsArray { element; type' = _ } -> getCountsAtom element
     | Frame { elements; dimensions = _; type' = _ } ->
       elements |> List.map ~f:getCountsArray |> Counts.merge
-    | Unbox { indexBindings = _; boxBindings; body; type' = _ } ->
-      let boxBindingsCounts =
-        boxBindings
-        |> List.map ~f:(fun { binding = _; box } -> getCountsArray box)
-        |> Counts.merge
+    | BoxValue { box; type' = _ } -> getCountsArray box
+    | IndexLet { indexArgs; body; type' = _ } ->
+      let indexValueCounts =
+        List.map indexArgs ~f:(fun arg ->
+          match arg.indexValue with
+          | Runtime value -> getCountsArray value
+          | FromBox { box; i = _ } -> getCountsArray box)
       and bodyCounts = getCountsArray body in
-      Counts.merge [ boxBindingsCounts; bodyCounts ]
-    | ReifyIndex { index = _; type' = _ } -> Counts.empty
-    | ArrayPrimitive (Map { args; iotaVar = _; body; frameShape = _; type' = _ }) ->
+      Counts.merge (bodyCounts :: indexValueCounts)
+    | ReifyIndex { index; type' = _ } -> getCountsIndex index
+    | ArrayPrimitive (Map { args; iotaVar = _; body; frameShape; type' = _ }) ->
       let argsCounts =
         args
         |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
         |> Counts.merge
-      and bodyCounts = getCountsArray body in
-      Counts.merge [ argsCounts; bodyCounts ]
+      and bodyCounts = getCountsArray body
+      and frameShapeCounts = getCountsIndex (Shape frameShape) in
+      Counts.merge [ argsCounts; bodyCounts; frameShapeCounts ]
     | ArrayPrimitive
         (Reduce
           { args
           ; body
           ; zero
-          ; d = _
-          ; itemPad = _
-          ; cellShape = _
+          ; d
+          ; itemPad
+          ; cellShape
           ; associative = _
           ; character = _
           ; type' = _
@@ -112,19 +127,15 @@ let getCounts =
       and bodyCounts = getCountsArray body
       and zeroCounts =
         zero |> Option.map ~f:getCountsArray |> Option.value ~default:Counts.empty
-      in
-      Counts.merge [ argsCounts; bodyCounts; zeroCounts ]
+      and dCounts = getCountsIndex (Dimension d)
+      and itemPadCounts = getCountsIndex (Shape itemPad)
+      and cellShapeCounts = getCountsIndex (Shape cellShape) in
+      Counts.merge
+        [ argsCounts; bodyCounts; zeroCounts; dCounts; itemPadCounts; cellShapeCounts ]
     | ArrayPrimitive
         (Fold
-          { zeroArgs
-          ; arrayArgs
-          ; body
-          ; d = _
-          ; itemPad = _
-          ; cellShape = _
-          ; character = _
-          ; type' = _
-          }) ->
+          { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character = _; type' = _ })
+      ->
       let zeroCounts =
         zeroArgs
         |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
@@ -133,21 +144,45 @@ let getCounts =
         arrayArgs
         |> List.map ~f:(fun { binding = _; value } -> getCountsArray value)
         |> Counts.merge
-      and bodyCounts = getCountsArray body in
-      Counts.merge [ zeroCounts; arrayCounts; bodyCounts ]
-    | ArrayPrimitive (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' = _ }) ->
-      Counts.merge [ getCountsArray arg1; getCountsArray arg2 ]
-    | ArrayPrimitive
-        (Index { arrayArg; indexArg; s = _; cellShape = _; l = _; type' = _ }) ->
-      Counts.merge [ getCountsArray arrayArg; getCountsArray indexArg ]
-    | ArrayPrimitive
-        (Scatter { valuesArg; indicesArg; dIn = _; dOut = _; cellShape = _; type' = _ })
-      -> Counts.merge [ getCountsArray valuesArg; getCountsArray indicesArg ]
+      and bodyCounts = getCountsArray body
+      and dCounts = getCountsIndex (Dimension d)
+      and itemPadCounts = getCountsIndex (Shape itemPad)
+      and cellShapeCounts = getCountsIndex (Shape cellShape) in
+      Counts.merge
+        [ zeroCounts; arrayCounts; bodyCounts; dCounts; itemPadCounts; cellShapeCounts ]
+    | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' = _ }) ->
+      Counts.merge
+        [ getCountsArray arg1
+        ; getCountsArray arg2
+        ; getCountsIndex (Dimension d1)
+        ; getCountsIndex (Dimension d2)
+        ; getCountsIndex (Shape cellShape)
+        ]
+    | ArrayPrimitive (Index { arrayArg; indexArg; s; cellShape; l; type' = _ }) ->
+      Counts.merge
+        [ getCountsArray arrayArg
+        ; getCountsArray indexArg
+        ; getCountsIndex (Shape s)
+        ; getCountsIndex (Shape cellShape)
+        ; getCountsIndex (Dimension l)
+        ]
+    | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' = _ })
+      ->
+      Counts.merge
+        [ getCountsArray valuesArg
+        ; getCountsArray indicesArg
+        ; getCountsIndex (Dimension dIn)
+        ; getCountsIndex (Dimension dOut)
+        ; getCountsIndex (Shape cellShape)
+        ]
   and getCountsAtom : Expr.atom -> Counts.t = function
     | Literal (IntLiteral _) -> Counts.empty
     | Literal (CharacterLiteral _) -> Counts.empty
     | Literal (BooleanLiteral _) -> Counts.empty
-    | Box { indices = _; body; bodyType = _; type' = _ } -> getCountsArray body
+    | Box { indices; body; bodyType = _; type' = _ } ->
+      let indexCounts = List.map indices ~f:getCountsIndex
+      and bodyCounts = getCountsArray body in
+      Counts.merge (bodyCounts :: indexCounts)
     | ArrayAsAtom { array; type' = _ } -> getCountsArray array
     | AtomicPrimitive { op = _; args; type' = _ } ->
       args |> List.map ~f:getCountsAtom |> Counts.merge
@@ -167,13 +202,20 @@ let rec subArray subs : Expr.array -> Expr.array = function
   | Frame { elements; dimensions; type' } ->
     let elements = List.map elements ~f:(subArray subs) in
     Frame { elements; dimensions; type' }
-  | Unbox { indexBindings; boxBindings; body; type' } ->
-    let body = subArray subs body in
-    let boxBindings =
-      List.map boxBindings ~f:(fun { binding; box } : Expr.unboxBinding ->
-        { binding; box = subArray subs box })
-    in
-    Unbox { indexBindings; boxBindings; body; type' }
+  | BoxValue { box; type' } -> BoxValue { box = subArray subs box; type' }
+  | IndexLet { indexArgs; body; type' } ->
+    let indexArgs =
+      List.map indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+        Expr.
+          { indexBinding
+          ; indexValue =
+              (match indexValue with
+               | Runtime value -> Runtime (subArray subs value)
+               | FromBox { box; i } -> FromBox { box = subArray subs box; i })
+          ; sort
+          })
+    and body = subArray subs body in
+    IndexLet { indexArgs; body; type' }
   | ReifyIndex { index; type' } -> ReifyIndex { index; type' }
   | ArrayPrimitive (Map { args; iotaVar; body; frameShape; type' }) ->
     let args =
@@ -292,20 +334,28 @@ let rec optimizeArray : Expr.array -> Expr.array = function
        in
        let dimensions = dimensions @ commonDims in
        Expr.Frame { elements; dimensions; type' })
-  | Unbox { indexBindings; boxBindings; body; type' } ->
-    let body = optimizeArray body in
-    (* Simplify the args, removing unused ones *)
-    let bodyCounts = getCounts body in
-    let boxBindings =
-      boxBindings
-      |> List.filter ~f:(fun binding ->
-        (* DISCARD!!! *)
-        Counts.get bodyCounts binding.binding > 0)
-      |> List.map ~f:(fun { binding; box } ->
-        let box = optimizeArray box in
-        ({ binding; box } : Expr.unboxBinding))
+  | BoxValue { box; type' } ->
+    let box = optimizeArray box in
+    (match box with
+     | AtomAsArray
+         { element = Box { indices = _; body; bodyType = _; type' = _ }; type' = _ } ->
+       body
+     | _ -> BoxValue { box; type' })
+  | IndexLet { indexArgs; body; type' } ->
+    (* TODO: remove unused bindings and inline ones known statically *)
+    let indexArgs =
+      List.map indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+        Expr.
+          { indexBinding
+          ; indexValue =
+              (match indexValue with
+               | Runtime value -> Runtime (optimizeArray value)
+               | FromBox { box; i } -> FromBox { box = optimizeArray box; i })
+          ; sort
+          })
     in
-    Expr.Unbox { indexBindings; boxBindings; body; type' }
+    let body = optimizeArray body in
+    IndexLet { indexArgs; body; type' }
   | ReifyIndex { index = Dimension d; type' = _ } as original ->
     if Map.is_empty d.refs
     then
@@ -547,18 +597,28 @@ let rec hoistDeclarationsInArray : Expr.array -> Expr.array * hoisting list = fu
   | Frame { elements; dimensions; type' } ->
     let elements, hoistings = hoistDeclarationsMap elements ~f:hoistDeclarationsInArray in
     Expr.Frame { elements; dimensions; type' }, hoistings
-  | Unbox { indexBindings; boxBindings; body; type' } ->
+  | BoxValue { box; type' } ->
+    let box, hoistings = hoistDeclarationsInArray box in
+    BoxValue { box; type' }, hoistings
+  | IndexLet { indexArgs; body; type' } ->
     let bindings =
-      boxBindings |> List.map ~f:(fun b -> b.binding) |> BindingSet.of_list
+      indexArgs |> List.map ~f:(fun arg -> arg.indexBinding) |> BindingSet.of_list
+    in
+    let indexArgs, indexValueHoistings =
+      hoistDeclarationsMap indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+        let indexValue, hoistings =
+          match indexValue with
+          | Runtime value ->
+            let value, hoistings = hoistDeclarationsInArray value in
+            Expr.Runtime value, hoistings
+          | FromBox { box; i } ->
+            let box, hoistings = hoistDeclarationsInArray box in
+            Expr.FromBox { box; i }, hoistings
+        in
+        Expr.{ indexBinding; indexValue; sort }, hoistings)
     in
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
-    let boxBindings, boxBindingHoistings =
-      hoistDeclarationsMap boxBindings ~f:(fun { binding; box } ->
-        let box, hoistings = hoistDeclarationsInArray box in
-        ({ binding; box } : Expr.unboxBinding), hoistings)
-    in
-    ( Expr.Unbox { indexBindings; boxBindings; body; type' }
-    , boxBindingHoistings @ bodyHoistings )
+    Expr.IndexLet { indexArgs; body; type' }, indexValueHoistings @ bodyHoistings
   | ReifyIndex _ as reify -> reify, []
   | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
     let arg1, hoistings1 = hoistDeclarationsInArray arg1
@@ -811,18 +871,27 @@ let rec hoistExpressionsInArray loopBarrier (array : Expr.array)
         hoistExpressionsMap elements ~f:(hoistExpressionsInArray loopBarrier)
       in
       Expr.Frame { elements; dimensions; type' }, hoistings
-    | Unbox { indexBindings; boxBindings; body; type' } ->
-      let%bind boxBindings, boxBindingHoistings =
-        hoistExpressionsMap boxBindings ~f:(fun { binding; box } ->
-          let%map box, hoistings = hoistExpressionsInArray loopBarrier box in
-          ({ binding; box } : Expr.unboxBinding), hoistings)
-      in
+    | BoxValue { box; type' } ->
+      let%map box, hoistings = hoistExpressionsInArray loopBarrier box in
+      Expr.BoxValue { box; type' }, hoistings
+    | IndexLet { indexArgs; body; type' } ->
       let bindings =
-        boxBindings |> List.map ~f:(fun b -> b.binding) |> BindingSet.of_list
+        indexArgs |> List.map ~f:(fun arg -> arg.indexBinding) |> BindingSet.of_list
       in
-      let%map body, bodyHoistings = hoistExpressionsInBody loopBarrier body ~bindings in
-      ( Expr.Unbox { indexBindings; boxBindings; body; type' }
-      , boxBindingHoistings @ bodyHoistings )
+      let%map indexArgs, indexValueHoistings =
+        hoistExpressionsMap indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+          let%map indexValue, hoistings =
+            match indexValue with
+            | Runtime value ->
+              let%map value, hoistings = hoistExpressionsInArray loopBarrier value in
+              Expr.Runtime value, hoistings
+            | FromBox { box; i } ->
+              let%map box, hoistings = hoistExpressionsInArray loopBarrier box in
+              Expr.FromBox { box; i }, hoistings
+          in
+          Expr.{ indexBinding; indexValue; sort }, hoistings)
+      and body, bodyHoistings = hoistExpressionsInBody loopBarrier body ~bindings in
+      Expr.IndexLet { indexArgs; body; type' }, indexValueHoistings @ bodyHoistings
     | ReifyIndex _ as reify -> return (reify, [])
     | ArrayPrimitive (Append { arg1; arg2; d1; d2; cellShape; type' }) ->
       let%map arg1, hoistings1 = hoistExpressionsInArray loopBarrier arg1

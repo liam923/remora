@@ -601,6 +601,32 @@ module Make (SB : Source.BuilderT) = struct
            ( "Bad `box` syntax"
            , infixListSource components ~before:boxSource ~after:rParenSource ))
     | ParenList
+        { elements = Symbol ("lift", liftSource) :: components
+        ; braceSources = _, rParenSource
+        } as liftExpr ->
+      (match components with
+       | SquareList { elements = [ param; value ]; braceSources = _ }
+         :: bodyHead
+         :: bodyRest ->
+         let%map paramBinding, paramSort, _ =
+           parseBindingWithImplicitBound param ~atBound:Sort.Shape ~noAtBound:Sort.Dim
+         and parsedValue = parseExpr value
+         and parsedBody = parseExprBody (bodyHead :: bodyRest) in
+         Source.
+           { elem =
+               Expr.Lift
+                 { indexBinding = paramBinding
+                 ; indexValue = parsedValue
+                 ; sort = paramSort
+                 ; body = parsedBody
+                 }
+           ; source = esexpSource liftExpr
+           }
+       | _ ->
+         MResult.err
+           ( "Bad `lift` syntax"
+           , infixListSource components ~before:liftSource ~after:rParenSource ))
+    | ParenList
         { elements = Symbol ("reshape", reshapeSource) :: components
         ; braceSources = _, rParenSource
         } as reshapeExpr ->

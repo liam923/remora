@@ -103,6 +103,13 @@ module Expr = struct
     ; body : 's t
     }
 
+  and 's lift =
+    { indexBinding : ('s, string) Source.annotate
+    ; indexValue : 's t
+    ; sort : ('s, Sort.t) Source.annotate
+    ; body : 's t
+    }
+
   and 's termLambda =
     { params : ('s, 's Type.t) paramList
     ; body : 's t
@@ -154,6 +161,7 @@ module Expr = struct
     | TypeApplication of 's typeApplication
     | IndexApplication of 's indexApplication
     | Unbox of 's unbox
+    | Lift of 's lift
     | TermLambda of 's termLambda
     | TypeLambda of 's typeLambda
     | IndexLambda of 's indexLambda

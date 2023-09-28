@@ -65,14 +65,26 @@ module Expr = struct
     ; type' : Type.array
     }
 
-  and unboxBinding =
-    { binding : Identifier.t
-    ; box : array
+  and boxValue =
+    { box : array
+    ; type' : Type.array
     }
 
-  and unbox =
-    { indexBindings : Identifier.t list
-    ; boxBindings : unboxBinding list
+  and indexValue =
+    | Runtime of array
+    | FromBox of
+        { box : array
+        ; i : int
+        }
+
+  and indexArg =
+    { indexBinding : Identifier.t
+    ; indexValue : indexValue
+    ; sort : Sort.t
+    }
+
+  and indexLet =
+    { indexArgs : indexArg list
     ; body : array
     ; type' : Type.array
     }
@@ -183,7 +195,8 @@ module Expr = struct
     | Ref of ref
     | AtomAsArray of atomicArray
     | Frame of frame
-    | Unbox of unbox
+    | BoxValue of boxValue
+    | IndexLet of indexLet
     | ReifyIndex of reifyIndex
     | ArrayPrimitive of arrayPrimitive
 
@@ -213,7 +226,8 @@ module Expr = struct
     | Ref ref -> ref.type'
     | AtomAsArray atomicArray -> atomicArray.type'
     | Frame frame -> frame.type'
-    | Unbox unbox -> unbox.type'
+    | BoxValue boxValue -> boxValue.type'
+    | IndexLet indexLet -> indexLet.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
     | ArrayPrimitive arrayPrimitive ->
       (match arrayPrimitive with
