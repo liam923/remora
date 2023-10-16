@@ -115,24 +115,30 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
             (Option.map mapIota ~f:(fun iota -> iota.iota))
             restFrameShape
         in
-        let mapType =
-          Nested.Type.Array { element = Nested.Expr.type' mapBody; size = shapeElement }
-        in
-        TupleDeref
-          { tuple =
-              ConsumerBlock
-                { frameShape = shapeElement
-                ; mapArgs
-                ; mapIotas = Option.to_list mapIota
-                ; mapBody
-                ; mapBodyMatcher = Binding reusltBinding
-                ; mapResults = [ reusltBinding ]
-                ; consumer = None
-                ; type' = [ mapType; Tuple [] ]
-                }
-          ; index = 0
-          ; type' = mapType
-          }
+        Nested.Expr.tupleDeref
+          ~tuple:
+            (Nested.Expr.tupleDeref
+               ~tuple:
+                 (ConsumerBlock
+                    { frameShape = shapeElement
+                    ; mapArgs
+                    ; mapIotas = Option.to_list mapIota
+                    ; mapBody
+                    ; mapBodyMatcher = Binding reusltBinding
+                    ; mapResults = [ reusltBinding ]
+                    ; consumer = None
+                    ; type' =
+                        [ Tuple
+                            [ Array
+                                { element = Nested.Expr.type' mapBody
+                                ; size = shapeElement
+                                }
+                            ]
+                        ; Tuple []
+                        ]
+                    })
+               ~index:0)
+          ~index:0
     in
     let%bind letAndMapArgs =
       args
