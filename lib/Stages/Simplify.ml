@@ -68,6 +68,7 @@ let nonComputational =
     | ArrayAsAtom arrayAtomic -> nonComputationalArray arrayAtomic.array
     | AtomicPrimitive _ -> false
     | Values values -> List.for_all values.elements ~f:nonComputationalAtom
+    | TupleDeref { tuple; index = _; type' = _ } -> nonComputationalAtom tuple
   in
   nonComputationalArray
 ;;
@@ -188,6 +189,7 @@ let getCounts =
       args |> List.map ~f:getCountsAtom |> Counts.merge
     | Values { elements; type' = _ } ->
       elements |> List.map ~f:getCountsAtom |> Counts.merge
+    | TupleDeref { tuple; index = _; type' = _ } -> getCountsAtom tuple
   in
   getCountsArray
 ;;
@@ -271,6 +273,9 @@ and subAtom subs : Expr.atom -> Expr.atom = function
   | Values { elements; type' } ->
     let elements = List.map elements ~f:(subAtom subs) in
     Values { elements; type' }
+  | TupleDeref { tuple; index; type' } ->
+    let tuple = subAtom subs tuple in
+    TupleDeref { tuple; index; type' }
 ;;
 
 (* Perform the following optimizations:
@@ -562,6 +567,11 @@ and optimizeAtom : Expr.atom -> Expr.atom = function
   | Values { elements; type' } ->
     let elements = List.map elements ~f:optimizeAtom in
     Values { elements; type' }
+  | TupleDeref { tuple; index; type' } ->
+    let tuple = optimizeAtom tuple in
+    (match tuple with
+     | Values { elements; type' = _ } -> List.nth_exn elements index
+     | _ -> TupleDeref { tuple; index; type' })
 ;;
 
 type hoisting =
@@ -744,6 +754,9 @@ and hoistDeclarationsInAtom : Expr.atom -> Expr.atom * hoisting list = function
   | Values { elements; type' } ->
     let elements, hoistings = hoistDeclarationsMap elements ~f:hoistDeclarationsInAtom in
     Values { elements; type' }, hoistings
+  | TupleDeref { tuple; index; type' } ->
+    let tuple, hoistings = hoistDeclarationsInAtom tuple in
+    TupleDeref { tuple; index; type' }, hoistings
 
 and hoistDeclarationsInBody body ~bindings : Expr.array * hoisting list =
   (* Simplify the body *)
@@ -1016,6 +1029,9 @@ and hoistExpressionsInAtom loopBarrier
       hoistExpressionsMap elements ~f:(hoistExpressionsInAtom loopBarrier)
     in
     Expr.Values { elements; type' }, hoistings
+  | TupleDeref { tuple; index; type' } ->
+    let%map tuple, hoistings = hoistExpressionsInAtom loopBarrier tuple in
+    Expr.TupleDeref { tuple; index; type' }, hoistings
 
 and hoistExpressionsInBody loopBarrier body ~bindings =
   let open HoistState.Let_syntax in

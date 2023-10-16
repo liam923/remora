@@ -778,16 +778,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
           in
           ( I.ArrayPrimitive
               (Reduce
-                 { args
-                 ; body
-                 ; zero
-                 ; d
-                 ; itemPad
-                 ; cellShape
-                 ; associative
-                 ; character
-                 ; type'
-                 })
+                 { arg; body; zero; d; itemPad; cellShape; associative; character; type' })
           , functions )
         | _ ->
           raise

@@ -107,7 +107,6 @@ module Expr = struct
     | Mul
     | Div
     | Equal
-    | TupleDeref of int
 
   and atomicPrimitive =
     { op : scalarOp
@@ -186,6 +185,12 @@ module Expr = struct
     ; type' : Type.tuple
     }
 
+  and tupleDeref =
+    { tuple : atom
+    ; index : int
+    ; type' : Type.atom
+    }
+
   and literal =
     | IntLiteral of int
     | CharacterLiteral of char
@@ -206,6 +211,7 @@ module Expr = struct
     | Values of values
     | ArrayAsAtom of arrayAtomic
     | AtomicPrimitive of atomicPrimitive
+    | TupleDeref of tupleDeref
 
   and t =
     | Array of array
@@ -220,6 +226,7 @@ module Expr = struct
     | ArrayAsAtom arrayAtomic -> arrayAtomic.type'
     | AtomicPrimitive atomicPrimitive -> atomicPrimitive.type'
     | Values values -> Tuple values.type'
+    | TupleDeref tupleDeref -> tupleDeref.type'
   ;;
 
   let arrayType : array -> Type.array = function

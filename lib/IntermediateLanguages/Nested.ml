@@ -37,6 +37,20 @@ module Expr = struct
     }
   [@@deriving sexp_of]
 
+  type reduceCharacter =
+    [ `Reduce
+    | `Scan
+    | `OpenScan
+    ]
+  [@@deriving sexp_of, equal]
+
+  type foldCharacter =
+    [ `Fold
+    | `Trace
+    | `OpenTrace
+    ]
+  [@@deriving sexp_of, equal]
+
   type frame =
     { dimensions : int list
     ; elements : t list
@@ -72,13 +86,13 @@ module Expr = struct
     ; type' : Type.t
     }
 
-  and letBinding =
+  and letArg =
     { binding : Identifier.t
     ; value : t
     }
 
   and let' =
-    { args : letBinding list
+    { args : letArg list
     ; body : t
     ; type' : Type.t
     }
@@ -98,48 +112,33 @@ module Expr = struct
     ; type' : Type.t
     }
 
-  (** A consumer block has the semantics of performing all the map operations in
-      the production list and then performing the (optional) consumption. Then
-      the body is performed and returned. Producer may use corresponding
-      elements of previous productions in the list. The result of productions
-      are optionally available via bindings to the consumption and to the body.
-      The consumption's result is also available to the body. *)
+  and tupleMatch =
+    | Binding of Identifier.t
+    | Unpack of tupleMatch list
+
+  and mapArg =
+    { binding : Identifier.t
+    ; ref : ref
+    }
+
+  and mapIota =
+    { iota : Identifier.t
+    ; nestIn : Identifier.t option
+    }
+
+  (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
   and consumerBlock =
     { frameShape : Index.shapeElement
-        (** The shape which is being operated over. For the productions,
-            this is the frame of the mapping *)
-    ; producers : boundProducerOp list
-    ; consumer : boundConsumerOp option
-    ; body : t
-    ; type' : Type.t
+    ; mapArgs : mapArg list
+    ; mapIotas : mapIota list
+    ; mapBody : t
+    ; mapBodyMatcher : tupleMatch
+    ; mapResults : Identifier.t list
+    ; consumer : consumerOp option
+    ; type' : Type.tuple
     }
 
-  (** Represents a reading of an array or *)
-  and boundProducerOp =
-    { op : producerOp (** The expression that generates values of an array *)
-    ; localBinding : Identifier.t
-        (** Elements of basis are available to the bodies of subsequent
-            mapping productions via this id *)
-    ; consumerBinding : Identifier.t
-        (** The result of this production can be input to the consumer via this id *)
-    ; bodyBinding : Identifier.t option
-        (** The result of this production can be used in the body of the consumer via this id *)
-    ; type' : Type.t (** The type of the resulting array *)
-    }
-
-  and producerOp =
-    | Read of t (** Read simply reads values of an array. *)
-    | Map of
-        { iotaVar : Identifier.t option
-        ; body : t
-        } (** Map generates values via the body expression *)
-
-  and boundConsumerOp =
-    { op : consumerOp
-    ; binding : Identifier.t
-    }
-
-  and arg =
+  and foldArg =
     { binding : Identifier.t
     ; production : ref
     }
@@ -159,17 +158,17 @@ module Expr = struct
         ; itemPad : Index.shape
         ; cellShape : Index.shape
         ; associative : bool
-        ; character : [ `Reduce | `Scan | `OpenScan ]
+        ; character : reduceCharacter
         ; type' : Type.t
         }
     | Fold of
-        { zeroArgs : arg list
-        ; arrayArgs : arg list
+        { zeroArgs : foldArg list
+        ; arrayArgs : foldArg list
         ; body : t
         ; d : Index.dimension
         ; itemPad : Index.shape
         ; cellShape : Index.shape
-        ; character : [ `Fold | `Trace | `OpenTrace ]
+        ; character : foldCharacter
         ; type' : Type.t
         }
     | Scatter of
@@ -186,6 +185,12 @@ module Expr = struct
     ; type' : Type.tuple
     }
 
+  and tupleDeref =
+    { tuple : t
+    ; index : int
+    ; type' : Type.t
+    }
+
   and literal = Nucleus.Expr.literal
 
   and subArray =
@@ -199,8 +204,6 @@ module Expr = struct
     ; type' : Type.t
     }
 
-  and shapeElementSize = Index.shapeElement
-
   and t =
     | Ref of ref
     | Frame of frame
@@ -213,9 +216,9 @@ module Expr = struct
     | Literal of literal
     | Values of values
     | ScalarPrimitive of scalarPrimitive
+    | TupleDeref of tupleDeref
     | SubArray of subArray
     | Append of append
-    | ShapeElementSize of shapeElementSize
   [@@deriving sexp_of]
 
   let type' : t -> Type.t = function
@@ -224,6 +227,7 @@ module Expr = struct
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
     | ScalarPrimitive scalarPrimitive -> scalarPrimitive.type'
+    | TupleDeref tupleDeref -> tupleDeref.type'
     | Values values -> Tuple values.type'
     | Ref ref -> ref.type'
     | Frame frame -> frame.type'
@@ -231,10 +235,29 @@ module Expr = struct
     | IndexLet indexLet -> indexLet.type'
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
-    | ConsumerBlock consumerBlock -> consumerBlock.type'
+    | ConsumerBlock consumerBlock -> Tuple consumerBlock.type'
     | SubArray subArray -> subArray.type'
     | Append append -> append.type'
-    | ShapeElementSize _ -> Literal IntLiteral
+  ;;
+
+  let consumerOpType = function
+    | Reduce reduce -> reduce.type'
+    | Fold fold -> fold.type'
+    | Scatter scatter -> scatter.type'
+  ;;
+
+  let values elements = Values { elements; type' = List.map elements ~f:type' }
+  let let' ~args ~body = Let { args; body; type' = type' body }
+
+  let tupleDeref ~tuple ~index =
+    TupleDeref
+      { tuple
+      ; index
+      ; type' =
+          (match type' tuple with
+           | Tuple types -> List.nth_exn types index
+           | _ -> raise (Unreachable.Error "Expected tuple type"))
+      }
   ;;
 end
 
