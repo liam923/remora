@@ -767,7 +767,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
               firstBinding, secondBinding
             | _ -> raise (Unreachable.Error "bindings should have len 2")
           in
-          let args = [ I.{ firstBinding; secondBinding; value = arrayArgMono } ] in
+          let arg = I.{ firstBinding; secondBinding; value = arrayArgMono } in
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
           let%map zero =
             match zero with
@@ -880,7 +880,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
           ( I.ArrayPrimitive
               (Fold
-                 { zeroArgs = [ { binding = zeroArgBinding; value = zeroArgValue } ]
+                 { zeroArg = { binding = zeroArgBinding; value = zeroArgValue }
                  ; arrayArgs
                  ; body
                  ; d

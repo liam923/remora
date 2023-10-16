@@ -135,7 +135,7 @@ module Expr = struct
         ; type' : Type.array
         }
     | Reduce of
-        { args : reduceArg list
+        { arg : reduceArg
         ; zero : array option
         ; body : array
         ; d : Index.dimension
@@ -146,7 +146,7 @@ module Expr = struct
         ; type' : Type.array
         }
     | Fold of
-        { zeroArgs : arg list
+        { zeroArg : arg
         ; arrayArgs : arg list
         ; body : array
         ; d : Index.dimension

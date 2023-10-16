@@ -138,45 +138,59 @@ module Expr = struct
     ; type' : Type.tuple
     }
 
-  and foldArg =
-    { binding : Identifier.t
-    ; production : ref
+  and foldZeroArg =
+    { zeroBinding : Identifier.t
+    ; zeroValue : t
     }
+
+  and production =
+    { productionId : Identifier.t
+    ; type' : Type.t
+    }
+
+  and foldArrayArg =
+    { binding : Identifier.t
+    ; production : production
+    }
+
+  and productionTuple =
+    | ProductionTuple of
+        { elements : productionTuple list
+        ; type' : Type.t
+        }
+    | ProductionTupleAtom of production
 
   and reduceArg =
     { firstBinding : Identifier.t
     ; secondBinding : Identifier.t
-    ; production : ref
+    ; production : productionTuple
     }
 
   and consumerOp =
     | Reduce of
-        { args : reduceArg list
+        { arg : reduceArg
         ; zero : t option
         ; body : t
         ; d : Index.dimension
         ; itemPad : Index.shape
-        ; cellShape : Index.shape
         ; associative : bool
         ; character : reduceCharacter
         ; type' : Type.t
         }
     | Fold of
-        { zeroArgs : foldArg list
-        ; arrayArgs : foldArg list
+        { zeroArg : foldZeroArg
+        ; arrayArgs : foldArrayArg list
         ; body : t
         ; d : Index.dimension
         ; itemPad : Index.shape
-        ; cellShape : Index.shape
         ; character : foldCharacter
         ; type' : Type.t
         }
     | Scatter of
-        { valuesArg : ref
-        ; indicesArg : ref
+        { valuesArg : production
+        ; indicesArg : production
         ; dIn : Index.dimension
         ; dOut : Index.dimension
-        ; cellShape : Index.shape
         ; type' : Type.t
         }
 
@@ -186,8 +200,8 @@ module Expr = struct
     }
 
   and tupleDeref =
-    { tuple : t
-    ; index : int
+    { index : int
+    ; tuple : t
     ; type' : Type.t
     }
 
@@ -244,6 +258,11 @@ module Expr = struct
     | Reduce reduce -> reduce.type'
     | Fold fold -> fold.type'
     | Scatter scatter -> scatter.type'
+  ;;
+
+  let productionTupleType = function
+    | ProductionTuple productionTuple -> productionTuple.type'
+    | ProductionTupleAtom productionTupleAtom -> productionTupleAtom.type'
   ;;
 
   let values elements = Values { elements; type' = List.map elements ~f:type' }

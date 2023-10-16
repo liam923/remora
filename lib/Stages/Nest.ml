@@ -149,32 +149,29 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     let%map body = decompose mapArgs None frameShape in
     Let { args = letArgs; body; type' = Nested.Expr.type' body }
   | ArrayPrimitive
-      (Reduce { args; zero; body; d; itemPad; cellShape; associative; character; type' })
-    ->
+      (Reduce
+        { arg; zero; body; d; itemPad; cellShape = _; associative; character; type' }) ->
     let type' = nestTypeArray type' in
-    let%bind args =
-      args
-      |> List.map ~f:(fun { firstBinding; secondBinding; value } ->
-        let%map productionBinding = NestState.createId "reduce-arg"
-        and value = nestArray value in
-        ( productionBinding
-        , value
-        , { firstBinding
-          ; secondBinding
-          ; production = { id = productionBinding; type' = Nested.Expr.type' value }
-          } ))
-      |> NestState.all
-    and zero =
+    let%bind productionBinding = NestState.createId "reduce-arg"
+    and argValue = nestArray arg.value in
+    let arg =
+      { firstBinding = arg.firstBinding
+      ; secondBinding = arg.secondBinding
+      ; production =
+          ProductionTupleAtom
+            { productionId = productionBinding; type' = Nested.Expr.type' argValue }
+      }
+    in
+    let%bind zero =
       match zero with
       | Some zero -> nestArray zero |> NestState.map ~f:(fun z -> Some z)
       | None -> return None
     and body = nestArray body in
-    let bindings, values, args = List.unzip3 args in
     let consumer =
-      Reduce { args; zero; body; d; itemPad; cellShape; associative; character; type' }
+      Reduce { arg; zero; body; d; itemPad; associative; character; type' }
     in
     let%map mapArgs, mapBody, mapBodyMatcher =
-      makeMap (Nested.Index.Add d) (List.zip_exn bindings values)
+      makeMap (Nested.Index.Add d) [ productionBinding, argValue ]
     in
     TupleDeref
       { tuple =
@@ -192,20 +189,11 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       ; type'
       }
   | ArrayPrimitive
-      (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' }) ->
+      (Fold { zeroArg; arrayArgs; body; d; itemPad; cellShape = _; character; type' }) ->
     let type' = nestTypeArray type' in
-    let%bind zeroes =
-      zeroArgs
-      |> List.map ~f:(fun { binding; value } ->
-        let%map productionBinding = NestState.createId (Identifier.name binding)
-        and value = nestArray value in
-        ( productionBinding
-        , value
-        , { binding
-          ; production = { id = productionBinding; type' = Nested.Expr.type' value }
-          } ))
-      |> NestState.all
-    and arrays =
+    let%bind zeroArgValue = nestArray zeroArg.value in
+    let zeroArg = { zeroBinding = zeroArg.binding; zeroValue = zeroArgValue } in
+    let%bind arrays =
       arrayArgs
       |> List.map ~f:(fun { binding; value } ->
         let%map productionBinding = NestState.createId (Identifier.name binding)
@@ -213,19 +201,15 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
         ( productionBinding
         , value
         , { binding
-          ; production = { id = productionBinding; type' = Nested.Expr.type' value }
+          ; production =
+              { productionId = productionBinding; type' = Nested.Expr.type' value }
           } ))
       |> NestState.all
     and body = nestArray body in
-    let zeroBindings, zeroValues, zeroArgs = List.unzip3 zeroes in
     let arrayBindings, arrayValues, arrayArgs = List.unzip3 arrays in
-    let consumer =
-      Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' }
-    in
+    let consumer = Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' } in
     let%map mapArgs, mapBody, mapBodyMatcher =
-      makeMap
-        (Nested.Index.Add d)
-        (List.zip_exn zeroBindings zeroValues @ List.zip_exn arrayBindings arrayValues)
+      makeMap (Nested.Index.Add d) (List.zip_exn arrayBindings arrayValues)
     in
     TupleDeref
       { tuple =
@@ -242,7 +226,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       ; index = 1
       ; type'
       }
-  | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
+  | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape = _; type' }) ->
     let type' = nestTypeArray type' in
     let%bind valuesBinding = NestState.createId "scatter-values-arg"
     and valuesArg = nestArray valuesArg
@@ -250,11 +234,12 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     and indicesArg = nestArray indicesArg in
     let consumer =
       Scatter
-        { valuesArg = { id = valuesBinding; type' = Nested.Expr.type' valuesArg }
-        ; indicesArg = { id = indicesBinding; type' = Nested.Expr.type' indicesArg }
+        { valuesArg =
+            { productionId = valuesBinding; type' = Nested.Expr.type' valuesArg }
+        ; indicesArg =
+            { productionId = indicesBinding; type' = Nested.Expr.type' indicesArg }
         ; dIn
         ; dOut
-        ; cellShape
         ; type'
         }
     in

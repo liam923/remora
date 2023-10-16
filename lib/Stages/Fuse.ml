@@ -57,30 +57,12 @@ module ConsumerCompatibility = struct
 
   let of_op : Expr.consumerOp -> t = function
     | Reduce
-        { args = _
-        ; zero
-        ; body = _
-        ; d = _
-        ; itemPad
-        ; cellShape = _
-        ; associative
-        ; character
-        ; type' = _
-        } ->
+        { arg = _; zero; body = _; d = _; itemPad; associative; character; type' = _ } ->
       SometimesCompatible
         (Reduce { hasZero = Option.is_some zero; itemPad; associative; character })
-    | Fold
-        { zeroArgs = _
-        ; arrayArgs = _
-        ; body = _
-        ; d = _
-        ; itemPad
-        ; cellShape = _
-        ; character
-        ; type' = _
-        } -> SometimesCompatible (Fold { itemPad; character })
-    | Scatter
-        { valuesArg = _; indicesArg = _; dIn = _; dOut = _; cellShape = _; type' = _ } ->
+    | Fold { zeroArg = _; arrayArgs = _; body = _; d = _; itemPad; character; type' = _ }
+      -> SometimesCompatible (Fold { itemPad; character })
+    | Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ } ->
       Incompatible
   ;;
 
@@ -178,21 +160,10 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     let consumerUsages =
       match consumer with
       | Some
-          (Reduce
-            { args
-            ; zero
-            ; body
-            ; d
-            ; itemPad
-            ; cellShape
-            ; associative = _
-            ; character = _
-            ; type'
-            }) ->
+          (Reduce { arg; zero; body; d; itemPad; associative = _; character = _; type' })
+        ->
         let argBindings =
-          args
-          |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-          |> Set.of_list (module Identifier)
+          Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
         in
         Set.union_list
           (module Identifier)
@@ -202,17 +173,9 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
           ; Set.diff (getUsesInExpr body) argBindings
           ; getUsesInIndex (Dimension d)
           ; getUsesInIndex (Shape itemPad)
-          ; getUsesInIndex (Shape cellShape)
           ; getUsesInType type'
           ]
-      | Some
-          (Fold
-            { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character = _; type' }) ->
-        let zeroBindings =
-          zeroArgs
-          |> List.map ~f:(fun arg -> arg.binding)
-          |> Set.of_list (module Identifier)
-        in
+      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character = _; type' }) ->
         let arrayBindings =
           arrayArgs
           |> List.map ~f:(fun arg -> arg.binding)
@@ -220,18 +183,16 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
         in
         Set.union_list
           (module Identifier)
-          [ Set.diff (getUsesInExpr body) (Set.union zeroBindings arrayBindings)
+          [ Set.diff (getUsesInExpr body) (Set.add arrayBindings zeroArg.zeroBinding)
           ; getUsesInIndex (Dimension d)
           ; getUsesInIndex (Shape itemPad)
-          ; getUsesInIndex (Shape cellShape)
           ; getUsesInType type'
           ]
-      | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; cellShape; type' }) ->
+      | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; type' }) ->
         Set.union_list
           (module Identifier)
           [ getUsesInIndex (Dimension dIn)
           ; getUsesInIndex (Dimension dOut)
-          ; getUsesInIndex (Shape cellShape)
           ; getUsesInType type'
           ]
       | None -> Set.empty (module Identifier)
@@ -525,14 +486,7 @@ let rec liftFrom
                 let rec derefValue derefs value =
                   match derefs with
                   | index :: restDerefs ->
-                    TupleDeref
-                      { tuple = derefValue restDerefs value
-                      ; index
-                      ; type' =
-                          (match Expr.type' value with
-                           | Tuple elements -> List.nth_exn elements index
-                           | _ -> raise (Unreachable.Error "Expected a tuple type"))
-                      }
+                    Expr.tupleDeref ~tuple:(derefValue restDerefs value) ~index
                   | [] -> value
                 in
                 { binding; value = derefValue derefs (Ref ref) })
@@ -632,51 +586,88 @@ type mergedConsumer =
   }
 
 let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp option)
-  : mergedConsumer
+  : (mergedConsumer, _) FuseState.u
   =
+  let open FuseState.Let_syntax in
   match target, archer with
   | None, None ->
-    { mergedOp = None
-    ; getTargetConsumerResultFromBlockResult = (fun _ -> Expr.values [])
-    ; getArcherConsumerResultFromBlockResult = (fun _ -> Expr.values [])
-    }
+    return
+      { mergedOp = None
+      ; getTargetConsumerResultFromBlockResult = (fun _ -> Expr.values [])
+      ; getArcherConsumerResultFromBlockResult = (fun _ -> Expr.values [])
+      }
   | None, Some consumerOp ->
-    { mergedOp = Some consumerOp
-    ; getTargetConsumerResultFromBlockResult = (fun _ -> Expr.values [])
-    ; getArcherConsumerResultFromBlockResult =
-        (fun blockResult -> Expr.tupleDeref ~tuple:blockResult ~index:1)
-    }
+    return
+      { mergedOp = Some consumerOp
+      ; getTargetConsumerResultFromBlockResult = (fun _ -> Expr.values [])
+      ; getArcherConsumerResultFromBlockResult =
+          (fun blockResult -> Expr.tupleDeref ~tuple:blockResult ~index:1)
+      }
   | Some consumerOp, None ->
-    { mergedOp = Some consumerOp
-    ; getTargetConsumerResultFromBlockResult =
-        (fun blockResult -> Expr.tupleDeref ~tuple:blockResult ~index:1)
-    ; getArcherConsumerResultFromBlockResult = (fun _ -> Expr.values [])
-    }
+    return
+      { mergedOp = Some consumerOp
+      ; getTargetConsumerResultFromBlockResult =
+          (fun blockResult -> Expr.tupleDeref ~tuple:blockResult ~index:1)
+      ; getArcherConsumerResultFromBlockResult = (fun _ -> Expr.values [])
+      }
   | Some (Reduce target), Some archer ->
     (match archer with
      | Reduce archer ->
-       assert (Expr.equal_reduceCharacter target.character archer.character);
-       assert (Index.equal_shape target.itemPad archer.itemPad);
-       assert (Bool.equal target.associative archer.associative);
+       let%map firstBinding = FuseState.createId "fused-reduce-arg1"
+       and secondBinding = FuseState.createId "fused-reduce-arg2" in
+       let getElementType = function
+         | Type.Array { element; size = _ } -> element
+         | _ -> raise (Unreachable.Error "expected Array type")
+       in
+       let argElementType =
+         Type.Tuple
+           [ getElementType (Expr.productionTupleType target.arg.production)
+           ; getElementType (Expr.productionTupleType archer.arg.production)
+           ]
+       in
+       let firstBindingRef = Expr.Ref { id = firstBinding; type' = argElementType }
+       and secondBindingRef = Expr.Ref { id = secondBinding; type' = argElementType } in
        { mergedOp =
            Some
              (Reduce
-                { args = target.args @ archer.args
+                { arg =
+                    { firstBinding
+                    ; secondBinding
+                    ; production =
+                        ProductionTuple
+                          { elements = [ target.arg.production; archer.arg.production ]
+                          ; type' =
+                              Array { element = argElementType; size = Add target.d }
+                          }
+                    }
                 ; zero =
                     (match target.zero, archer.zero with
                      | Some target, Some archer -> Some (Expr.values [ target; archer ])
                      | None, None -> None
                      | Some _, None | None, Some _ -> raise Unreachable.default)
-                ; body = poop
+                ; body =
+                    Expr.let'
+                      ~args:
+                        [ { binding = target.arg.firstBinding
+                          ; value = Expr.tupleDeref ~tuple:firstBindingRef ~index:0
+                          }
+                        ; { binding = target.arg.secondBinding
+                          ; value = Expr.tupleDeref ~tuple:secondBindingRef ~index:0
+                          }
+                        ; { binding = archer.arg.firstBinding
+                          ; value = Expr.tupleDeref ~tuple:firstBindingRef ~index:1
+                          }
+                        ; { binding = archer.arg.secondBinding
+                          ; value = Expr.tupleDeref ~tuple:secondBindingRef ~index:1
+                          }
+                        ]
+                      ~body:(Expr.values [ target.body; archer.body ])
                 ; d =
                     (assert (Index.equal_dimension target.d archer.d);
                      target.d)
                 ; itemPad =
                     (assert (Index.equal_shape target.itemPad archer.itemPad);
                      target.itemPad)
-                ; cellShape =
-                    (assert (Index.equal_shape target.cellShape archer.cellShape);
-                     target.cellShape)
                 ; associative =
                     (assert (Bool.equal target.associative archer.associative);
                      target.associative)
@@ -696,11 +687,55 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
   | Some (Fold target), Some archer ->
     (match archer with
      | Fold archer ->
-       assert (
-         ConsumerCompatibility.isCompatible
-           (ConsumerCompatibility.of_op (Fold target))
-           (ConsumerCompatibility.of_op (Fold archer)));
-       poop
+       let%map zeroBinding = FuseState.createId "fused-fold-zero" in
+       let zeroBindingRef =
+         Expr.Ref
+           { id = zeroBinding
+           ; type' =
+               Tuple
+                 [ Expr.type' target.zeroArg.zeroValue
+                 ; Expr.type' archer.zeroArg.zeroValue
+                 ]
+           }
+       in
+       { mergedOp =
+           Some
+             (Expr.Fold
+                { arrayArgs = target.arrayArgs @ archer.arrayArgs
+                ; zeroArg =
+                    { zeroBinding
+                    ; zeroValue =
+                        Expr.values [ target.zeroArg.zeroValue; archer.zeroArg.zeroValue ]
+                    }
+                ; body =
+                    Expr.let'
+                      ~args:
+                        [ { binding = target.zeroArg.zeroBinding
+                          ; value = Expr.tupleDeref ~tuple:zeroBindingRef ~index:0
+                          }
+                        ; { binding = archer.zeroArg.zeroBinding
+                          ; value = Expr.tupleDeref ~tuple:zeroBindingRef ~index:1
+                          }
+                        ]
+                      ~body:(Expr.values [ target.body; archer.body ])
+                ; d =
+                    (assert (Index.equal_dimension target.d archer.d);
+                     target.d)
+                ; itemPad =
+                    (assert (Index.equal_shape target.itemPad archer.itemPad);
+                     target.itemPad)
+                ; character =
+                    (assert (Expr.equal_foldCharacter target.character archer.character);
+                     target.character)
+                ; type' = Tuple [ target.type'; archer.type' ]
+                })
+       ; getTargetConsumerResultFromBlockResult =
+           (fun blockResult ->
+             Expr.tupleDeref ~tuple:(Expr.tupleDeref ~tuple:blockResult ~index:1) ~index:0)
+       ; getArcherConsumerResultFromBlockResult =
+           (fun blockResult ->
+             Expr.tupleDeref ~tuple:(Expr.tupleDeref ~tuple:blockResult ~index:1) ~index:1)
+       }
      | _ -> raise (Unreachable.Error "Tried to fuse incompatible consumers"))
   | Some (Scatter _), Some _ ->
     raise (Unreachable.Error "Tried to fuse incompatible consumers")
@@ -905,7 +940,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
           in
           loop [] args
         in
-        let%map blockResultBinding = FuseState.createId "fused-block-result" in
+        let%bind blockResultBinding = FuseState.createId "fused-block-result" in
         let rec extractTypesFromTuple (matcher : Expr.tupleMatch) (tupleType : Type.t)
           : Type.t Map.M(Identifier).t
           =
@@ -936,7 +971,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
         let resultBindingTypes =
           extractTypesFromTuple mapBodyMatcher (Tuple mergedBodyType)
         in
-        let mergedConsumer =
+        let%map mergedConsumer =
           mergeConsumers
             ~target:consumerBlock.consumer
             ~archer:(Option.map liftedConsumer ~f:(fun c -> c.op))
@@ -1092,13 +1127,9 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
     and consumer =
       match consumer with
       | None -> return None
-      | Some
-          (Reduce
-            { args; zero; body; d; itemPad; cellShape; associative; character; type' }) ->
+      | Some (Reduce { arg; zero; body; d; itemPad; associative; character; type' }) ->
         let reduceBindings =
-          args
-          |> List.bind ~f:(fun arg -> [ arg.firstBinding; arg.secondBinding ])
-          |> Set.of_list (module Identifier)
+          [ arg.firstBinding; arg.secondBinding ] |> Set.of_list (module Identifier)
         in
         let reduceExtendedScope = Set.union scope reduceBindings in
         let%map zero =
@@ -1108,23 +1139,17 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
             Some zero
           | None -> return None
         and body = fuseLoops reduceExtendedScope body in
-        Some
-          (Reduce
-             { args; zero; body; d; itemPad; cellShape; associative; character; type' })
-      | Some (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' })
-        ->
+        Some (Reduce { arg; zero; body; d; itemPad; associative; character; type' })
+      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
         let foldBindings =
-          zeroArgs @ arrayArgs
-          |> List.map ~f:(fun arg -> arg.binding)
+          zeroArg.zeroBinding :: List.map arrayArgs ~f:(fun arg -> arg.binding)
           |> Set.of_list (module Identifier)
         in
         let foldExtendedScope = Set.union scope foldBindings in
         let%map body = fuseLoops foldExtendedScope body in
-        Some (Fold { zeroArgs; arrayArgs; body; d; itemPad; cellShape; character; type' })
-      | Some
-          (Scatter
-            { valuesArg = _; indicesArg = _; dIn = _; dOut = _; cellShape = _; type' = _ })
-        as v -> return v
+        Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' })
+      | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
+        v -> return v
     in
     ConsumerBlock
       { frameShape
