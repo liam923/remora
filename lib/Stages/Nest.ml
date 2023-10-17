@@ -176,22 +176,27 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     let consumer =
       Reduce { arg; zero; body; d; itemPad; associative; character; type' }
     in
-    let%map mapArgs, mapBody, mapBodyMatcher =
+    let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap (Nested.Index.Add d) [ productionBinding, argValue ]
     in
-    TupleDeref
-      { tuple =
-          ConsumerBlock
-            { frameShape = Add d
-            ; mapArgs
-            ; mapIotas = []
-            ; mapBody
-            ; mapBodyMatcher
-            ; mapResults = []
-            ; consumer = Some consumer
-            ; type' = [ Tuple []; type' ]
+    Let
+      { args = letArgs
+      ; body =
+          TupleDeref
+            { tuple =
+                ConsumerBlock
+                  { frameShape = Add d
+                  ; mapArgs
+                  ; mapIotas = []
+                  ; mapBody
+                  ; mapBodyMatcher
+                  ; mapResults = []
+                  ; consumer = Some consumer
+                  ; type' = [ Tuple []; type' ]
+                  }
+            ; index = 1
+            ; type'
             }
-      ; index = 1
       ; type'
       }
   | ArrayPrimitive
@@ -214,22 +219,27 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     and body = nestArray body in
     let arrayBindings, arrayValues, arrayArgs = List.unzip3 arrays in
     let consumer = Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' } in
-    let%map mapArgs, mapBody, mapBodyMatcher =
+    let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap (Nested.Index.Add d) (List.zip_exn arrayBindings arrayValues)
     in
-    TupleDeref
-      { tuple =
-          ConsumerBlock
-            { frameShape = Add d
-            ; mapArgs
-            ; mapIotas = []
-            ; mapBody
-            ; mapBodyMatcher
-            ; mapResults = []
-            ; consumer = Some consumer
-            ; type' = [ Tuple []; type' ]
+    Let
+      { args = letArgs
+      ; body =
+          TupleDeref
+            { tuple =
+                ConsumerBlock
+                  { frameShape = Add d
+                  ; mapArgs
+                  ; mapIotas = []
+                  ; mapBody
+                  ; mapBodyMatcher
+                  ; mapResults = []
+                  ; consumer = Some consumer
+                  ; type' = [ Tuple []; type' ]
+                  }
+            ; index = 1
+            ; type'
             }
-      ; index = 1
       ; type'
       }
   | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape = _; type' }) ->
@@ -249,24 +259,29 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
         ; type'
         }
     in
-    let%map mapArgs, mapBody, mapBodyMatcher =
+    let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap
         (Typed.Index.Add dIn)
         [ valuesBinding, valuesArg; indicesBinding, indicesArg ]
     in
-    TupleDeref
-      { tuple =
-          ConsumerBlock
-            { frameShape = Add dIn
-            ; mapArgs
-            ; mapIotas = []
-            ; mapBody
-            ; mapBodyMatcher
-            ; mapResults = []
-            ; consumer = Some consumer
-            ; type' = [ Tuple []; type' ]
+    Let
+      { args = letArgs
+      ; body =
+          TupleDeref
+            { tuple =
+                ConsumerBlock
+                  { frameShape = Add dIn
+                  ; mapArgs
+                  ; mapIotas = []
+                  ; mapBody
+                  ; mapBodyMatcher
+                  ; mapResults = []
+                  ; consumer = Some consumer
+                  ; type' = [ Tuple []; type' ]
+                  }
+            ; index = 1
+            ; type'
             }
-      ; index = 1
       ; type'
       }
   | ArrayPrimitive (Append { arg1; arg2; d1 = _; d2 = _; cellShape = _; type' }) ->
@@ -303,7 +318,7 @@ and makeMap frameShape args =
   in
   let body = Values { elements; type' = List.map elements ~f:Nested.Expr.type' } in
   let matcher = Unpack (List.map args ~f:(fun (id, _) -> Binding id)) in
-  mapArgs, body, matcher
+  letArgs, mapArgs, body, matcher
 
 and nestAtom : Nucleus.Expr.atom -> (Nested.t, _) NestState.u =
   let open NestState.Let_syntax in

@@ -144,31 +144,31 @@ let%expect_test "check simplifying" =
     {|
     (ArrayPrimitive
      (Reduce
-      (args
-       (((firstBinding ((name reduce-arg1) (id 49)))
-         (secondBinding ((name reduce-arg2) (id 50)))
-         (value
-          (Frame
-           ((dimensions (5))
-            (elements
-             ((AtomAsArray
-               ((element (Literal (IntLiteral 1)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (AtomAsArray
-               ((element (Literal (IntLiteral 2)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (AtomAsArray
-               ((element (Literal (IntLiteral 3)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (AtomAsArray
-               ((element (Literal (IntLiteral 4)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))
-              (AtomAsArray
-               ((element (Literal (IntLiteral 5)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))))
-            (type'
-             ((element (Literal IntLiteral))
-              (shape ((Add ((const 5) (refs ())))))))))))))
+      (arg
+       ((firstBinding ((name reduce-arg1) (id 49)))
+        (secondBinding ((name reduce-arg2) (id 50)))
+        (value
+         (Frame
+          ((dimensions (5))
+           (elements
+            ((AtomAsArray
+              ((element (Literal (IntLiteral 1)))
+               (type' ((element (Literal IntLiteral)) (shape ())))))
+             (AtomAsArray
+              ((element (Literal (IntLiteral 2)))
+               (type' ((element (Literal IntLiteral)) (shape ())))))
+             (AtomAsArray
+              ((element (Literal (IntLiteral 3)))
+               (type' ((element (Literal IntLiteral)) (shape ())))))
+             (AtomAsArray
+              ((element (Literal (IntLiteral 4)))
+               (type' ((element (Literal IntLiteral)) (shape ())))))
+             (AtomAsArray
+              ((element (Literal (IntLiteral 5)))
+               (type' ((element (Literal IntLiteral)) (shape ())))))))
+           (type'
+            ((element (Literal IntLiteral))
+             (shape ((Add ((const 5) (refs ()))))))))))))
       (zero ())
       (body
        (AtomAsArray

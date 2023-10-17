@@ -537,7 +537,7 @@ let rec liftFrom
                           | Fold fold -> fold.type'
                           | Scatter scatter -> scatter.type')
                      }
-                 | None -> Values { elements = []; type' = [] })
+                 | None -> Expr.values [])
               ]
           ; type'
           } ))
@@ -747,7 +747,7 @@ type fusionOpportunity =
   ; addLifts : Expr.t -> Expr.t
   ; subForConsumerBlockInArgValue : Expr.t -> Expr.t
   ; consumerBlock : Expr.consumerBlock
-  ; mapValueLocationBuilder : mapValueLocation -> mapValueLocation
+  ; mapValueLocationBuilder : mapValueLocation -> mapValueLocation option
   }
 
 let rec fuseLoops (scope : Set.M(Identifier).t)
@@ -812,7 +812,9 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
             |> List.map ~f:(fun opp ->
               { opp with
                 mapValueLocationBuilder =
-                  (fun l -> mapValueLocationBuilder (opp.mapValueLocationBuilder l))
+                  (fun l ->
+                    let%bind.Option oppLocation = opp.mapValueLocationBuilder l in
+                    mapValueLocationBuilder oppLocation)
               })
           | IndexLet { indexArgs; body; type' = _ } ->
             opportunitiesInExpr env subBuilder mapValueLocationBuilder body
@@ -842,7 +844,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                            ; body
                            ; type'
                            }))
-                    (fun l -> l)
+                    (fun l -> Some l)
                     value
                 in
                 extendEnv
@@ -897,7 +899,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
               (fun v -> subBuilder (TupleDeref { tuple = v; index; type' }))
               (function
                | Value derefs -> mapValueLocationBuilder (Value (index :: derefs))
-               | Tuple elements -> List.nth_exn elements index |> Option.value_exn)
+               | Tuple elements -> List.nth_exn elements index)
               tuple
           | Frame _
           | BoxValue _
@@ -911,7 +913,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
         opportunitiesInExpr
           (Map.empty (module Identifier))
           (fun v -> v)
-          (fun l -> l)
+          (fun l -> Some l)
           value)
     in
     (* Try fusing at each fusion opportunity until one succeeds *)
@@ -924,201 +926,206 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
       ; mapValueLocationBuilder
       }
       =
-      let mapValueLocation = mapValueLocationBuilder (Value []) in
-      let%bind extraction, body =
-        liftFrom
-          consumerBlock
-          (Option.map consumerBlock.consumer ~f:ConsumerCompatibility.of_op)
-          (Set.remove bodyScope argBinding)
-          (Map.singleton (module Identifier) argBinding mapValueLocation)
-          body
-      in
-      match extraction with
+      match mapValueLocationBuilder (Value []) with
       | None -> return None
-      | Some
-          { captures = _
-          ; addLifts = addArcherLifts
-          ; liftedArgs
-          ; liftedIotas
-          ; liftedBody
-          ; liftedBodyMatcher
-          ; liftedResults
-          ; archerMapResultBinding
-          ; targetMapResultElementBinding
-          ; consumer = liftedConsumer
-          } ->
-        let argsMinusTarget, targetArg =
-          let rec loop seenArgsRev args =
-            match args with
-            | [] -> raise (Unreachable.Error "argBinding should be in args")
-            | (arg : Expr.letArg) :: rest ->
-              if Identifier.equal argBinding arg.binding
-              then List.rev seenArgsRev @ rest, arg
-              else loop (arg :: seenArgsRev) rest
-          in
-          loop [] args
+      | Some mapValueLocation ->
+        let%bind extraction, body =
+          liftFrom
+            consumerBlock
+            (Option.map consumerBlock.consumer ~f:ConsumerCompatibility.of_op)
+            (Set.remove bodyScope argBinding)
+            (Map.singleton (module Identifier) argBinding mapValueLocation)
+            body
         in
-        let%bind blockResultBinding = FuseState.createId "fused-block-result"
-        and targetMapResultBinding = FuseState.createId "fusion-target-map-result" in
-        let rec extractTypesFromTuple (matcher : Expr.tupleMatch) (tupleType : Type.t)
-          : Type.t Map.M(Identifier).t
-          =
-          match matcher with
-          | Binding id ->
-            Map.singleton
-              (module Identifier)
-              id
-              (Type.Array { element = tupleType; size = consumerBlock.frameShape })
-          | Unpack matchers ->
-            (match tupleType with
-             | Tuple tupleTypes ->
-               List.zip_exn matchers tupleTypes
-               |> List.fold
-                    ~init:(Map.empty (module Identifier))
-                    ~f:(fun acc (matcher, tupleType) ->
-                      Map.merge_skewed
-                        acc
-                        (extractTypesFromTuple matcher tupleType)
-                        ~combine:(fun ~key:_ a _ -> a))
-             | _ -> raise (Unreachable.Error "expected tuple type"))
-        in
-        let mapBodyMatcher = Unpack [ consumerBlock.mapBodyMatcher; liftedBodyMatcher ] in
-        let mergedBodyType : Type.tuple =
-          [ Tuple consumerBlock.type'; Expr.type' liftedBody ]
-        in
-        let mergedResults = consumerBlock.mapResults @ liftedResults in
-        let resultBindingTypes =
-          extractTypesFromTuple mapBodyMatcher (Tuple mergedBodyType)
-        in
-        let%map mergedConsumer =
-          mergeConsumers
-            ~target:consumerBlock.consumer
-            ~archer:(Option.map liftedConsumer ~f:(fun c -> c.op))
-        in
-        let blockType : Type.tuple =
-          [ Tuple (List.map mergedResults ~f:(Map.find_exn resultBindingTypes))
-          ; (match mergedConsumer.mergedOp with
-             | None -> Tuple []
-             | Some consumer -> Expr.consumerOpType consumer)
-          ]
-        in
-        (*
-           1. declare variables captured
-           2. declare things from addLifts
-           3. run the consumer block
-           4. declare variables that hold the results
-           5. run the body (the one returned by liftFrom)
-        *)
-        Some
-          (* Declare all args that don't contain the consumer block first to
-             guarantee that captured variables are available *)
-          (Expr.let'
-             ~args:argsMinusTarget
-             ~body:
-               ((* lift any variables that need to be declared *)
-                addTargetLifts
-                  (addArcherLifts
-                     (* Bind the result of the merged consumer blocks to a variable *)
-                     (Expr.let'
-                        ~args:
-                          [ { binding = blockResultBinding
-                            ; value =
-                                (* Create the merged consumer block *)
-                                ConsumerBlock
-                                  { frameShape = consumerBlock.frameShape
-                                  ; mapArgs = consumerBlock.mapArgs @ liftedArgs
-                                  ; mapIotas = consumerBlock.mapIotas @ liftedIotas
-                                  ; mapBody =
-                                      Expr.let'
-                                        ~args:
-                                          [ { binding = targetMapResultElementBinding
-                                            ; value = consumerBlock.mapBody
-                                            }
-                                          ]
-                                        ~body:
-                                          (Expr.values
-                                             [ Ref
-                                                 { id = targetMapResultElementBinding
-                                                 ; type' = Tuple consumerBlock.type'
-                                                 }
-                                             ; liftedBody
-                                             ])
-                                  ; mapBodyMatcher
-                                  ; mapResults = mergedResults
-                                  ; consumer = mergedConsumer.mergedOp
-                                  ; type' = blockType
-                                  }
-                            }
-                          ]
-                        ~body:
-                          ((* Move the results of the consumer blocks into the right
-                              places, and then proceed with the regular body *)
-                           let blockResult =
-                             Ref { id = blockResultBinding; type' = Tuple blockType }
-                           in
-                           Expr.let'
-                             ~args:
-                               ([ { binding = targetMapResultBinding
-                                  ; value =
-                                      Expr.values
-                                        (List.mapi
-                                           consumerBlock.mapResults
-                                           ~f:(fun index _ ->
-                                             Expr.tupleDeref
-                                               ~tuple:
-                                                 (Expr.tupleDeref
-                                                    ~tuple:blockResult
-                                                    ~index:0)
-                                               ~index))
-                                  }
-                                ; { binding = archerMapResultBinding
-                                  ; value =
-                                      (let indexOffset =
-                                         List.length consumerBlock.mapResults
-                                       in
-                                       Expr.values
-                                         (List.mapi liftedResults ~f:(fun index _ ->
-                                            Expr.tupleDeref
-                                              ~tuple:
-                                                (Expr.tupleDeref
-                                                   ~tuple:blockResult
-                                                   ~index:0)
-                                              ~index:(index + indexOffset))))
-                                  }
-                                ]
-                                @ (liftedConsumer
-                                   |> Option.map ~f:(fun { op = _; consumerBinding } ->
-                                     { binding = consumerBinding
+        (match extraction with
+         | None -> return None
+         | Some
+             { captures = _
+             ; addLifts = addArcherLifts
+             ; liftedArgs
+             ; liftedIotas
+             ; liftedBody
+             ; liftedBodyMatcher
+             ; liftedResults
+             ; archerMapResultBinding
+             ; targetMapResultElementBinding
+             ; consumer = liftedConsumer
+             } ->
+           let argsMinusTarget, targetArg =
+             let rec loop seenArgsRev args =
+               match args with
+               | [] -> raise (Unreachable.Error "argBinding should be in args")
+               | (arg : Expr.letArg) :: rest ->
+                 if Identifier.equal argBinding arg.binding
+                 then List.rev seenArgsRev @ rest, arg
+                 else loop (arg :: seenArgsRev) rest
+             in
+             loop [] args
+           in
+           let%bind blockResultBinding = FuseState.createId "fused-block-result"
+           and targetMapResultBinding = FuseState.createId "fusion-target-map-result" in
+           let rec extractTypesFromTuple (matcher : Expr.tupleMatch) (tupleType : Type.t)
+             : Type.t Map.M(Identifier).t
+             =
+             match matcher with
+             | Binding id ->
+               Map.singleton
+                 (module Identifier)
+                 id
+                 (Type.Array { element = tupleType; size = consumerBlock.frameShape })
+             | Unpack matchers ->
+               (match tupleType with
+                | Tuple tupleTypes ->
+                  List.zip_exn matchers tupleTypes
+                  |> List.fold
+                       ~init:(Map.empty (module Identifier))
+                       ~f:(fun acc (matcher, tupleType) ->
+                         Map.merge_skewed
+                           acc
+                           (extractTypesFromTuple matcher tupleType)
+                           ~combine:(fun ~key:_ a _ -> a))
+                | _ -> raise (Unreachable.Error "expected tuple type"))
+           in
+           let mapBodyMatcher =
+             Unpack [ consumerBlock.mapBodyMatcher; liftedBodyMatcher ]
+           in
+           let mergedBodyType : Type.tuple =
+             [ Expr.type' consumerBlock.mapBody; Expr.type' liftedBody ]
+           in
+           let mergedResults = consumerBlock.mapResults @ liftedResults in
+           let resultBindingTypes =
+             extractTypesFromTuple mapBodyMatcher (Tuple mergedBodyType)
+           in
+           let%map mergedConsumer =
+             mergeConsumers
+               ~target:consumerBlock.consumer
+               ~archer:(Option.map liftedConsumer ~f:(fun c -> c.op))
+           in
+           let blockType : Type.tuple =
+             [ Tuple (List.map mergedResults ~f:(Map.find_exn resultBindingTypes))
+             ; (match mergedConsumer.mergedOp with
+                | None -> Tuple []
+                | Some consumer -> Expr.consumerOpType consumer)
+             ]
+           in
+           (*
+              1. declare variables captured
+              2. declare things from addLifts
+              3. run the consumer block
+              4. declare variables that hold the results
+              5. run the body (the one returned by liftFrom)
+           *)
+           Some
+             (* Declare all args that don't contain the consumer block first to
+                guarantee that captured variables are available *)
+             (Expr.let'
+                ~args:argsMinusTarget
+                ~body:
+                  ((* lift any variables that need to be declared *)
+                   addTargetLifts
+                     (addArcherLifts
+                        (* Bind the result of the merged consumer blocks to a variable *)
+                        (Expr.let'
+                           ~args:
+                             [ { binding = blockResultBinding
+                               ; value =
+                                   (* Create the merged consumer block *)
+                                   ConsumerBlock
+                                     { frameShape = consumerBlock.frameShape
+                                     ; mapArgs = consumerBlock.mapArgs @ liftedArgs
+                                     ; mapIotas = consumerBlock.mapIotas @ liftedIotas
+                                     ; mapBody =
+                                         Expr.let'
+                                           ~args:
+                                             [ { binding = targetMapResultElementBinding
+                                               ; value = consumerBlock.mapBody
+                                               }
+                                             ]
+                                           ~body:
+                                             (Expr.values
+                                                [ Ref
+                                                    { id = targetMapResultElementBinding
+                                                    ; type' =
+                                                        Expr.type' consumerBlock.mapBody
+                                                    }
+                                                ; liftedBody
+                                                ])
+                                     ; mapBodyMatcher
+                                     ; mapResults = mergedResults
+                                     ; consumer = mergedConsumer.mergedOp
+                                     ; type' = blockType
+                                     }
+                               }
+                             ]
+                           ~body:
+                             ((* Move the results of the consumer blocks into the right
+                                 places, and then proceed with the regular body *)
+                              let blockResult =
+                                Ref { id = blockResultBinding; type' = Tuple blockType }
+                              in
+                              Expr.let'
+                                ~args:
+                                  ([ { binding = targetMapResultBinding
                                      ; value =
-                                         mergedConsumer
-                                           .getTargetConsumerResultFromBlockResult
-                                           blockResult
-                                     })
-                                   |> Option.to_list))
-                             ~body:
-                               (Expr.let'
-                                  ~args:
-                                    [ { binding = targetArg.binding
-                                      ; value =
-                                          subForConsumerBlockInArgValue
-                                            (Expr.values
-                                               [ Ref
-                                                   { id = targetMapResultBinding
-                                                   ; type' =
-                                                       Tuple
-                                                         (List.map
-                                                            consumerBlock.mapResults
-                                                            ~f:
-                                                              (Map.find_exn
-                                                                 resultBindingTypes))
-                                                   }
-                                               ; mergedConsumer
-                                                   .getArcherConsumerResultFromBlockResult
-                                                   blockResult
-                                               ])
-                                      }
-                                    ]
-                                  ~body))))))
+                                         Expr.values
+                                           (List.mapi
+                                              consumerBlock.mapResults
+                                              ~f:(fun index _ ->
+                                                Expr.tupleDeref
+                                                  ~tuple:
+                                                    (Expr.tupleDeref
+                                                       ~tuple:blockResult
+                                                       ~index:0)
+                                                  ~index))
+                                     }
+                                   ; { binding = archerMapResultBinding
+                                     ; value =
+                                         (let indexOffset =
+                                            List.length consumerBlock.mapResults
+                                          in
+                                          Expr.values
+                                            (List.mapi liftedResults ~f:(fun index _ ->
+                                               Expr.tupleDeref
+                                                 ~tuple:
+                                                   (Expr.tupleDeref
+                                                      ~tuple:blockResult
+                                                      ~index:0)
+                                                 ~index:(index + indexOffset))))
+                                     }
+                                   ]
+                                   @ (liftedConsumer
+                                      |> Option.map ~f:(fun { op = _; consumerBinding } ->
+                                        { binding = consumerBinding
+                                        ; value =
+                                            mergedConsumer
+                                              .getArcherConsumerResultFromBlockResult
+                                              blockResult
+                                        })
+                                      |> Option.to_list))
+                                ~body:
+                                  (Expr.let'
+                                     ~args:
+                                       [ { binding = targetArg.binding
+                                         ; value =
+                                             subForConsumerBlockInArgValue
+                                               (Expr.values
+                                                  [ Ref
+                                                      { id = targetMapResultBinding
+                                                      ; type' =
+                                                          Tuple
+                                                            (List.map
+                                                               consumerBlock.mapResults
+                                                               ~f:
+                                                                 (Map.find_exn
+                                                                    resultBindingTypes))
+                                                      }
+                                                  ; mergedConsumer
+                                                      .getTargetConsumerResultFromBlockResult
+                                                      blockResult
+                                                  ])
+                                         }
+                                       ]
+                                     ~body)))))))
     in
     (* tryFusingList attempts fusion opportunities until one succeeds
        and gives up if none do *)

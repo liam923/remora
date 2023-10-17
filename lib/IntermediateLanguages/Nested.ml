@@ -33,7 +33,7 @@ end
 module Expr = struct
   type ref =
     { id : Identifier.t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
   [@@deriving sexp_of]
 
@@ -54,12 +54,12 @@ module Expr = struct
   type frame =
     { dimensions : int list
     ; elements : t list
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and boxValue =
     { box : t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and indexValue =
@@ -78,12 +78,12 @@ module Expr = struct
   and indexLet =
     { indexArgs : indexArg list
     ; body : t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and reifyIndex =
     { index : Index.t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and letArg =
@@ -94,14 +94,14 @@ module Expr = struct
   and let' =
     { args : letArg list
     ; body : t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and box =
     { indices : Index.t list
     ; body : t
     ; bodyType : Type.t
-    ; type' : Type.sigma
+    ; type' : Type.sigma [@sexp_drop_if fun _ -> true]
     }
 
   and scalarOp = Nucleus.Expr.scalarOp
@@ -109,7 +109,7 @@ module Expr = struct
   and scalarPrimitive =
     { op : scalarOp
     ; args : t list
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and tupleMatch =
@@ -135,7 +135,7 @@ module Expr = struct
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
     ; consumer : consumerOp option
-    ; type' : Type.tuple
+    ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
   and foldZeroArg =
@@ -145,7 +145,7 @@ module Expr = struct
 
   and production =
     { productionId : Identifier.t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and foldArrayArg =
@@ -156,7 +156,7 @@ module Expr = struct
   and productionTuple =
     | ProductionTuple of
         { elements : productionTuple list
-        ; type' : Type.t
+        ; type' : Type.t [@sexp_drop_if fun _ -> true]
         }
     | ProductionTupleAtom of production
 
@@ -175,7 +175,7 @@ module Expr = struct
         ; itemPad : Index.shape
         ; associative : bool
         ; character : reduceCharacter
-        ; type' : Type.t
+        ; type' : Type.t [@sexp_drop_if fun _ -> true]
         }
     | Fold of
         { zeroArg : foldZeroArg
@@ -184,25 +184,25 @@ module Expr = struct
         ; d : Index.dimension
         ; itemPad : Index.shape
         ; character : foldCharacter
-        ; type' : Type.t
+        ; type' : Type.t [@sexp_drop_if fun _ -> true]
         }
     | Scatter of
         { valuesArg : production
         ; indicesArg : production
         ; dIn : Index.dimension
         ; dOut : Index.dimension
-        ; type' : Type.t
+        ; type' : Type.t [@sexp_drop_if fun _ -> true]
         }
 
   and values =
     { elements : t list
-    ; type' : Type.tuple
+    ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
     }
 
   and tupleDeref =
     { index : int
     ; tuple : t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and literal = Nucleus.Expr.literal
@@ -210,12 +210,12 @@ module Expr = struct
   and subArray =
     { arrayArg : t
     ; indexArg : t
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and append =
     { args : t list
-    ; type' : Type.t
+    ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
 
   and t =

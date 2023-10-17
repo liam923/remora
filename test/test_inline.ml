@@ -368,15 +368,15 @@ let%expect_test "check inlining" =
       (body
        (ArrayPrimitive
         (Reduce
-         (args
-          (((firstBinding ((name reduce-arg1) (id 49)))
-            (secondBinding ((name reduce-arg2) (id 50)))
-            (value
-             (Ref
-              ((id ((name reduce-array-arg) (id 48)))
-               (type'
-                ((element (Literal IntLiteral))
-                 (shape ((Add ((const 5) (refs ())))))))))))))
+         (arg
+          ((firstBinding ((name reduce-arg1) (id 49)))
+           (secondBinding ((name reduce-arg2) (id 50)))
+           (value
+            (Ref
+             ((id ((name reduce-array-arg) (id 48)))
+              (type'
+               ((element (Literal IntLiteral))
+                (shape ((Add ((const 5) (refs ()))))))))))))
          (zero ())
          (body
           (AtomAsArray
@@ -658,15 +658,15 @@ let%expect_test "check inlining" =
          (body
           (ArrayPrimitive
            (Reduce
-            (args
-             (((firstBinding ((name reduce-arg1) (id 59)))
-               (secondBinding ((name reduce-arg2) (id 60)))
-               (value
-                (Ref
-                 ((id ((name reduce-array-arg) (id 58)))
-                  (type'
-                   ((element (Literal IntLiteral))
-                    (shape ((Add ((const 3) (refs ())))))))))))))
+            (arg
+             ((firstBinding ((name reduce-arg1) (id 59)))
+              (secondBinding ((name reduce-arg2) (id 60)))
+              (value
+               (Ref
+                ((id ((name reduce-array-arg) (id 58)))
+                 (type'
+                  ((element (Literal IntLiteral))
+                   (shape ((Add ((const 3) (refs ()))))))))))))
             (zero ())
             (body
              (Ref
@@ -728,14 +728,14 @@ let%expect_test "check inlining" =
          (body
           (ArrayPrimitive
            (Reduce
-            (args
-             (((firstBinding ((name reduce-arg1) (id 59)))
-               (secondBinding ((name reduce-arg2) (id 60)))
-               (value
-                (Ref
-                 ((id ((name reduce-array-arg) (id 58)))
-                  (type'
-                   ((element (Tuple ())) (shape ((Add ((const 3) (refs ())))))))))))))
+            (arg
+             ((firstBinding ((name reduce-arg1) (id 59)))
+              (secondBinding ((name reduce-arg2) (id 60)))
+              (value
+               (Ref
+                ((id ((name reduce-array-arg) (id 58)))
+                 (type'
+                  ((element (Tuple ())) (shape ((Add ((const 3) (refs ()))))))))))))
             (zero ())
             (body
              (Ref
@@ -797,14 +797,14 @@ let%expect_test "check inlining" =
          (body
           (ArrayPrimitive
            (Reduce
-            (args
-             (((firstBinding ((name reduce-arg1) (id 59)))
-               (secondBinding ((name reduce-arg2) (id 60)))
-               (value
-                (Ref
-                 ((id ((name reduce-array-arg) (id 58)))
-                  (type'
-                   ((element (Tuple ())) (shape ((Add ((const 3) (refs ())))))))))))))
+            (arg
+             ((firstBinding ((name reduce-arg1) (id 59)))
+              (secondBinding ((name reduce-arg2) (id 60)))
+              (value
+               (Ref
+                ((id ((name reduce-array-arg) (id 58)))
+                 (type'
+                  ((element (Tuple ())) (shape ((Add ((const 3) (refs ()))))))))))))
             (zero ())
             (body
              (Ref
@@ -851,15 +851,15 @@ let%expect_test "check inlining" =
       (body
        (ArrayPrimitive
         (Reduce
-         (args
-          (((firstBinding ((name reduce-arg1) (id 49)))
-            (secondBinding ((name reduce-arg2) (id 50)))
-            (value
-             (Ref
-              ((id ((name reduce-array-arg) (id 48)))
-               (type'
-                ((element (Literal IntLiteral))
-                 (shape ((Add ((const 3) (refs ())))))))))))))
+         (arg
+          ((firstBinding ((name reduce-arg1) (id 49)))
+           (secondBinding ((name reduce-arg2) (id 50)))
+           (value
+            (Ref
+             ((id ((name reduce-array-arg) (id 48)))
+              (type'
+               ((element (Literal IntLiteral))
+                (shape ((Add ((const 3) (refs ()))))))))))))
          (zero ())
          (body
           (AtomAsArray
@@ -931,12 +931,12 @@ let%expect_test "check inlining" =
       (body
        (ArrayPrimitive
         (Fold
-         (zeroArgs
-          (((binding ((name fold-zero-arg) (id 50)))
-            (value
-             (Ref
-              ((id ((name fold-zero-arg) (id 49)))
-               (type' ((element (Literal IntLiteral)) (shape ())))))))))
+         (zeroArg
+          ((binding ((name fold-zero-arg) (id 50)))
+           (value
+            (Ref
+             ((id ((name fold-zero-arg) (id 49)))
+              (type' ((element (Literal IntLiteral)) (shape ()))))))))
          (arrayArgs
           (((binding ((name fold-array-arg) (id 52)))
             (value
@@ -1008,12 +1008,12 @@ let%expect_test "check inlining" =
          (body
           (ArrayPrimitive
            (Fold
-            (zeroArgs
-             (((binding ((name fold-zero-arg) (id 59)))
-               (value
-                (Ref
-                 ((id ((name fold-zero-arg) (id 58)))
-                  (type' ((element (Literal IntLiteral)) (shape ())))))))))
+            (zeroArg
+             ((binding ((name fold-zero-arg) (id 59)))
+              (value
+               (Ref
+                ((id ((name fold-zero-arg) (id 58)))
+                 (type' ((element (Literal IntLiteral)) (shape ()))))))))
             (arrayArgs ())
             (body
              (Ref
@@ -1104,12 +1104,12 @@ let%expect_test "check inlining" =
          (body
           (ArrayPrimitive
            (Fold
-            (zeroArgs
-             (((binding ((name fold-zero-arg) (id 74)))
-               (value
-                (Ref
-                 ((id ((name fold-zero-arg) (id 73)))
-                  (type' ((element (Literal IntLiteral)) (shape ())))))))))
+            (zeroArg
+             ((binding ((name fold-zero-arg) (id 74)))
+              (value
+               (Ref
+                ((id ((name fold-zero-arg) (id 73)))
+                 (type' ((element (Literal IntLiteral)) (shape ()))))))))
             (arrayArgs
              (((binding ((name fold-array-arg) (id 65)))
                (value
@@ -1270,15 +1270,15 @@ let%expect_test "check inlining" =
       (body
        (ArrayPrimitive
         (Reduce
-         (args
-          (((firstBinding ((name reduce-arg1) (id 49)))
-            (secondBinding ((name reduce-arg2) (id 50)))
-            (value
-             (Ref
-              ((id ((name reduce-array-arg) (id 48)))
-               (type'
-                ((element (Literal IntLiteral))
-                 (shape ((Add ((const 3) (refs ())))))))))))))
+         (arg
+          ((firstBinding ((name reduce-arg1) (id 49)))
+           (secondBinding ((name reduce-arg2) (id 50)))
+           (value
+            (Ref
+             ((id ((name reduce-array-arg) (id 48)))
+              (type'
+               ((element (Literal IntLiteral))
+                (shape ((Add ((const 3) (refs ()))))))))))))
          (zero ())
          (body
           (AtomAsArray
