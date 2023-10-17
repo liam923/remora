@@ -21,6 +21,7 @@ module Make (SB : Source.BuilderT) = struct
       @> (module Simplify.Stage (SB))
       @> (module Nest.Stage (SB))
       @> (module Fuse.Stage (SB))
+      @> (module SimplifyNested.Stage (SB))
       @> (module Show.Stage (Nested) (SB))
       @> empty)
   ;;

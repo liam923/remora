@@ -98,7 +98,7 @@ and getUsesInTuple elements =
 
 let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
   | Ref { id; type' } -> Set.add (getUsesInType type') id
-  | Frame { dimensions = _; elements; type' } ->
+  | Frame { dimension = _; elements; type' } ->
     Set.union
       (elements |> List.map ~f:getUsesInExpr |> Set.union_list (module Identifier))
       (getUsesInType type')
@@ -320,11 +320,11 @@ let rec liftFrom
     extraction, List.rev revList
   in
   function
-  | Frame { dimensions; elements; type' } ->
+  | Frame { dimension; elements; type' } ->
     let%map extraction, elements =
       liftFromList elements ~f:(liftFrom target targetConsumer capturables mapRefs)
     in
-    extraction, Frame { dimensions; elements; type' }
+    extraction, Frame { dimension; elements; type' }
   | BoxValue { box; type' } ->
     let%map extraction, box = liftFrom target targetConsumer capturables mapRefs box in
     extraction, BoxValue { box; type' }
@@ -757,9 +757,9 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
   let open Expr in
   function
   | Ref { id = _; type' = _ } as expr -> return expr
-  | Frame { dimensions; elements; type' } ->
+  | Frame { dimension; elements; type' } ->
     let%map elements = elements |> List.map ~f:(fuseLoops scope) |> FuseState.all in
-    Frame { dimensions; elements; type' }
+    Frame { dimension; elements; type' }
   | BoxValue { box; type' } ->
     let%map box = fuseLoops scope box in
     BoxValue { box; type' }

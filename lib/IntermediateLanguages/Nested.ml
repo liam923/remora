@@ -27,7 +27,7 @@ module Type = struct
     | Sigma of sigma
     | Literal of literal
     | Tuple of tuple
-  [@@deriving sexp_of]
+  [@@deriving sexp_of, equal]
 end
 
 module Expr = struct
@@ -35,7 +35,7 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
-  [@@deriving sexp_of]
+  [@@deriving sexp_of, equal]
 
   type reduceCharacter =
     [ `Reduce
@@ -52,7 +52,7 @@ module Expr = struct
   [@@deriving sexp_of, equal]
 
   type frame =
-    { dimensions : int list
+    { dimension : int
     ; elements : t list
     ; type' : Type.t [@sexp_drop_if fun _ -> true]
     }
@@ -233,7 +233,7 @@ module Expr = struct
     | TupleDeref of tupleDeref
     | SubArray of subArray
     | Append of append
-  [@@deriving sexp_of]
+  [@@deriving sexp_of, equal]
 
   let type' : t -> Type.t = function
     | Box box -> Sigma box.type'

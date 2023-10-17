@@ -47,7 +47,26 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
   | Ref { id; type' } -> return (Ref { id; type' = nestTypeArray type' })
   | Frame { dimensions; elements; type' } ->
     let%map elements = elements |> List.map ~f:nestArray |> NestState.all in
-    Frame { dimensions; elements; type' = nestTypeArray type' }
+    let rec nest type' dimensions elements =
+      match dimensions with
+      | dimension :: restDims ->
+        let groupSize = List.length elements / dimension in
+        let groups =
+          if List.length elements > 0
+          then List.groupi elements ~break:(fun i _ _ -> i % groupSize = 0)
+          else List.init dimension ~f:(fun _ -> [])
+        in
+        let innerType =
+          elementOfArrayType (Add (Nested.Index.dimensionConstant dimension)) type'
+        in
+        Frame
+          { dimension; elements = List.map groups ~f:(nest innerType restDims); type' }
+      | [] ->
+        (match elements with
+         | [ element ] -> element
+         | _ -> raise (Unreachable.Error "expected single element"))
+    in
+    nest (nestTypeArray type') dimensions elements
   | AtomAsArray { element; type' = _ } -> nestAtom element
   | BoxValue { box; type' } ->
     let%map box = nestArray box in
