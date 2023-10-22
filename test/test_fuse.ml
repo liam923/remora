@@ -19,269 +19,60 @@ let%expect_test "check fusing" =
   fuseAndPrint "(+ [1 2 3] (+ [4 5 6] [7 8 9]))";
   [%expect
     {|
-    (Let
-     ((args
-       (((binding ((name +arg1) (id 61)))
-         (value
-          (Frame
-           ((dimension 3)
-            (elements
-             ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
-              (Literal (IntLiteral 3))))))))))
-      (body
-       (Let
-        ((args
-          (((binding ((name +arg1) (id 62)))
-            (value
-             (Frame
-              ((dimension 3)
-               (elements
-                ((Literal (IntLiteral 4)) (Literal (IntLiteral 5))
-                 (Literal (IntLiteral 6))))))))
-           ((binding ((name +arg2) (id 63)))
-            (value
-             (Frame
-              ((dimension 3)
-               (elements
-                ((Literal (IntLiteral 7)) (Literal (IntLiteral 8))
-                 (Literal (IntLiteral 9))))))))))
-         (body
-          (TupleDeref
-           ((index 1)
-            (tuple
-             (TupleDeref
-              ((index 0)
-               (tuple
-                (ConsumerBlock
-                 ((frameShape (Add ((const 3) (refs ()))))
-                  (mapArgs
-                   (((binding ((name +arg1) (id 65)))
-                     (ref ((id ((name +arg1) (id 62))))))
-                    ((binding ((name +arg2) (id 66)))
-                     (ref ((id ((name +arg2) (id 63))))))
-                    ((binding ((name +arg1) (id 69)))
-                     (ref ((id ((name +arg1) (id 61))))))))
-                  (mapIotas ())
-                  (mapBody
-                   (Let
-                    ((args
-                      (((binding ((name fusion-target-map-result) (id 72)))
-                        (value
-                         (ScalarPrimitive
-                          ((op Add)
-                           (args
-                            ((Ref ((id ((name +arg1) (id 65)))))
-                             (Ref ((id ((name +arg2) (id 66)))))))))))))
-                     (body
-                      (Values
-                       ((elements
-                         ((Ref ((id ((name fusion-target-map-result) (id 72)))))
-                          (ScalarPrimitive
-                           ((op Add)
-                            (args
-                             ((Ref ((id ((name +arg1) (id 69)))))
-                              (Ref
-                               ((id ((name fusion-target-map-result) (id 72)))))))))))))))))
-                  (mapBodyMatcher
-                   (Unpack
-                    ((Binding ((name map-result) (id 64)))
-                     (Binding ((name map-result) (id 68))))))
-                  (mapResults
-                   (((name map-result) (id 64)) ((name map-result) (id 68))))
-                  (consumer ()))))))))))))))) |}];
+    (let ((+arg1.61 (frame 1 2 3)))
+     (let ((+arg1.62 (frame 4 5 6)) (+arg2.63 (frame 7 8 9)))
+      (#1
+       (#0
+        (consumer-block (frame-shape 3)
+         (map ((+arg1.65 +arg1.62) (+arg2.66 +arg2.63) (+arg1.69 +arg1.61))
+          (let ((fusion-target-map-result.72 (+ +arg1.65 +arg2.66)))
+           (values fusion-target-map-result.72
+            (+ +arg1.69 fusion-target-map-result.72))))
+         (body-matcher (map-result.64 map-result.68))
+         (map-result (map-result.64 map-result.68)) (consumer (values))))))) |}];
   fuseAndPrint {|
     (define x (+ 1 [1 2 3]))
     (+ (+ x [4 5 6]) (+ x [7 8 9]))
   |};
   [%expect
     {|
-    (Let
-     ((args
-       (((binding ((name +arg2) (id 81)))
-         (value
-          (Frame
-           ((dimension 3)
-            (elements
-             ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
-              (Literal (IntLiteral 3))))))))))
-      (body
-       (Let
-        ((args
-          (((binding ((name +arg2) (id 92)))
-            (value
-             (Frame
-              ((dimension 3)
-               (elements
-                ((Literal (IntLiteral 7)) (Literal (IntLiteral 8))
-                 (Literal (IntLiteral 9))))))))))
-         (body
-          (Let
-           ((args
-             (((binding ((name +arg2) (id 86)))
-               (value
-                (Frame
-                 ((dimension 3)
-                  (elements
-                   ((Literal (IntLiteral 4)) (Literal (IntLiteral 5))
-                    (Literal (IntLiteral 6))))))))))
-            (body
-             (TupleDeref
-              ((index 3)
-               (tuple
-                (TupleDeref
-                 ((index 0)
-                  (tuple
-                   (ConsumerBlock
-                    ((frameShape (Add ((const 3) (refs ()))))
-                     (mapArgs
-                      (((binding ((name +arg2) (id 83)))
-                        (ref ((id ((name +arg2) (id 81))))))
-                       ((binding ((name +arg2) (id 95)))
-                        (ref ((id ((name +arg2) (id 92))))))
-                       ((binding ((name +arg2) (id 89)))
-                        (ref ((id ((name +arg2) (id 86))))))))
-                     (mapIotas ())
-                     (mapBody
-                      (Let
-                       ((args
-                         (((binding ((name fusion-target-map-result) (id 109)))
-                           (value
-                            (ScalarPrimitive
-                             ((op Add)
-                              (args
-                               ((Literal (IntLiteral 1))
-                                (Ref ((id ((name +arg2) (id 83)))))))))))))
-                        (body
-                         (Values
-                          ((elements
-                            ((Ref
-                              ((id ((name fusion-target-map-result) (id 109)))))
-                             (Let
-                              ((args
-                                (((binding
-                                   ((name fusion-target-map-result) (id 105)))
-                                  (value
-                                   (ScalarPrimitive
-                                    ((op Add)
-                                     (args
-                                      ((Ref
-                                        ((id
-                                          ((name fusion-target-map-result)
-                                           (id 109)))))
-                                       (Ref ((id ((name +arg2) (id 95)))))))))))))
-                               (body
-                                (Values
-                                 ((elements
-                                   ((Ref
-                                     ((id
-                                       ((name fusion-target-map-result) (id 105)))))
-                                    (Let
-                                     ((args
-                                       (((binding
-                                          ((name fusion-target-map-result)
-                                           (id 101)))
-                                         (value
-                                          (ScalarPrimitive
-                                           ((op Add)
-                                            (args
-                                             ((Ref
-                                               ((id
-                                                 ((name fusion-target-map-result)
-                                                  (id 109)))))
-                                              (Ref ((id ((name +arg2) (id 89)))))))))))))
-                                      (body
-                                       (Values
-                                        ((elements
-                                          ((Ref
-                                            ((id
-                                              ((name fusion-target-map-result)
-                                               (id 101)))))
-                                           (ScalarPrimitive
-                                            ((op Add)
-                                             (args
-                                              ((Ref
-                                                ((id
-                                                  ((name
-                                                    fusion-target-map-result)
-                                                   (id 101)))))
-                                               (Ref
-                                                ((id
-                                                  ((name
-                                                    fusion-target-map-result)
-                                                   (id 105)))))))))))))))))))))))))))))))
-                     (mapBodyMatcher
-                      (Unpack
-                       ((Binding ((name map-result) (id 82)))
-                        (Unpack
-                         ((Binding ((name map-result) (id 93)))
-                          (Unpack
-                           ((Binding ((name map-result) (id 87)))
-                            (Binding ((name map-result) (id 97))))))))))
-                     (mapResults
-                      (((name map-result) (id 82)) ((name map-result) (id 93))
-                       ((name map-result) (id 87)) ((name map-result) (id 97))))
-                     (consumer ())))))))))))))))))) |}];
+    (let ((+arg2.81 (frame 1 2 3)))
+     (let ((+arg2.92 (frame 7 8 9)))
+      (let ((+arg2.86 (frame 4 5 6)))
+       (#3
+        (#0
+         (consumer-block (frame-shape 3)
+          (map ((+arg2.83 +arg2.81) (+arg2.95 +arg2.92) (+arg2.89 +arg2.86))
+           (let ((fusion-target-map-result.109 (+ 1 +arg2.83)))
+            (values fusion-target-map-result.109
+             (let
+              ((fusion-target-map-result.105
+                (+ fusion-target-map-result.109 +arg2.95)))
+              (values fusion-target-map-result.105
+               (let
+                ((fusion-target-map-result.101
+                  (+ fusion-target-map-result.109 +arg2.89)))
+                (values fusion-target-map-result.101
+                 (+ fusion-target-map-result.101 fusion-target-map-result.105))))))))
+          (body-matcher
+           (map-result.82 (map-result.93 (map-result.87 map-result.97))))
+          (map-result (map-result.82 map-result.93 map-result.87 map-result.97))
+          (consumer (values)))))))) |}];
   fuseAndPrint "(reduce{int | 2 [] []} + (+ 1 [1 2 3]))";
   [%expect
     {|
-    (Let
-     ((args
-       (((binding ((name +arg2) (id 60)))
-         (value
-          (Frame
-           ((dimension 3)
-            (elements
-             ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
-              (Literal (IntLiteral 3))))))))))
-      (body
-       (TupleDeref
-        ((index 1)
-         (tuple
-          (ConsumerBlock
-           ((frameShape (Add ((const 3) (refs ()))))
-            (mapArgs
-             (((binding ((name +arg2) (id 62)))
-               (ref ((id ((name +arg2) (id 60))))))))
-            (mapIotas ())
-            (mapBody
-             (Let
-              ((args
-                (((binding ((name fusion-target-map-result) (id 66)))
-                  (value
-                   (ScalarPrimitive
-                    ((op Add)
-                     (args
-                      ((Literal (IntLiteral 1))
-                       (Ref ((id ((name +arg2) (id 62)))))))))))))
-               (body
-                (Values
-                 ((elements
-                   ((Ref ((id ((name fusion-target-map-result) (id 66)))))
-                    (Values
-                     ((elements
-                       ((Ref ((id ((name fusion-target-map-result) (id 66)))))))))))))))))
-            (mapBodyMatcher
-             (Unpack
-              ((Binding ((name map-result) (id 61)))
-               (Unpack ((Binding ((name reduce-arg) (id 59))))))))
-            (mapResults (((name map-result) (id 61))))
-            (consumer
-             ((Reduce
-               (arg
-                ((firstBinding ((name reduce-arg1) (id 57)))
-                 (secondBinding ((name reduce-arg2) (id 58)))
-                 (production
-                  (ProductionTupleAtom
-                   ((productionId ((name reduce-arg) (id 59))))))))
-               (zero ())
-               (body
-                (ScalarPrimitive
-                 ((op Add)
-                  (args
-                   ((Ref ((id ((name reduce-arg1) (id 57)))))
-                    (Ref ((id ((name reduce-arg2) (id 58))))))))))
-               (d ((const 3) (refs ()))) (itemPad ()) (associative true)
-               (character Reduce)))))))))))) |}];
+    (let ((+arg2.60 (frame 1 2 3)))
+     (#1
+      (consumer-block (frame-shape 3)
+       (map ((+arg2.62 +arg2.60))
+        (let ((fusion-target-map-result.66 (+ 1 +arg2.62)))
+         (values fusion-target-map-result.66
+          (values fusion-target-map-result.66))))
+       (body-matcher (map-result.61 (reduce-arg.59)))
+       (map-result (map-result.61))
+       (consumer
+        (reduce (shape) (reduce-arg1.57 reduce-arg2.58 reduce-arg.59)
+         (+ reduce-arg1.57 reduce-arg2.58)))))) |}];
   fuseAndPrint
     {|
       (define x (+ 4 [1 2 3]))
@@ -291,165 +82,35 @@ let%expect_test "check fusing" =
     |};
   [%expect
     {|
-    (Let
-     ((args
-       (((binding ((name +arg2) (id 93)))
-         (value
-          (Frame
-           ((dimension 3)
-            (elements
-             ((Literal (IntLiteral 1)) (Literal (IntLiteral 2))
-              (Literal (IntLiteral 3))))))))))
-      (body
-       (Let
-        ((args
-          (((binding ((name fused-block-result) (id 127)))
-            (value
-             (ConsumerBlock
-              ((frameShape (Add ((const 3) (refs ()))))
-               (mapArgs
-                (((binding ((name +arg2) (id 95)))
-                  (ref ((id ((name +arg2) (id 93))))))))
-               (mapIotas ())
-               (mapBody
-                (Let
-                 ((args
-                   (((binding ((name fusion-target-map-result) (id 125)))
-                     (value
-                      (Let
-                       ((args
-                         (((binding ((name fusion-target-map-result) (id 120)))
-                           (value
-                            (ScalarPrimitive
-                             ((op Add)
-                              (args
-                               ((Literal (IntLiteral 4))
-                                (Ref ((id ((name +arg2) (id 95)))))))))))))
-                        (body
-                         (Values
-                          ((elements
-                            ((Ref
-                              ((id ((name fusion-target-map-result) (id 120)))))
-                             (Let
-                              ((args
-                                (((binding
-                                   ((name fusion-target-map-result) (id 110)))
-                                  (value
-                                   (ScalarPrimitive
-                                    ((op Add)
-                                     (args
-                                      ((Literal (IntLiteral 5))
-                                       (Ref
-                                        ((id
-                                          ((name fusion-target-map-result)
-                                           (id 120)))))))))))))
-                               (body
-                                (Values
-                                 ((elements
-                                   ((Ref
-                                     ((id
-                                       ((name fusion-target-map-result) (id 110)))))
-                                    (Values
-                                     ((elements
-                                       ((Ref
-                                         ((id
-                                           ((name fusion-target-map-result)
-                                            (id 110)))))))))))))))))))))))))))
-                  (body
-                   (Values
-                    ((elements
-                      ((Ref ((id ((name fusion-target-map-result) (id 125)))))
-                       (Let
-                        ((args
-                          (((binding ((name fusion-target-map-result) (id 115)))
-                            (value
-                             (ScalarPrimitive
-                              ((op Add)
-                               (args
-                                ((Literal (IntLiteral 6))
-                                 (TupleDeref
-                                  ((index 0)
-                                   (tuple
-                                    (Ref
-                                     ((id
-                                       ((name fusion-target-map-result) (id 125))))))))))))))))
-                         (body
-                          (Values
-                           ((elements
-                             ((Ref
-                               ((id ((name fusion-target-map-result) (id 115)))))
-                              (Values
-                               ((elements
-                                 ((Ref
-                                   ((id
-                                     ((name fusion-target-map-result) (id 115))))))))))))))))))))))))
-               (mapBodyMatcher
-                (Unpack
-                 ((Unpack
-                   ((Binding ((name map-result) (id 94)))
-                    (Unpack
-                     ((Binding ((name map-result) (id 99)))
-                      (Unpack ((Binding ((name reduce-arg) (id 97)))))))))
-                  (Unpack
-                   ((Binding ((name map-result) (id 105)))
-                    (Unpack ((Binding ((name reduce-arg) (id 103))))))))))
-               (mapResults
-                (((name map-result) (id 94)) ((name map-result) (id 99))
-                 ((name map-result) (id 105))))
-               (consumer
-                ((Reduce
-                  (arg
-                   ((firstBinding ((name fused-reduce-arg1) (id 129)))
-                    (secondBinding ((name fused-reduce-arg2) (id 130)))
-                    (production
-                     (ProductionTuple
-                      (elements
-                       ((ProductionTupleAtom
-                         ((productionId ((name reduce-arg) (id 97)))))
-                        (ProductionTupleAtom
-                         ((productionId ((name reduce-arg) (id 103)))))))))))
-                  (zero ())
-                  (body
-                   (Values
-                    ((elements
-                      ((ScalarPrimitive
-                        ((op Add)
-                         (args
-                          ((TupleDeref
-                            ((index 0)
-                             (tuple
-                              (Ref ((id ((name fused-reduce-arg1) (id 129))))))))
-                           (TupleDeref
-                            ((index 0)
-                             (tuple
-                              (Ref ((id ((name fused-reduce-arg2) (id 130))))))))))))
-                       (ScalarPrimitive
-                        ((op Add)
-                         (args
-                          ((TupleDeref
-                            ((index 1)
-                             (tuple
-                              (Ref ((id ((name fused-reduce-arg1) (id 129))))))))
-                           (TupleDeref
-                            ((index 1)
-                             (tuple
-                              (Ref ((id ((name fused-reduce-arg2) (id 130)))))))))))))))))
-                  (d ((const 3) (refs ()))) (itemPad ()) (associative true)
-                  (character Reduce))))))))))
-         (body
-          (ScalarPrimitive
-           ((op Add)
-            (args
-             ((TupleDeref
-               ((index 0)
-                (tuple
-                 (TupleDeref
-                  ((index 1)
-                   (tuple (Ref ((id ((name fused-block-result) (id 127)))))))))))
-              (TupleDeref
-               ((index 1)
-                (tuple
-                 (TupleDeref
-                  ((index 1)
-                   (tuple (Ref ((id ((name fused-block-result) (id 127))))))))))))))))))))) |}]
+    (let ((+arg2.93 (frame 1 2 3)))
+     (let
+      ((fused-block-result.127
+        (consumer-block (frame-shape 3)
+         (map ((+arg2.95 +arg2.93))
+          (let
+           ((fusion-target-map-result.125
+             (let ((fusion-target-map-result.120 (+ 4 +arg2.95)))
+              (values fusion-target-map-result.120
+               (let
+                ((fusion-target-map-result.110
+                  (+ 5 fusion-target-map-result.120)))
+                (values fusion-target-map-result.110
+                 (values fusion-target-map-result.110)))))))
+           (values fusion-target-map-result.125
+            (let
+             ((fusion-target-map-result.115
+               (+ 6 (#0 fusion-target-map-result.125))))
+             (values fusion-target-map-result.115
+              (values fusion-target-map-result.115))))))
+         (body-matcher
+          ((map-result.94 (map-result.99 (reduce-arg.97)))
+           (map-result.105 (reduce-arg.103))))
+         (map-result (map-result.94 map-result.99 map-result.105))
+         (consumer
+          (reduce (shape)
+           (fused-reduce-arg1.129 fused-reduce-arg2.130
+            (reduce-arg.97 reduce-arg.103))
+           (values (+ (#0 fused-reduce-arg1.129) (#0 fused-reduce-arg2.130))
+            (+ (#1 fused-reduce-arg1.129) (#1 fused-reduce-arg2.130))))))))
+      (+ (#0 (#1 fused-block-result.127)) (#1 (#1 fused-block-result.127))))) |}]
 ;;

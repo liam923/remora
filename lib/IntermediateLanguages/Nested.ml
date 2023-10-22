@@ -3,7 +3,35 @@ open! Base
 (* The Nucleus language represents a monomorphized Remora program where
    all function calls have been inlined (besides intrinsic ones like map) *)
 
-module Index = Nucleus.Index
+module Index = struct
+  include Nucleus.Index
+
+  let sexp_of_dimension ({ const; refs } : dimension) =
+    match Map.to_alist refs with
+    | [] -> Sexp.Atom (Int.to_string const)
+    | [ (ref, 1) ] when const = 0 -> Sexp.Atom (Identifier.show ref)
+    | refs ->
+      Sexp.List
+        ([ Sexp.Atom "+"; Sexp.Atom (Int.to_string const) ]
+         @ List.bind refs ~f:(fun (ref, count) ->
+           let refSexp = Sexp.Atom (Identifier.show ref) in
+           List.init count ~f:(fun _ -> refSexp)))
+  ;;
+
+  let sexp_of_shapeElement = function
+    | Nucleus.Index.Add dimension -> sexp_of_dimension dimension
+    | Nucleus.Index.ShapeRef ref -> Sexp.Atom (Identifier.show ref)
+  ;;
+
+  let sexp_of_shape shape =
+    Sexp.List (Sexp.Atom "shape" :: List.map shape ~f:sexp_of_shapeElement)
+  ;;
+
+  let sexp_of_t = function
+    | Nucleus.Index.Shape shape -> sexp_of_shape shape
+    | Nucleus.Index.Dimension dimension -> sexp_of_dimension dimension
+  ;;
+end
 
 module Type = struct
   type array =
@@ -33,33 +61,33 @@ end
 module Expr = struct
   type ref =
     { id : Identifier.t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
-  [@@deriving sexp_of, equal]
+  [@@deriving equal]
 
   type reduceCharacter =
     [ `Reduce
     | `Scan
     | `OpenScan
     ]
-  [@@deriving sexp_of, equal]
+  [@@deriving equal]
 
   type foldCharacter =
     [ `Fold
     | `Trace
     | `OpenTrace
     ]
-  [@@deriving sexp_of, equal]
+  [@@deriving equal]
 
   type frame =
     { dimension : int
     ; elements : t list
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and boxValue =
     { box : t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and indexValue =
@@ -78,12 +106,12 @@ module Expr = struct
   and indexLet =
     { indexArgs : indexArg list
     ; body : t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and reifyIndex =
     { index : Index.t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and letArg =
@@ -94,14 +122,14 @@ module Expr = struct
   and let' =
     { args : letArg list
     ; body : t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and box =
     { indices : Index.t list
     ; body : t
     ; bodyType : Type.t
-    ; type' : Type.sigma [@sexp_drop_if fun _ -> true]
+    ; type' : Type.sigma
     }
 
   and scalarOp = Nucleus.Expr.scalarOp
@@ -109,7 +137,7 @@ module Expr = struct
   and scalarPrimitive =
     { op : scalarOp
     ; args : t list
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and tupleMatch =
@@ -135,7 +163,7 @@ module Expr = struct
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
     ; consumer : consumerOp option
-    ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
+    ; type' : Type.tuple
     }
 
   and foldZeroArg =
@@ -145,7 +173,7 @@ module Expr = struct
 
   and production =
     { productionId : Identifier.t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and foldArrayArg =
@@ -156,7 +184,7 @@ module Expr = struct
   and productionTuple =
     | ProductionTuple of
         { elements : productionTuple list
-        ; type' : Type.t [@sexp_drop_if fun _ -> true]
+        ; type' : Type.t
         }
     | ProductionTupleAtom of production
 
@@ -175,7 +203,7 @@ module Expr = struct
         ; itemPad : Index.shape
         ; associative : bool
         ; character : reduceCharacter
-        ; type' : Type.t [@sexp_drop_if fun _ -> true]
+        ; type' : Type.t
         }
     | Fold of
         { zeroArg : foldZeroArg
@@ -184,25 +212,25 @@ module Expr = struct
         ; d : Index.dimension
         ; itemPad : Index.shape
         ; character : foldCharacter
-        ; type' : Type.t [@sexp_drop_if fun _ -> true]
+        ; type' : Type.t
         }
     | Scatter of
         { valuesArg : production
         ; indicesArg : production
         ; dIn : Index.dimension
         ; dOut : Index.dimension
-        ; type' : Type.t [@sexp_drop_if fun _ -> true]
+        ; type' : Type.t
         }
 
   and values =
     { elements : t list
-    ; type' : Type.tuple [@sexp_drop_if fun _ -> true]
+    ; type' : Type.tuple
     }
 
   and tupleDeref =
     { index : int
     ; tuple : t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and literal = Nucleus.Expr.literal
@@ -210,12 +238,12 @@ module Expr = struct
   and subArray =
     { arrayArg : t
     ; indexArg : t
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and append =
     { args : t list
-    ; type' : Type.t [@sexp_drop_if fun _ -> true]
+    ; type' : Type.t
     }
 
   and t =
@@ -233,7 +261,7 @@ module Expr = struct
     | TupleDeref of tupleDeref
     | SubArray of subArray
     | Append of append
-  [@@deriving sexp_of, equal]
+  [@@deriving equal]
 
   let type' : t -> Type.t = function
     | Box box -> Sigma box.type'
@@ -278,6 +306,216 @@ module Expr = struct
            | _ -> raise (Unreachable.Error "Expected tuple type"))
       }
   ;;
+
+  module Sexp_of = struct
+    let sexp_of_ref ref = Sexp.Atom (Identifier.show ref.id)
+
+    let rec sexp_of_frame { dimension = _; elements; type' = _ } =
+      Sexp.List (Sexp.Atom "frame" :: List.map elements ~f:sexp_of_t)
+
+    and sexp_of_box { indices; body; bodyType = _; type' = _ } =
+      Sexp.List
+        [ Sexp.Atom "box"
+        ; Sexp.List (List.map indices ~f:Index.sexp_of_t)
+        ; sexp_of_t body
+        ]
+
+    and sexp_of_literal (lit : Nucleus.Expr.literal) =
+      match lit with
+      | IntLiteral i -> Sexp.Atom (Int.to_string i)
+      | CharacterLiteral c -> Sexp.Atom [%string "'%{Char.to_string c}'"]
+      | BooleanLiteral b -> Sexp.Atom (if b then "true" else "false")
+
+    and sexp_of_scalarPrimitive { op; args; type' = _ } =
+      let opString =
+        match op with
+        | Add -> "+"
+        | Sub -> "-"
+        | Mul -> "*"
+        | Div -> "/"
+        | Equal -> "="
+      in
+      Sexp.List (Sexp.Atom opString :: List.map args ~f:sexp_of_t)
+
+    and sexp_of_tupleDeref { tuple; index; type' = _ } =
+      Sexp.List [ Sexp.Atom [%string "#%{index#Int}"]; sexp_of_t tuple ]
+
+    and sexp_of_values ({ elements; type' = _ } : values) =
+      Sexp.List (Sexp.Atom "values" :: List.map elements ~f:sexp_of_t)
+
+    and sexp_of_boxValue { box; type' = _ } =
+      Sexp.List [ Sexp.Atom "unbox"; sexp_of_t box ]
+
+    and sexp_of_indexLet { indexArgs; body; type' = _ } =
+      Sexp.List
+        [ Sexp.Atom "index-let"
+        ; Sexp.List
+            (List.map indexArgs ~f:(fun { indexBinding; indexValue; sort = _ } ->
+               Sexp.List
+                 (Sexp.Atom (Identifier.show indexBinding)
+                  ::
+                  (match indexValue with
+                   | Runtime v -> [ Sexp.Atom "runtime-value"; sexp_of_t v ]
+                   | FromBox { box; i } ->
+                     [ Sexp.Atom [%string "box-index-%{i#Int}"]; sexp_of_t box ]))))
+        ; sexp_of_t body
+        ]
+
+    and sexp_of_let { args; body; type' = _ } =
+      Sexp.List
+        [ Sexp.Atom "let"
+        ; Sexp.List
+            (List.map args ~f:(fun { binding; value } ->
+               Sexp.List [ Sexp.Atom (Identifier.show binding); sexp_of_t value ]))
+        ; sexp_of_t body
+        ]
+
+    and sexp_of_reifyIndex { index; type' = _ } =
+      Sexp.List [ Sexp.Atom "reify-index"; Index.sexp_of_t index ]
+
+    and sexp_of_tupleMatch = function
+      | Binding id -> Sexp.Atom (Identifier.show id)
+      | Unpack matchers -> Sexp.List (List.map matchers ~f:sexp_of_tupleMatch)
+
+    and sexp_of_productionTuple = function
+      | ProductionTuple { elements; type' = _ } ->
+        Sexp.List (List.map elements ~f:sexp_of_productionTuple)
+      | ProductionTupleAtom p -> Sexp.Atom (Identifier.show p.productionId)
+
+    and sexp_of_consumerOp = function
+      | Reduce { arg; zero; body; d = _; itemPad; associative; character; type' = _ } ->
+        let characterName =
+          match character with
+          | `Reduce -> "reduce"
+          | `Scan -> "scan"
+          | `OpenScan -> "open-scan"
+        in
+        let zeroName =
+          match zero with
+          | Some _ -> "-zero"
+          | None -> ""
+        in
+        let assocName = if associative then "" else "-non-associative" in
+        let opName = [%string "%{characterName}%{zeroName}%{assocName}"] in
+        Sexp.List
+          ([ Sexp.Atom opName; Index.sexp_of_shape itemPad ]
+           @ (zero |> Option.map ~f:sexp_of_t |> Option.to_list)
+           @ [ Sexp.List
+                 [ Sexp.Atom (Identifier.show arg.firstBinding)
+                 ; Sexp.Atom (Identifier.show arg.secondBinding)
+                 ; sexp_of_productionTuple arg.production
+                 ]
+             ; sexp_of_t body
+             ])
+      | Fold { zeroArg; arrayArgs; body; d = _; itemPad; character; type' = _ } ->
+        let opName =
+          match character with
+          | `Fold -> "fold"
+          | `Trace -> "trace"
+          | `OpenTrace -> "open-trace"
+        in
+        Sexp.List
+          [ Sexp.Atom opName
+          ; Index.sexp_of_shape itemPad
+          ; Sexp.List
+              [ Sexp.Atom (Identifier.show zeroArg.zeroBinding)
+              ; sexp_of_t zeroArg.zeroValue
+              ]
+          ; Sexp.List
+              (List.map arrayArgs ~f:(fun arrayArg ->
+                 Sexp.List
+                   [ Sexp.Atom (Identifier.show arrayArg.binding)
+                   ; Sexp.Atom (Identifier.show arrayArg.production.productionId)
+                   ]))
+          ; sexp_of_t body
+          ]
+      | Scatter { valuesArg; indicesArg; dIn; dOut; type' = _ } ->
+        Sexp.List
+          [ Index.sexp_of_dimension dIn
+          ; Index.sexp_of_dimension dOut
+          ; Sexp.Atom (Identifier.show valuesArg.productionId)
+          ; Sexp.Atom (Identifier.show indicesArg.productionId)
+          ]
+
+    and sexp_of_consumerBlock
+      { frameShape
+      ; mapArgs
+      ; mapIotas
+      ; mapBody
+      ; mapBodyMatcher
+      ; mapResults
+      ; consumer
+      ; type' = _
+      }
+      =
+      Sexp.List
+        [ Sexp.Atom "consumer-block"
+        ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
+        ; Sexp.List
+            ([ Sexp.Atom "map"
+             ; Sexp.List
+                 (List.map mapArgs ~f:(fun { binding; ref } ->
+                    Sexp.List
+                      [ Sexp.Atom (Identifier.show binding)
+                      ; Sexp.Atom (Identifier.show ref.id)
+                      ]))
+             ]
+             @ (if List.length mapIotas > 0
+                then
+                  [ Sexp.List
+                      (Sexp.Atom "iota"
+                       :: List.map mapIotas ~f:(function
+                         | { iota; nestIn = None } -> Sexp.Atom (Identifier.show iota)
+                         | { iota; nestIn = Some parent } ->
+                           Sexp.List
+                             [ Sexp.Atom (Identifier.show iota)
+                             ; Sexp.Atom ":"
+                             ; Sexp.Atom (Identifier.show parent)
+                             ]))
+                  ]
+                else [])
+             @ [ sexp_of_t mapBody ])
+        ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]
+        ; Sexp.List
+            [ Sexp.Atom "map-result"
+            ; Sexp.List
+                (List.map mapResults ~f:(fun id -> Sexp.Atom (Identifier.show id)))
+            ]
+        ; Sexp.List
+            [ Sexp.Atom "consumer"
+            ; (match consumer with
+               | Some consumer -> sexp_of_consumerOp consumer
+               | None -> sexp_of_values { elements = []; type' = [] })
+            ]
+        ]
+
+    and sexp_of_subArray { arrayArg; indexArg; type' = _ } =
+      Sexp.List [ Sexp.Atom "index"; sexp_of_t arrayArg; sexp_of_t indexArg ]
+
+    and sexp_of_append ({ args; type' = _ } : append) =
+      Sexp.List (Sexp.Atom "++" :: List.map args ~f:sexp_of_t)
+
+    and sexp_of_t = function
+      | Box box -> sexp_of_box box
+      | Literal lit -> sexp_of_literal lit
+      | ScalarPrimitive scalarPrimitive -> sexp_of_scalarPrimitive scalarPrimitive
+      | TupleDeref tupleDeref -> sexp_of_tupleDeref tupleDeref
+      | Values values -> sexp_of_values values
+      | Ref ref -> sexp_of_ref ref
+      | Frame frame -> sexp_of_frame frame
+      | BoxValue boxValue -> sexp_of_boxValue boxValue
+      | IndexLet indexLet -> sexp_of_indexLet indexLet
+      | Let let' -> sexp_of_let let'
+      | ReifyIndex reifyIndex -> sexp_of_reifyIndex reifyIndex
+      | ConsumerBlock consumerBlock -> sexp_of_consumerBlock consumerBlock
+      | SubArray subArray -> sexp_of_subArray subArray
+      | Append append -> sexp_of_append append
+    ;;
+  end
+
+  include Sexp_of
 end
 
-type t = Expr.t [@@deriving sexp_of]
+type t = Expr.t
+
+let sexp_of_t = Expr.sexp_of_t

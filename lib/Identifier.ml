@@ -6,6 +6,7 @@ module type S = sig
 
   val comparator : (t, comparator_witness) Comparator.t
   val name : t -> string
+  val show : t -> string
 
   val create
     :  string
@@ -27,6 +28,7 @@ module Make () = struct
   include Comparator.Make (T)
 
   let name { name; id = _ } = name
+  let show { name; id } = [%string "%{name}.%{id#Int}"]
 
   let create name ~getCounter ~setCounter =
     let open State.Let_syntax in
