@@ -112,5 +112,68 @@ let%expect_test "check fusing" =
             (reduce-arg.97 reduce-arg.103))
            (values (+ (#0 fused-reduce-arg1.129) (#0 fused-reduce-arg2.130))
             (+ (#1 fused-reduce-arg1.129) (#1 fused-reduce-arg2.130))))))))
-      (+ (#0 (#1 fused-block-result.127)) (#1 (#1 fused-block-result.127))))) |}]
+      (+ (#0 (#1 fused-block-result.127)) (#1 (#1 fused-block-result.127))))) |}];
+  fuseAndPrint
+    {|
+      (define x (+ 4 [1 2 3]))
+      (+
+        (reduce{int | 2 [] []} + (+ 5 x))
+        (reduce{int | 2 [3] []} + (+ [[6 7 8] [6 7 8] [6 7 8]] x)))
+    |};
+  [%expect {|
+    (let ((+arg2.100 (frame 1 2 3)))
+     (let
+      ((fused-block-result.138
+        (consumer-block (frame-shape 3)
+         (map ((+arg2.102 +arg2.100))
+          (let ((fusion-target-map-result.136 (+ 4 +arg2.102)))
+           (values fusion-target-map-result.136
+            (let
+             ((fusion-target-map-result.126 (+ 5 fusion-target-map-result.136)))
+             (values fusion-target-map-result.126
+              (values fusion-target-map-result.126))))))
+         (body-matcher (map-result.101 (map-result.106 (reduce-arg.104))))
+         (map-result (map-result.101 map-result.106))
+         (consumer
+          (reduce (shape) (reduce-arg1.81 reduce-arg2.82 reduce-arg.104)
+           (+ reduce-arg1.81 reduce-arg2.82))))))
+      (let
+       ((fusion-target-map-result.139 (values (#0 (#0 fused-block-result.138))))
+        (fusion-archer-consumer-result.137 (#1 fused-block-result.138)))
+       (let ((x.103 (#0 fusion-target-map-result.139)))
+        (let ((x.77 x.103))
+         (let ((hoistedExp.110 fusion-archer-consumer-result.137))
+          (let ((hoistedExp.99 hoistedExp.110))
+           (let
+            ((+arg2.122
+              (let
+               ((+arg2.112 x.77)
+                (+arg1.113 (frame (frame 6 7 8) (frame 6 7 8) (frame 6 7 8))))
+               (#1
+                (consumer-block (frame-shape 3)
+                 (map ((+arg2.115 +arg2.112) (+arg1.116 +arg1.113))
+                  (let
+                   ((fusion-target-map-result.131
+                     (let ((+arg2.93 +arg2.115) (+arg1.90 +arg1.116))
+                      (let ((+arg1.117 +arg1.90))
+                       (#0
+                        (#0
+                         (consumer-block (frame-shape 3)
+                          (map ((+arg1.119 +arg1.117)) (+ +arg1.119 +arg2.93))
+                          (body-matcher map-result.118)
+                          (map-result (map-result.118)) (consumer (values)))))))))
+                   (values fusion-target-map-result.131
+                    (values fusion-target-map-result.131))))
+                 (body-matcher (map-result.114 (reduce-arg.111)))
+                 (map-result (map-result.114))
+                 (consumer
+                  (reduce (shape 3)
+                   (reduce-arg1.95 reduce-arg2.96 reduce-arg.111)
+                   (+ reduce-arg1.95 reduce-arg2.96))))))))
+            (#0
+             (#0
+              (consumer-block (frame-shape 3)
+               (map ((+arg2.124 +arg2.122)) (+ hoistedExp.99 +arg2.124))
+               (body-matcher map-result.123) (map-result (map-result.123))
+               (consumer (values))))))))))))) |}]
 ;;
