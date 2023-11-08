@@ -2,22 +2,38 @@ open! Base
 open Nested
 
 module Counts : sig
+  type count =
+    { count : int
+    ; inLoop : bool
+    }
+  [@@deriving sexp_of]
+
   type t [@@deriving sexp_of]
 
   val empty : t
-  val one : Identifier.t -> t
-  val get : t -> Identifier.t -> int
+  val one : Identifier.t -> inLoop:bool -> t
+  val get : t -> Identifier.t -> count
   val merge : t list -> t
 end = struct
-  type t = int Map.M(Identifier).t [@@deriving sexp_of]
+  type count =
+    { count : int
+    ; inLoop : bool
+    }
+  [@@deriving sexp_of]
+
+  type t = count Map.M(Identifier).t [@@deriving sexp_of]
 
   let empty = Map.empty (module Identifier)
-  let one id = Map.singleton (module Identifier) id 1
-  let get counts id = Map.find counts id |> Option.value ~default:0
+  let one id ~inLoop = Map.singleton (module Identifier) id { count = 1; inLoop }
+
+  let get counts id =
+    Map.find counts id |> Option.value ~default:{ count = 0; inLoop = false }
+  ;;
 
   let merge countss =
     List.fold countss ~init:empty ~f:(fun acc more ->
-      Map.merge_skewed acc more ~combine:(fun ~key:_ a b -> a + b))
+      Map.merge_skewed acc more ~combine:(fun ~key:_ a b ->
+        { count = a.count + b.count; inLoop = a.inLoop || b.inLoop }))
   ;;
 end
 
@@ -40,42 +56,44 @@ let rec nonComputational : Expr.t -> bool = function
   | SubArray { arrayArg; indexArg; type' = _ } ->
     nonComputational arrayArg && nonComputational indexArg
   | Append _ -> false
+  | Zip _ -> true
+  | Unzip _ -> true
 ;;
 
 let getCounts =
-  let getCountsIndex : Index.t -> Counts.t = function
+  let getCountsIndex inLoop : Index.t -> Counts.t = function
     | Shape elements ->
       elements
       |> List.map ~f:(function
-        | ShapeRef ref -> Counts.one ref
+        | ShapeRef ref -> Counts.one ref ~inLoop
         | Add { const = _; refs } ->
-          refs |> Map.keys |> List.map ~f:Counts.one |> Counts.merge)
+          refs |> Map.keys |> List.map ~f:(Counts.one ~inLoop) |> Counts.merge)
       |> Counts.merge
     | Dimension { const = _; refs } ->
-      refs |> Map.keys |> List.map ~f:Counts.one |> Counts.merge
+      refs |> Map.keys |> List.map ~f:(Counts.one ~inLoop) |> Counts.merge
   in
-  let rec getCountsProductionTuple : Expr.productionTuple -> Counts.t = function
+  let rec getCountsProductionTuple inLoop : Expr.productionTuple -> Counts.t = function
     | ProductionTuple { elements; type' = _ } ->
-      elements |> List.map ~f:getCountsProductionTuple |> Counts.merge
-    | ProductionTupleAtom atom -> Counts.one atom.productionId
+      elements |> List.map ~f:(getCountsProductionTuple inLoop) |> Counts.merge
+    | ProductionTupleAtom atom -> Counts.one atom.productionId ~inLoop
   in
-  let rec getCountsExpr : Expr.t -> Counts.t = function
-    | Ref { id; type' = _ } -> Counts.one id
+  let rec getCountsExpr inLoop : Expr.t -> Counts.t = function
+    | Ref { id; type' = _ } -> Counts.one id ~inLoop
     | Frame { elements; dimension = _; type' = _ } ->
-      elements |> List.map ~f:getCountsExpr |> Counts.merge
-    | BoxValue { box; type' = _ } -> getCountsExpr box
+      elements |> List.map ~f:(getCountsExpr inLoop) |> Counts.merge
+    | BoxValue { box; type' = _ } -> getCountsExpr inLoop box
     | IndexLet { indexArgs; body; type' = _ } ->
       let indexValueCounts =
         List.map indexArgs ~f:(fun arg ->
           match arg.indexValue with
-          | Runtime value -> getCountsExpr value
-          | FromBox { box; i = _ } -> getCountsExpr box)
-      and bodyCounts = getCountsExpr body in
+          | Runtime value -> getCountsExpr inLoop value
+          | FromBox { box; i = _ } -> getCountsExpr inLoop box)
+      and bodyCounts = getCountsExpr inLoop body in
       Counts.merge (bodyCounts :: indexValueCounts)
-    | ReifyIndex { index; type' = _ } -> getCountsIndex index
+    | ReifyIndex { index; type' = _ } -> getCountsIndex inLoop index
     | Let { args; body; type' = _ } ->
-      let argCounts = args |> List.map ~f:(fun arg -> getCountsExpr arg.value)
-      and bodyCounts = getCountsExpr body in
+      let argCounts = args |> List.map ~f:(fun arg -> getCountsExpr inLoop arg.value)
+      and bodyCounts = getCountsExpr inLoop body in
       Counts.merge (bodyCounts :: argCounts)
     | ConsumerBlock
         { frameShape
@@ -89,18 +107,19 @@ let getCounts =
         } ->
       let argsCounts =
         mapArgs
-        |> List.map ~f:(fun { binding = _; ref } -> getCountsExpr (Ref ref))
+        |> List.map ~f:(fun { binding = _; ref } -> getCountsExpr inLoop (Ref ref))
         |> Counts.merge
       and iotaCounts =
         mapIotas
         |> List.map ~f:(fun { iota = _; nestIn } ->
           match nestIn with
-          | Some nestIn -> Counts.one nestIn
+          | Some nestIn -> Counts.one nestIn ~inLoop
           | None -> Counts.empty)
         |> Counts.merge
-      and bodyCounts = getCountsExpr mapBody
-      and frameShapeCounts = getCountsIndex (Shape [ frameShape ])
-      and mapResultsCounts = mapResults |> List.map ~f:Counts.one |> Counts.merge
+      and bodyCounts = getCountsExpr true mapBody
+      and frameShapeCounts = getCountsIndex inLoop (Shape [ frameShape ])
+      and mapResultsCounts =
+        mapResults |> List.map ~f:(Counts.one ~inLoop) |> Counts.merge
       and consumerCounts =
         match consumer with
         | None -> Counts.empty
@@ -108,31 +127,33 @@ let getCounts =
             (Reduce
               { arg; body; zero; d; itemPad; associative = _; character = _; type' = _ })
           ->
-          let argCounts = getCountsProductionTuple arg.production
-          and bodyCounts = getCountsExpr body
+          let argCounts = getCountsProductionTuple inLoop arg.production
+          and bodyCounts = getCountsExpr true body
           and zeroCounts =
-            zero |> Option.map ~f:getCountsExpr |> Option.value ~default:Counts.empty
-          and dCounts = getCountsIndex (Dimension d)
-          and itemPadCounts = getCountsIndex (Shape itemPad) in
+            zero
+            |> Option.map ~f:(getCountsExpr inLoop)
+            |> Option.value ~default:Counts.empty
+          and dCounts = getCountsIndex inLoop (Dimension d)
+          and itemPadCounts = getCountsIndex inLoop (Shape itemPad) in
           Counts.merge [ argCounts; bodyCounts; zeroCounts; dCounts; itemPadCounts ]
         | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character = _; type' = _ })
           ->
-          let zeroCounts = getCountsExpr zeroArg.zeroValue
+          let zeroCounts = getCountsExpr inLoop zeroArg.zeroValue
           and arrayCounts =
             arrayArgs
             |> List.map ~f:(fun { binding = _; production } ->
-              Counts.one production.productionId)
+              Counts.one production.productionId ~inLoop)
             |> Counts.merge
-          and bodyCounts = getCountsExpr body
-          and dCounts = getCountsIndex (Dimension d)
-          and itemPadCounts = getCountsIndex (Shape itemPad) in
+          and bodyCounts = getCountsExpr true body
+          and dCounts = getCountsIndex inLoop (Dimension d)
+          and itemPadCounts = getCountsIndex inLoop (Shape itemPad) in
           Counts.merge [ zeroCounts; arrayCounts; bodyCounts; dCounts; itemPadCounts ]
         | Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' = _ }) ->
           Counts.merge
-            [ Counts.one valuesArg.productionId
-            ; Counts.one indicesArg.productionId
-            ; getCountsIndex (Dimension dIn)
-            ; getCountsIndex (Dimension dOut)
+            [ Counts.one valuesArg.productionId ~inLoop
+            ; Counts.one indicesArg.productionId ~inLoop
+            ; getCountsIndex inLoop (Dimension dIn)
+            ; getCountsIndex inLoop (Dimension dOut)
             ]
       in
       Counts.merge
@@ -147,19 +168,22 @@ let getCounts =
     | Literal (CharacterLiteral _) -> Counts.empty
     | Literal (BooleanLiteral _) -> Counts.empty
     | Box { indices; body; bodyType = _; type' = _ } ->
-      let indexCounts = List.map indices ~f:getCountsIndex
-      and bodyCounts = getCountsExpr body in
+      let indexCounts = List.map indices ~f:(getCountsIndex inLoop)
+      and bodyCounts = getCountsExpr inLoop body in
       Counts.merge (bodyCounts :: indexCounts)
     | ScalarPrimitive { op = _; args; type' = _ } ->
-      args |> List.map ~f:getCountsExpr |> Counts.merge
+      args |> List.map ~f:(getCountsExpr inLoop) |> Counts.merge
     | Values { elements; type' = _ } ->
-      elements |> List.map ~f:getCountsExpr |> Counts.merge
-    | TupleDeref { tuple; index = _; type' = _ } -> getCountsExpr tuple
+      elements |> List.map ~f:(getCountsExpr inLoop) |> Counts.merge
+    | TupleDeref { tuple; index = _; type' = _ } -> getCountsExpr inLoop tuple
     | SubArray { arrayArg; indexArg; type' = _ } ->
-      Counts.merge [ getCountsExpr arrayArg; getCountsExpr indexArg ]
-    | Append { args; type' = _ } -> args |> List.map ~f:getCountsExpr |> Counts.merge
+      Counts.merge [ getCountsExpr inLoop arrayArg; getCountsExpr inLoop indexArg ]
+    | Append { args; type' = _ } ->
+      args |> List.map ~f:(getCountsExpr inLoop) |> Counts.merge
+    | Zip { zipArg; nestCount = _; type' = _ } -> getCountsExpr inLoop zipArg
+    | Unzip { unzipArg; type' = _ } -> getCountsExpr inLoop unzipArg
   in
-  getCountsExpr
+  getCountsExpr false
 ;;
 
 let rec subExpr subKey subValue : Expr.t -> Expr.t option =
@@ -282,6 +306,12 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
   | TupleDeref { tuple; index; type' } ->
     let%map tuple = subExpr subKey subValue tuple in
     TupleDeref { tuple; index; type' }
+  | Zip { zipArg; nestCount; type' } ->
+    let%map zipArg = subExpr subKey subValue zipArg in
+    Zip { zipArg; nestCount; type' }
+  | Unzip { unzipArg; type' } ->
+    let%map unzipArg = subExpr subKey subValue unzipArg in
+    Unzip { unzipArg; type' }
 ;;
 
 (* Perform the following optimizations:
@@ -381,12 +411,12 @@ let rec optimize : Expr.t -> Expr.t =
     let argsRev, body =
       List.fold args ~init:([], body) ~f:(fun (argsAcc, body) arg ->
         let count = Counts.get bodyCounts arg.binding in
-        if count = 0
+        if count.count = 0
         then
           (* No usages, so drop the arg *)
           (* DISCARD!!! *)
           argsAcc, body
-        else if count = 1 || nonComputational arg.value
+        else if (count.count = 1 && not count.inLoop) || nonComputational arg.value
         then (
           (* The arg can be subbed into the body *)
           match subExpr arg.binding arg.value body with
@@ -418,10 +448,10 @@ let rec optimize : Expr.t -> Expr.t =
     let mapArgs =
       List.filter mapArgs ~f:(fun arg ->
         (* DISCARD!!! *)
-        Counts.get mapBodyCounts arg.binding > 0)
+        (Counts.get mapBodyCounts arg.binding).count > 0)
     in
     let mapIotas =
-      List.filter mapIotas ~f:(fun iota -> Counts.get mapBodyCounts iota.iota > 0)
+      List.filter mapIotas ~f:(fun iota -> (Counts.get mapBodyCounts iota.iota).count > 0)
     in
     let consumer =
       match consumer with
@@ -438,7 +468,7 @@ let rec optimize : Expr.t -> Expr.t =
         let arrayArgs =
           List.filter arrayArgs ~f:(fun arg ->
             (* DISCARD!!! *)
-            Counts.get bodyCounts arg.binding > 0)
+            (Counts.get bodyCounts arg.binding).count > 0)
         in
         Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' })
       | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
@@ -486,12 +516,927 @@ let rec optimize : Expr.t -> Expr.t =
      | _ -> ScalarPrimitive { op; args; type' })
   | Values { elements; type' } ->
     let elements = List.map elements ~f:optimize in
-    Values { elements; type' }
+    let values = Expr.Values { elements; type' } in
+    (match elements with
+     | TupleDeref { tuple = Ref ref; index = 0; type' = _ } :: _ ->
+       (* ex: (a.0, a.1, a.2) => a *)
+       let sizesMatch =
+         match ref.type' with
+         | Tuple t -> List.length t = List.length elements
+         | _ -> false
+       in
+       let allSequentialDerefs =
+         elements
+         |> List.mapi ~f:(fun i e -> i, e)
+         |> List.for_all ~f:(fun (expectedIndex, e) ->
+           match e with
+           | TupleDeref { tuple = Ref eRef; index = eI; type' = _ }
+             when Identifier.equal ref.id eRef.id && eI = expectedIndex -> true
+           | _ -> false)
+       in
+       if sizesMatch && allSequentialDerefs then Ref ref else values
+     | _ -> values)
   | TupleDeref { tuple; index; type' } ->
     let tuple = optimize tuple in
     (match tuple with
      | Values { elements; type' = _ } -> List.nth_exn elements index
      | _ -> TupleDeref { tuple; index; type' })
+  | Zip { zipArg; nestCount = 0; type' = _ } -> optimize zipArg
+  | Zip { zipArg; nestCount; type' } ->
+    let zipArg = optimize zipArg in
+    Zip { zipArg; nestCount; type' }
+  | Unzip { unzipArg = Zip { zipArg; nestCount = _; type' = _ }; type' = _ } -> zipArg
+  | Unzip { unzipArg; type' } ->
+    let unzipArg = optimize unzipArg in
+    (match Expr.type' unzipArg with
+     | Tuple _ -> unzipArg
+     | _ -> Unzip { unzipArg; type' })
+;;
+
+module TupleRequest = struct
+  module T = struct
+    type collectionType =
+      | Array of Index.shapeElement
+      | Sigma of Sort.t Type.param list
+    [@@deriving compare, sexp_of, eq]
+
+    type deref =
+      { i : int
+      ; rest : t
+      }
+
+    and t =
+      | Element of deref
+      | Elements of deref list
+      | Whole
+      | Collection of
+          { subRequest : t
+          ; collectionType : collectionType
+          }
+    [@@deriving compare, sexp_of]
+  end
+
+  include Comparator.Make (T)
+  include T
+
+  let isWhole = function
+    | Whole -> true
+    | _ -> false
+  ;;
+
+  let unexpected ~actual ~expected =
+    let actualStr = actual |> sexp_of_t |> Sexp.to_string in
+    Unreachable.Error [%string "Expected %{expected} request type, got %{actualStr}"]
+  ;;
+end
+
+module ReduceTupleState = struct
+  include State
+
+  type cache =
+    | TupleCache of
+        { refs : Expr.ref list
+        ; subCaches : cache Map.M(Int).t
+        }
+    | CollectionCache of
+        { subCache : cache
+        ; collectionType : TupleRequest.collectionType
+        }
+
+  type state =
+    { compilerState : CompilerState.state
+    ; caches : cache Map.M(Identifier).t
+    ; droppedAny : bool
+    }
+
+  type ('t, 'e) u = (state, 't, 'e) t
+
+  let getCaches () = get () >>| fun state -> state.caches
+  let setCaches caches = get () >>= fun state -> set { state with caches }
+  let markDrop () = get () >>= fun state -> set { state with droppedAny = true }
+
+  let createId name =
+    make ~f:(fun state ->
+      State.run
+        (Identifier.create
+           name
+           ~getCounter:(fun (s : state) -> s.compilerState.idCounter)
+           ~setCounter:(fun (s : state) idCounter ->
+             { s with compilerState = CompilerState.{ idCounter } }))
+        state)
+  ;;
+
+  let toSimplifyState (s : ('t, _) u) : (CompilerState.state, 't * bool, _) State.t =
+    State.make ~f:(fun compilerState ->
+      let state =
+        { compilerState; caches = Map.empty (module Identifier); droppedAny = false }
+      in
+      let state, res = run s state in
+      state.compilerState, (res, state.droppedAny))
+  ;;
+end
+
+let rec reduceTuplesType (request : TupleRequest.t) : Type.t -> Type.t = function
+  | Array array -> Array (reduceTuplesArrayType request array)
+  | Tuple elements as t ->
+    (match request with
+     | Whole -> t
+     | Element { i; rest } ->
+       let element = List.nth_exn elements i in
+       reduceTuplesType rest element
+     | Elements elementRequests ->
+       Tuple
+         (List.map elementRequests ~f:(fun { i; rest } ->
+            let element = List.nth_exn elements i in
+            reduceTuplesType rest element))
+     | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
+  | Literal _ as lit ->
+    assert (TupleRequest.isWhole request);
+    lit
+  | Sigma sigma -> Sigma (reduceTuplesSigmaType request sigma)
+
+and reduceTuplesArrayType (request : TupleRequest.t) ({ element; size } as t : Type.array)
+  : Type.array
+  =
+  match request with
+  | Collection { subRequest; collectionType = Array requestSize } ->
+    assert (Index.equal_shapeElement size requestSize);
+    { element = reduceTuplesType subRequest element; size }
+  | Whole -> t
+  | Element _ | Elements _ | Collection { subRequest = _; collectionType = Sigma _ } ->
+    raise (TupleRequest.unexpected ~actual:request ~expected:"array")
+
+and reduceTuplesSigmaType
+  (request : TupleRequest.t)
+  ({ parameters; body } as t : Type.sigma)
+  : Type.sigma
+  =
+  match request with
+  | Collection { subRequest; collectionType = Sigma requestParameters } ->
+    assert (List.equal (Type.equal_param Sort.equal) parameters requestParameters);
+    let body = reduceTuplesType subRequest body in
+    { parameters; body }
+  | Whole -> t
+  | Element _ | Elements _ | Collection { subRequest = _; collectionType = Array _ } ->
+    raise (TupleRequest.unexpected ~actual:request ~expected:"sigma")
+;;
+
+let rec createUnpackersFromCache
+  (cache : ReduceTupleState.cache)
+  (derefStack : [ `IntDeref of int | `CollectionUnzip ] list)
+  ~(insideWhole : bool)
+  : (Expr.t -> Expr.letArg) list
+  =
+  match cache with
+  | TupleCache { refs; subCaches } ->
+    let insideWhole = insideWhole || not (List.is_empty refs) in
+    let refUnpacker =
+      List.map refs ~f:(fun { id; type' = _ } ->
+        let rec deref value = function
+          | `IntDeref index :: rest -> Expr.tupleDeref ~tuple:(deref value rest) ~index
+          | `CollectionUnzip :: `CollectionUnzip :: rest ->
+            deref value (`CollectionUnzip :: rest)
+          | `CollectionUnzip :: rest -> Expr.unzip @@ deref value rest
+          | [] -> value
+        in
+        fun masterRef -> Expr.{ binding = id; value = deref masterRef derefStack })
+    in
+    let subCacheList =
+      subCaches
+      |> Map.to_alist
+      |> List.sort ~compare:(fun (ai, _) (bi, _) -> Int.compare ai bi)
+    in
+    let subUnpackers =
+      if insideWhole
+      then
+        List.bind subCacheList ~f:(fun (index, subCache) ->
+          createUnpackersFromCache subCache (`IntDeref index :: derefStack) ~insideWhole)
+      else (
+        match subCacheList with
+        | [ (_, subCache) ] when not insideWhole ->
+          (* if not inside a whole and there's only one element,
+             the tuple is un-nested *)
+          createUnpackersFromCache subCache derefStack ~insideWhole
+        | subCaches ->
+          subCaches
+          |> List.mapi ~f:(fun index (_, subCache) ->
+            createUnpackersFromCache subCache (`IntDeref index :: derefStack) ~insideWhole)
+          |> List.concat)
+    in
+    refUnpacker @ subUnpackers
+  | CollectionCache { subCache; collectionType = _ } ->
+    createUnpackersFromCache subCache (`CollectionUnzip :: derefStack) ~insideWhole
+;;
+
+let rec createRequestFromCache (cache : ReduceTupleState.cache) : TupleRequest.t =
+  match cache with
+  | TupleCache { refs = _ :: _; subCaches = _ } -> Whole
+  | TupleCache { refs = []; subCaches } ->
+    let subCacheList =
+      subCaches
+      |> Map.to_alist
+      |> List.sort ~compare:(fun (ai, _) (bi, _) -> Int.compare ai bi)
+    in
+    (match subCacheList with
+     | [] -> Elements []
+     | [ (i, subCache) ] ->
+       let subRequest = createRequestFromCache subCache in
+       Element { i; rest = subRequest }
+     | _ :: _ :: _ as subCaches ->
+       let elementRequests =
+         List.map subCaches ~f:(fun (sourceI, subCache) ->
+           let subRequest = createRequestFromCache subCache in
+           TupleRequest.{ i = sourceI; rest = subRequest })
+       in
+       Elements elementRequests)
+  | CollectionCache { subCache; collectionType } ->
+    Collection { subRequest = createRequestFromCache subCache; collectionType }
+;;
+
+let rec reduceTuples (request : TupleRequest.t) =
+  let open ReduceTupleState.Let_syntax in
+  function
+  | Expr.Ref { id = masterId; type' } ->
+    let%bind caches = ReduceTupleState.getCaches () in
+    let cache = Map.find caches masterId in
+    let%bind value, cache =
+      let rec resolveRequest
+        (cache : ReduceTupleState.cache option)
+        (request : TupleRequest.t)
+        (type' : Type.t)
+        derefStack
+        : (Expr.t * ReduceTupleState.cache, _) ReduceTupleState.u
+        =
+        let createId () =
+          let derefString =
+            derefStack
+            |> List.rev
+            |> List.map ~f:(fun i -> [%string "[%{i#Int}]"])
+            |> String.concat
+          in
+          let varName = [%string "%{Identifier.name masterId}%{derefString}"] in
+          ReduceTupleState.createId varName
+        in
+        match cache with
+        | Some (TupleCache cache) ->
+          (match request with
+           | Whole ->
+             let%map id = createId () in
+             let ref : Expr.ref = { id; type' } in
+             ( Expr.Ref ref
+             , ReduceTupleState.TupleCache { cache with refs = ref :: cache.refs } )
+           | Element { i; rest = subRequest } ->
+             let subCache = Map.find cache.subCaches i in
+             let subType = reduceTuplesType (Element { i; rest = Whole }) type' in
+             let%map value, subCache =
+               resolveRequest subCache subRequest subType (i :: derefStack)
+             in
+             ( value
+             , ReduceTupleState.TupleCache
+                 { cache with subCaches = Map.set cache.subCaches ~key:i ~data:subCache }
+             )
+           | Elements elementRequests ->
+             let%map elementsRev, cache =
+               List.fold
+                 elementRequests
+                 ~init:(return ([], ReduceTupleState.TupleCache cache))
+                 ~f:(fun curr nextRequest ->
+                   let%bind currElementArrays, prevCache = curr in
+                   let%map nextElementArray, nextCache =
+                     resolveRequest
+                       (Some prevCache)
+                       (Element nextRequest)
+                       type'
+                       derefStack
+                   in
+                   nextElementArray :: currElementArrays, nextCache)
+             in
+             let elements = List.rev elementsRev in
+             let type' =
+               match type' with
+               | Tuple tuple -> tuple
+               | _ -> raise (Unreachable.Error "Expected tuple type")
+             in
+             Expr.Values { elements; type' }, cache
+           | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
+        | Some (CollectionCache cache) ->
+          let restRequest =
+            match request with
+            | Collection { subRequest; collectionType } ->
+              assert (
+                TupleRequest.equal_collectionType collectionType cache.collectionType);
+              subRequest
+            | _ -> raise @@ TupleRequest.unexpected ~actual:request ~expected:"collection"
+          in
+          let restType =
+            match type' with
+            | Array { element; size = _ } -> element
+            | Sigma { parameters = _; body } -> body
+            | _ -> raise @@ Unreachable.Error "Expected collection type"
+          in
+          let%map ref, subCache =
+            resolveRequest (Some cache.subCache) restRequest restType derefStack
+          in
+          ref, ReduceTupleState.CollectionCache { cache with subCache }
+        | None ->
+          let rec makeEmptyCache (type' : Type.t) =
+            match type' with
+            | Array { element; size } ->
+              ReduceTupleState.CollectionCache
+                { subCache = makeEmptyCache element; collectionType = Array size }
+            | Sigma { parameters; body } ->
+              ReduceTupleState.CollectionCache
+                { subCache = makeEmptyCache body; collectionType = Sigma parameters }
+            | Literal _ | Tuple _ ->
+              ReduceTupleState.TupleCache
+                { refs = []; subCaches = Map.empty (module Int) }
+          in
+          let cache = makeEmptyCache type' in
+          resolveRequest (Some cache) request type' derefStack
+      in
+      resolveRequest cache request type' []
+    in
+    let%map () = ReduceTupleState.setCaches (Map.set caches ~key:masterId ~data:cache) in
+    value
+  | Frame { elements; dimension; type' } ->
+    let elementRequest =
+      match request with
+      | Collection { subRequest; collectionType = Array _ } -> subRequest
+      | Whole -> Whole
+      | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"array")
+    in
+    let%map elements =
+      elements |> List.map ~f:(reduceTuples elementRequest) |> ReduceTupleState.all
+    in
+    let type' = reduceTuplesType request type' in
+    Expr.Frame { elements; dimension; type' }
+  | ReifyIndex _ as reifyIndex ->
+    assert (TupleRequest.isWhole request);
+    return reifyIndex
+  | Append { args; type' } ->
+    let%map args = args |> List.map ~f:(reduceTuples request) |> ReduceTupleState.all in
+    let type' = reduceTuplesType request type' in
+    Expr.Append { args; type' }
+  | Box { indices; body; bodyType; type' } ->
+    let bodyRequest =
+      match request with
+      | Collection { subRequest; collectionType = Sigma _ } -> subRequest
+      | Whole -> Whole
+      | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"sigma")
+    in
+    let%map body = reduceTuples bodyRequest body in
+    let type' = reduceTuplesSigmaType request type' in
+    Expr.Box { indices; body; bodyType; type' }
+  | Literal _ as literal ->
+    assert (TupleRequest.isWhole request);
+    return literal
+  | TupleDeref { tuple; index; type' = _ } ->
+    reduceTuples (Element { i = index; rest = request }) tuple
+  | ScalarPrimitive { op; args; type' } ->
+    let%map args = args |> List.map ~f:(reduceTuples Whole) |> ReduceTupleState.all in
+    let type' = reduceTuplesType Whole type' in
+    Expr.ScalarPrimitive { op; args; type' }
+  | Values { elements; type' } as values ->
+    (match request with
+     | Whole ->
+       let%map elements =
+         elements |> List.map ~f:(reduceTuples Whole) |> ReduceTupleState.all
+       in
+       Expr.Values { elements; type' }
+     | Element { i; rest } ->
+       (* DISCARD!!! *)
+       let value = List.nth_exn elements i in
+       let%bind () =
+         if List.length elements > 1 then ReduceTupleState.markDrop () else return ()
+       in
+       reduceTuples rest value
+     | Elements elementRequests ->
+       (* DISCARD!!! *)
+       let oldElementCount = List.length elements in
+       let%bind elements =
+         elementRequests
+         |> List.map ~f:(fun r -> reduceTuples (Element r) values)
+         |> ReduceTupleState.all
+       in
+       let type' = List.map elements ~f:Expr.type' in
+       let%map () =
+         if List.length elementRequests < oldElementCount
+         then ReduceTupleState.markDrop ()
+         else return ()
+       in
+       Expr.Values { elements; type' }
+     | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
+  | BoxValue { box; type' } ->
+    let boxType =
+      match Expr.type' box with
+      | Sigma sigma -> sigma
+      | _ -> raise (Unreachable.Error "expected sigma type")
+    in
+    let%map box =
+      reduceTuples
+        (Collection { subRequest = request; collectionType = Sigma boxType.parameters })
+        box
+    in
+    let type' = reduceTuplesType request type' in
+    Expr.BoxValue { box; type' }
+  | SubArray { arrayArg; indexArg; type' } ->
+    let argType =
+      match Expr.type' arrayArg with
+      | Array array -> array
+      | _ -> raise (Unreachable.Error "expected array type")
+    in
+    let%map arrayArg =
+      reduceTuples
+        (Collection { subRequest = request; collectionType = Array argType.size })
+        arrayArg
+    and indexArg = reduceTuples Whole indexArg in
+    let type' = reduceTuplesType request type' in
+    Expr.SubArray { arrayArg; indexArg; type' }
+  | Zip { zipArg; nestCount; type' } ->
+    let rec interchangeCollections nestCount wrapper request =
+      if nestCount = 0
+      then (
+        match request with
+        | TupleRequest.Whole -> TupleRequest.Whole
+        | TupleRequest.Element { i; rest } ->
+          TupleRequest.Element { i; rest = wrapper rest }
+        | TupleRequest.Elements derefs ->
+          TupleRequest.Elements
+            (List.map derefs ~f:(fun { i; rest } ->
+               TupleRequest.{ i; rest = wrapper rest }))
+        | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
+      else (
+        match request with
+        | TupleRequest.Whole -> TupleRequest.Whole
+        | TupleRequest.Collection { subRequest; collectionType } ->
+          interchangeCollections
+            (nestCount - 1)
+            (fun r -> wrapper @@ Collection { subRequest = r; collectionType })
+            subRequest
+        | TupleRequest.Element _ | TupleRequest.Elements _ ->
+          raise (TupleRequest.unexpected ~actual:request ~expected:"collection"))
+    in
+    let%map zipArg =
+      reduceTuples (interchangeCollections nestCount (fun r -> r) request) zipArg
+    in
+    Expr.Zip { zipArg; nestCount; type' }
+  | Unzip { unzipArg; type' } ->
+    let nestCount, collectionRequestWrapper =
+      let rec unzipType = function
+        | Type.Tuple _ -> 0, fun r -> r
+        | Type.Array { element; size } ->
+          let subCount, subWrapper = unzipType element in
+          ( subCount + 1
+          , fun r ->
+              TupleRequest.Collection
+                { subRequest = subWrapper r; collectionType = Array size } )
+        | Type.Sigma { parameters; body } ->
+          let subCount, subWrapper = unzipType body in
+          ( subCount + 1
+          , fun r ->
+              TupleRequest.Collection
+                { subRequest = subWrapper r; collectionType = Sigma parameters } )
+        | Type.Literal _ -> raise (Unreachable.Error "Unexpected literal type")
+      in
+      unzipType (Expr.type' unzipArg)
+    in
+    let rec stripCollections nestCount request =
+      if nestCount = 0
+      then request
+      else (
+        match request with
+        | TupleRequest.Collection { subRequest; collectionType = _ } ->
+          stripCollections (nestCount - 1) subRequest
+        | TupleRequest.Whole -> Whole
+        | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"collection"))
+    in
+    (match request with
+     | Whole ->
+       let%map unzipArg = reduceTuples Whole unzipArg in
+       Expr.Unzip { unzipArg; type' }
+     | Element { i; rest } ->
+       let request =
+         collectionRequestWrapper (Element { i; rest = stripCollections nestCount rest })
+       in
+       reduceTuples request unzipArg
+     | Elements elementRequests ->
+       let unzipArgRequest =
+         collectionRequestWrapper
+           (Elements
+              (List.map elementRequests ~f:(fun { i; rest } ->
+                 TupleRequest.{ i; rest = stripCollections nestCount rest })))
+       in
+       let%map unzipArg = reduceTuples unzipArgRequest unzipArg in
+       let type' =
+         match reduceTuplesType request (Tuple type') with
+         | Tuple tuple -> tuple
+         | _ -> raise (Unreachable.Error "expected tuple type")
+       in
+       Expr.Unzip { unzipArg; type' }
+     | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
+  | IndexLet { indexArgs; body; type' } ->
+    let%map body = reduceTuples request body in
+    Expr.IndexLet { indexArgs; body; type' }
+  | Let { args; body; type' } ->
+    let%bind body = reduceTuples request body in
+    let type' = reduceTuplesType request type' in
+    let%bind caches = ReduceTupleState.getCaches () in
+    let%bind args, unpackerss =
+      args
+      |> List.map ~f:(fun { binding; value } ->
+        Map.find caches binding
+        |> Option.map ~f:(fun cache ->
+          let request = createRequestFromCache cache in
+          let unpackersRaw = createUnpackersFromCache cache [] ~insideWhole:false in
+          let%map value = reduceTuples request value in
+          let ref = Expr.Ref { id = binding; type' = Expr.type' value } in
+          let unpackers = List.map unpackersRaw ~f:(fun unpacker -> unpacker ref) in
+          Expr.{ binding; value }, unpackers))
+      |> List.filter_opt
+      |> ReduceTupleState.all
+      >>| List.unzip
+    in
+    let%map () =
+      ReduceTupleState.setCaches
+        (args
+         |> List.map ~f:(fun arg -> arg.binding)
+         |> List.fold ~init:caches ~f:Map.remove)
+    in
+    let unpackers = List.bind unpackerss ~f:(fun e -> e) in
+    Expr.Let { args; body = Let { args = unpackers; body; type' }; type' }
+  | ConsumerBlock
+      { frameShape
+      ; mapArgs
+      ; mapIotas
+      ; mapBody
+      ; mapBodyMatcher
+      ; mapResults
+      ; consumer
+      ; type' = _
+      } ->
+    let mapRequest, consumerRequest, wrapResult =
+      let wrapperForPair block ~mapWrapper ~consumerWrapper =
+        let%map blockBinding = ReduceTupleState.createId "consumer-block-result" in
+        let blockRef = Expr.Ref { id = blockBinding; type' = Expr.type' block } in
+        Expr.let'
+          ~args:[ { binding = blockBinding; value = block } ]
+          ~body:
+            (Expr.values
+               [ mapWrapper @@ Expr.tupleDeref ~tuple:blockRef ~index:0
+               ; consumerWrapper @@ Expr.tupleDeref ~tuple:blockRef ~index:1
+               ])
+      in
+      let wrapperForMapOnly block ~mapWrapper ~consumerWrapper:_ =
+        let mapValue = Expr.tupleDeref ~tuple:block ~index:0 in
+        let%map mapBinding = ReduceTupleState.createId "map-result" in
+        let mapRef = Expr.Ref { id = mapBinding; type' = Expr.type' mapValue } in
+        Expr.let'
+          ~args:[ { binding = mapBinding; value = mapValue } ]
+          ~body:(mapWrapper mapRef)
+      in
+      let wrapperForConsumerOnly block ~mapWrapper:_ ~consumerWrapper =
+        let consumerValue = Expr.tupleDeref ~tuple:block ~index:1 in
+        let%map consumerBinding = ReduceTupleState.createId "consumer-result" in
+        let consumerRef =
+          Expr.Ref { id = consumerBinding; type' = Expr.type' consumerValue }
+        in
+        Expr.let'
+          ~args:[ { binding = consumerBinding; value = consumerValue } ]
+          ~body:(consumerWrapper consumerRef)
+      in
+      let wrapperForUnit _ ~mapWrapper:_ ~consumerWrapper:_ = return @@ Expr.values [] in
+      match request with
+      | Whole -> TupleRequest.Whole, TupleRequest.Whole, wrapperForPair
+      | Element { i = 0; rest = mapRequest } ->
+        mapRequest, TupleRequest.Elements [], wrapperForMapOnly
+      | Element { i = 1; rest = consumerRequest } ->
+        TupleRequest.Elements [], consumerRequest, wrapperForConsumerOnly
+      | Element { i = _; rest = _ } ->
+        raise (Unreachable.Error "invalid tuple index of consumer block")
+      | Elements [] -> TupleRequest.Elements [], TupleRequest.Elements [], wrapperForUnit
+      | Elements [ { i = 0; rest = mapRequest } ] ->
+        mapRequest, TupleRequest.Elements [], wrapperForMapOnly
+      | Elements [ { i = 1; rest = consumerRequest } ] ->
+        TupleRequest.Elements [], consumerRequest, wrapperForConsumerOnly
+      | Elements [ { i = 0; rest = mapRequest }; { i = 1; rest = consumerRequest } ] ->
+        mapRequest, consumerRequest, wrapperForPair
+      | Elements _ -> raise (Unreachable.Error "invalid tuple indices of consumer block")
+      | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple")
+    in
+    let%bind consumerUsages, consumer =
+      match consumer, consumerRequest with
+      | _, Elements [] | None, _ -> return (Set.empty (module Identifier), None)
+      | Some (Reduce { arg; zero; d; body; itemPad; associative; character; type' }), _ ->
+        let%bind zero =
+          zero |> Option.map ~f:(reduceTuples Whole) |> ReduceTupleState.all_opt
+        in
+        let rec getUsagesInProductionTuple = function
+          | Expr.ProductionTuple t ->
+            t.elements
+            |> List.map ~f:getUsagesInProductionTuple
+            |> Set.union_list (module Identifier)
+          | Expr.ProductionTupleAtom p -> Set.singleton (module Identifier) p.productionId
+        in
+        let usages = getUsagesInProductionTuple arg.production in
+        let%bind body = reduceTuples Whole body in
+        let%bind caches = ReduceTupleState.getCaches () in
+        let unpackers =
+          [ arg.firstBinding; arg.secondBinding ]
+          |> List.map ~f:(fun binding ->
+            Map.find caches binding
+            |> Option.map ~f:(fun cache ->
+              let unpackersRaw = createUnpackersFromCache cache [] ~insideWhole:true in
+              let ref =
+                Expr.Ref { id = binding; type' = Expr.productionTupleType arg.production }
+              in
+              let unpackers = List.map unpackersRaw ~f:(fun unpacker -> unpacker ref) in
+              unpackers))
+          |> List.filter_opt
+          |> List.concat
+        in
+        let%map () =
+          ReduceTupleState.setCaches
+            (List.fold [ arg.firstBinding; arg.secondBinding ] ~init:caches ~f:Map.remove)
+        in
+        let reduce =
+          Expr.Reduce
+            { arg
+            ; zero
+            ; body = Expr.let' ~args:unpackers ~body
+            ; d
+            ; itemPad
+            ; associative
+            ; character
+            ; type'
+            }
+        in
+        usages, Some reduce
+      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }), _ ->
+        let%bind body = reduceTuples Whole body in
+        let%bind caches = ReduceTupleState.getCaches () in
+        let bindings =
+          (zeroArg.zeroBinding, Expr.type' zeroArg.zeroValue)
+          :: List.map arrayArgs ~f:(fun { binding; production } ->
+            let argType =
+              match production.type' with
+              | Array { element; size = _ } -> element
+              | _ -> raise @@ Unreachable.Error "expected array type"
+            in
+            binding, argType)
+        in
+        let unpackers =
+          bindings
+          |> List.map ~f:(fun (binding, type') ->
+            Map.find caches binding
+            |> Option.map ~f:(fun cache ->
+              let unpackersRaw = createUnpackersFromCache cache [] ~insideWhole:true in
+              let ref = Expr.Ref { id = binding; type' } in
+              let unpackers = List.map unpackersRaw ~f:(fun unpacker -> unpacker ref) in
+              unpackers))
+          |> List.filter_opt
+          |> List.concat
+        in
+        let%map () =
+          ReduceTupleState.setCaches
+            (bindings
+             |> List.map ~f:(fun (binding, _) -> binding)
+             |> List.fold ~init:caches ~f:Map.remove)
+        in
+        let fold =
+          Expr.Fold
+            { zeroArg
+            ; arrayArgs
+            ; body = Expr.let' ~args:unpackers ~body
+            ; d
+            ; itemPad
+            ; character
+            ; type'
+            }
+        in
+        let usages =
+          arrayArgs
+          |> List.map ~f:(fun arg -> arg.production.productionId)
+          |> Set.of_list (module Identifier)
+        in
+        usages, Some fold
+      | ( (Some (Scatter { valuesArg; indicesArg; dIn = _; dOut = _; type' = _ }) as
+           scatter)
+        , _ ) ->
+        let usages =
+          Set.of_list
+            (module Identifier)
+            [ valuesArg.productionId; indicesArg.productionId ]
+        in
+        return (usages, scatter)
+    in
+    let consumerWrapper e = e in
+    let mapBodyRequest, mapWrapper, mapBodyMatcher, mapResults =
+      let resultRequestsAndExtractors =
+        let rec extractFromConstExpr nestCount typeWrapper request constExpr =
+          match request with
+          | TupleRequest.Whole -> constExpr
+          | TupleRequest.Element { i; rest } ->
+            Expr.tupleDeref
+              ~tuple:(Expr.unzip (extractFromConstExpr 0 (fun t -> t) rest constExpr))
+              ~index:i
+          | TupleRequest.Elements derefs ->
+            let values =
+              List.map derefs ~f:(fun { i; rest } ->
+                Expr.tupleDeref
+                  ~tuple:(Expr.unzip (extractFromConstExpr 0 (fun t -> t) rest constExpr))
+                  ~index:i)
+            in
+            let types =
+              List.map values ~f:(fun value ->
+                let rec getType n type' =
+                  if n = 0
+                  then type'
+                  else (
+                    match type' with
+                    | Type.Array array -> getType (n - 1) array.element
+                    | Type.Sigma sigma -> getType (n - 1) sigma.body
+                    | _ -> raise @@ Unreachable.Error "expected collection type")
+                in
+                getType nestCount @@ Expr.type' value)
+            in
+            Expr.Zip
+              { zipArg = Expr.values values
+              ; nestCount
+              ; type' = typeWrapper @@ Type.Tuple types
+              }
+          | TupleRequest.Collection { subRequest; collectionType } ->
+            extractFromConstExpr
+              (nestCount + 1)
+              (fun t ->
+                let innerType =
+                  match collectionType with
+                  | Array size -> Type.Array { element = t; size }
+                  | Sigma parameters -> Type.Sigma { parameters; body = t }
+                in
+                typeWrapper innerType)
+              subRequest
+              constExpr
+        in
+        let getForDeref TupleRequest.{ i; rest } =
+          let subRequest =
+            match rest with
+            | Collection { subRequest; collectionType = _ } -> subRequest
+            | _ ->
+              raise @@ TupleRequest.unexpected ~actual:mapRequest ~expected:"collection"
+          in
+          let resultId = List.nth_exn mapResults i in
+          if Set.mem consumerUsages resultId
+          then [ resultId, TupleRequest.Whole, extractFromConstExpr 0 (fun t -> t) rest ]
+          else [ (resultId, subRequest, fun e -> e) ]
+        in
+        match mapRequest with
+        | Whole ->
+          List.map mapResults ~f:(fun resultId ->
+            resultId, TupleRequest.Whole, fun e -> e)
+        | Element deref -> getForDeref deref
+        | Elements derefs -> List.bind derefs ~f:getForDeref
+        | Collection _ ->
+          raise @@ TupleRequest.unexpected ~actual:mapRequest ~expected:"tuple"
+      in
+      let mapResults, mapExtractors =
+        resultRequestsAndExtractors
+        |> List.mapi ~f:(fun i (resultId, _, extractor) ->
+          resultId, fun e -> extractor @@ Expr.tupleDeref ~tuple:e ~index:i)
+        |> List.unzip
+      in
+      let mapWrapper mapResult =
+        mapExtractors |> List.map ~f:(fun extractor -> extractor mapResult) |> Expr.values
+      in
+      let resultRequestsFromMap =
+        List.map resultRequestsAndExtractors ~f:(fun (resultId, request, _) ->
+          resultId, request)
+      in
+      let resultRequestsFromConsumer =
+        consumerUsages
+        |> Set.to_list
+        |> List.map ~f:(fun resultId -> resultId, TupleRequest.Whole)
+      in
+      let resultRequests =
+        Map.of_alist_reduce
+          (module Identifier)
+          (resultRequestsFromMap @ resultRequestsFromConsumer)
+          ~f:(fun a _ -> a)
+      in
+      let rec makeMapBodyRequestAndMatcher (oldMatcher : Expr.tupleMatch)
+        : TupleRequest.t * Expr.tupleMatch * bool
+        =
+        match oldMatcher with
+        | Binding resultId ->
+          (match Map.find resultRequests resultId with
+           | Some request -> request, Binding resultId, true
+           | None -> Whole, Binding resultId, false)
+        | Unpack matchers ->
+          let requestsAndMatchers =
+            List.filter_mapi matchers ~f:(fun i matcher ->
+              let request, subMatcher, used = makeMapBodyRequestAndMatcher matcher in
+              if used then Some (i, request, subMatcher) else None)
+          in
+          (match requestsAndMatchers with
+           | [] -> Elements [], Unpack [], false
+           | [ (i, request, matcher) ] -> Element { i; rest = request }, matcher, true
+           | _ ->
+             let elementsRequests, matchers =
+               requestsAndMatchers
+               |> List.map ~f:(fun (i, request, matcher) ->
+                 TupleRequest.{ i; rest = request }, matcher)
+               |> List.unzip
+             in
+             Elements elementsRequests, Unpack matchers, true)
+      in
+      let mapBodyRequest, mapBodyMatcher, _ =
+        makeMapBodyRequestAndMatcher mapBodyMatcher
+      in
+      mapBodyRequest, mapWrapper, mapBodyMatcher, mapResults
+    in
+    let%bind mapArgs, mapBody, blockUnpackers =
+      let%bind body = reduceTuples mapBodyRequest mapBody in
+      let%bind caches = ReduceTupleState.getCaches () in
+      let%bind args, unpackerss, blockUnpackers =
+        mapArgs
+        |> List.map ~f:(fun { binding; ref } ->
+          Map.find caches binding
+          |> Option.map ~f:(fun cache ->
+            let argArrayType =
+              match ref.type' with
+              | Array array -> array
+              | _ -> raise @@ Unreachable.Error "expected array type"
+            in
+            let unpackersRaw = createUnpackersFromCache cache [] ~insideWhole:false in
+            let argRef = Expr.Ref { id = binding; type' = argArrayType.element } in
+            let unpackers = List.map unpackersRaw ~f:(fun unpacker -> unpacker argRef) in
+            let argRequest =
+              TupleRequest.Collection
+                { subRequest = createRequestFromCache cache
+                ; collectionType = Array argArrayType.size
+                }
+            in
+            let%map value = reduceTuples argRequest (Expr.Ref ref)
+            and valueBinding = ReduceTupleState.createId (Identifier.name ref.id) in
+            let valueRef : Expr.ref = { id = valueBinding; type' = Expr.type' value } in
+            let valueUnpacker : Expr.letArg = { binding = valueBinding; value } in
+            Expr.{ binding; ref = valueRef }, unpackers, valueUnpacker))
+        |> List.filter_opt
+        |> ReduceTupleState.all
+        >>| List.unzip3
+      in
+      let unpackers = List.concat unpackerss in
+      let%map () =
+        ReduceTupleState.setCaches
+          (List.map mapArgs ~f:(fun arg -> arg.binding)
+           @ List.map mapIotas ~f:(fun i -> i.iota)
+           |> List.fold ~init:caches ~f:Map.remove)
+      in
+      args, Expr.let' ~args:unpackers ~body, blockUnpackers
+    in
+    let rec extractTypesFromTupleType (matcher : Expr.tupleMatch) type' =
+      match matcher with
+      | Binding id -> [ id, type' ]
+      | Unpack matchers ->
+        (match type' with
+         | Type.Tuple types ->
+           List.zip_exn matchers types
+           |> List.bind ~f:(fun (matcher, type') ->
+             extractTypesFromTupleType matcher type')
+         | _ -> raise @@ Unreachable.Error "expected tuple type")
+    in
+    let resultElementTypes =
+      extractTypesFromTupleType mapBodyMatcher (Expr.type' mapBody)
+    in
+    let resultTypes =
+      resultElementTypes
+      |> List.map ~f:(fun (id, element) -> id, Type.Array { element; size = frameShape })
+      |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+    in
+    let mapResultType =
+      Type.Tuple
+        (List.map mapResults ~f:(fun resultId -> Map.find_exn resultTypes resultId))
+    in
+    let block =
+      Expr.let'
+        ~args:blockUnpackers
+        ~body:
+          (Expr.ConsumerBlock
+             { frameShape
+             ; mapArgs
+             ; mapIotas
+             ; mapBody
+             ; mapBodyMatcher
+             ; mapResults
+             ; consumer
+             ; type' =
+                 [ mapResultType
+                 ; consumer
+                   |> Option.map ~f:Expr.consumerOpType
+                   |> Option.value ~default:(Type.Tuple [])
+                 ]
+             })
+    in
+    wrapResult block ~mapWrapper ~consumerWrapper
 ;;
 
 let simplify expr =
@@ -499,7 +1444,13 @@ let simplify expr =
   let rec loop expr =
     let unoptimized = expr in
     let optimized = optimize unoptimized in
-    if Expr.equal unoptimized optimized then return optimized else loop optimized
+    if Expr.equal unoptimized optimized
+    then (
+      let%bind reduced, droppedAny =
+        reduceTuples Whole optimized |> ReduceTupleState.toSimplifyState
+      in
+      if droppedAny then loop reduced else return optimized)
+    else loop optimized
   in
   loop expr
 ;;

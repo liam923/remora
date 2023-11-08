@@ -311,7 +311,7 @@ include Monad.Make (struct
     let map = `Custom map
   end)
 
-let all_options (x :: xs) =
+let all_opt (x :: xs) =
   let open Option.Let_syntax in
   let%map x = x
   and xs = Option.all xs in

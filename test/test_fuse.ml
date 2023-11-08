@@ -120,7 +120,8 @@ let%expect_test "check fusing" =
         (reduce{int | 2 [] []} + (+ 5 x))
         (reduce{int | 2 [3] []} + (+ [[6 7 8] [6 7 8] [6 7 8]] x)))
     |};
-  [%expect {|
+  [%expect
+    {|
     (let ((+arg2.100 (frame 1 2 3)))
      (let
       ((fused-block-result.138

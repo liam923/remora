@@ -55,7 +55,7 @@ module Type = struct
     | Sigma of sigma
     | Literal of literal
     | Tuple of tuple
-  [@@deriving sexp_of, equal]
+  [@@deriving sexp_of, equal, compare]
 end
 
 module Expr = struct
@@ -246,6 +246,21 @@ module Expr = struct
     ; type' : Type.t
     }
 
+  (** Zip collections together, going `nestCount` deep. A "collection" is
+      a box or array. The arg is expected to be a tuple *)
+  and zip =
+    { zipArg : t
+    ; nestCount : int
+    ; type' : Type.t
+    }
+
+  (** Unzip nested collections, recursively entering collections until a tuple
+      is reached *)
+  and unzip =
+    { unzipArg : t
+    ; type' : Type.tuple
+    }
+
   and t =
     | Ref of ref
     | Frame of frame
@@ -261,6 +276,8 @@ module Expr = struct
     | TupleDeref of tupleDeref
     | SubArray of subArray
     | Append of append
+    | Zip of zip
+    | Unzip of unzip
   [@@deriving equal]
 
   let type' : t -> Type.t = function
@@ -280,6 +297,8 @@ module Expr = struct
     | ConsumerBlock consumerBlock -> Tuple consumerBlock.type'
     | SubArray subArray -> subArray.type'
     | Append append -> append.type'
+    | Zip zip -> zip.type'
+    | Unzip unzip -> Tuple unzip.type'
   ;;
 
   let consumerOpType = function
@@ -305,6 +324,19 @@ module Expr = struct
            | Tuple types -> List.nth_exn types index
            | _ -> raise (Unreachable.Error "Expected tuple type"))
       }
+  ;;
+
+  let unzip unzipArg =
+    let rec unzipType type' =
+      match type' with
+      | Type.Array { element; size } ->
+        unzipType element |> List.map ~f:(fun e -> Type.Array { element = e; size })
+      | Type.Sigma { parameters; body } ->
+        unzipType body |> List.map ~f:(fun e -> Type.Sigma { parameters; body = e })
+      | Type.Tuple t -> t
+      | Type.Literal _ -> raise (Unreachable.Error "Expected collection or tuple type")
+    in
+    Unzip { unzipArg; type' = unzipType @@ type' unzipArg }
   ;;
 
   module Sexp_of = struct
@@ -495,6 +527,16 @@ module Expr = struct
     and sexp_of_append ({ args; type' = _ } : append) =
       Sexp.List (Sexp.Atom "++" :: List.map args ~f:sexp_of_t)
 
+    and sexp_of_zip ({ zipArg; nestCount; type' = _ } : zip) =
+      Sexp.List
+        [ Sexp.Atom [%string "zip"]
+        ; Sexp.List [ Sexp.Atom "nests"; Sexp.Atom (Int.to_string nestCount) ]
+        ; sexp_of_t zipArg
+        ]
+
+    and sexp_of_unzip ({ unzipArg; type' = _ } : unzip) =
+      Sexp.List [ Sexp.Atom [%string "unzip"]; sexp_of_t unzipArg ]
+
     and sexp_of_t = function
       | Box box -> sexp_of_box box
       | Literal lit -> sexp_of_literal lit
@@ -510,6 +552,8 @@ module Expr = struct
       | ConsumerBlock consumerBlock -> sexp_of_consumerBlock consumerBlock
       | SubArray subArray -> sexp_of_subArray subArray
       | Append append -> sexp_of_append append
+      | Zip zip -> sexp_of_zip zip
+      | Unzip unzip -> sexp_of_unzip unzip
     ;;
   end
 

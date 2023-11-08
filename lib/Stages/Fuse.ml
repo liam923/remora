@@ -228,6 +228,10 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     Set.union
       (args |> List.map ~f:getUsesInExpr |> Set.union_list (module Identifier))
       (getUsesInType type')
+  | Zip { zipArg; nestCount = _; type' } ->
+    Set.union (getUsesInExpr zipArg) (getUsesInType type')
+  | Unzip { unzipArg; type' } ->
+    Set.union (getUsesInExpr unzipArg) (getUsesInType (Tuple type'))
 ;;
 
 (** Represents a value that contains the result of a map.
@@ -272,9 +276,7 @@ let rec getMapValue mapRefs =
      | Some (Tuple mapValues) -> List.nth mapValues index |> Option.bind ~f:(fun v -> v)
      | Some (Value derefs) -> Some (Value (index :: derefs))
      | None -> None)
-  | ScalarPrimitive _ -> None
-  | SubArray _ -> None
-  | Append _ -> None
+  | ScalarPrimitive _ | SubArray _ | Append _ | Zip _ | Unzip _ -> None
 ;;
 
 type consumerExtraction =
@@ -576,6 +578,16 @@ let rec liftFrom
       liftFromList args ~f:(liftFrom target targetConsumer capturables mapRefs)
     in
     extraction, Append { args; type' }
+  | Zip { zipArg; nestCount; type' } ->
+    let%map extraction, zipArg =
+      liftFrom target targetConsumer capturables mapRefs zipArg
+    in
+    extraction, Zip { zipArg; nestCount; type' }
+  | Unzip { unzipArg; type' } ->
+    let%map extraction, unzipArg =
+      liftFrom target targetConsumer capturables mapRefs unzipArg
+    in
+    extraction, Unzip { unzipArg; type' }
   | (Ref _ | ReifyIndex { index = _; type' = _ } | Literal _) as expr ->
     return (None, expr)
 ;;
@@ -908,7 +920,9 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
           | Literal _
           | ScalarPrimitive _
           | SubArray _
-          | Append _ -> []
+          | Append _
+          | Zip _
+          | Unzip _ -> []
         in
         opportunitiesInExpr
           (Map.empty (module Identifier))
@@ -1212,6 +1226,12 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
   | Append { args; type' } ->
     let%map args = args |> List.map ~f:(fuseLoops scope) |> FuseState.all in
     Append { args; type' }
+  | Zip { zipArg; nestCount; type' } ->
+    let%map zipArg = fuseLoops scope zipArg in
+    Zip { zipArg; nestCount; type' }
+  | Unzip { unzipArg; type' } ->
+    let%map unzipArg = fuseLoops scope unzipArg in
+    Unzip { unzipArg; type' }
 ;;
 
 let fuse (prog : Nested.t) : (CompilerState.state, Nested.t fusionResult, _) State.t =

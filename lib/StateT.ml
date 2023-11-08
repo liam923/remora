@@ -21,6 +21,7 @@ module type S2 = sig
   val make : f:('s -> 's * 'a) -> ('s, 'a, 'e) t
   val makeF : f:('s -> ('s * 'a, 'e) m) -> ('s, 'a, 'e) t
   val all_map : ('k, ('s, 'ok, 'err) t, 'cmp) Map.t -> ('s, ('k, 'ok, 'cmp) Map.t, 'err) t
+  val all_opt : ('s, 'ok, 'err) t option -> ('s, 'ok option, 'err) t
   val unzip : ('s, ('a * 'b) list, 'e) t -> ('s, 'a list * 'b list, 'e) t
 end
 
@@ -88,6 +89,11 @@ module Make2 (M : Monad.S2) = struct
         let%map acc = acc
         and data = data in
         Map.set acc ~key ~data)
+  ;;
+
+  let all_opt = function
+    | Some s -> s >>| fun e -> Some e
+    | None -> return None
   ;;
 
   let unzip = map ~f:List.unzip
