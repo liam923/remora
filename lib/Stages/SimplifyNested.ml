@@ -595,13 +595,14 @@ module ReduceTupleState = struct
 
   type cache =
     | TupleCache of
-        { refs : Expr.ref list
+        { bindings : Identifier.t list
         ; subCaches : cache Map.M(Int).t
         }
     | CollectionCache of
         { subCache : cache
         ; collectionType : TupleRequest.collectionType
         }
+  [@@deriving sexp_of]
 
   type state =
     { compilerState : CompilerState.state
@@ -613,6 +614,7 @@ module ReduceTupleState = struct
 
   let getCaches () = get () >>| fun state -> state.caches
   let setCaches caches = get () >>= fun state -> set { state with caches }
+  let updateCaches ~f = getCaches () >>= fun caches -> setCaches (f caches)
   let markDrop () = get () >>= fun state -> set { state with droppedAny = true }
 
   let createId name =
@@ -688,18 +690,25 @@ let rec createUnpackersFromCache
   : (Expr.t -> Expr.letArg) list
   =
   match cache with
-  | TupleCache { refs; subCaches } ->
-    let insideWhole = insideWhole || not (List.is_empty refs) in
+  | TupleCache { bindings; subCaches } ->
+    let insideWhole = insideWhole || not (List.is_empty bindings) in
     let refUnpacker =
-      List.map refs ~f:(fun { id; type' = _ } ->
+      List.map bindings ~f:(fun id ->
         let rec deref value = function
-          | `IntDeref index :: rest -> Expr.tupleDeref ~tuple:(deref value rest) ~index
-          | `CollectionUnzip :: `CollectionUnzip :: rest ->
-            deref value (`CollectionUnzip :: rest)
-          | `CollectionUnzip :: rest -> Expr.unzip @@ deref value rest
+          | `IntDeref index :: rest ->
+            Expr.tupleDeref ~tuple:(Expr.unzip (deref value rest)) ~index
+          | `CollectionUnzip :: rest -> deref value rest
           | [] -> value
         in
-        fun masterRef -> Expr.{ binding = id; value = deref masterRef derefStack })
+        fun masterRef ->
+          Stdio.print_endline "derefing ref:";
+          masterRef |> [%sexp_of: Expr.t] |> Sexp.to_string_hum |> Stdio.print_endline;
+          Stdio.print_endline "deref stack:";
+          derefStack
+          |> [%sexp_of: [ `IntDeref of int | `CollectionUnzip ] list]
+          |> Sexp.to_string_hum
+          |> Stdio.print_endline;
+          Expr.{ binding = id; value = deref masterRef derefStack })
     in
     let subCacheList =
       subCaches
@@ -730,8 +739,8 @@ let rec createUnpackersFromCache
 
 let rec createRequestFromCache (cache : ReduceTupleState.cache) : TupleRequest.t =
   match cache with
-  | TupleCache { refs = _ :: _; subCaches = _ } -> Whole
-  | TupleCache { refs = []; subCaches } ->
+  | TupleCache { bindings = _ :: _; subCaches = _ } -> Whole
+  | TupleCache { bindings = []; subCaches } ->
     let subCacheList =
       subCaches
       |> Map.to_alist
@@ -763,7 +772,9 @@ let rec reduceTuples (request : TupleRequest.t) =
       let rec resolveRequest
         (cache : ReduceTupleState.cache option)
         (request : TupleRequest.t)
-        (type' : Type.t)
+        (elementType : Type.t)
+        (typeCollectionWrapper : Type.t -> Type.t)
+        (zipDepth : int)
         derefStack
         : (Expr.t * ReduceTupleState.cache, _) ReduceTupleState.u
         =
@@ -782,14 +793,20 @@ let rec reduceTuples (request : TupleRequest.t) =
           (match request with
            | Whole ->
              let%map id = createId () in
-             let ref : Expr.ref = { id; type' } in
-             ( Expr.Ref ref
-             , ReduceTupleState.TupleCache { cache with refs = ref :: cache.refs } )
+             ( Expr.Ref { id; type' = typeCollectionWrapper elementType }
+             , ReduceTupleState.TupleCache { cache with bindings = id :: cache.bindings }
+             )
            | Element { i; rest = subRequest } ->
              let subCache = Map.find cache.subCaches i in
-             let subType = reduceTuplesType (Element { i; rest = Whole }) type' in
+             let subType = reduceTuplesType (Element { i; rest = Whole }) elementType in
              let%map value, subCache =
-               resolveRequest subCache subRequest subType (i :: derefStack)
+               resolveRequest
+                 subCache
+                 subRequest
+                 subType
+                 typeCollectionWrapper
+                 zipDepth
+                 (i :: derefStack)
              in
              ( value
              , ReduceTupleState.TupleCache
@@ -806,18 +823,41 @@ let rec reduceTuples (request : TupleRequest.t) =
                      resolveRequest
                        (Some prevCache)
                        (Element nextRequest)
-                       type'
+                       elementType
+                       typeCollectionWrapper
+                       zipDepth
                        derefStack
                    in
                    nextElementArray :: currElementArrays, nextCache)
              in
              let elements = List.rev elementsRev in
-             let type' =
-               match type' with
+             let tupleType =
+               match elementType with
                | Tuple tuple -> tuple
                | _ -> raise (Unreachable.Error "Expected tuple type")
              in
-             Expr.Values { elements; type' }, cache
+             let stripCollections n type' =
+               if n = 0
+               then type'
+               else (
+                 match type' with
+                 | Type.Array { element; size = _ } -> element
+                 | Type.Sigma { parameters = _; body } -> body
+                 | _ -> raise @@ Unimplemented.Error "Expected collection type")
+             in
+             let tuple = Expr.Values { elements; type' = tupleType } in
+             let zippedTuple =
+               Expr.Zip
+                 { zipArg = tuple
+                 ; nestCount = zipDepth
+                 ; type' =
+                     tupleType
+                     |> List.map ~f:(stripCollections zipDepth)
+                     |> Type.Tuple
+                     |> typeCollectionWrapper
+                 }
+             in
+             zippedTuple, cache
            | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
         | Some (CollectionCache cache) ->
           let restRequest =
@@ -828,14 +868,22 @@ let rec reduceTuples (request : TupleRequest.t) =
               subRequest
             | _ -> raise @@ TupleRequest.unexpected ~actual:request ~expected:"collection"
           in
-          let restType =
-            match type' with
-            | Array { element; size = _ } -> element
-            | Sigma { parameters = _; body } -> body
+          let restType, newTypeCollectionWrapper =
+            match elementType with
+            | Array { element; size } ->
+              element, fun t -> typeCollectionWrapper @@ Array { element = t; size }
+            | Sigma { parameters; body } ->
+              body, fun t -> typeCollectionWrapper @@ Sigma { parameters; body = t }
             | _ -> raise @@ Unreachable.Error "Expected collection type"
           in
           let%map ref, subCache =
-            resolveRequest (Some cache.subCache) restRequest restType derefStack
+            resolveRequest
+              (Some cache.subCache)
+              restRequest
+              restType
+              newTypeCollectionWrapper
+              (zipDepth + 1)
+              derefStack
           in
           ref, ReduceTupleState.CollectionCache { cache with subCache }
         | None ->
@@ -849,12 +897,18 @@ let rec reduceTuples (request : TupleRequest.t) =
                 { subCache = makeEmptyCache body; collectionType = Sigma parameters }
             | Literal _ | Tuple _ ->
               ReduceTupleState.TupleCache
-                { refs = []; subCaches = Map.empty (module Int) }
+                { bindings = []; subCaches = Map.empty (module Int) }
           in
-          let cache = makeEmptyCache type' in
-          resolveRequest (Some cache) request type' derefStack
+          let cache = makeEmptyCache elementType in
+          resolveRequest
+            (Some cache)
+            request
+            elementType
+            typeCollectionWrapper
+            0
+            derefStack
       in
-      resolveRequest cache request type' []
+      resolveRequest cache request type' (fun t -> t) 0 []
     in
     let%map () = ReduceTupleState.setCaches (Map.set caches ~key:masterId ~data:cache) in
     value
@@ -1038,7 +1092,9 @@ let rec reduceTuples (request : TupleRequest.t) =
     let%map body = reduceTuples request body in
     Expr.IndexLet { indexArgs; body; type' }
   | Let { args; body; type' } ->
+    let%bind cachesBeforeBody = ReduceTupleState.getCaches () in
     let%bind body = reduceTuples request body in
+    let%bind cachesAfterBody = ReduceTupleState.getCaches () in
     let type' = reduceTuplesType request type' in
     let%bind caches = ReduceTupleState.getCaches () in
     let%bind args, unpackerss =
@@ -1057,12 +1113,24 @@ let rec reduceTuples (request : TupleRequest.t) =
       >>| List.unzip
     in
     let%map () =
-      ReduceTupleState.setCaches
-        (args
-         |> List.map ~f:(fun arg -> arg.binding)
-         |> List.fold ~init:caches ~f:Map.remove)
+      ReduceTupleState.updateCaches ~f:(fun caches ->
+        args
+        |> List.map ~f:(fun arg -> arg.binding)
+        |> List.fold ~init:caches ~f:Map.remove)
     in
+    Stdio.print_endline "Caches before body:";
+    cachesBeforeBody
+    |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
+    |> Sexp.to_string_hum
+    |> Stdio.print_endline;
+    Stdio.print_endline "Caches after body:";
+    cachesAfterBody
+    |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
+    |> Sexp.to_string_hum
+    |> Stdio.print_endline;
     let unpackers = List.bind unpackerss ~f:(fun e -> e) in
+    Stdio.print_endline "Unpackers:";
+    unpackers |> [%sexp_of: Expr.letArg list] |> Sexp.to_string_hum |> Stdio.print_endline;
     Expr.Let { args; body = Let { args = unpackers; body; type' }; type' }
   | ConsumerBlock
       { frameShape
@@ -1074,6 +1142,8 @@ let rec reduceTuples (request : TupleRequest.t) =
       ; consumer
       ; type' = _
       } ->
+    Stdio.print_endline "Request for consumer block:";
+    request |> [%sexp_of: TupleRequest.t] |> Sexp.to_string_hum |> Stdio.print_endline;
     let mapRequest, consumerRequest, wrapResult =
       let wrapperForPair block ~mapWrapper ~consumerWrapper =
         let%map blockBinding = ReduceTupleState.createId "consumer-block-result" in
@@ -1123,6 +1193,13 @@ let rec reduceTuples (request : TupleRequest.t) =
       | Elements _ -> raise (Unreachable.Error "invalid tuple indices of consumer block")
       | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple")
     in
+    Stdio.print_endline "Map request:";
+    mapRequest |> [%sexp_of: TupleRequest.t] |> Sexp.to_string_hum |> Stdio.print_endline;
+    Stdio.print_endline "Consumer request:";
+    consumerRequest
+    |> [%sexp_of: TupleRequest.t]
+    |> Sexp.to_string_hum
+    |> Stdio.print_endline;
     let%bind consumerUsages, consumer =
       match consumer, consumerRequest with
       | _, Elements [] | None, _ -> return (Set.empty (module Identifier), None)
@@ -1197,10 +1274,10 @@ let rec reduceTuples (request : TupleRequest.t) =
           |> List.concat
         in
         let%map () =
-          ReduceTupleState.setCaches
-            (bindings
-             |> List.map ~f:(fun (binding, _) -> binding)
-             |> List.fold ~init:caches ~f:Map.remove)
+          ReduceTupleState.updateCaches ~f:(fun caches ->
+            bindings
+            |> List.map ~f:(fun (binding, _) -> binding)
+            |> List.fold ~init:caches ~f:Map.remove)
         in
         let fold =
           Expr.Fold
@@ -1231,7 +1308,7 @@ let rec reduceTuples (request : TupleRequest.t) =
     in
     let consumerWrapper e = e in
     let mapBodyRequest, mapWrapper, mapBodyMatcher, mapResults =
-      let resultRequestsAndExtractors =
+      let resultIdsAndRequests, mapWrapper =
         let rec extractFromConstExpr nestCount typeWrapper request constExpr =
           match request with
           | TupleRequest.Whole -> constExpr
@@ -1280,36 +1357,42 @@ let rec reduceTuples (request : TupleRequest.t) =
         let getForDeref TupleRequest.{ i; rest } =
           let subRequest =
             match rest with
+            | Whole -> TupleRequest.Whole
             | Collection { subRequest; collectionType = _ } -> subRequest
-            | _ ->
-              raise @@ TupleRequest.unexpected ~actual:mapRequest ~expected:"collection"
+            | _ -> raise @@ TupleRequest.unexpected ~actual:rest ~expected:"collection"
           in
           let resultId = List.nth_exn mapResults i in
           if Set.mem consumerUsages resultId
-          then [ resultId, TupleRequest.Whole, extractFromConstExpr 0 (fun t -> t) rest ]
-          else [ (resultId, subRequest, fun e -> e) ]
+          then (resultId, TupleRequest.Whole), extractFromConstExpr 0 (fun t -> t) rest
+          else (resultId, subRequest), fun e -> e
         in
         match mapRequest with
         | Whole ->
-          List.map mapResults ~f:(fun resultId ->
-            resultId, TupleRequest.Whole, fun e -> e)
-        | Element deref -> getForDeref deref
-        | Elements derefs -> List.bind derefs ~f:getForDeref
+          ( List.map mapResults ~f:(fun resultId -> resultId, TupleRequest.Whole)
+          , fun e -> e )
+        | Element deref ->
+          let resultIdAndRequest, extractor = getForDeref deref in
+          let mapWrapper mapResult =
+            extractor @@ Expr.tupleDeref ~tuple:mapResult ~index:0
+          in
+          [ resultIdAndRequest ], mapWrapper
+        | Elements derefs ->
+          let resultIdsAndRequest, extractors =
+            derefs |> List.map ~f:getForDeref |> List.unzip
+          in
+          let mapWrapper mapResult =
+            extractors
+            |> List.mapi ~f:(fun i extractor ->
+              extractor @@ Expr.tupleDeref ~tuple:mapResult ~index:i)
+            |> Expr.values
+          in
+          resultIdsAndRequest, mapWrapper
         | Collection _ ->
           raise @@ TupleRequest.unexpected ~actual:mapRequest ~expected:"tuple"
       in
-      let mapResults, mapExtractors =
-        resultRequestsAndExtractors
-        |> List.mapi ~f:(fun i (resultId, _, extractor) ->
-          resultId, fun e -> extractor @@ Expr.tupleDeref ~tuple:e ~index:i)
-        |> List.unzip
-      in
-      let mapWrapper mapResult =
-        mapExtractors |> List.map ~f:(fun extractor -> extractor mapResult) |> Expr.values
-      in
+      let mapResults, _ = List.unzip resultIdsAndRequests in
       let resultRequestsFromMap =
-        List.map resultRequestsAndExtractors ~f:(fun (resultId, request, _) ->
-          resultId, request)
+        List.map resultIdsAndRequests ~f:(fun (resultId, request) -> resultId, request)
       in
       let resultRequestsFromConsumer =
         consumerUsages
@@ -1356,6 +1439,11 @@ let rec reduceTuples (request : TupleRequest.t) =
     let%bind mapArgs, mapBody, blockUnpackers =
       let%bind body = reduceTuples mapBodyRequest mapBody in
       let%bind caches = ReduceTupleState.getCaches () in
+      Stdio.print_endline "Caches:";
+      caches
+      |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
+      |> Sexp.to_string_hum
+      |> Stdio.print_endline;
       let%bind args, unpackerss, blockUnpackers =
         mapArgs
         |> List.map ~f:(fun { binding; ref } ->
@@ -1364,7 +1452,15 @@ let rec reduceTuples (request : TupleRequest.t) =
             let argArrayType =
               match ref.type' with
               | Array array -> array
-              | _ -> raise @@ Unreachable.Error "expected array type"
+              | _ ->
+                Stdio.print_endline "Ref:";
+                ref |> [%sexp_of: Expr.ref] |> Sexp.to_string_hum |> Stdio.print_endline;
+                Stdio.print_endline "Ref type:";
+                ref.type'
+                |> [%sexp_of: Type.t]
+                |> Sexp.to_string_hum
+                |> Stdio.print_endline;
+                raise @@ Unreachable.Error "expected array type"
             in
             let unpackersRaw = createUnpackersFromCache cache [] ~insideWhole:false in
             let argRef = Expr.Ref { id = binding; type' = argArrayType.element } in
@@ -1375,8 +1471,25 @@ let rec reduceTuples (request : TupleRequest.t) =
                 ; collectionType = Array argArrayType.size
                 }
             in
-            let%map value = reduceTuples argRequest (Expr.Ref ref)
+            Stdio.print_endline "Making request on ref:";
+            argRequest
+            |> [%sexp_of: TupleRequest.t]
+            |> Sexp.to_string_hum
+            |> Stdio.print_endline;
+            ref |> [%sexp_of: Expr.ref] |> Sexp.to_string_hum |> Stdio.print_endline;
+            let%bind value = reduceTuples argRequest (Expr.Ref ref)
             and valueBinding = ReduceTupleState.createId (Identifier.name ref.id) in
+            Stdio.print_endline "Value binding:";
+            valueBinding
+            |> [%sexp_of: Identifier.t]
+            |> Sexp.to_string_hum
+            |> Stdio.print_endline;
+            let%map cachesAfterRefRequest = ReduceTupleState.getCaches () in
+            Stdio.print_endline "Caches after request on ref:";
+            cachesAfterRefRequest
+            |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
+            |> Sexp.to_string_hum
+            |> Stdio.print_endline;
             let valueRef : Expr.ref = { id = valueBinding; type' = Expr.type' value } in
             let valueUnpacker : Expr.letArg = { binding = valueBinding; value } in
             Expr.{ binding; ref = valueRef }, unpackers, valueUnpacker))
@@ -1385,11 +1498,12 @@ let rec reduceTuples (request : TupleRequest.t) =
         >>| List.unzip3
       in
       let unpackers = List.concat unpackerss in
+      (* Remove the caches for variables bound only in the map *)
       let%map () =
-        ReduceTupleState.setCaches
-          (List.map mapArgs ~f:(fun arg -> arg.binding)
-           @ List.map mapIotas ~f:(fun i -> i.iota)
-           |> List.fold ~init:caches ~f:Map.remove)
+        ReduceTupleState.updateCaches ~f:(fun caches ->
+          List.map mapArgs ~f:(fun arg -> arg.binding)
+          @ List.map mapIotas ~f:(fun i -> i.iota)
+          |> List.fold ~init:caches ~f:Map.remove)
       in
       args, Expr.let' ~args:unpackers ~body, blockUnpackers
     in
@@ -1416,6 +1530,11 @@ let rec reduceTuples (request : TupleRequest.t) =
       Type.Tuple
         (List.map mapResults ~f:(fun resultId -> Map.find_exn resultTypes resultId))
     in
+    Stdio.print_endline "block unpackers:";
+    blockUnpackers
+    |> [%sexp_of: Expr.letArg list]
+    |> Sexp.to_string_hum
+    |> Stdio.print_endline;
     let block =
       Expr.let'
         ~args:blockUnpackers
@@ -1446,10 +1565,17 @@ let simplify expr =
     let optimized = optimize unoptimized in
     if Expr.equal unoptimized optimized
     then (
+      Stdio.print_endline "Starting program:";
+      optimized |> [%sexp_of: Expr.t] |> Sexp.to_string_hum |> Stdio.print_endline;
       let%bind reduced, droppedAny =
         reduceTuples Whole optimized |> ReduceTupleState.toSimplifyState
       in
-      if droppedAny then loop reduced else return optimized)
+      if droppedAny
+      then (
+        Stdio.print_endline "Reduced program:";
+        reduced |> [%sexp_of: Expr.t] |> Sexp.to_string_hum |> Stdio.print_endline;
+        loop reduced)
+      else return optimized)
     else loop optimized
   in
   loop expr

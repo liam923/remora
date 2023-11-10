@@ -63,21 +63,21 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.t
     }
-  [@@deriving equal]
+  [@@deriving equal, sexp_of]
 
   type reduceCharacter =
     [ `Reduce
     | `Scan
     | `OpenScan
     ]
-  [@@deriving equal]
+  [@@deriving equal, sexp_of]
 
   type foldCharacter =
     [ `Fold
     | `Trace
     | `OpenTrace
     ]
-  [@@deriving equal]
+  [@@deriving equal, sexp_of]
 
   type frame =
     { dimension : int
@@ -393,14 +393,12 @@ module Expr = struct
         ; sexp_of_t body
         ]
 
+    and sexp_of_letArg { binding; value } =
+      Sexp.List [ Sexp.Atom (Identifier.show binding); sexp_of_t value ]
+
     and sexp_of_let { args; body; type' = _ } =
       Sexp.List
-        [ Sexp.Atom "let"
-        ; Sexp.List
-            (List.map args ~f:(fun { binding; value } ->
-               Sexp.List [ Sexp.Atom (Identifier.show binding); sexp_of_t value ]))
-        ; sexp_of_t body
-        ]
+        [ Sexp.Atom "let"; Sexp.List (List.map args ~f:sexp_of_letArg); sexp_of_t body ]
 
     and sexp_of_reifyIndex { index; type' = _ } =
       Sexp.List [ Sexp.Atom "reify-index"; Index.sexp_of_t index ]
