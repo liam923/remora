@@ -864,6 +864,7 @@ let rec reduceTuples (request : TupleRequest.t) =
               assert (
                 TupleRequest.equal_collectionType collectionType cache.collectionType);
               subRequest
+            | Whole -> Whole
             | _ -> raise @@ TupleRequest.unexpected ~actual:request ~expected:"collection"
           in
           let restType, newTypeCollectionWrapper =
@@ -948,7 +949,7 @@ let rec reduceTuples (request : TupleRequest.t) =
     let%map args = args |> List.map ~f:(reduceTuples Whole) |> ReduceTupleState.all in
     let type' = reduceTuplesType Whole type' in
     Expr.ScalarPrimitive { op; args; type' }
-  | Values { elements; type' } as values ->
+  | Values { elements; type' } ->
     (match request with
      | Whole ->
        let%map elements =
@@ -967,7 +968,9 @@ let rec reduceTuples (request : TupleRequest.t) =
        let oldElementCount = List.length elements in
        let%bind elements =
          elementRequests
-         |> List.map ~f:(fun r -> reduceTuples (Element r) values)
+         |> List.map ~f:(fun { i; rest } ->
+           let value = List.nth_exn elements i in
+           reduceTuples rest value)
          |> ReduceTupleState.all
        in
        let type' = List.map elements ~f:Expr.type' in

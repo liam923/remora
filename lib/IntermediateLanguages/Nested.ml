@@ -63,21 +63,21 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.t
     }
-  [@@deriving equal, sexp_of]
+  [@@deriving equal]
 
   type reduceCharacter =
     [ `Reduce
     | `Scan
     | `OpenScan
     ]
-  [@@deriving equal, sexp_of]
+  [@@deriving equal]
 
   type foldCharacter =
     [ `Fold
     | `Trace
     | `OpenTrace
     ]
-  [@@deriving equal, sexp_of]
+  [@@deriving equal]
 
   type frame =
     { dimension : int
@@ -461,7 +461,8 @@ module Expr = struct
           ]
       | Scatter { valuesArg; indicesArg; dIn; dOut; type' = _ } ->
         Sexp.List
-          [ Index.sexp_of_dimension dIn
+          [ Sexp.Atom "scatter"
+          ; Index.sexp_of_dimension dIn
           ; Index.sexp_of_dimension dOut
           ; Sexp.Atom (Identifier.show valuesArg.productionId)
           ; Sexp.Atom (Identifier.show indicesArg.productionId)
