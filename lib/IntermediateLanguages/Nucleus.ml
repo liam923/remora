@@ -13,12 +13,11 @@ module Type = struct
     ; shape : Index.shape
     }
 
-  and 't abstraction =
-    { parameters : 't param list
+  and sigma =
+    { parameters : Sort.t param list
     ; body : array
     }
 
-  and sigma = Sort.t abstraction
   and tuple = atom list
 
   and literal =

@@ -41,12 +41,11 @@ module Type = struct
 
   and 't param = 't Typed.param
 
-  and 't abstraction =
-    { parameters : 't param list
+  and sigma =
+    { parameters : Sort.t param list
     ; body : t
     }
 
-  and sigma = Sort.t abstraction
   and tuple = t list
   and literal = Nucleus.Type.literal
 
