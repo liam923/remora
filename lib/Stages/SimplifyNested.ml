@@ -246,7 +246,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
         if Identifier.equal subKey p.productionId then None else return p
       in
       match consumer with
-      | None -> None
+      | None -> return None
       | Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' }) ->
         let rec productionTupleContainsIdInSubs : Expr.productionTuple -> bool = function
           | ProductionTuple { elements; type' = _ } ->
@@ -257,7 +257,13 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
         let%map arg =
           if productionTupleContainsIdInSubs arg.production then None else return arg
         and body = subExpr subKey subValue body
-        and zero = Option.map zero ~f:(subExpr subKey subValue) in
+        and zero =
+          match zero with
+          | Some zero ->
+            let%map zero = subExpr subKey subValue zero in
+            Some zero
+          | None -> return None
+        in
         Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' })
       | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
         let%map zeroArg =
@@ -700,15 +706,7 @@ let rec createUnpackersFromCache
           | `CollectionUnzip :: rest -> deref value rest
           | [] -> value
         in
-        fun masterRef ->
-          Stdio.print_endline "derefing ref:";
-          masterRef |> [%sexp_of: Expr.t] |> Sexp.to_string_hum |> Stdio.print_endline;
-          Stdio.print_endline "deref stack:";
-          derefStack
-          |> [%sexp_of: [ `IntDeref of int | `CollectionUnzip ] list]
-          |> Sexp.to_string_hum
-          |> Stdio.print_endline;
-          Expr.{ binding = id; value = deref masterRef derefStack })
+        fun masterRef -> Expr.{ binding = id; value = deref masterRef derefStack })
     in
     let subCacheList =
       subCaches
@@ -1092,9 +1090,7 @@ let rec reduceTuples (request : TupleRequest.t) =
     let%map body = reduceTuples request body in
     Expr.IndexLet { indexArgs; body; type' }
   | Let { args; body; type' } ->
-    let%bind cachesBeforeBody = ReduceTupleState.getCaches () in
     let%bind body = reduceTuples request body in
-    let%bind cachesAfterBody = ReduceTupleState.getCaches () in
     let type' = reduceTuplesType request type' in
     let%bind caches = ReduceTupleState.getCaches () in
     let%bind args, unpackerss =
@@ -1118,19 +1114,7 @@ let rec reduceTuples (request : TupleRequest.t) =
         |> List.map ~f:(fun arg -> arg.binding)
         |> List.fold ~init:caches ~f:Map.remove)
     in
-    Stdio.print_endline "Caches before body:";
-    cachesBeforeBody
-    |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
-    |> Sexp.to_string_hum
-    |> Stdio.print_endline;
-    Stdio.print_endline "Caches after body:";
-    cachesAfterBody
-    |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
-    |> Sexp.to_string_hum
-    |> Stdio.print_endline;
     let unpackers = List.bind unpackerss ~f:(fun e -> e) in
-    Stdio.print_endline "Unpackers:";
-    unpackers |> [%sexp_of: Expr.letArg list] |> Sexp.to_string_hum |> Stdio.print_endline;
     Expr.Let { args; body = Let { args = unpackers; body; type' }; type' }
   | ConsumerBlock
       { frameShape
@@ -1142,8 +1126,6 @@ let rec reduceTuples (request : TupleRequest.t) =
       ; consumer
       ; type' = _
       } ->
-    Stdio.print_endline "Request for consumer block:";
-    request |> [%sexp_of: TupleRequest.t] |> Sexp.to_string_hum |> Stdio.print_endline;
     let mapRequest, consumerRequest, wrapResult =
       let wrapperForPair block ~mapWrapper ~consumerWrapper =
         let%map blockBinding = ReduceTupleState.createId "consumer-block-result" in
@@ -1193,13 +1175,6 @@ let rec reduceTuples (request : TupleRequest.t) =
       | Elements _ -> raise (Unreachable.Error "invalid tuple indices of consumer block")
       | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple")
     in
-    Stdio.print_endline "Map request:";
-    mapRequest |> [%sexp_of: TupleRequest.t] |> Sexp.to_string_hum |> Stdio.print_endline;
-    Stdio.print_endline "Consumer request:";
-    consumerRequest
-    |> [%sexp_of: TupleRequest.t]
-    |> Sexp.to_string_hum
-    |> Stdio.print_endline;
     let%bind consumerUsages, consumer =
       match consumer, consumerRequest with
       | _, Elements [] | None, _ -> return (Set.empty (module Identifier), None)
@@ -1439,11 +1414,6 @@ let rec reduceTuples (request : TupleRequest.t) =
     let%bind mapArgs, mapBody, blockUnpackers =
       let%bind body = reduceTuples mapBodyRequest mapBody in
       let%bind caches = ReduceTupleState.getCaches () in
-      Stdio.print_endline "Caches:";
-      caches
-      |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
-      |> Sexp.to_string_hum
-      |> Stdio.print_endline;
       let%bind args, unpackerss, blockUnpackers =
         mapArgs
         |> List.map ~f:(fun { binding; ref } ->
@@ -1452,15 +1422,7 @@ let rec reduceTuples (request : TupleRequest.t) =
             let argArrayType =
               match ref.type' with
               | Array array -> array
-              | _ ->
-                Stdio.print_endline "Ref:";
-                ref |> [%sexp_of: Expr.ref] |> Sexp.to_string_hum |> Stdio.print_endline;
-                Stdio.print_endline "Ref type:";
-                ref.type'
-                |> [%sexp_of: Type.t]
-                |> Sexp.to_string_hum
-                |> Stdio.print_endline;
-                raise @@ Unreachable.Error "expected array type"
+              | _ -> raise @@ Unreachable.Error "expected array type"
             in
             let unpackersRaw = createUnpackersFromCache cache [] ~insideWhole:false in
             let argRef = Expr.Ref { id = binding; type' = argArrayType.element } in
@@ -1471,25 +1433,8 @@ let rec reduceTuples (request : TupleRequest.t) =
                 ; collectionType = Array argArrayType.size
                 }
             in
-            Stdio.print_endline "Making request on ref:";
-            argRequest
-            |> [%sexp_of: TupleRequest.t]
-            |> Sexp.to_string_hum
-            |> Stdio.print_endline;
-            ref |> [%sexp_of: Expr.ref] |> Sexp.to_string_hum |> Stdio.print_endline;
-            let%bind value = reduceTuples argRequest (Expr.Ref ref)
+            let%map value = reduceTuples argRequest (Expr.Ref ref)
             and valueBinding = ReduceTupleState.createId (Identifier.name ref.id) in
-            Stdio.print_endline "Value binding:";
-            valueBinding
-            |> [%sexp_of: Identifier.t]
-            |> Sexp.to_string_hum
-            |> Stdio.print_endline;
-            let%map cachesAfterRefRequest = ReduceTupleState.getCaches () in
-            Stdio.print_endline "Caches after request on ref:";
-            cachesAfterRefRequest
-            |> [%sexp_of: ReduceTupleState.cache Map.M(Identifier).t]
-            |> Sexp.to_string_hum
-            |> Stdio.print_endline;
             let valueRef : Expr.ref = { id = valueBinding; type' = Expr.type' value } in
             let valueUnpacker : Expr.letArg = { binding = valueBinding; value } in
             Expr.{ binding; ref = valueRef }, unpackers, valueUnpacker))
@@ -1530,11 +1475,6 @@ let rec reduceTuples (request : TupleRequest.t) =
       Type.Tuple
         (List.map mapResults ~f:(fun resultId -> Map.find_exn resultTypes resultId))
     in
-    Stdio.print_endline "block unpackers:";
-    blockUnpackers
-    |> [%sexp_of: Expr.letArg list]
-    |> Sexp.to_string_hum
-    |> Stdio.print_endline;
     let block =
       Expr.let'
         ~args:blockUnpackers
@@ -1565,17 +1505,10 @@ let simplify expr =
     let optimized = optimize unoptimized in
     if Expr.equal unoptimized optimized
     then (
-      Stdio.print_endline "Starting program:";
-      optimized |> [%sexp_of: Expr.t] |> Sexp.to_string_hum |> Stdio.print_endline;
       let%bind reduced, droppedAny =
         reduceTuples Whole optimized |> ReduceTupleState.toSimplifyState
       in
-      if droppedAny
-      then (
-        Stdio.print_endline "Reduced program:";
-        reduced |> [%sexp_of: Expr.t] |> Sexp.to_string_hum |> Stdio.print_endline;
-        loop reduced)
-      else return optimized)
+      if droppedAny then loop reduced else return optimized)
     else loop optimized
   in
   loop expr
