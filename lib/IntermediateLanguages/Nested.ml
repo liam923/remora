@@ -1,7 +1,7 @@
 open! Base
 
-(* The Nucleus language represents a monomorphized Remora program where
-   all function calls have been inlined (besides intrinsic ones like map) *)
+(* The Nested language represents a Remora program where maps only operate
+   on one shape element at a time and can be fused with consumers *)
 
 module Index = struct
   include Nucleus.Index
@@ -154,7 +154,7 @@ module Expr = struct
     }
 
   (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
-  and consumerBlock =
+  and loopBlock =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
     ; mapIotas : mapIota list
@@ -267,7 +267,7 @@ module Expr = struct
     | IndexLet of indexLet
     | ReifyIndex of reifyIndex
     | Let of let'
-    | ConsumerBlock of consumerBlock
+    | LoopBlock of loopBlock
     | Box of box
     | Literal of literal
     | Values of values
@@ -293,7 +293,7 @@ module Expr = struct
     | IndexLet indexLet -> indexLet.type'
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
-    | ConsumerBlock consumerBlock -> Tuple consumerBlock.type'
+    | LoopBlock loopBlock -> Tuple loopBlock.type'
     | SubArray subArray -> subArray.type'
     | Append append -> append.type'
     | Zip zip -> zip.type'
@@ -467,7 +467,7 @@ module Expr = struct
           ; Sexp.Atom (Identifier.show indicesArg.productionId)
           ]
 
-    and sexp_of_consumerBlock
+    and sexp_of_loopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -479,7 +479,7 @@ module Expr = struct
       }
       =
       Sexp.List
-        [ Sexp.Atom "consumer-block"
+        [ Sexp.Atom "loop-block"
         ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
         ; Sexp.List
             ([ Sexp.Atom "map"
@@ -547,7 +547,7 @@ module Expr = struct
       | IndexLet indexLet -> sexp_of_indexLet indexLet
       | Let let' -> sexp_of_let let'
       | ReifyIndex reifyIndex -> sexp_of_reifyIndex reifyIndex
-      | ConsumerBlock consumerBlock -> sexp_of_consumerBlock consumerBlock
+      | LoopBlock loopBlock -> sexp_of_loopBlock loopBlock
       | SubArray subArray -> sexp_of_subArray subArray
       | Append append -> sexp_of_append append
       | Zip zip -> sexp_of_zip zip

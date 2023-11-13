@@ -138,7 +138,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
           ~tuple:
             (Nested.Expr.tupleDeref
                ~tuple:
-                 (ConsumerBlock
+                 (LoopBlock
                     { frameShape = shapeElement
                     ; mapArgs
                     ; mapIotas = Option.to_list mapIota
@@ -203,7 +203,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       ; body =
           TupleDeref
             { tuple =
-                ConsumerBlock
+                LoopBlock
                   { frameShape = Add d
                   ; mapArgs
                   ; mapIotas = []
@@ -246,7 +246,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       ; body =
           TupleDeref
             { tuple =
-                ConsumerBlock
+                LoopBlock
                   { frameShape = Add d
                   ; mapArgs
                   ; mapIotas = []
@@ -288,7 +288,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       ; body =
           TupleDeref
             { tuple =
-                ConsumerBlock
+                LoopBlock
                   { frameShape = Add dIn
                   ; mapArgs
                   ; mapIotas = []

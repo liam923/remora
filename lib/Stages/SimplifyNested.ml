@@ -51,7 +51,7 @@ let rec nonComputational : Expr.t -> bool = function
   | Values values -> List.for_all values.elements ~f:nonComputational
   | TupleDeref { tuple; index = _; type' = _ } -> nonComputational tuple
   | Let _ -> false
-  | ConsumerBlock _ -> false
+  | LoopBlock _ -> false
   | ScalarPrimitive _ -> false
   | SubArray { arrayArg; indexArg; type' = _ } ->
     nonComputational arrayArg && nonComputational indexArg
@@ -95,7 +95,7 @@ let getCounts =
       let argCounts = args |> List.map ~f:(fun arg -> getCountsExpr inLoop arg.value)
       and bodyCounts = getCountsExpr inLoop body in
       Counts.merge (bodyCounts :: argCounts)
-    | ConsumerBlock
+    | LoopBlock
         { frameShape
         ; mapArgs
         ; mapIotas
@@ -225,7 +225,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
       |> Option.all
     and body = subExpr subKey subValue body in
     Let { args; body; type' }
-  | ConsumerBlock
+  | LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -282,7 +282,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
         and indicesArg = subProduction indicesArg in
         Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' })
     in
-    ConsumerBlock
+    LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -438,7 +438,7 @@ let rec optimize : Expr.t -> Expr.t =
     (match args with
      | [] -> body
      | args -> Let { args; body; type' })
-  | ConsumerBlock
+  | LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -480,7 +480,7 @@ let rec optimize : Expr.t -> Expr.t =
       | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
         scatter -> scatter
     in
-    ConsumerBlock
+    LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -1119,7 +1119,7 @@ let rec reduceTuples (request : TupleRequest.t) =
     in
     let unpackers = List.bind unpackerss ~f:(fun e -> e) in
     Expr.Let { args; body = Let { args = unpackers; body; type' }; type' }
-  | ConsumerBlock
+  | LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -1131,7 +1131,7 @@ let rec reduceTuples (request : TupleRequest.t) =
       } ->
     let mapRequest, consumerRequest, wrapResult =
       let wrapperForPair block ~mapWrapper ~consumerWrapper =
-        let%map blockBinding = ReduceTupleState.createId "consumer-block-result" in
+        let%map blockBinding = ReduceTupleState.createId "loop-block-result" in
         let blockRef = Expr.Ref { id = blockBinding; type' = Expr.type' block } in
         Expr.let'
           ~args:[ { binding = blockBinding; value = block } ]
@@ -1167,7 +1167,7 @@ let rec reduceTuples (request : TupleRequest.t) =
       | Element { i = 1; rest = consumerRequest } ->
         TupleRequest.Elements [], consumerRequest, wrapperForConsumerOnly
       | Element { i = _; rest = _ } ->
-        raise (Unreachable.Error "invalid tuple index of consumer block")
+        raise (Unreachable.Error "invalid tuple index of loop block")
       | Elements [] -> TupleRequest.Elements [], TupleRequest.Elements [], wrapperForUnit
       | Elements [ { i = 0; rest = mapRequest } ] ->
         mapRequest, TupleRequest.Elements [], wrapperForMapOnly
@@ -1175,7 +1175,7 @@ let rec reduceTuples (request : TupleRequest.t) =
         TupleRequest.Elements [], consumerRequest, wrapperForConsumerOnly
       | Elements [ { i = 0; rest = mapRequest }; { i = 1; rest = consumerRequest } ] ->
         mapRequest, consumerRequest, wrapperForPair
-      | Elements _ -> raise (Unreachable.Error "invalid tuple indices of consumer block")
+      | Elements _ -> raise (Unreachable.Error "invalid tuple indices of loop block")
       | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple")
     in
     let%bind consumerUsages, consumer =
@@ -1482,7 +1482,7 @@ let rec reduceTuples (request : TupleRequest.t) =
       Expr.let'
         ~args:blockUnpackers
         ~body:
-          (Expr.ConsumerBlock
+          (Expr.LoopBlock
              { frameShape
              ; mapArgs
              ; mapIotas

@@ -127,7 +127,7 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     let bodyUsages = Set.diff (getUsesInExpr body) bindings in
     let typeUsages = getUsesInType type' in
     Set.union_list (module Identifier) (typeUsages :: bodyUsages :: argsUsages)
-  | ConsumerBlock
+  | LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -266,7 +266,7 @@ let rec getMapValue mapRefs =
         | None -> acc)
     in
     getMapValue mapRefs body
-  | ConsumerBlock _ -> None
+  | LoopBlock _ -> None
   | Box _ -> None
   | Literal _ -> None
   | Values { elements; type' = _ } ->
@@ -298,7 +298,7 @@ type extraction =
   }
 
 let rec liftFrom
-  (target : Expr.consumerBlock)
+  (target : Expr.loopBlock)
   (targetConsumer : ConsumerCompatibility.t option)
   (capturables : Set.M(Identifier).t)
   (mapRefs : mapValueLocation Map.M(Identifier).t)
@@ -430,7 +430,7 @@ let rec liftFrom
           in
           Some { extraction with captures; addLifts }, Let { args; body; type' }
         | None -> None, Let { args; body; type' }))
-  | ConsumerBlock
+  | LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -439,7 +439,7 @@ let rec liftFrom
       ; mapResults
       ; consumer
       ; type'
-      } as consumerBlock ->
+      } as loopBlock ->
     (* To be able to lift:
        - frameShape needs to match
        - each mapArg needs to refer to only the map and capturables
@@ -543,7 +543,7 @@ let rec liftFrom
               ]
           ; type'
           } ))
-    else return (None, consumerBlock)
+    else return (None, loopBlock)
   | Box { indices; body; bodyType; type' } ->
     let%map extraction, body = liftFrom target targetConsumer capturables mapRefs body in
     extraction, Box { indices; body; bodyType; type' }
@@ -757,8 +757,8 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
 type fusionOpportunity =
   { argBinding : Identifier.t
   ; addLifts : Expr.t -> Expr.t
-  ; subForConsumerBlockInArgValue : Expr.t -> Expr.t
-  ; consumerBlock : Expr.consumerBlock
+  ; subForLoopBlockInArgValue : Expr.t -> Expr.t
+  ; loopBlock : Expr.loopBlock
   ; mapValueLocationBuilder : mapValueLocation -> mapValueLocation option
   }
 
@@ -875,11 +875,11 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                 Let { args; body; type' = Expr.type' body }
               in
               { opp with addLifts })
-          | ConsumerBlock consumerBlock ->
+          | LoopBlock loopBlock ->
             [ { argBinding
               ; addLifts = (fun v -> v)
-              ; subForConsumerBlockInArgValue = subBuilder
-              ; consumerBlock
+              ; subForLoopBlockInArgValue = subBuilder
+              ; loopBlock
               ; mapValueLocationBuilder =
                   (fun l -> mapValueLocationBuilder (Tuple [ Some l; None ]))
               }
@@ -935,8 +935,8 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
     let tryFusing
       { argBinding
       ; addLifts = addTargetLifts
-      ; subForConsumerBlockInArgValue
-      ; consumerBlock
+      ; subForLoopBlockInArgValue
+      ; loopBlock
       ; mapValueLocationBuilder
       }
       =
@@ -945,8 +945,8 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
       | Some mapValueLocation ->
         let%bind extraction, body =
           liftFrom
-            consumerBlock
-            (Option.map consumerBlock.consumer ~f:ConsumerCompatibility.of_op)
+            loopBlock
+            (Option.map loopBlock.consumer ~f:ConsumerCompatibility.of_op)
             (Set.remove bodyScope argBinding)
             (Map.singleton (module Identifier) argBinding mapValueLocation)
             body
@@ -986,7 +986,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                Map.singleton
                  (module Identifier)
                  id
-                 (Type.Array { element = tupleType; size = consumerBlock.frameShape })
+                 (Type.Array { element = tupleType; size = loopBlock.frameShape })
              | Unpack matchers ->
                (match tupleType with
                 | Tuple tupleTypes ->
@@ -1000,19 +1000,17 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                            ~combine:(fun ~key:_ a _ -> a))
                 | _ -> raise (Unreachable.Error "expected tuple type"))
            in
-           let mapBodyMatcher =
-             Unpack [ consumerBlock.mapBodyMatcher; liftedBodyMatcher ]
-           in
+           let mapBodyMatcher = Unpack [ loopBlock.mapBodyMatcher; liftedBodyMatcher ] in
            let mergedBodyType : Type.tuple =
-             [ Expr.type' consumerBlock.mapBody; Expr.type' liftedBody ]
+             [ Expr.type' loopBlock.mapBody; Expr.type' liftedBody ]
            in
-           let mergedResults = consumerBlock.mapResults @ liftedResults in
+           let mergedResults = loopBlock.mapResults @ liftedResults in
            let resultBindingTypes =
              extractTypesFromTuple mapBodyMatcher (Tuple mergedBodyType)
            in
            let%map mergedConsumer =
              mergeConsumers
-               ~target:consumerBlock.consumer
+               ~target:loopBlock.consumer
                ~archer:(Option.map liftedConsumer ~f:(fun c -> c.op))
            in
            let blockType : Type.tuple =
@@ -1025,12 +1023,12 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
            (*
               1. declare variables captured
               2. declare things from addLifts
-              3. run the consumer block
+              3. run the loop block
               4. declare variables that hold the results
               5. run the body (the one returned by liftFrom)
            *)
            Some
-             (* Declare all args that don't contain the consumer block first to
+             (* Declare all args that don't contain the loop block first to
                 guarantee that captured variables are available *)
              (Expr.let'
                 ~args:argsMinusTarget
@@ -1038,29 +1036,28 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                   ((* lift any variables that need to be declared *)
                    addTargetLifts
                      (addArcherLifts
-                        (* Bind the result of the merged consumer blocks to a variable *)
+                        (* Bind the result of the merged loop blocks to a variable *)
                         (Expr.let'
                            ~args:
                              [ { binding = blockResultBinding
                                ; value =
-                                   (* Create the merged consumer block *)
-                                   ConsumerBlock
-                                     { frameShape = consumerBlock.frameShape
-                                     ; mapArgs = consumerBlock.mapArgs @ liftedArgs
-                                     ; mapIotas = consumerBlock.mapIotas @ liftedIotas
+                                   (* Create the merged loop block *)
+                                   LoopBlock
+                                     { frameShape = loopBlock.frameShape
+                                     ; mapArgs = loopBlock.mapArgs @ liftedArgs
+                                     ; mapIotas = loopBlock.mapIotas @ liftedIotas
                                      ; mapBody =
                                          Expr.let'
                                            ~args:
                                              [ { binding = targetMapResultElementBinding
-                                               ; value = consumerBlock.mapBody
+                                               ; value = loopBlock.mapBody
                                                }
                                              ]
                                            ~body:
                                              (Expr.values
                                                 [ Ref
                                                     { id = targetMapResultElementBinding
-                                                    ; type' =
-                                                        Expr.type' consumerBlock.mapBody
+                                                    ; type' = Expr.type' loopBlock.mapBody
                                                     }
                                                 ; liftedBody
                                                 ])
@@ -1072,7 +1069,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                                }
                              ]
                            ~body:
-                             ((* Move the results of the consumer blocks into the right
+                             ((* Move the results of the loop blocks into the right
                                  places, and then proceed with the regular body *)
                               let blockResult =
                                 Ref { id = blockResultBinding; type' = Tuple blockType }
@@ -1083,7 +1080,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                                      ; value =
                                          Expr.values
                                            (List.mapi
-                                              consumerBlock.mapResults
+                                              loopBlock.mapResults
                                               ~f:(fun index _ ->
                                                 Expr.tupleDeref
                                                   ~tuple:
@@ -1095,7 +1092,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                                    ; { binding = archerMapResultBinding
                                      ; value =
                                          (let indexOffset =
-                                            List.length consumerBlock.mapResults
+                                            List.length loopBlock.mapResults
                                           in
                                           Expr.values
                                             (List.mapi liftedResults ~f:(fun index _ ->
@@ -1121,14 +1118,14 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                                      ~args:
                                        [ { binding = targetArg.binding
                                          ; value =
-                                             subForConsumerBlockInArgValue
+                                             subForLoopBlockInArgValue
                                                (Expr.values
                                                   [ Ref
                                                       { id = targetMapResultBinding
                                                       ; type' =
                                                           Tuple
                                                             (List.map
-                                                               consumerBlock.mapResults
+                                                               loopBlock.mapResults
                                                                ~f:
                                                                  (Map.find_exn
                                                                     resultBindingTypes))
@@ -1154,7 +1151,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
       | [] -> return (Let { args; body; type' })
     in
     tryFusingList opportunities
-  | ConsumerBlock
+  | LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -1196,7 +1193,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
       | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
         v -> return v
     in
-    ConsumerBlock
+    LoopBlock
       { frameShape
       ; mapArgs
       ; mapIotas
