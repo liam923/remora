@@ -596,6 +596,8 @@ module TupleRequest = struct
   ;;
 end
 
+(* TODO: implement hoisting *)
+
 module ReduceTupleState = struct
   include State
 
