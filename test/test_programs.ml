@@ -41,6 +41,10 @@ let printStages input =
       @> (module PrintResult (Explicit) (Explicitize.Stage (Source.UnitBuilder)))
       @> (module PrintResult (Nucleus) (Inline.Stage (Source.UnitBuilder)))
       @> (module PrintResult (Nucleus) (Simplify.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nested) (Nest.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nested) (Fuse.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nested) (SimplifyNested.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Corn) (Kernelize.Stage (Source.UnitBuilder)))
       @> empty)
   in
   match
@@ -120,7 +124,15 @@ let%expect_test "simple addition" =
     Result of stage Simplify:
     (AtomAsArray
      ((element (Literal (IntLiteral 3)))
-      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (type' ((element (Literal IntLiteral)) (shape ())))))
+    Result of stage Nest:
+    3
+    Result of stage Fuse:
+    3
+    Result of stage Simplify Nested:
+    3
+    Result of stage Kernelize:
+    3 |}]
 ;;
 
 let%expect_test "simple function definition and call" =
@@ -274,7 +286,15 @@ let%expect_test "simple function definition and call" =
     Result of stage Simplify:
     (AtomAsArray
      ((element (Literal (IntLiteral 15)))
-      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (type' ((element (Literal IntLiteral)) (shape ())))))
+    Result of stage Nest:
+    15
+    Result of stage Fuse:
+    15
+    Result of stage Simplify Nested:
+    15
+    Result of stage Kernelize:
+    15 |}]
 ;;
 
 let%expect_test "polymorphic function definition and call" =
@@ -374,7 +394,15 @@ let%expect_test "polymorphic function definition and call" =
     Result of stage Simplify:
     (AtomAsArray
      ((element (Literal (IntLiteral 5)))
-      (type' ((element (Literal IntLiteral)) (shape ()))))) |}]
+      (type' ((element (Literal IntLiteral)) (shape ())))))
+    Result of stage Nest:
+    5
+    Result of stage Fuse:
+    5
+    Result of stage Simplify Nested:
+    5
+    Result of stage Kernelize:
+    5 |}]
 ;;
 
 let%expect_test "function call with implicit map" =
@@ -665,7 +693,71 @@ let%expect_test "function call with implicit map" =
           ((element (Literal IntLiteral)) (shape ((Add ((const 3) (refs ()))))))))))
       (type'
        ((element (Literal IntLiteral))
-        (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ()))))))))) |}]
+        (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))
+    Result of stage Nest:
+    (let ((+arg1.53 (frame 1 2)) (+arg2.54 (frame (frame 3 4 5) (frame 6 7 8))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((+arg1.56 +arg1.53) (+arg2.57 +arg2.54))
+         (let ((+arg1.49 +arg1.56) (+arg2.51 +arg2.57))
+          (let ((+arg2.58 +arg2.51))
+           (#0
+            (#0
+             (loop-block (frame-shape 3)
+              (map ((+arg2.60 +arg2.58))
+               (let ((+arg2.52 +arg2.60)) (+ +arg1.49 +arg2.52)))
+              (body-matcher map-result.59) (map-result (map-result.59))
+              (consumer (values))))))))
+        (body-matcher map-result.55) (map-result (map-result.55))
+        (consumer (values))))))
+    Result of stage Fuse:
+    (let ((+arg1.53 (frame 1 2)) (+arg2.54 (frame (frame 3 4 5) (frame 6 7 8))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((+arg1.56 +arg1.53) (+arg2.57 +arg2.54))
+         (let ((+arg1.49 +arg1.56) (+arg2.51 +arg2.57))
+          (let ((+arg2.58 +arg2.51))
+           (#0
+            (#0
+             (loop-block (frame-shape 3)
+              (map ((+arg2.60 +arg2.58))
+               (let ((+arg2.52 +arg2.60)) (+ +arg1.49 +arg2.52)))
+              (body-matcher map-result.59) (map-result (map-result.59))
+              (consumer (values))))))))
+        (body-matcher map-result.55) (map-result (map-result.55))
+        (consumer (values))))))
+    Result of stage Simplify Nested:
+    (let ((+arg1.53 (frame 1 2)) (+arg2.54 (frame (frame 3 4 5) (frame 6 7 8))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((+arg1.56 +arg1.53) (+arg2.57 +arg2.54))
+         (let ((+arg2.58 +arg2.57))
+          (#0
+           (#0
+            (loop-block (frame-shape 3)
+             (map ((+arg2.60 +arg2.58)) (+ +arg1.56 +arg2.60))
+             (body-matcher map-result.59) (map-result (map-result.59))
+             (consumer (values)))))))
+        (body-matcher map-result.55) (map-result (map-result.55))
+        (consumer (values))))))
+    Result of stage Kernelize:
+    (let ((+arg1.53 (frame 1 2)) (+arg2.54 (frame (frame 3 4 5) (frame 6 7 8))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((+arg1.56 +arg1.53) (+arg2.57 +arg2.54))
+         (let ((+arg2.58 +arg2.57))
+          (#0
+           (#0
+            (loop-block (frame-shape 3)
+             (map ((+arg2.60 +arg2.58)) (+ +arg1.56 +arg2.60))
+             (body-matcher map-result.59) (map-result (map-result.59))
+             (consumer (values)))))))
+        (body-matcher map-result.55) (map-result (map-result.55))
+        (consumer (values)))))) |}]
 ;;
 
 let%expect_test "box and unbox" =
@@ -1258,5 +1350,476 @@ let%expect_test "box and unbox" =
             (type' ((element (Literal BooleanLiteral)) (shape ()))))))
          (type' ((element (Literal BooleanLiteral)) (shape ()))))))
       (type'
-       ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ()))))))))) |}]
+       ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ())))))))))
+    Result of stage Nest:
+    (let
+     ((box.58 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((box.60 box.58))
+         (let ((box.57 box.60))
+          (index-let ((len.43 box-index-0 box.57)) (= 3 (reify-index len.43)))))
+        (body-matcher map-result.59) (map-result (map-result.59))
+        (consumer (values))))))
+    Result of stage Fuse:
+    (let
+     ((box.58 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((box.60 box.58))
+         (let ((box.57 box.60))
+          (index-let ((len.43 box-index-0 box.57)) (= 3 (reify-index len.43)))))
+        (body-matcher map-result.59) (map-result (map-result.59))
+        (consumer (values))))))
+    Result of stage Simplify Nested:
+    (let
+     ((box.58 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((box.60 box.58))
+         (index-let ((len.43 box-index-0 box.60)) (= 3 (reify-index len.43))))
+        (body-matcher map-result.59) (map-result (map-result.59))
+        (consumer (values))))))
+    Result of stage Kernelize:
+    (let
+     ((box.58 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     (#0
+      (#0
+       (loop-block (frame-shape 2)
+        (map ((box.60 box.58))
+         (index-let ((len.43 box-index-0 box.60)) (= 3 (reify-index len.43))))
+        (body-matcher map-result.59) (map-result (map-result.59))
+        (consumer (values)))))) |}]
+;;
+
+let%expect_test "sum rows" =
+  printStages
+    {|
+    (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
+      (reduce{int | d-1 [] []} + row))
+    (sum-row{ | 9} iota{ | [1000000 10]})
+    |};
+  [%expect {|
+    Result of stage Type Check:
+    (Let
+     ((binding ((name sum-row) (id 41)))
+      (value
+       (Scalar
+        ((element
+          (IndexLambda
+           ((params (((binding ((name d-1) (id 42))) (bound Dim))))
+            (body
+             (Scalar
+              ((element
+                (TermLambda
+                 ((params
+                   (((binding ((name row) (id 43)))
+                     (bound
+                      (Arr
+                       ((element (Literal IntLiteral))
+                        (shape
+                         ((Add ((const 1) (refs ((((name d-1) (id 42)) 1)))))))))))))
+                  (body
+                   (TermApplication
+                    ((func
+                      (TypeApplication
+                       ((tFunc
+                         (IndexApplication
+                          ((iFunc
+                            (Primitive
+                             ((name
+                               (Func
+                                (Reduce (associative true) (explicitZero false)
+                                 (character Reduce)))))))
+                           (args
+                            ((Dimension
+                              ((const 0) (refs ((((name d-1) (id 42)) 1)))))
+                             (Shape ()) (Shape ()))))))
+                        (args ((Atom (Literal IntLiteral)))))))
+                     (args
+                      ((Primitive ((name (Func Add))))
+                       (Ref ((id ((name row) (id 43))))))))))))))))))))))
+      (body
+       (TermApplication
+        ((func
+          (IndexApplication
+           ((iFunc (Ref ((id ((name sum-row) (id 41))))))
+            (args ((Dimension ((const 9) (refs ()))))))))
+         (args
+          ((IndexApplication
+            ((iFunc (Primitive ((name (Val Iota)))))
+             (args
+              ((Shape
+                ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ()))))))))))))))))
+    Result of stage Explicitize:
+    (Map
+     ((args
+       (((binding ((name sum-row) (id 41)))
+         (value
+          (Scalar
+           ((element
+             (IndexLambda
+              ((params (((binding ((name d-1) (id 42))) (bound Dim))))
+               (body
+                (Scalar
+                 ((element
+                   (TermLambda
+                    ((params
+                      (((binding ((name row) (id 43)))
+                        (bound
+                         (Arr
+                          ((element (Literal IntLiteral))
+                           (shape
+                            ((Add ((const 1) (refs ((((name d-1) (id 42)) 1)))))))))))))
+                     (body
+                      (Map
+                       ((args
+                         (((binding ((name f) (id 46)))
+                           (value
+                            (TypeApplication
+                             ((tFunc
+                               (IndexApplication
+                                ((iFunc
+                                  (Primitive
+                                   ((name
+                                     (Func
+                                      (Reduce (associative true)
+                                       (explicitZero false) (character Reduce)))))))
+                                 (args
+                                  ((Dimension
+                                    ((const 0) (refs ((((name d-1) (id 42)) 1)))))
+                                   (Shape ()) (Shape ()))))))
+                              (args ((Atom (Literal IntLiteral))))))))
+                          ((binding ((name reduce-f-arg) (id 44)))
+                           (value (Primitive ((name (Func Add))))))
+                          ((binding ((name reduce-array-arg) (id 45)))
+                           (value (Ref ((id ((name row) (id 43)))))))))
+                        (body
+                         (TermApplication
+                          ((func (Ref ((id ((name f) (id 46))))))
+                           (args
+                            (((id ((name reduce-f-arg) (id 44))))
+                             ((id ((name reduce-array-arg) (id 45))))))
+                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                        (frameShape ())
+                        (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))))))))
+      (body
+       (Map
+        ((args
+          (((binding ((name f) (id 48)))
+            (value
+             (IndexApplication
+              ((iFunc (Ref ((id ((name sum-row) (id 41))))))
+               (args ((Dimension ((const 9) (refs ())))))))))
+           ((binding ((name row) (id 47)))
+            (value
+             (IndexApplication
+              ((iFunc (Primitive ((name (Val Iota)))))
+               (args
+                ((Shape
+                  ((Add ((const 1000000) (refs ())))
+                   (Add ((const 10) (refs ())))))))))))))
+         (body
+          (Map
+           ((args
+             (((binding ((name row) (id 49)))
+               (value (Ref ((id ((name row) (id 47)))))))))
+            (body
+             (TermApplication
+              ((func (Ref ((id ((name f) (id 48))))))
+               (args (((id ((name row) (id 49))))))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (frameShape ((Add ((const 1000000) (refs ())))))
+            (type'
+             (Arr
+              ((element (Literal IntLiteral))
+               (shape ((Add ((const 1000000) (refs ())))))))))))
+         (frameShape ())
+         (type'
+          (Arr
+           ((element (Literal IntLiteral))
+            (shape ((Add ((const 1000000) (refs ())))))))))))
+      (frameShape ())
+      (type'
+       (Arr
+        ((element (Literal IntLiteral))
+         (shape ((Add ((const 1000000) (refs ()))))))))))
+    Result of stage Inline and Monomorphize:
+    (ArrayPrimitive
+     (Map (frameShape ())
+      (args
+       (((binding ((name sum-row) (id 51)))
+         (value
+          (AtomAsArray
+           ((element (Values ((elements ()) (type' ()))))
+            (type' ((element (Tuple ())) (shape ())))))))))
+      (body
+       (ArrayPrimitive
+        (Map (frameShape ())
+         (args
+          (((binding ((name f) (id 52)))
+            (value
+             (Ref
+              ((id ((name sum-row) (id 51)))
+               (type' ((element (Tuple ())) (shape ())))))))
+           ((binding ((name row) (id 58)))
+            (value
+             (ArrayPrimitive
+              (Map
+               (frameShape
+                ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ())))))
+               (args ()) (iotaVar (((name iota) (id 57))))
+               (body
+                (Ref
+                 ((id ((name iota) (id 57)))
+                  (type' ((element (Literal IntLiteral)) (shape ()))))))
+               (type'
+                ((element (Literal IntLiteral))
+                 (shape
+                  ((Add ((const 1000000) (refs ())))
+                   (Add ((const 10) (refs ())))))))))))))
+         (body
+          (ArrayPrimitive
+           (Map (frameShape ((Add ((const 1000000) (refs ())))))
+            (args
+             (((binding ((name row) (id 59)))
+               (value
+                (Ref
+                 ((id ((name row) (id 58)))
+                  (type'
+                   ((element (Literal IntLiteral))
+                    (shape
+                     ((Add ((const 1000000) (refs ())))
+                      (Add ((const 10) (refs ())))))))))))))
+            (body
+             (ArrayPrimitive
+              (Map (frameShape ())
+               (args
+                (((binding ((name f) (id 53)))
+                  (value
+                   (AtomAsArray
+                    ((element (Values ((elements ()) (type' ()))))
+                     (type' ((element (Tuple ())) (shape ())))))))
+                 ((binding ((name reduce-f-arg) (id 54)))
+                  (value
+                   (AtomAsArray
+                    ((element (Values ((elements ()) (type' ()))))
+                     (type' ((element (Tuple ())) (shape ())))))))
+                 ((binding ((name reduce-array-arg) (id 60)))
+                  (value
+                   (Ref
+                    ((id ((name row) (id 59)))
+                     (type'
+                      ((element (Literal IntLiteral))
+                       (shape ((Add ((const 10) (refs ())))))))))))))
+               (body
+                (ArrayPrimitive
+                 (Reduce
+                  (arg
+                   ((firstBinding ((name reduce-arg1) (id 61)))
+                    (secondBinding ((name reduce-arg2) (id 62)))
+                    (value
+                     (Ref
+                      ((id ((name reduce-array-arg) (id 60)))
+                       (type'
+                        ((element (Literal IntLiteral))
+                         (shape ((Add ((const 10) (refs ()))))))))))))
+                  (zero ())
+                  (body
+                   (AtomAsArray
+                    ((element
+                      (AtomicPrimitive
+                       ((op Add)
+                        (args
+                         ((ArrayAsAtom
+                           ((array
+                             (Ref
+                              ((id ((name reduce-arg1) (id 61)))
+                               (type'
+                                ((element (Literal IntLiteral)) (shape ()))))))
+                            (type' (Literal IntLiteral))))
+                          (ArrayAsAtom
+                           ((array
+                             (Ref
+                              ((id ((name reduce-arg2) (id 62)))
+                               (type'
+                                ((element (Literal IntLiteral)) (shape ()))))))
+                            (type' (Literal IntLiteral))))))
+                        (type' (Literal IntLiteral)))))
+                     (type' ((element (Literal IntLiteral)) (shape ()))))))
+                  (d ((const 10) (refs ()))) (itemPad ()) (cellShape ())
+                  (associative true) (character Reduce)
+                  (type' ((element (Literal IntLiteral)) (shape ()))))))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type'
+             ((element (Literal IntLiteral))
+              (shape ((Add ((const 1000000) (refs ()))))))))))
+         (type'
+          ((element (Literal IntLiteral))
+           (shape ((Add ((const 1000000) (refs ()))))))))))
+      (type'
+       ((element (Literal IntLiteral))
+        (shape ((Add ((const 1000000) (refs ())))))))))
+    Result of stage Simplify:
+    (ArrayPrimitive
+     (Map (frameShape ((Add ((const 1000000) (refs ())))))
+      (args
+       (((binding ((name row) (id 59)))
+         (value
+          (ArrayPrimitive
+           (Map
+            (frameShape
+             ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ())))))
+            (args ()) (iotaVar (((name iota) (id 57))))
+            (body
+             (Ref
+              ((id ((name iota) (id 57)))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type'
+             ((element (Literal IntLiteral))
+              (shape
+               ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ())))))))))))))
+      (body
+       (ArrayPrimitive
+        (Reduce
+         (arg
+          ((firstBinding ((name reduce-arg1) (id 61)))
+           (secondBinding ((name reduce-arg2) (id 62)))
+           (value
+            (Ref
+             ((id ((name row) (id 59)))
+              (type'
+               ((element (Literal IntLiteral))
+                (shape ((Add ((const 10) (refs ()))))))))))))
+         (zero ())
+         (body
+          (AtomAsArray
+           ((element
+             (AtomicPrimitive
+              ((op Add)
+               (args
+                ((ArrayAsAtom
+                  ((array
+                    (Ref
+                     ((id ((name reduce-arg1) (id 61)))
+                      (type' ((element (Literal IntLiteral)) (shape ()))))))
+                   (type' (Literal IntLiteral))))
+                 (ArrayAsAtom
+                  ((array
+                    (Ref
+                     ((id ((name reduce-arg2) (id 62)))
+                      (type' ((element (Literal IntLiteral)) (shape ()))))))
+                   (type' (Literal IntLiteral))))))
+               (type' (Literal IntLiteral)))))
+            (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (d ((const 10) (refs ()))) (itemPad ()) (cellShape ())
+         (associative true) (character Reduce)
+         (type' ((element (Literal IntLiteral)) (shape ()))))))
+      (type'
+       ((element (Literal IntLiteral))
+        (shape ((Add ((const 1000000) (refs ())))))))))
+    Result of stage Nest:
+    (let
+     ((row.67
+       (let ()
+        (#0
+         (#0
+          (loop-block (frame-shape 1000000)
+           (map () (iota iota.64)
+            (#0
+             (#0
+              (loop-block (frame-shape 10)
+               (map () (iota (iota.66 : iota.64)) (let ((iota.57 0)) iota.57))
+               (body-matcher map-result.65) (map-result (map-result.65))
+               (consumer (values))))))
+           (body-matcher map-result.63) (map-result (map-result.63))
+           (consumer (values))))))))
+     (#0
+      (#0
+       (loop-block (frame-shape 1000000)
+        (map ((row.69 row.67))
+         (let ((row.59 row.69))
+          (let ((reduce-arg.71 row.59))
+           (#1
+            (loop-block (frame-shape 10)
+             (map ((reduce-arg.72 reduce-arg.71)) (values reduce-arg.72))
+             (body-matcher (reduce-arg.70)) (map-result ())
+             (consumer
+              (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
+               (+ reduce-arg1.61 reduce-arg2.62))))))))
+        (body-matcher map-result.68) (map-result (map-result.68))
+        (consumer (values))))))
+    Result of stage Fuse:
+    (let ()
+     (let ()
+      (let
+       ((fused-block-result.75
+         (loop-block (frame-shape 1000000)
+          (map () (iota iota.64)
+           (let ()
+            (let ()
+             (let ()
+              (let ()
+               (let
+                ((fused-block-result.80
+                  (loop-block (frame-shape 10)
+                   (map () (iota (iota.66 : iota.64))
+                    (let
+                     ((fusion-target-map-result.78 (let ((iota.57 0)) iota.57)))
+                     (values fusion-target-map-result.78
+                      (let ((reduce-arg.72 fusion-target-map-result.78))
+                       (values reduce-arg.72)))))
+                   (body-matcher (map-result.65 (reduce-arg.70)))
+                   (map-result (map-result.65))
+                   (consumer
+                    (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
+                     (+ reduce-arg1.61 reduce-arg2.62))))))
+                (let
+                 ((fusion-target-map-result.81
+                   (values (#0 (#0 fused-block-result.80))))
+                  (fusion-archer-map-result.77 (values))
+                  (fusion-archer-consumer-result.79 (#1 fused-block-result.80)))
+                 (let
+                  ((fusion-target-map-result.74
+                    (#0 (#0 (values fusion-target-map-result.81 (values))))))
+                  (values fusion-target-map-result.74
+                   (let ((row.69 fusion-target-map-result.74))
+                    (let ((row.59 row.69))
+                     (let ((reduce-arg.71 row.59))
+                      (#1
+                       (values fusion-archer-map-result.77
+                        fusion-archer-consumer-result.79))))))))))))))
+          (body-matcher (map-result.63 map-result.68))
+          (map-result (map-result.63 map-result.68)) (consumer (values)))))
+       (let
+        ((fusion-target-map-result.76 (values (#0 (#0 fused-block-result.75))))
+         (fusion-archer-map-result.73 (values (#1 (#0 fused-block-result.75)))))
+        (let ((row.67 (#0 (#0 (values fusion-target-map-result.76 (values))))))
+         (#0 (#0 (values fusion-archer-map-result.73 (values)))))))))
+    Result of stage Simplify Nested:
+    (#0
+     (#0
+      (loop-block (frame-shape 1000000)
+       (map ()
+        (#1
+         (loop-block (frame-shape 10) (map () 0) (body-matcher reduce-arg.70)
+          (map-result ())
+          (consumer
+           (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
+            (+ reduce-arg1.61 reduce-arg2.62))))))
+       (body-matcher map-result.68) (map-result (map-result.68))
+       (consumer (values)))))
+    Result of stage Kernelize:
+    (#0
+     (map-kernel (frame-shape 1000000) () (body-matcher map-result.68)
+      (map-result (map-result.68))
+      (#1
+       (loop-block (frame-shape 10) (map () 0) (body-matcher reduce-arg.70)
+        (map-result ())
+        (consumer
+         (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
+          (+ reduce-arg1.61 reduce-arg2.62))))))) |}]
 ;;

@@ -21,6 +21,15 @@ module Index = struct
     | ShapeRef of Identifier.t
   [@@deriving sexp, compare, equal]
 
+  module ShapeElement = struct
+    module T = struct
+      type t = shapeElement [@@deriving sexp, compare, equal]
+    end
+
+    include T
+    include Comparator.Make (T)
+  end
+
   type shape = shapeElement list [@@deriving sexp, compare, equal]
 
   type t =

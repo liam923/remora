@@ -11,7 +11,7 @@ module ExplicitState = struct
         (Identifier.create
            name
            ~getCounter:(fun (s : state) -> s.idCounter)
-           ~setCounter:(fun _ idCounter -> CompilerState.{ idCounter }))
+           ~setCounter:(fun s idCounter -> { s with idCounter }))
         state)
   ;;
 end

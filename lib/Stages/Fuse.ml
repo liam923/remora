@@ -23,7 +23,7 @@ module FuseState = struct
            name
            ~getCounter:(fun (s : state) -> s.compilerState.idCounter)
            ~setCounter:(fun (s : state) idCounter ->
-             { s with compilerState = { idCounter } }))
+             { s with compilerState = { s.compilerState with idCounter } }))
         state)
   ;;
 

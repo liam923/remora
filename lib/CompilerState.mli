@@ -1,6 +1,9 @@
 open! Base
 
-type state = { idCounter : int }
+type state =
+  { idCounter : int
+  ; deviceInfo : DeviceInfo.t
+  }
 
 include StateT.S2WithError with type ('a, 'e) m = ('a, 'e) MResult.t
 

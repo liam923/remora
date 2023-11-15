@@ -119,7 +119,7 @@ module InlineState = struct
            name
            ~getCounter:(fun (s : state) -> s.compilerState.idCounter)
            ~setCounter:(fun (s : state) idCounter ->
-             { s with compilerState = CompilerState.{ idCounter } }))
+             { s with compilerState = { s.compilerState with idCounter } }))
         state)
   ;;
 
