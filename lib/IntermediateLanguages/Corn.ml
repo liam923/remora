@@ -292,7 +292,7 @@ module Expr = struct
     let sexp_of_device Device = Sexp.Atom "device"
     let sexp_of_parallel Parallel = Sexp.Atom "parallel"
     let sexp_of_sequential Sequential = Sexp.Atom "sequential"
-    let sexp_of_ref (ref : ref) = Sexp.Atom (Identifier.show ref.id)
+    let sexp_of_ref = [%sexp_of: Nested.Expr.ref]
 
     let rec sexp_of_frame : type a. (a -> Sexp.t) -> a frame -> Sexp.t =
       fun sexp_of_a { dimension = _; elements; type' = _ } ->
@@ -306,11 +306,7 @@ module Expr = struct
         ; sexp_of_t sexp_of_a body
         ]
 
-    and sexp_of_literal (lit : Nucleus.Expr.literal) =
-      match lit with
-      | IntLiteral i -> Sexp.Atom (Int.to_string i)
-      | CharacterLiteral c -> Sexp.Atom [%string "'%{Char.to_string c}'"]
-      | BooleanLiteral b -> Sexp.Atom (if b then "true" else "false")
+    and sexp_of_literal = [%sexp_of: Nested.Expr.literal]
 
     and sexp_of_scalarPrimitive : type a. (a -> Sexp.t) -> a scalarPrimitive -> Sexp.t =
       fun sexp_of_a { op; args; type' = _ } ->
@@ -365,17 +361,9 @@ module Expr = struct
         ; sexp_of_t sexp_of_a body
         ]
 
-    and sexp_of_reifyIndex ({ index; type' = _ } : reifyIndex) =
-      Sexp.List [ Sexp.Atom "reify-index"; Index.sexp_of_t index ]
-
-    and sexp_of_tupleMatch : tupleMatch -> Sexp.t = function
-      | Binding id -> Sexp.Atom (Identifier.show id)
-      | Unpack matchers -> Sexp.List (List.map matchers ~f:sexp_of_tupleMatch)
-
-    and sexp_of_productionTuple : productionTuple -> Sexp.t = function
-      | ProductionTuple { elements; type' = _ } ->
-        Sexp.List (List.map elements ~f:sexp_of_productionTuple)
-      | ProductionTupleAtom p -> Sexp.Atom (Identifier.show p.productionId)
+    and sexp_of_reifyIndex = [%sexp_of: Nested.Expr.reifyIndex]
+    and sexp_of_tupleMatch = [%sexp_of: Nested.Expr.tupleMatch]
+    and sexp_of_productionTuple = [%sexp_of: Nested.Expr.productionTuple]
 
     and sexp_of_reduce
       : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) reduce -> Sexp.t
@@ -452,6 +440,9 @@ module Expr = struct
       | Fold fold -> sexp_of_fold sexp_of_a sexp_of_b fold
       | Scatter scatter -> sexp_of_scatter scatter
 
+    and sexp_of_mapArg = [%sexp_of: Nested.Expr.mapArg]
+    and sexp_of_mapIota = [%sexp_of: Nested.Expr.mapIota]
+
     and sexp_of_loopBlock
       : type a b p.
         ?kernel:bool
@@ -478,27 +469,10 @@ module Expr = struct
         [ Sexp.Atom (if kernel then "loop-kernel" else "loop-block")
         ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
         ; Sexp.List
-            ([ Sexp.Atom "map"
-             ; Sexp.List
-                 (List.map mapArgs ~f:(fun { binding; ref } ->
-                    Sexp.List
-                      [ Sexp.Atom (Identifier.show binding)
-                      ; Sexp.Atom (Identifier.show ref.id)
-                      ]))
-             ]
+            ([ Sexp.Atom "map"; Sexp.List (List.map mapArgs ~f:sexp_of_mapArg) ]
              @ (if List.length mapIotas > 0
                 then
-                  [ Sexp.List
-                      (Sexp.Atom "iota"
-                       :: List.map mapIotas ~f:(function
-                         | { iota; nestIn = None } -> Sexp.Atom (Identifier.show iota)
-                         | { iota; nestIn = Some parent } ->
-                           Sexp.List
-                             [ Sexp.Atom (Identifier.show iota)
-                             ; Sexp.Atom ":"
-                             ; Sexp.Atom (Identifier.show parent)
-                             ]))
-                  ]
+                  [ Sexp.List (Sexp.Atom "iota" :: List.map mapIotas ~f:sexp_of_mapIota) ]
                 else [])
              @ [ sexp_of_t sexp_of_b mapBody ])
         ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]

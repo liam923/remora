@@ -87,15 +87,15 @@ module ParallelismShape = struct
       | None -> pars
     in
     match flatten pars with
-    | [] -> Known 1
+    | [] -> Known 0
     | [ par ] -> par
-    | minAcross ->
+    | minAcrossHead :: minAcrossRest ->
       let parallelismFloor =
-        minAcross
-        |> List.map ~f:parallelismFloor
-        |> List.max_elt ~compare:Int.compare
-        |> Option.value ~default:1
+        minAcrossHead :: minAcrossRest
+        |> NeList.map ~f:parallelismFloor
+        |> NeList.min_elt ~compare:Int.compare
       in
+      let minAcross = minAcrossHead :: minAcrossRest in
       MinParallelism { minAcross; parallelismFloor }
   ;;
 
@@ -119,15 +119,15 @@ module ParallelismShape = struct
       | None -> pars
     in
     match flatten pars with
-    | [] -> Known 1
+    | [] -> Known 0
     | [ par ] -> par
-    | maxAcross ->
+    | maxAcrossHead :: maxAcrossRest ->
       let parallelismFloor =
-        maxAcross
-        |> List.map ~f:parallelismFloor
-        |> List.max_elt ~compare:Int.compare
-        |> Option.value ~default:1
+        maxAcrossHead :: maxAcrossRest
+        |> NeList.map ~f:parallelismFloor
+        |> NeList.max_elt ~compare:Int.compare
       in
+      let maxAcross = maxAcrossHead :: maxAcrossRest in
       MaxParallelism { maxAcross; parallelismFloor }
   ;;
 
