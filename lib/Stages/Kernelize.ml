@@ -27,24 +27,18 @@ module ParallelismShape = struct
         { maxAcross : t list
         ; parallelismFloor : int
         }
-    | MinParallelism of
-        { minAcross : t list
-        ; parallelismFloor : int
-        }
   [@@deriving sexp_of]
 
   let parallelismFloor = function
     | Known n -> n
     | ParallelAcrossDim p -> p.parallelismFloor
     | MaxParallelism p -> p.parallelismFloor
-    | MinParallelism p -> p.parallelismFloor
   ;;
 
   let known = function
     | Known n -> Some n
     | ParallelAcrossDim _ -> None
     | MaxParallelism _ -> None
-    | MinParallelism _ -> None
   ;;
 
   let nestParallelism (shapeElement : Index.shapeElement) restParallelism =
@@ -65,39 +59,6 @@ module ParallelismShape = struct
 
   let singleDimensionParallelism shapeElement = nestParallelism shapeElement (Known 1)
   let empty = Known 1
-
-  let min pars =
-    let rec flatten l =
-      List.bind l ~f:(function
-        | MinParallelism p -> flatten p.minAcross
-        | p -> [ p ])
-    in
-    let pars = flatten pars in
-    let minKnown =
-      pars |> List.map ~f:known |> List.filter_opt |> List.min_elt ~compare:Int.compare
-    in
-    let pars =
-      match minKnown with
-      | Some minKnown ->
-        Known minKnown
-        :: List.filter_map pars ~f:(fun p ->
-          if parallelismFloor p < minKnown || Option.is_some (known p)
-          then None
-          else Some p)
-      | None -> pars
-    in
-    match flatten pars with
-    | [] -> Known 0
-    | [ par ] -> par
-    | minAcrossHead :: minAcrossRest ->
-      let parallelismFloor =
-        minAcrossHead :: minAcrossRest
-        |> NeList.map ~f:parallelismFloor
-        |> NeList.min_elt ~compare:Int.compare
-      in
-      let minAcross = minAcrossHead :: minAcrossRest in
-      MinParallelism { minAcross; parallelismFloor }
-  ;;
 
   let max pars =
     let rec flatten l =
@@ -134,7 +95,6 @@ module ParallelismShape = struct
   let rec toCorn : t -> Corn.Expr.parallelism = function
     | Known n -> KnownParallelism n
     | ParallelAcrossDim p -> Parallelism { shape = p.dim; rest = toCorn p.rest }
-    | MinParallelism p -> MinParallelism (List.map p.minAcross ~f:toCorn)
     | MaxParallelism p -> MaxParallelism (List.map p.maxAcross ~f:toCorn)
   ;;
 end
@@ -166,8 +126,8 @@ let hostParShape { hostParShape; _ } = hostParShape
 
 module ParallelismWorthwhileness = struct
   type t =
-    | NotWorthwhile of { bounded : bool }
-    | Worthwhile of { bounded : bool }
+    | NotWorthwhile of { bound : int option }
+    | Worthwhile of { bound : int option }
     | Saturating
   [@@deriving sexp_of]
 
@@ -176,36 +136,55 @@ module ParallelismWorthwhileness = struct
   let worthwhileParallelismCutoff (_ : DeviceInfo.t) =
     (* Arbitrary heuristic I came up with with no testing.
        A good heuristic should factor in both host and device info. *)
-    100000
+    128
   ;;
 
   let get deviceInfo p =
     if ParallelismShape.parallelismFloor p >= saturatationCutoff deviceInfo
     then Saturating
     else if ParallelismShape.parallelismFloor p >= worthwhileParallelismCutoff deviceInfo
-    then Worthwhile { bounded = ParallelismShape.known p |> Option.is_some }
-    else NotWorthwhile { bounded = ParallelismShape.known p |> Option.is_some }
+    then Worthwhile { bound = ParallelismShape.known p }
+    else NotWorthwhile { bound = ParallelismShape.known p }
   ;;
 end
 
-let selectHostExpr (aExpr, aParShape) (bExpr, bParShape) =
+let decideParallelism ~par:(parExpr, parParShape) ~seq:(seqExpr, seqParShape) =
   let open KernelizeState.Let_syntax in
   let%map deviceInfo = KernelizeState.getDeviceInfo () in
+  let type' = Corn.Expr.type' parExpr in
   match
-    ( ParallelismWorthwhileness.get deviceInfo aParShape
-    , ParallelismWorthwhileness.get deviceInfo bParShape )
+    ( ParallelismWorthwhileness.get deviceInfo parParShape
+    , ParallelismWorthwhileness.get deviceInfo seqParShape )
   with
-  | Saturating, _ -> aExpr, aParShape
-  | NotWorthwhile { bounded = true }, _ | _, Saturating -> bExpr, bParShape
-  | Worthwhile { bounded = _ }, _ | NotWorthwhile { bounded = false }, _ ->
+  | Saturating, _
+  | Worthwhile { bound = _ }, NotWorthwhile { bound = Some _ }
+  | Worthwhile { bound = Some _ }, NotWorthwhile { bound = None } -> parExpr, parParShape
+  | NotWorthwhile { bound = Some _ }, _ | _, Saturating -> seqExpr, seqParShape
+  | Worthwhile { bound = Some parBound }, Worthwhile { bound = Some seqBound } ->
+    if parBound >= seqBound then parExpr, parParShape else seqExpr, seqParShape
+  | NotWorthwhile { bound = None }, NotWorthwhile { bound = Some _ } ->
     ( Corn.Expr.IfParallelismHitsCutoff
-        { parallelism = ParallelismShape.toCorn aParShape
-        ; cutoff = ParallelismShape.parallelismFloor bParShape
-        ; then' = aExpr
-        ; else' = bExpr
-        ; type' = Corn.Expr.type' aExpr
+        { parallelism = ParallelismShape.toCorn parParShape
+        ; cutoff = ParallelismWorthwhileness.worthwhileParallelismCutoff deviceInfo
+        ; then' = parExpr
+        ; else' = seqExpr
+        ; type'
         }
-    , ParallelismShape.min [ aParShape; bParShape ] )
+    , parParShape )
+  | Worthwhile { bound = Some parBound }, Worthwhile { bound = None } ->
+    if parBound >= ParallelismShape.parallelismFloor seqParShape
+    then parExpr, parParShape
+    else seqExpr, seqParShape
+  | ( (Worthwhile { bound = None } | NotWorthwhile { bound = None })
+    , (Worthwhile { bound = _ } | NotWorthwhile { bound = None }) ) ->
+    ( Corn.Expr.IfParallelismHitsCutoff
+        { parallelism = ParallelismShape.toCorn parParShape
+        ; cutoff = ParallelismShape.parallelismFloor seqParShape
+        ; then' = parExpr
+        ; else' = seqExpr
+        ; type'
+        }
+    , ParallelismShape.max [ parParShape; seqParShape ] )
 ;;
 
 let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
@@ -320,9 +299,10 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
         }
     in
     let%map hostExpr, hostParShape =
-      selectHostExpr
-        (Expr.values [ Expr.MapKernel mapAsKernel; Expr.values [] ], mapAsKernelParShape)
-        (mapAsHostExpr, mapBodyOpts.hostParShape)
+      decideParallelism
+        ~par:
+          (Expr.values [ Expr.MapKernel mapAsKernel; Expr.values [] ], mapAsKernelParShape)
+        ~seq:(mapAsHostExpr, mapBodyOpts.hostParShape)
     in
     { hostExpr
     ; deviceExpr =
@@ -365,7 +345,6 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             ; body = bodyOpts.hostExpr
             ; d
             ; itemPad
-            ; associative
             ; character
             ; type'
             }
@@ -375,25 +354,26 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             ; body = bodyOpts.deviceExpr
             ; d
             ; itemPad
-            ; associative
             ; character
             ; type'
             }
         , ParallelismShape.max (bodyOpts.hostParShape :: zeroOptsHostParShapeAsList)
-        , Some
-            ( Expr.ReducePar
-                { arg
-                ; zero = Option.map zeroOpts ~f:hostExpr
-                ; body = bodyOpts.deviceExpr
-                ; d
-                ; itemPad
-                ; associative
-                ; character
-                ; type'
-                }
-            , ParallelismShape.max
-                (ParallelismShape.singleDimensionParallelism (Add d)
-                 :: zeroOptsHostParShapeAsList) ) )
+        , if associative
+          then
+            Some
+              ( Expr.ReducePar
+                  { arg
+                  ; zero = Option.map zeroOpts ~f:hostExpr
+                  ; body = bodyOpts.deviceExpr
+                  ; d
+                  ; itemPad
+                  ; character
+                  ; type'
+                  }
+              , ParallelismShape.max
+                  (ParallelismShape.singleDimensionParallelism (Add d)
+                   :: zeroOptsHostParShapeAsList) )
+          else None )
       | Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' } ->
         let%map bodyOpts = getOpts body
         and zeroArgValueOpts = getOpts zeroArg.zeroValue in
@@ -437,29 +417,31 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     let%map hostExpr, hostParShape =
       match parConsumer with
       | Some (parConsumerExpr, parConsumerParShape) ->
-        selectHostExpr
-          ( Expr.LoopKernel
-              { frameShape
-              ; mapArgs
-              ; mapIotas
-              ; mapBody = mapBodyOpts.deviceExpr
-              ; mapBodyMatcher
-              ; mapResults
-              ; consumer = Some parConsumerExpr
-              ; type'
-              }
-          , parConsumerParShape )
-          ( Expr.LoopBlock
-              { frameShape
-              ; mapArgs
-              ; mapIotas
-              ; mapBody = mapBodyOpts.hostExpr
-              ; mapBodyMatcher
-              ; mapResults
-              ; consumer = Some consumerAsHostExpr
-              ; type'
-              }
-          , sequentialBlockParShape )
+        decideParallelism
+          ~par:
+            ( Expr.LoopKernel
+                { frameShape
+                ; mapArgs
+                ; mapIotas
+                ; mapBody = mapBodyOpts.deviceExpr
+                ; mapBodyMatcher
+                ; mapResults
+                ; consumer = Some parConsumerExpr
+                ; type'
+                }
+            , parConsumerParShape )
+          ~seq:
+            ( Expr.LoopBlock
+                { frameShape
+                ; mapArgs
+                ; mapIotas
+                ; mapBody = mapBodyOpts.hostExpr
+                ; mapBodyMatcher
+                ; mapResults
+                ; consumer = Some consumerAsHostExpr
+                ; type'
+                }
+            , sequentialBlockParShape )
       | None ->
         (* TODO: might be a good idea to unfuse and parallelize just the map *)
         return
@@ -537,7 +519,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     let flattenedMapBody =
       match tupleOpts.flattenedMapBody with
       | MapBodyValues elements -> List.nth_exn elements index
-      | _ -> MapBodyExpr (TupleDeref { tuple = tupleOpts.deviceExpr; index; type' })
+      | _ -> MapBodyDeref { tuple = tupleOpts.flattenedMapBody; index }
     in
     { hostExpr
     ; deviceExpr

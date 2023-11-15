@@ -139,6 +139,31 @@ module Stdlib : S = struct
                 |}
             }
       }
+    ; { name = "reduce-non-assoc"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = false
+                             ; explicitZero = false
+                             ; character = `Reduce
+                             })
+                    ; type'
+                    })
+            ; type' =
+                {|
+                  (Pi (d-1 @item-pad @cell-shape)
+                    (Forall (t)
+                      (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                           [t (+ d-1 1) @item-pad @cell-shape])
+                          [t @item-pad @cell-shape])))
+                  |}
+            }
+      }
     ; { name = "scan"
       ; value =
           Intrinsic

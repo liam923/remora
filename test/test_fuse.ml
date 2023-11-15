@@ -21,12 +21,12 @@ let%expect_test "check fusing" =
     (#0
      (#0
       (let
-       ((+arg1.94 (frame 4 5 6)) (+arg2.96 (frame 7 8 9))
-        (+arg1.98 (frame 1 2 3)))
+       ((+arg1.98 (frame 4 5 6)) (+arg2.100 (frame 7 8 9))
+        (+arg1.102 (frame 1 2 3)))
        (loop-block (frame-shape 3)
-        (map ((+arg1.65 +arg1.94) (+arg2.66 +arg2.96) (+arg1.69 +arg1.98))
-         (+ +arg1.69 (+ +arg1.65 +arg2.66)))
-        (body-matcher map-result.68) (map-result (map-result.68))
+        (map ((+arg1.69 +arg1.98) (+arg2.70 +arg2.100) (+arg1.73 +arg1.102))
+         (+ +arg1.73 (+ +arg1.69 +arg2.70)))
+        (body-matcher map-result.72) (map-result (map-result.72))
         (consumer (values)))))) |}];
   fuseAndPrint {|
     (define x (+ 1 [1 2 3]))
@@ -37,25 +37,25 @@ let%expect_test "check fusing" =
     (#0
      (#0
       (let
-       ((+arg2.147 (frame 1 2 3)) (+arg2.149 (frame 7 8 9))
-        (+arg2.151 (frame 4 5 6)))
+       ((+arg2.151 (frame 1 2 3)) (+arg2.153 (frame 7 8 9))
+        (+arg2.155 (frame 4 5 6)))
        (loop-block (frame-shape 3)
-        (map ((+arg2.83 +arg2.147) (+arg2.95 +arg2.149) (+arg2.89 +arg2.151))
-         (let ((fusion-target-map-result.136 (+ 1 +arg2.83)))
-          (+ (+ fusion-target-map-result.136 +arg2.89)
-           (+ fusion-target-map-result.136 +arg2.95))))
-        (body-matcher map-result.97) (map-result (map-result.97))
+        (map ((+arg2.87 +arg2.151) (+arg2.99 +arg2.153) (+arg2.93 +arg2.155))
+         (let ((fusion-target-map-result.140 (+ 1 +arg2.87)))
+          (+ (+ fusion-target-map-result.140 +arg2.93)
+           (+ fusion-target-map-result.140 +arg2.99))))
+        (body-matcher map-result.101) (map-result (map-result.101))
         (consumer (values)))))) |}];
   fuseAndPrint "(reduce{int | 2 [] []} + (+ 1 [1 2 3]))";
   [%expect
     {|
     (#1
-     (let ((+arg2.85 (frame 1 2 3)))
-      (loop-block (frame-shape 3) (map ((+arg2.62 +arg2.85)) (+ 1 +arg2.62))
-       (body-matcher reduce-arg.59) (map-result ())
+     (let ((+arg2.89 (frame 1 2 3)))
+      (loop-block (frame-shape 3) (map ((+arg2.66 +arg2.89)) (+ 1 +arg2.66))
+       (body-matcher reduce-arg.63) (map-result ())
        (consumer
-        (reduce (shape) (reduce-arg1.57 reduce-arg2.58 reduce-arg.59)
-         (+ reduce-arg1.57 reduce-arg2.58)))))) |}];
+        (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.63)
+         (+ reduce-arg1.61 reduce-arg2.62)))))) |}];
   fuseAndPrint
     {|
       (define x (+ 4 [1 2 3]))
@@ -66,29 +66,29 @@ let%expect_test "check fusing" =
   [%expect
     {|
     (let
-     ((fused-block-result.153
+     ((fused-block-result.157
        (#1
-        (let ((+arg2.171 (frame 1 2 3)))
+        (let ((+arg2.175 (frame 1 2 3)))
          (loop-block (frame-shape 3)
-          (map ((+arg2.95 +arg2.171))
+          (map ((+arg2.99 +arg2.175))
            (let
-            ((fusion-target-map-result.151
-              (let ((fusion-target-map-result.146 (+ 4 +arg2.95)))
-               (values fusion-target-map-result.146
-                (+ 5 fusion-target-map-result.146)))))
-            (values (#1 fusion-target-map-result.151)
-             (+ 6 (#0 fusion-target-map-result.151)))))
-          (body-matcher (reduce-arg.97 reduce-arg.103)) (map-result ())
+            ((fusion-target-map-result.155
+              (let ((fusion-target-map-result.150 (+ 4 +arg2.99)))
+               (values fusion-target-map-result.150
+                (+ 5 fusion-target-map-result.150)))))
+            (values (#1 fusion-target-map-result.155)
+             (+ 6 (#0 fusion-target-map-result.155)))))
+          (body-matcher (reduce-arg.101 reduce-arg.107)) (map-result ())
           (consumer
            (reduce (shape)
-            (fused-reduce-arg1.155 fused-reduce-arg2.156
-             (reduce-arg.97 reduce-arg.103))
+            (fused-reduce-arg1.159 fused-reduce-arg2.160
+             (reduce-arg.101 reduce-arg.107))
             (values
-             (+ (#0 (unzip fused-reduce-arg1.155))
-              (#0 (unzip fused-reduce-arg2.156)))
-             (+ (#1 (unzip fused-reduce-arg1.155))
-              (#1 (unzip fused-reduce-arg2.156)))))))))))
-     (+ (#0 fused-block-result.153) (#1 fused-block-result.153))) |}];
+             (+ (#0 (unzip fused-reduce-arg1.159))
+              (#0 (unzip fused-reduce-arg2.160)))
+             (+ (#1 (unzip fused-reduce-arg1.159))
+              (#1 (unzip fused-reduce-arg2.160)))))))))))
+     (+ (#0 fused-block-result.157) (#1 fused-block-result.157))) |}];
   fuseAndPrint
     {|
       (define x (+ 4 [1 2 3]))
@@ -99,44 +99,44 @@ let%expect_test "check fusing" =
   [%expect
     {|
     (let
-     ((fused-block-result.176
+     ((fused-block-result.180
        (let
-        ((loop-block-result.206
-          (let ((+arg2.205 (frame 1 2 3)))
+        ((loop-block-result.210
+          (let ((+arg2.209 (frame 1 2 3)))
            (loop-block (frame-shape 3)
-            (map ((+arg2.102 +arg2.205))
-             (let ((fusion-target-map-result.174 (+ 4 +arg2.102)))
-              (values fusion-target-map-result.174
-               (+ 5 fusion-target-map-result.174))))
-            (body-matcher (map-result.101 reduce-arg.104))
-            (map-result (map-result.101))
+            (map ((+arg2.106 +arg2.209))
+             (let ((fusion-target-map-result.178 (+ 4 +arg2.106)))
+              (values fusion-target-map-result.178
+               (+ 5 fusion-target-map-result.178))))
+            (body-matcher (map-result.105 reduce-arg.108))
+            (map-result (map-result.105))
             (consumer
-             (reduce (shape) (reduce-arg1.81 reduce-arg2.82 reduce-arg.104)
-              (+ reduce-arg1.81 reduce-arg2.82)))))))
-        (values (#0 (#0 loop-block-result.206)) (#1 loop-block-result.206)))))
+             (reduce (shape) (reduce-arg1.85 reduce-arg2.86 reduce-arg.108)
+              (+ reduce-arg1.85 reduce-arg2.86)))))))
+        (values (#0 (#0 loop-block-result.210)) (#1 loop-block-result.210)))))
      (#0
       (#0
        (let
-        ((+arg2.181
+        ((+arg2.185
           (#1
            (let
-            ((+arg2.193 (#0 fused-block-result.176))
-             (+arg1.195 (frame (frame 6 7 8) (frame 6 7 8) (frame 6 7 8))))
+            ((+arg2.197 (#0 fused-block-result.180))
+             (+arg1.199 (frame (frame 6 7 8) (frame 6 7 8) (frame 6 7 8))))
             (loop-block (frame-shape 3)
-             (map ((+arg2.115 +arg2.193) (+arg1.116 +arg1.195))
+             (map ((+arg2.119 +arg2.197) (+arg1.120 +arg1.199))
               (#0
                (#0
-                (let ((+arg1.189 +arg1.116))
+                (let ((+arg1.193 +arg1.120))
                  (loop-block (frame-shape 3)
-                  (map ((+arg1.119 +arg1.189)) (+ +arg1.119 +arg2.115))
-                  (body-matcher map-result.118) (map-result (map-result.118))
+                  (map ((+arg1.123 +arg1.193)) (+ +arg1.123 +arg2.119))
+                  (body-matcher map-result.122) (map-result (map-result.122))
                   (consumer (values)))))))
-             (body-matcher reduce-arg.111) (map-result ())
+             (body-matcher reduce-arg.115) (map-result ())
              (consumer
-              (reduce (shape 3) (reduce-arg1.95 reduce-arg2.96 reduce-arg.111)
-               (+ reduce-arg1.95 reduce-arg2.96))))))))
+              (reduce (shape 3) (reduce-arg1.99 reduce-arg2.100 reduce-arg.115)
+               (+ reduce-arg1.99 reduce-arg2.100))))))))
         (loop-block (frame-shape 3)
-         (map ((+arg2.124 +arg2.181)) (+ (#1 fused-block-result.176) +arg2.124))
-         (body-matcher map-result.123) (map-result (map-result.123))
+         (map ((+arg2.128 +arg2.185)) (+ (#1 fused-block-result.180) +arg2.128))
+         (body-matcher map-result.127) (map-result (map-result.127))
          (consumer (values))))))) |}]
 ;;

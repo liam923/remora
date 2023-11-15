@@ -104,7 +104,6 @@ module Expr = struct
     ; body : 'lBody t
     ; d : Index.dimension
     ; itemPad : Index.shape
-    ; associative : bool
     ; character : reduceCharacter
     ; type' : Type.t
     }
@@ -137,6 +136,10 @@ module Expr = struct
     | MapBodyMap of mapKernel
     | MapBodyExpr of device t
     | MapBodyValues of mapBody list
+    | MapBodyDeref of
+        { tuple : mapBody
+        ; index : int
+        }
 
   and mapKernel =
     { frameShape : Index.shapeElement
@@ -194,7 +197,6 @@ module Expr = struct
         ; rest : parallelism
         }
     | MaxParallelism of parallelism list
-    | MinParallelism of parallelism list
 
   and ifParallelismHitsCutoff =
     { parallelism : parallelism
@@ -368,9 +370,7 @@ module Expr = struct
     and sexp_of_reduce
       : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) reduce -> Sexp.t
       =
-      fun sexp_of_a
-          sexp_of_b
-          { arg; zero; body; d = _; itemPad; associative; character; type' = _ } ->
+      fun sexp_of_a sexp_of_b { arg; zero; body; d = _; itemPad; character; type' = _ } ->
       let characterName =
         match character with
         | `Reduce -> "reduce"
@@ -382,8 +382,7 @@ module Expr = struct
         | Some _ -> "-zero"
         | None -> ""
       in
-      let assocName = if associative then "" else "-non-associative" in
-      let opName = [%string "%{characterName}%{zeroName}%{assocName}"] in
+      let opName = [%string "%{characterName}%{zeroName}"] in
       Sexp.List
         ([ Sexp.Atom opName; Index.sexp_of_shape itemPad ]
          @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a) |> Option.to_list)
@@ -495,6 +494,11 @@ module Expr = struct
       | MapBodyExpr expr -> sexp_of_t sexp_of_device expr
       | MapBodyValues values ->
         Sexp.List (Sexp.Atom "values" :: List.map values ~f:sexp_of_mapBody)
+      | MapBodyDeref { tuple; index } ->
+        Sexp.List
+          [ Sexp.Atom (String.concat [ "#"; Int.to_string index ])
+          ; sexp_of_mapBody tuple
+          ]
 
     and sexp_of_mapKernel
       ({ frameShape; mapArgs; mapIotas; mapBody; mapBodyMatcher; mapResults; type' = _ } :
@@ -561,8 +565,6 @@ module Expr = struct
           ; Index.sexp_of_shapeElement shape
           ; sexp_of_parallelism rest
           ]
-      | MinParallelism pars ->
-        Sexp.List (Sexp.Atom "MinParallelism" :: List.map pars ~f:sexp_of_parallelism)
       | MaxParallelism pars ->
         Sexp.List (Sexp.Atom "MaxParallelism" :: List.map pars ~f:sexp_of_parallelism)
 
