@@ -100,7 +100,12 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
         let%map body = nestArray body in
         let iotaArg =
           Option.map iotaVar ~f:(fun iotaVar ->
-            { binding = iotaVar; value = Literal (IntLiteral 0) })
+            { binding = iotaVar
+            ; value =
+                (match parentIota with
+                 | None -> Literal (IntLiteral 0)
+                 | Some parentIota -> Ref { id = parentIota; type' = Literal IntLiteral })
+            })
         in
         let letArgs =
           List.map args ~f:(fun { binding; ref } -> { binding; value = Ref ref })

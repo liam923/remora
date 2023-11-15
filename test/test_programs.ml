@@ -1402,7 +1402,8 @@ let%expect_test "sum rows" =
       (reduce{int | d-1 [] []} + row))
     (sum-row{ | 9} iota{ | [1000000 10]})
     |};
-  [%expect {|
+  [%expect
+    {|
     Result of stage Type Check:
     (Let
      ((binding ((name sum-row) (id 41)))
@@ -1732,7 +1733,8 @@ let%expect_test "sum rows" =
             (#0
              (#0
               (loop-block (frame-shape 10)
-               (map () (iota (iota.66 : iota.64)) (let ((iota.57 0)) iota.57))
+               (map () (iota (iota.66 : iota.64))
+                (let ((iota.57 iota.66)) iota.57))
                (body-matcher map-result.65) (map-result (map-result.65))
                (consumer (values))))))
            (body-matcher map-result.63) (map-result (map-result.63))
@@ -1768,7 +1770,8 @@ let%expect_test "sum rows" =
                   (loop-block (frame-shape 10)
                    (map () (iota (iota.66 : iota.64))
                     (let
-                     ((fusion-target-map-result.78 (let ((iota.57 0)) iota.57)))
+                     ((fusion-target-map-result.78
+                       (let ((iota.57 iota.66)) iota.57)))
                      (values fusion-target-map-result.78
                       (let ((reduce-arg.72 fusion-target-map-result.78))
                        (values reduce-arg.72)))))
@@ -1803,10 +1806,10 @@ let%expect_test "sum rows" =
     (#0
      (#0
       (loop-block (frame-shape 1000000)
-       (map ()
+       (map () (iota iota.64)
         (#1
-         (loop-block (frame-shape 10) (map () 0) (body-matcher reduce-arg.70)
-          (map-result ())
+         (loop-block (frame-shape 10) (map () (iota (iota.66 : iota.64)) iota.66)
+          (body-matcher reduce-arg.70) (map-result ())
           (consumer
            (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
             (+ reduce-arg1.61 reduce-arg2.62))))))
@@ -1814,11 +1817,11 @@ let%expect_test "sum rows" =
        (consumer (values)))))
     Result of stage Kernelize:
     (#0
-     (map-kernel (frame-shape 1000000) () (body-matcher map-result.68)
-      (map-result (map-result.68))
+     (map-kernel (frame-shape 1000000) () (iota iota.64)
+      (body-matcher map-result.68) (map-result (map-result.68))
       (#1
-       (loop-block (frame-shape 10) (map () 0) (body-matcher reduce-arg.70)
-        (map-result ())
+       (loop-block (frame-shape 10) (map () (iota (iota.66 : iota.64)) iota.66)
+        (body-matcher reduce-arg.70) (map-result ())
         (consumer
          (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
           (+ reduce-arg1.61 reduce-arg2.62))))))) |}]

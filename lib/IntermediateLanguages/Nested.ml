@@ -467,6 +467,19 @@ module Expr = struct
           ; Sexp.Atom (Identifier.show indicesArg.productionId)
           ]
 
+    and sexp_of_mapArg { binding; ref } =
+      Sexp.List
+        [ Sexp.Atom (Identifier.show binding); Sexp.Atom (Identifier.show ref.id) ]
+
+    and sexp_of_mapIota = function
+      | { iota; nestIn = None } -> Sexp.Atom (Identifier.show iota)
+      | { iota; nestIn = Some parent } ->
+        Sexp.List
+          [ Sexp.Atom (Identifier.show iota)
+          ; Sexp.Atom ":"
+          ; Sexp.Atom (Identifier.show parent)
+          ]
+
     and sexp_of_loopBlock
       { frameShape
       ; mapArgs
@@ -482,27 +495,10 @@ module Expr = struct
         [ Sexp.Atom "loop-block"
         ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
         ; Sexp.List
-            ([ Sexp.Atom "map"
-             ; Sexp.List
-                 (List.map mapArgs ~f:(fun { binding; ref } ->
-                    Sexp.List
-                      [ Sexp.Atom (Identifier.show binding)
-                      ; Sexp.Atom (Identifier.show ref.id)
-                      ]))
-             ]
+            ([ Sexp.Atom "map"; Sexp.List (List.map mapArgs ~f:sexp_of_mapArg) ]
              @ (if List.length mapIotas > 0
                 then
-                  [ Sexp.List
-                      (Sexp.Atom "iota"
-                       :: List.map mapIotas ~f:(function
-                         | { iota; nestIn = None } -> Sexp.Atom (Identifier.show iota)
-                         | { iota; nestIn = Some parent } ->
-                           Sexp.List
-                             [ Sexp.Atom (Identifier.show iota)
-                             ; Sexp.Atom ":"
-                             ; Sexp.Atom (Identifier.show parent)
-                             ]))
-                  ]
+                  [ Sexp.List (Sexp.Atom "iota" :: List.map mapIotas ~f:sexp_of_mapIota) ]
                 else [])
              @ [ sexp_of_t mapBody ])
         ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]

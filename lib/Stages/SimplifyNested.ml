@@ -1417,7 +1417,7 @@ let rec reduceTuples (request : TupleRequest.t) =
     let%bind mapArgs, mapBody, blockUnpackers =
       let%bind body = reduceTuples mapBodyRequest mapBody in
       let%bind caches = ReduceTupleState.getCaches () in
-      let%bind args, unpackerss, blockUnpackers =
+      let%bind args, argUnpackerss, blockUnpackers =
         mapArgs
         |> List.map ~f:(fun { binding; ref } ->
           Map.find caches binding
@@ -1445,7 +1445,19 @@ let rec reduceTuples (request : TupleRequest.t) =
         |> ReduceTupleState.all
         >>| List.unzip3
       in
-      let unpackers = List.concat unpackerss in
+      let argUnpackers = List.concat argUnpackerss in
+      let iotaUnpackers =
+        mapIotas
+        |> List.map ~f:(fun { iota; nestIn = _ } ->
+          Map.find caches iota
+          |> Option.map ~f:(fun cache ->
+            createUnpackersFromCache cache [] ~insideWhole:false
+            |> List.map ~f:(fun unpacker ->
+              unpacker (Ref { id = iota; type' = Literal IntLiteral }))))
+        |> List.filter_opt
+        |> List.concat
+      in
+      let unpackers = argUnpackers @ iotaUnpackers in
       (* Remove the caches for variables bound only in the map *)
       let%map () =
         ReduceTupleState.updateCaches ~f:(fun caches ->
