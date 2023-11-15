@@ -42,8 +42,7 @@ let printStages input =
       @> (module PrintResult (Nucleus) (Inline.Stage (Source.UnitBuilder)))
       @> (module PrintResult (Nucleus) (Simplify.Stage (Source.UnitBuilder)))
       @> (module PrintResult (Nested) (Nest.Stage (Source.UnitBuilder)))
-      @> (module PrintResult (Nested) (Fuse.Stage (Source.UnitBuilder)))
-      @> (module PrintResult (Nested) (SimplifyNested.Stage (Source.UnitBuilder)))
+      @> (module PrintResult (Nested) (FuseAndSimplify.Stage (Source.UnitBuilder)))
       @> (module PrintResult (Corn) (Kernelize.Stage (Source.UnitBuilder)))
       @> empty)
   in
@@ -127,9 +126,7 @@ let%expect_test "simple addition" =
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
     3
-    Result of stage Fuse:
-    3
-    Result of stage Simplify Nested:
+    Result of stage Fuse and Simplify:
     3
     Result of stage Kernelize:
     3 |}]
@@ -289,9 +286,7 @@ let%expect_test "simple function definition and call" =
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
     15
-    Result of stage Fuse:
-    15
-    Result of stage Simplify Nested:
+    Result of stage Fuse and Simplify:
     15
     Result of stage Kernelize:
     15 |}]
@@ -397,9 +392,7 @@ let%expect_test "polymorphic function definition and call" =
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
     5
-    Result of stage Fuse:
-    5
-    Result of stage Simplify Nested:
+    Result of stage Fuse and Simplify:
     5
     Result of stage Kernelize:
     5 |}]
@@ -711,24 +704,7 @@ let%expect_test "function call with implicit map" =
               (consumer (values))))))))
         (body-matcher map-result.55) (map-result (map-result.55))
         (consumer (values))))))
-    Result of stage Fuse:
-    (let ((+arg1.53 (frame 1 2)) (+arg2.54 (frame (frame 3 4 5) (frame 6 7 8))))
-     (#0
-      (#0
-       (loop-block (frame-shape 2)
-        (map ((+arg1.56 +arg1.53) (+arg2.57 +arg2.54))
-         (let ((+arg1.49 +arg1.56) (+arg2.51 +arg2.57))
-          (let ((+arg2.58 +arg2.51))
-           (#0
-            (#0
-             (loop-block (frame-shape 3)
-              (map ((+arg2.60 +arg2.58))
-               (let ((+arg2.52 +arg2.60)) (+ +arg1.49 +arg2.52)))
-              (body-matcher map-result.59) (map-result (map-result.59))
-              (consumer (values))))))))
-        (body-matcher map-result.55) (map-result (map-result.55))
-        (consumer (values))))))
-    Result of stage Simplify Nested:
+    Result of stage Fuse and Simplify:
     (let ((+arg1.53 (frame 1 2)) (+arg2.54 (frame (frame 3 4 5) (frame 6 7 8))))
      (#0
       (#0
@@ -1362,18 +1338,7 @@ let%expect_test "box and unbox" =
           (index-let ((len.43 box-index-0 box.57)) (= 3 (reify-index len.43)))))
         (body-matcher map-result.59) (map-result (map-result.59))
         (consumer (values))))))
-    Result of stage Fuse:
-    (let
-     ((box.58 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
-     (#0
-      (#0
-       (loop-block (frame-shape 2)
-        (map ((box.60 box.58))
-         (let ((box.57 box.60))
-          (index-let ((len.43 box-index-0 box.57)) (= 3 (reify-index len.43)))))
-        (body-matcher map-result.59) (map-result (map-result.59))
-        (consumer (values))))))
-    Result of stage Simplify Nested:
+    Result of stage Fuse and Simplify:
     (let
      ((box.58 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
      (#0
@@ -1754,55 +1719,7 @@ let%expect_test "sum rows" =
                (+ reduce-arg1.61 reduce-arg2.62))))))))
         (body-matcher map-result.68) (map-result (map-result.68))
         (consumer (values))))))
-    Result of stage Fuse:
-    (let ()
-     (let ()
-      (let
-       ((fused-block-result.75
-         (loop-block (frame-shape 1000000)
-          (map () (iota iota.64)
-           (let ()
-            (let ()
-             (let ()
-              (let ()
-               (let
-                ((fused-block-result.80
-                  (loop-block (frame-shape 10)
-                   (map () (iota (iota.66 : iota.64))
-                    (let
-                     ((fusion-target-map-result.78
-                       (let ((iota.57 iota.66)) iota.57)))
-                     (values fusion-target-map-result.78
-                      (let ((reduce-arg.72 fusion-target-map-result.78))
-                       (values reduce-arg.72)))))
-                   (body-matcher (map-result.65 (reduce-arg.70)))
-                   (map-result (map-result.65))
-                   (consumer
-                    (reduce (shape) (reduce-arg1.61 reduce-arg2.62 reduce-arg.70)
-                     (+ reduce-arg1.61 reduce-arg2.62))))))
-                (let
-                 ((fusion-target-map-result.81
-                   (values (#0 (#0 fused-block-result.80))))
-                  (fusion-archer-map-result.77 (values))
-                  (fusion-archer-consumer-result.79 (#1 fused-block-result.80)))
-                 (let
-                  ((fusion-target-map-result.74
-                    (#0 (#0 (values fusion-target-map-result.81 (values))))))
-                  (values fusion-target-map-result.74
-                   (let ((row.69 fusion-target-map-result.74))
-                    (let ((row.59 row.69))
-                     (let ((reduce-arg.71 row.59))
-                      (#1
-                       (values fusion-archer-map-result.77
-                        fusion-archer-consumer-result.79))))))))))))))
-          (body-matcher (map-result.63 map-result.68))
-          (map-result (map-result.63 map-result.68)) (consumer (values)))))
-       (let
-        ((fusion-target-map-result.76 (values (#0 (#0 fused-block-result.75))))
-         (fusion-archer-map-result.73 (values (#1 (#0 fused-block-result.75)))))
-        (let ((row.67 (#0 (#0 (values fusion-target-map-result.76 (values))))))
-         (#0 (#0 (values fusion-archer-map-result.73 (values)))))))))
-    Result of stage Simplify Nested:
+    Result of stage Fuse and Simplify:
     (#0
      (#0
       (loop-block (frame-shape 1000000)
