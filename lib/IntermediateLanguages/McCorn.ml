@@ -1,22 +1,25 @@
 open! Base
 
-(* The Corn language represents a flattened, kernelized Remora program *)
+(* The McCorn language represents a flattened, kernelized Remora program,
+   which explicit memory allocations and kernels annotated with values
+   they capture (Mc stands for memory and capture) *)
 
 module Index = Nested.Index
 module Type = Nested.Type
 
 module Expr = struct
-  type host = Host
-  type device = Device
-  type parallel = Parallel
-  type sequential = Sequential
-  type ref = Nested.Expr.ref
-  type reduceCharacter = Nested.Expr.reduceCharacter
-  type foldCharacter = Nested.Expr.foldCharacter
+  type host = Corn.Expr.host
+  type device = Corn.Expr.device
+  type parallel = Corn.Expr.parallel
+  type sequential = Corn.Expr.sequential
+  type ref = Corn.Expr.ref
+  type reduceCharacter = Corn.Expr.reduceCharacter
+  type foldCharacter = Corn.Expr.foldCharacter
 
   type 'l frame =
     { dimension : int
     ; elements : 'l t list
+    ; mem : 'l t
     ; type' : Type.t
     }
 
@@ -84,6 +87,7 @@ module Expr = struct
     ; mapBody : 'lInner t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
+    ; mapMem : 'lOuter t
     ; consumer : ('lOuter, 'lInner, 'p) consumerOp option
     ; type' : Type.tuple
     }
@@ -101,6 +105,7 @@ module Expr = struct
   and ('lOuter, 'lInner) reduce =
     { arg : reduceArg
     ; zero : 'lOuter t option
+    ; mappedArgs : 'lOuter letArg list
     ; body : 'lInner t
     ; d : Index.dimension
     ; itemPad : Index.shape
@@ -111,6 +116,7 @@ module Expr = struct
   and ('lOuter, 'lInner) fold =
     { zeroArg : 'lOuter foldZeroArg
     ; arrayArgs : foldArrayArg list
+    ; mappedArgs : 'lOuter letArg list
     ; body : 'lInner t
     ; d : Index.dimension
     ; itemPad : Index.shape
@@ -118,18 +124,19 @@ module Expr = struct
     ; type' : Type.t
     }
 
-  and scatter =
+  and 'l scatter =
     { valuesArg : production
     ; indicesArg : production
     ; dIn : Index.dimension
     ; dOut : Index.dimension
+    ; mem : 'l t
     ; type' : Type.t
     }
 
   and ('lOuter, 'lInner, 'p) consumerOp =
     | ReduceSeq : ('lOuter, 'lInner) reduce -> ('lOuter, 'lInner, sequential) consumerOp
     | ReducePar : (host, device) reduce -> (host, device, parallel) consumerOp
-    | Scatter : scatter -> _ consumerOp
+    | Scatter : 'lOuter scatter -> ('lOuter, _, _) consumerOp
     | Fold : ('lOuter, 'lInner) fold -> ('lOuter, 'lInner, sequential) consumerOp
 
   and mapBody =
@@ -148,6 +155,7 @@ module Expr = struct
     ; mapBody : mapBody
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
+    ; mapMem : host t
     ; type' : Type.t
     }
 
@@ -172,6 +180,7 @@ module Expr = struct
 
   and 'l append =
     { args : 'l t list
+    ; mem : 'l t
     ; type' : Type.t
     }
 
@@ -190,13 +199,7 @@ module Expr = struct
     ; type' : Type.tuple
     }
 
-  and parallelism =
-    | KnownParallelism of int
-    | Parallelism of
-        { shape : Index.shapeElement
-        ; rest : parallelism
-        }
-    | MaxParallelism of parallelism list
+  and parallelism = Corn.Expr.parallelism
 
   and ifParallelismHitsCutoff =
     { parallelism : parallelism
@@ -204,6 +207,20 @@ module Expr = struct
     ; then' : host t
     ; else' : host t
     ; type' : Type.t
+    }
+
+  and mallocHostOrDevice =
+    | MallocHost
+    | MallocDevice
+
+  and malloc =
+    { hostOrDevice : mallocHostOrDevice
+    ; type' : Type.array
+    }
+
+  and 'k kernel =
+    { kernel : 'k
+    ; captures : Set.M(Identifier).t
     }
 
   and _ t =
@@ -214,8 +231,8 @@ module Expr = struct
     | ReifyIndex : reifyIndex -> _ t
     | Let : 'l let' -> 'l t
     | LoopBlock : ('l, 'l, sequential) loopBlock -> 'l t
-    | LoopKernel : (host, device, parallel) loopBlock -> host t
-    | MapKernel : mapKernel -> host t
+    | LoopKernel : (host, device, parallel) loopBlock kernel -> host t
+    | MapKernel : mapKernel kernel -> host t
     | Box : 'l box -> 'l t
     | Literal : literal -> _ t
     | Values : 'l values -> 'l t
@@ -226,8 +243,9 @@ module Expr = struct
     | Zip : 'l zip -> 'l t
     | Unzip : 'l unzip -> 'l t
     | IfParallelismHitsCutoff : ifParallelismHitsCutoff -> host t
+    | Malloc : malloc -> host t
 
-  let type' : _ t -> Type.t = function
+  let type' : type l. l t -> Type.t = function
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
@@ -242,13 +260,14 @@ module Expr = struct
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
     | LoopBlock loopBlock -> Tuple loopBlock.type'
-    | LoopKernel loopKernel -> Tuple loopKernel.type'
-    | MapKernel mapKernel -> mapKernel.type'
+    | LoopKernel loopKernel -> Tuple loopKernel.kernel.type'
+    | MapKernel mapKernel -> mapKernel.kernel.type'
     | SubArray subArray -> subArray.type'
     | Append append -> append.type'
     | Zip zip -> zip.type'
     | Unzip unzip -> Tuple unzip.type'
     | IfParallelismHitsCutoff ifParallelismHitsCutoff -> ifParallelismHitsCutoff.type'
+    | Malloc malloc -> Array malloc.type'
   ;;
 
   let consumerOpType = function
@@ -262,7 +281,10 @@ module Expr = struct
     | ProductionTupleAtom productionTupleAtom -> productionTupleAtom.type'
   ;;
 
-  let values elements = Values { elements; type' = List.map elements ~f:type' }
+  let values : type l. l t list -> l t =
+    fun elements -> Values { elements; type' = List.map elements ~f:type' }
+  ;;
+
   let let' ~args ~body = Let { args; body; type' = type' body }
 
   let tupleDeref ~tuple ~index =
@@ -290,15 +312,18 @@ module Expr = struct
   ;;
 
   module Sexp_of = struct
-    let sexp_of_host Host = Sexp.Atom "host"
-    let sexp_of_device Device = Sexp.Atom "device"
-    let sexp_of_parallel Parallel = Sexp.Atom "parallel"
-    let sexp_of_sequential Sequential = Sexp.Atom "sequential"
+    let sexp_of_host (Host : host) = Sexp.Atom "host"
+    let sexp_of_device (Device : device) = Sexp.Atom "device"
+    let sexp_of_parallel (Parallel : parallel) = Sexp.Atom "parallel"
+    let sexp_of_sequential (Sequential : sequential) = Sexp.Atom "sequential"
     let sexp_of_ref = [%sexp_of: Nested.Expr.ref]
 
     let rec sexp_of_frame : type a. (a -> Sexp.t) -> a frame -> Sexp.t =
-      fun sexp_of_a { dimension = _; elements; type' = _ } ->
-      Sexp.List (Sexp.Atom "frame" :: List.map elements ~f:(sexp_of_t sexp_of_a))
+      fun sexp_of_a { dimension = _; elements; mem; type' = _ } ->
+      Sexp.List
+        (Sexp.Atom "frame"
+         :: Sexp.List [ Sexp.Atom "mem"; sexp_of_t sexp_of_a mem ]
+         :: List.map elements ~f:(sexp_of_t sexp_of_a))
 
     and sexp_of_box : type a. (a -> Sexp.t) -> a box -> Sexp.t =
       fun sexp_of_a { indices; body; bodyType = _; type' = _ } ->
@@ -370,7 +395,9 @@ module Expr = struct
     and sexp_of_reduce
       : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) reduce -> Sexp.t
       =
-      fun sexp_of_a sexp_of_b { arg; zero; body; d = _; itemPad; character; type' = _ } ->
+      fun sexp_of_a
+          sexp_of_b
+          { arg; zero; mappedArgs; body; d = _; itemPad; character; type' = _ } ->
       let characterName =
         match character with
         | `Reduce -> "reduce"
@@ -386,6 +413,14 @@ module Expr = struct
       Sexp.List
         ([ Sexp.Atom opName; Index.sexp_of_shape itemPad ]
          @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a) |> Option.to_list)
+         @ (match mappedArgs with
+            | [] -> []
+            | mappedArgs ->
+              [ Sexp.List
+                  [ Sexp.Atom "mapped-args"
+                  ; Sexp.List (List.map mappedArgs ~f:(sexp_of_letArg sexp_of_a))
+                  ]
+              ])
          @ [ Sexp.List
                [ Sexp.Atom (Identifier.show arg.firstBinding)
                ; Sexp.Atom (Identifier.show arg.secondBinding)
@@ -397,7 +432,7 @@ module Expr = struct
     and sexp_of_fold : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) fold -> Sexp.t =
       fun sexp_of_a
           sexp_of_b
-          { zeroArg; arrayArgs; body; d = _; itemPad; character; type' = _ } ->
+          { zeroArg; arrayArgs; mappedArgs; body; d = _; itemPad; character; type' = _ } ->
       let opName =
         match character with
         | `Fold -> "fold"
@@ -414,15 +449,18 @@ module Expr = struct
         ; Sexp.List
             (List.map arrayArgs ~f:(fun arrayArg ->
                Sexp.List
-                 [ Sexp.Atom (Identifier.show arrayArg.binding)
-                 ; Sexp.Atom (Identifier.show arrayArg.production.productionId)
-                 ]))
+                 ([ Sexp.Atom (Identifier.show arrayArg.binding)
+                  ; Sexp.Atom (Identifier.show arrayArg.production.productionId)
+                  ]
+                  @ List.map mappedArgs ~f:(sexp_of_letArg sexp_of_a))))
         ; sexp_of_t sexp_of_b body
         ]
 
-    and sexp_of_scatter { valuesArg; indicesArg; dIn; dOut; type' = _ } =
+    and sexp_of_scatter : type a. (a -> Sexp.t) -> a scatter -> Sexp.t =
+      fun sexp_of_a { valuesArg; indicesArg; dIn; dOut; mem; type' = _ } ->
       Sexp.List
         [ Sexp.Atom "scatter"
+        ; Sexp.List [ Sexp.Atom "mem"; sexp_of_t sexp_of_a mem ]
         ; Index.sexp_of_dimension dIn
         ; Index.sexp_of_dimension dOut
         ; Sexp.Atom (Identifier.show valuesArg.productionId)
@@ -437,22 +475,16 @@ module Expr = struct
       | ReduceSeq reduce -> sexp_of_reduce sexp_of_a sexp_of_b reduce
       | ReducePar reduce -> sexp_of_reduce sexp_of_host sexp_of_device reduce
       | Fold fold -> sexp_of_fold sexp_of_a sexp_of_b fold
-      | Scatter scatter -> sexp_of_scatter scatter
+      | Scatter scatter -> sexp_of_scatter sexp_of_a scatter
 
     and sexp_of_mapArg = [%sexp_of: Nested.Expr.mapArg]
     and sexp_of_mapIota = [%sexp_of: Nested.Expr.mapIota]
 
     and sexp_of_loopBlock
       : type a b p.
-        ?kernel:bool
-        -> (a -> Sexp.t)
-        -> (b -> Sexp.t)
-        -> (p -> Sexp.t)
-        -> (a, b, p) loopBlock
-        -> Sexp.t
+        (a -> Sexp.t) -> (b -> Sexp.t) -> (p -> Sexp.t) -> (a, b, p) loopBlock -> Sexp.t
       =
-      fun ?(kernel = false)
-          sexp_of_a
+      fun sexp_of_a
           sexp_of_b
           sexp_of_p
           { frameShape
@@ -461,11 +493,12 @@ module Expr = struct
           ; mapBody
           ; mapBodyMatcher
           ; mapResults
+          ; mapMem
           ; consumer
           ; type' = _
           } ->
       Sexp.List
-        [ Sexp.Atom (if kernel then "loop-kernel" else "loop-block")
+        [ Sexp.Atom "loop"
         ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
         ; Sexp.List
             ([ Sexp.Atom "map"; Sexp.List (List.map mapArgs ~f:sexp_of_mapArg) ]
@@ -480,6 +513,7 @@ module Expr = struct
             ; Sexp.List
                 (List.map mapResults ~f:(fun id -> Sexp.Atom (Identifier.show id)))
             ]
+        ; Sexp.List [ Sexp.Atom "map-mem"; sexp_of_t sexp_of_a mapMem ]
         ; Sexp.List
             [ Sexp.Atom "consumer"
             ; (match consumer with
@@ -501,7 +535,15 @@ module Expr = struct
           ]
 
     and sexp_of_mapKernel
-      ({ frameShape; mapArgs; mapIotas; mapBody; mapBodyMatcher; mapResults; type' = _ } :
+      ({ frameShape
+       ; mapArgs
+       ; mapIotas
+       ; mapBody
+       ; mapBodyMatcher
+       ; mapResults
+       ; mapMem
+       ; type' = _
+       } :
         mapKernel)
       =
       Sexp.List
@@ -534,6 +576,7 @@ module Expr = struct
                  ; Sexp.List
                      (List.map mapResults ~f:(fun id -> Sexp.Atom (Identifier.show id)))
                  ]
+            :: Sexp.List [ Sexp.Atom "map-mem"; sexp_of_t sexp_of_host mapMem ]
             :: [ sexp_of_mapBody mapBody ]))
 
     and sexp_of_subArray : type a. (a -> Sexp.t) -> a subArray -> Sexp.t =
@@ -542,8 +585,11 @@ module Expr = struct
         [ Sexp.Atom "index"; sexp_of_t sexp_of_a arrayArg; sexp_of_t sexp_of_a indexArg ]
 
     and sexp_of_append : type a. (a -> Sexp.t) -> a append -> Sexp.t =
-      fun sexp_of_a { args; type' = _ } ->
-      Sexp.List (Sexp.Atom "++" :: List.map args ~f:(sexp_of_t sexp_of_a))
+      fun sexp_of_a { args; mem; type' = _ } ->
+      Sexp.List
+        (Sexp.Atom "++"
+         :: Sexp.List [ Sexp.Atom "mem"; sexp_of_t sexp_of_a mem ]
+         :: List.map args ~f:(sexp_of_t sexp_of_a))
 
     and sexp_of_zip : type a. (a -> Sexp.t) -> a zip -> Sexp.t =
       fun sexp_of_a { zipArg; nestCount; type' = _ } ->
@@ -557,16 +603,7 @@ module Expr = struct
       fun sexp_of_a { unzipArg; type' = _ } ->
       Sexp.List [ Sexp.Atom "unzip"; sexp_of_t sexp_of_a unzipArg ]
 
-    and sexp_of_parallelism = function
-      | KnownParallelism n -> Sexp.Atom (Int.to_string n)
-      | Parallelism { shape; rest } ->
-        Sexp.List
-          [ Sexp.Atom "Parallelism"
-          ; Index.sexp_of_shapeElement shape
-          ; sexp_of_parallelism rest
-          ]
-      | MaxParallelism pars ->
-        Sexp.List (Sexp.Atom "MaxParallelism" :: List.map pars ~f:sexp_of_parallelism)
+    and sexp_of_parallelism = Corn.Expr.sexp_of_parallelism
 
     and sexp_of_ifParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' = _ } =
       Sexp.List
@@ -579,6 +616,14 @@ module Expr = struct
             ]
         ; sexp_of_t sexp_of_host then'
         ; sexp_of_t sexp_of_host else'
+        ]
+
+    and sexp_of_kernel : type k. (k -> Sexp.t) -> k kernel -> Sexp.t =
+      fun sexp_of_k { kernel; captures } ->
+      Sexp.List
+        [ Sexp.Atom "kernel"
+        ; Sexp.List [ Sexp.Atom "capturing"; [%sexp_of: Set.M(Identifier).t] captures ]
+        ; sexp_of_k kernel
         ]
 
     and sexp_of_t : type a. (a -> Sexp.t) -> a t -> Sexp.t =
@@ -599,19 +644,24 @@ module Expr = struct
       | LoopBlock loopBlock ->
         sexp_of_loopBlock sexp_of_a sexp_of_a sexp_of_sequential loopBlock
       | LoopKernel loopKernel ->
-        sexp_of_loopBlock
-          ~kernel:true
-          sexp_of_host
-          sexp_of_device
-          sexp_of_parallel
+        sexp_of_kernel
+          (sexp_of_loopBlock sexp_of_host sexp_of_device sexp_of_parallel)
           loopKernel
-      | MapKernel mapKernel -> sexp_of_mapKernel mapKernel
+      | MapKernel mapKernel -> sexp_of_kernel sexp_of_mapKernel mapKernel
       | SubArray subArray -> sexp_of_subArray sexp_of_a subArray
       | Append append -> sexp_of_append sexp_of_a append
       | Zip zip -> sexp_of_zip sexp_of_a zip
       | Unzip unzip -> sexp_of_unzip sexp_of_a unzip
       | IfParallelismHitsCutoff ifParallelismHitsCutoff ->
         sexp_of_ifParallelismHitsCutoff ifParallelismHitsCutoff
+      | Malloc { hostOrDevice; type' } ->
+        let hostOrDeviceStr =
+          match hostOrDevice with
+          | MallocHost -> "host"
+          | MallocDevice -> "device"
+        in
+        Sexp.List
+          [ Sexp.Atom [%string "malloc-%{hostOrDeviceStr}"]; Type.sexp_of_array type' ]
     ;;
   end
 

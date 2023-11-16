@@ -424,12 +424,6 @@ and inlineAtom subs indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
         | E.TypeApplication { tFunc; args = _; type' = _ } -> arrayCaptures tFunc
         | E.IndexApplication { iFunc; args = _; type' = _ } -> arrayCaptures iFunc
         | E.BoxValue { box; type' = _ } -> arrayCaptures box
-        (* | E.Unbox { indexBindings; valueBinding; box; body; type' = _ } ->
-          let variablesUsed = Set.union (arrayCaptures box) (arrayCaptures body) in
-          let variablesDeclared =
-            Set.of_list (module Identifier) (valueBinding :: indexBindings)
-          in
-          Set.diff variablesUsed variablesDeclared *)
         | E.IndexLet { indexArgs; body; type' = _ } ->
           let indexValuesCaptures =
             List.map indexArgs ~f:(fun arg ->
