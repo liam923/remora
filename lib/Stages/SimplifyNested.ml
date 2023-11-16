@@ -563,7 +563,7 @@ module TupleRequest = struct
   module T = struct
     type collectionType =
       | Array of Index.shapeElement
-      | Sigma of Sort.t Type.param list
+      | Sigma of Type.sigmaParam list
     [@@deriving compare, sexp_of, eq]
 
     type deref =
@@ -683,7 +683,7 @@ and reduceTuplesSigmaType
   =
   match request with
   | Collection { subRequest; collectionType = Sigma requestParameters } ->
-    assert (List.equal (Type.equal_param Sort.equal) parameters requestParameters);
+    assert (List.equal Type.equal_sigmaParam parameters requestParameters);
     let body = reduceTuplesType subRequest body in
     { parameters; body }
   | Whole -> t

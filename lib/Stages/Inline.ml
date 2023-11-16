@@ -193,7 +193,11 @@ and inlineArrayTypeWithStack appStack : Typed.Type.array -> Nucleus.Type.array =
 and inlineSigmaTypeWithStack appStack ({ parameters; body } : Typed.Type.sigma)
   : Nucleus.Type.sigma
   =
-  { parameters; body = inlineArrayTypeWithStack appStack body }
+  { parameters =
+      List.map parameters ~f:(fun { bound; binding } : Nucleus.Type.sigmaParam ->
+        { bound; binding })
+  ; body = inlineArrayTypeWithStack appStack body
+  }
 ;;
 
 let assertValueRestriction value =

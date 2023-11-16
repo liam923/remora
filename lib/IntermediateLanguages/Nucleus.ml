@@ -3,8 +3,6 @@ open! Base
 (* The Nucleus language represents a monomorphized Remora program where
    all function calls have been inlined (besides intrinsic ones like map) *)
 
-type 't param = 't Typed.param [@@deriving sexp, compare, equal]
-
 module Index = Typed.Index
 
 module Type = struct
@@ -13,8 +11,13 @@ module Type = struct
     ; shape : Index.shape
     }
 
+  and sigmaParam =
+    { binding : Identifier.t
+    ; bound : Sort.t
+    }
+
   and sigma =
-    { parameters : Sort.t param list
+    { parameters : sigmaParam list
     ; body : array
     }
 

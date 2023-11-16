@@ -39,10 +39,10 @@ module Type = struct
     ; size : Index.shapeElement
     }
 
-  and 't param = 't Typed.param
+  and sigmaParam = Nucleus.Type.sigmaParam
 
   and sigma =
-    { parameters : Sort.t param list
+    { parameters : sigmaParam list
     ; body : t
     }
 
