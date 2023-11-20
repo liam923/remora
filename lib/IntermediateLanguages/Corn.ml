@@ -227,7 +227,7 @@ module Expr = struct
     | Unzip : 'l unzip -> 'l t
     | IfParallelismHitsCutoff : ifParallelismHitsCutoff -> host t
 
-  let type' : _ t -> Type.t = function
+  let type' : type l. l t -> Type.t = function
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral

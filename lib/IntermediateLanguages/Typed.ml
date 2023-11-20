@@ -40,6 +40,12 @@ module Index = struct
   let dimensionConstant n = { const = n; refs = Map.empty (module Identifier) }
   let dimensionRef r = { const = 0; refs = Map.singleton (module Identifier) r 1 }
 
+  let addDimensions a b =
+    { const = a.const + b.const
+    ; refs = Map.merge_skewed a.refs b.refs ~combine:(fun ~key:_ a b -> a + b)
+    }
+  ;;
+
   let sort = function
     | Dimension _ -> Sort.Dim
     | Shape _ -> Sort.Shape
