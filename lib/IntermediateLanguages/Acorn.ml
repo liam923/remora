@@ -155,7 +155,7 @@ module Expr = struct
     ; mapArgs : mapArg list
     ; mapMemArgs : memArg list
     ; mapIotas : mapIota list
-    ; mapBody : ('lInner, 'c) statement
+    ; mapBody : ('lInner, 'c) t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
     ; mapResultMem : Mem.t
@@ -370,7 +370,7 @@ module Expr = struct
     let sexp_of_device (Device : device) = Sexp.Atom "device"
     let sexp_of_parallel (Parallel : parallel) = Sexp.Atom "parallel"
     let sexp_of_sequential (Sequential : sequential) = Sexp.Atom "sequential"
-    let sexp_of_ref { id; type' = _ } = [%sexp_of: Identifier.t] id
+    let sexp_of_ref { id; type' = _ } = Sexp.Atom (Identifier.show id)
 
     let rec sexp_of_box : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) box -> Sexp.t
       =
@@ -623,7 +623,7 @@ module Expr = struct
                 then
                   [ Sexp.List (Sexp.Atom "iota" :: List.map mapIotas ~f:sexp_of_mapIota) ]
                 else [])
-             @ [ sexp_of_statement sexp_of_b sexp_of_c mapBody ])
+             @ [ sexp_of_t sexp_of_b sexp_of_c mapBody ])
         ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]
         ; Sexp.List
             [ Sexp.Atom "map-result"
@@ -834,3 +834,11 @@ end
 type 'c t = (Expr.host, 'c) Expr.t [@@deriving sexp_of]
 type sansCaptures = unit t [@@deriving sexp_of]
 type withCaptures = Expr.captures t [@@deriving sexp_of]
+
+module SansCaptures = struct
+  type t = sansCaptures [@@deriving sexp_of]
+end
+
+module WithCaptures = struct
+  type t = withCaptures [@@deriving sexp_of]
+end

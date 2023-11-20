@@ -2,8 +2,8 @@ open! Base
 module Index = Acorn.Index
 module Type = Acorn.Type
 
-type host = Acorn.Expr.host
-type device = Acorn.Expr.device
+type host = Acorn.Expr.host [@@deriving sexp_of]
+type device = Acorn.Expr.device [@@deriving sexp_of]
 
 let getUsesInDimension Index.{ const = _; refs } =
   refs |> Map.keys |> Set.of_list (module Identifier)
@@ -140,10 +140,10 @@ type ('l, 'e) captureAvoider =
       capturesToAvoid:Set.M(Identifier).t
       -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
       -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
-  ; inStatement :
+  (* ; inStatement :
       capturesToAvoid:Set.M(Identifier).t
       -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t
-      -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t
+      -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t *)
   }
 
 let hostAvoidCapturesPoly
@@ -166,15 +166,18 @@ let hostAvoidCapturesPoly
   let result =
     match allocsToDeclare with
     | [] -> result
-    | _ :: _ -> makeMemLet { memArgs = allocsToDeclare; body = result }
+    | _ :: _ ->
+      if List.is_empty allocsToDeclare
+      then result
+      else makeMemLet { memArgs = allocsToDeclare; body = result }
   in
   return (result, allocsToPropogate)
 ;;
 
 let hostAvoidCaptures () : (host, _) captureAvoider =
   { inExpr = hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.MemLet memLet)
-  ; inStatement =
-      hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.SMemLet memLet)
+  (* ; inStatement =
+      hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.SMemLet memLet) *)
   }
 ;;
 
@@ -199,12 +202,15 @@ let deviceAvoidCapturesPoly ~capturesToAvoid prog =
 ;;
 
 let deviceAvoidCaptures () : (device, _) captureAvoider =
-  { inExpr = deviceAvoidCapturesPoly; inStatement = deviceAvoidCapturesPoly }
+  { inExpr = deviceAvoidCapturesPoly
+  (* ; inStatement = deviceAvoidCapturesPoly  *)
+  }
 ;;
 
 type targetAddr =
   | TargetValue of Acorn.Mem.t
   | TargetValues of targetAddr option list
+[@@deriving sexp_of]
 
 type 'l allocResult =
   { expr : 'l Acorn.Expr.sansCaptures
@@ -278,7 +284,9 @@ let rec allocRequest
     partialUnwrittenExprToAllocResult ~targetAddr ~exprToWriteExtractor:(fun e -> e) expr
   in
   let writtenExprToAllocResult expr = { expr; statement = ComputeForSideEffects expr } in
-  let statementToAllocResult ~mem statement = { expr = Expr.getmem mem; statement } in
+  let statementToAllocResult ~mem statement =
+    { expr = Expr.eseq ~statements:[ statement ] ~expr:(Expr.getmem mem); statement }
+  in
   let rec getMemForResult ?(targetAddr = targetAddr) type' name =
     match targetAddr with
     | None -> malloc ~hostOrDevice:mallocLoc type' name
@@ -356,17 +364,38 @@ let rec allocRequest
         , List.concat memArgs
         , Mem.Values { elements = mapMems; type' } )
     in
-    let%bind mapBodyTargetAddr, mapTargetAddrMemArgs, mapResultMem =
+    let%bind mapResultsAddr, mapTargetAddrMemArgs, mapResultMem =
       createTargetAddrMapArgs (List.nth_exn type' 0) mapTargetAddr
     in
+    let mapResultTargets =
+      match mapResultsAddr with
+      | None ->
+        mapResults
+        |> List.map ~f:(fun id -> id, None)
+        |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+      | Some (TargetValue targetAddr) ->
+        mapResults
+        |> List.mapi ~f:(fun index id ->
+          id, Some (TargetValue (Mem.tupleDeref ~tuple:targetAddr ~index)))
+        |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+      | Some (TargetValues targetAddrs) ->
+        List.zip_exn mapResults targetAddrs
+        |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+    in
+    let rec createTargetAddr (mapBodyMatcher : Expr.tupleMatch) =
+      match mapBodyMatcher with
+      | Binding binding -> Map.find mapResultTargets binding |> Option.value ~default:None
+      | Unpack elements -> Some (TargetValues (List.map elements ~f:createTargetAddr))
+    in
+    let mapBodyTargetAddr = createTargetAddr mapBodyMatcher in
     let%bind mapBody, mapBodyAllocations =
       allocRequest
         innerCaptureAvoider
         ~mallocLoc:innerMallocLoc
         ~writeToAddr:mapBodyTargetAddr
         mapBody
-      >>| getStatement
-      |> innerCaptureAvoider.inStatement ~capturesToAvoid:bindingsForMapBody
+      >>| getExpr
+      |> innerCaptureAvoider.inExpr ~capturesToAvoid:bindingsForMapBody
       |> extractAllocations
     in
     let mapMemArgs =
@@ -616,9 +645,31 @@ let rec allocRequest
           , List.concat memArgs
           , Mem.Values { elements = mapMems; type' } )
       in
-      let%bind mapBodyTargetAddr, mapTargetAddrMemArgs, mapResultMem =
+      let%bind mapResultTargetAddr, mapTargetAddrMemArgs, mapResultMem =
         createTargetAddrMapArgs type' targetAddr
       in
+      let mapResultTargets =
+        match mapResultTargetAddr with
+        | None ->
+          mapResults
+          |> List.map ~f:(fun id -> id, None)
+          |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+        | Some (TargetValue targetAddr) ->
+          mapResults
+          |> List.mapi ~f:(fun index id ->
+            id, Some (TargetValue (Mem.tupleDeref ~tuple:targetAddr ~index)))
+          |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+        | Some (TargetValues targetAddrs) ->
+          List.zip_exn mapResults targetAddrs
+          |> Map.of_alist_reduce (module Identifier) ~f:(fun a _ -> a)
+      in
+      let rec createTargetAddr (mapBodyMatcher : Expr.tupleMatch) =
+        match mapBodyMatcher with
+        | Binding binding ->
+          Map.find mapResultTargets binding |> Option.value ~default:None
+        | Unpack elements -> Some (TargetValues (List.map elements ~f:createTargetAddr))
+      in
+      let mapBodyTargetAddr = createTargetAddr mapBodyMatcher in
       let rec allocMapBody ~writeToAddr:targetAddr (mapBody : Corn.Expr.mapBody) =
         match mapBody with
         | MapBodyMap mapKernel ->
