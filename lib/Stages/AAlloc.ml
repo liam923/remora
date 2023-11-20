@@ -2,8 +2,8 @@ open! Base
 module Index = Acorn.Index
 module Type = Acorn.Type
 
-type host = Acorn.Expr.host [@@deriving sexp_of]
-type device = Acorn.Expr.device [@@deriving sexp_of]
+type host = Acorn.Expr.host
+type device = Acorn.Expr.device
 
 let getUsesInDimension Index.{ const = _; refs } =
   refs |> Map.keys |> Set.of_list (module Identifier)
@@ -12,15 +12,6 @@ let getUsesInDimension Index.{ const = _; refs } =
 let getUsesInShapeElement = function
   | Index.Add dim -> getUsesInDimension dim
   | Index.ShapeRef ref -> Set.singleton (module Identifier) ref
-;;
-
-let getUsesInShape shapeElements =
-  shapeElements |> List.map ~f:getUsesInShapeElement |> Set.union_list (module Identifier)
-;;
-
-let getUsesInIndex = function
-  | Index.Dimension dim -> getUsesInDimension dim
-  | Index.Shape shape -> getUsesInShape shape
 ;;
 
 let rec getUsesInType =
@@ -36,13 +27,6 @@ let rec getUsesInType =
     Set.diff (getUsesInType body) params
   | Tuple elements ->
     elements |> List.map ~f:getUsesInType |> Set.union_list (module Identifier)
-;;
-
-let rec flattenTupleMatch (matcher : Corn.Expr.tupleMatch) =
-  match matcher with
-  | Binding id -> Set.singleton (module Identifier) id
-  | Unpack matchers ->
-    matchers |> List.map ~f:flattenTupleMatch |> Set.union_list (module Identifier)
 ;;
 
 let rec typeAsArray (type' : Type.t) ~expectedSize : Type.array =
@@ -71,133 +55,6 @@ let rec typeAsTuple (type' : Type.t) : Type.tuple =
       Type.Sigma { parameters; body = element })
   | Tuple elements -> elements
   | Literal _ -> raise @@ Unimplemented.Error "expected tuple type"
-;;
-
-let rec getUses (expr : device Corn.Expr.t) : Set.M(Identifier).t =
-  match expr with
-  | Ref ref -> Set.singleton (module Identifier) ref.id
-  | Frame { elements; dimension = _; type' = _ } ->
-    elements |> List.map ~f:getUses |> Set.union_list (module Identifier)
-  | BoxValue { box; type' = _ } -> getUses box
-  | IndexLet { indexArgs; body; type' } ->
-    let argBindings, argUses =
-      indexArgs
-      |> List.map ~f:(fun arg ->
-        ( arg.indexBinding
-        , match arg.indexValue with
-          | Runtime value -> getUses value
-          | FromBox { box; i = _ } -> getUses box ))
-      |> List.unzip
-    in
-    let bodyUses =
-      Set.diff (getUses body) (Set.of_list (module Identifier) argBindings)
-    in
-    Set.union_list (module Identifier) (bodyUses :: getUsesInType type' :: argUses)
-  | ReifyIndex { index; type' } -> Set.union (getUsesInIndex index) (getUsesInType type')
-  | Let { args; body; type' } ->
-    let argBindings, argUses =
-      args |> List.map ~f:(fun { binding; value } -> binding, getUses value) |> List.unzip
-    in
-    let bodyUses =
-      Set.diff (getUses body) (Set.of_list (module Identifier) argBindings)
-    in
-    Set.union_list (module Identifier) (bodyUses :: getUsesInType type' :: argUses)
-  | LoopBlock
-      { frameShape
-      ; mapArgs
-      ; mapIotas
-      ; mapBody
-      ; mapBodyMatcher
-      ; mapResults = _
-      ; consumer
-      ; type'
-      } ->
-    let frameShapeUses = getUsesInShapeElement frameShape in
-    let argUsesList, argBindings =
-      mapArgs |> List.map ~f:(fun { binding; ref } -> ref.id, binding) |> List.unzip
-    in
-    let argUses = Set.of_list (module Identifier) argUsesList in
-    let iotaUsesNested, iotaBindings =
-      mapIotas
-      |> List.map ~f:(fun { iota; nestIn } -> Option.to_list nestIn, iota)
-      |> List.unzip
-    in
-    let iotaUses = iotaUsesNested |> List.concat |> Set.of_list (module Identifier) in
-    let bindings = Set.of_list (module Identifier) (argBindings @ iotaBindings) in
-    let bodyUses = Set.diff (getUses mapBody) bindings in
-    let typeUses = getUsesInType (Tuple type') in
-    let consumerUsesWithMapValues =
-      match consumer with
-      | None -> Set.empty (module Identifier)
-      | Some (ReduceSeq { arg; zero; body; d; itemPad; character = _; type' }) ->
-        let argBindings =
-          Set.of_list (module Identifier) [ arg.secondBinding; arg.secondBinding ]
-        in
-        let zeroUses =
-          zero
-          |> Option.map ~f:getUses
-          |> Option.value ~default:(Set.empty (module Identifier))
-        in
-        let bodyUses = Set.diff (getUses body) argBindings in
-        Set.union_list
-          (module Identifier)
-          [ zeroUses
-          ; bodyUses
-          ; getUsesInDimension d
-          ; getUsesInShape itemPad
-          ; getUsesInType type'
-          ]
-      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character = _; type' }) ->
-        let zeroUses = getUses zeroArg.zeroValue in
-        let argBindings =
-          Set.of_list
-            (module Identifier)
-            (zeroArg.zeroBinding :: List.map arrayArgs ~f:(fun arg -> arg.binding))
-        in
-        let bodyUses = Set.diff (getUses body) argBindings in
-        Set.union_list
-          (module Identifier)
-          [ zeroUses
-          ; bodyUses
-          ; getUsesInDimension d
-          ; getUsesInShape itemPad
-          ; getUsesInType type'
-          ]
-      | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; type' }) ->
-        Set.union_list
-          (module Identifier)
-          [ getUsesInDimension dIn; getUsesInDimension dOut; getUsesInType type' ]
-    in
-    let mapValues = flattenTupleMatch mapBodyMatcher in
-    let consumerUses = Set.diff consumerUsesWithMapValues mapValues in
-    Set.union_list
-      (module Identifier)
-      [ frameShapeUses; argUses; iotaUses; bodyUses; consumerUses; typeUses ]
-  | Literal _ -> Set.empty (module Identifier)
-  | Box { indices; body; bodyType = _; type' } ->
-    Set.union_list
-      (module Identifier)
-      (getUses body
-       :: getUsesInType (Corn.Type.Sigma type')
-       :: List.map indices ~f:getUsesInIndex)
-  | Values { elements; type' } ->
-    Set.union_list
-      (module Identifier)
-      (getUsesInType (Tuple type') :: List.map elements ~f:getUses)
-  | ScalarPrimitive { op = _; args; type' } ->
-    Set.union_list (module Identifier) (getUsesInType type' :: List.map args ~f:getUses)
-  | TupleDeref { tuple; index = _; type' } ->
-    Set.union (getUses tuple) (getUsesInType type')
-  | SubArray { arrayArg; indexArg; type' } ->
-    Set.union_list
-      (module Identifier)
-      [ getUses arrayArg; getUses indexArg; getUsesInType type' ]
-  | Append { args; type' } ->
-    Set.union_list (module Identifier) (getUsesInType type' :: List.map args ~f:getUses)
-  | Zip { zipArg; nestCount = _; type' } ->
-    Set.union (getUses zipArg) (getUsesInType type')
-  | Unzip { unzipArg; type' } ->
-    Set.union (getUses unzipArg) (getUsesInType (Tuple type'))
 ;;
 
 module AllocAcc = struct
@@ -281,17 +138,17 @@ end
 type ('l, 'e) captureAvoider =
   { inExpr :
       capturesToAvoid:Set.M(Identifier).t
-      -> ('l Acorn.Expr.t, 'e) AllocAcc.t
-      -> ('l Acorn.Expr.t, 'e) AllocAcc.t
+      -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
+      -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
   ; inStatement :
       capturesToAvoid:Set.M(Identifier).t
-      -> ('l Acorn.Expr.statement, 'e) AllocAcc.t
-      -> ('l Acorn.Expr.statement, 'e) AllocAcc.t
+      -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t
+      -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t
   }
 
 let hostAvoidCapturesPoly
-  : type l s.
-    makeMemLet:((l, s) Acorn.Expr.memLet -> s)
+  : type s.
+    makeMemLet:(s Acorn.Expr.memLet -> s)
     -> capturesToAvoid:Set.M(Identifier).t
     -> (s, 'e) AllocAcc.t
     -> (s, 'e) AllocAcc.t
@@ -299,7 +156,6 @@ let hostAvoidCapturesPoly
   fun ~makeMemLet ~capturesToAvoid prog ->
   let open CompilerState in
   let open Let_syntax in
-  let open Acorn in
   let%bind result, allocs = prog in
   let allocsToDeclare, allocsToPropogate =
     List.partition_map allocs ~f:(fun (alloc : AllocAcc.allocation) ->
@@ -315,7 +171,7 @@ let hostAvoidCapturesPoly
   return (result, allocsToPropogate)
 ;;
 
-let hostAvoidCaptures : (host, _) captureAvoider =
+let hostAvoidCaptures () : (host, _) captureAvoider =
   { inExpr = hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.MemLet memLet)
   ; inStatement =
       hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.SMemLet memLet)
@@ -342,7 +198,7 @@ let deviceAvoidCapturesPoly ~capturesToAvoid prog =
          %{capturedStr}"]
 ;;
 
-let deviceAvoidCaptures : (device, _) captureAvoider =
+let deviceAvoidCaptures () : (device, _) captureAvoider =
   { inExpr = deviceAvoidCapturesPoly; inStatement = deviceAvoidCapturesPoly }
 ;;
 
@@ -351,8 +207,8 @@ type targetAddr =
   | TargetValues of targetAddr option list
 
 type 'l allocResult =
-  { expr : 'l Acorn.Expr.t
-  ; statement : 'l Acorn.Expr.statement
+  { expr : 'l Acorn.Expr.sansCaptures
+  ; statement : 'l Acorn.Expr.statementSansCaptures
   }
 
 let rec allocRequest
@@ -437,7 +293,7 @@ let rec allocRequest
   in
   let allocLoopBlock
     : type lOuter lInner seqOrPar.
-      ((lOuter, lInner, seqOrPar) Expr.loopBlock -> lOuter Expr.t)
+      ((lOuter, lInner, seqOrPar, unit) Expr.loopBlock -> lOuter Expr.sansCaptures)
       -> (lOuter, 'e) captureAvoider
       -> Acorn.Mem.mallocHostOrDevice
       -> (lInner, 'e) captureAvoider
@@ -553,7 +409,7 @@ let rec allocRequest
     let processConsumer
       : type t.
         (lOuter, lInner, t) Corn.Expr.consumerOp option
-        -> ((lOuter, lInner, t) Expr.consumerOp option * bool, _) AllocAcc.t
+        -> ((lOuter, lInner, t, unit) Expr.consumerOp option * bool, _) AllocAcc.t
       = function
       | None -> return (None, false)
       | Some (ReduceSeq reduce) ->
@@ -607,7 +463,7 @@ let rec allocRequest
         Some (Expr.Scatter { valuesArg; indicesArg; dIn; dOut; mem; type' }), false
     in
     let%bind consumer, consumerCopyRequired = processConsumer consumer in
-    let loopBlock : (lOuter, lInner, seqOrPar) Expr.loopBlock =
+    let loopBlock : (lOuter, lInner, seqOrPar, unit) Expr.loopBlock =
       { frameShape
       ; mapArgs
       ; mapIotas
@@ -715,11 +571,10 @@ let rec allocRequest
       loopBlock
   | LoopKernel loopBlock ->
     allocLoopBlock
-      (fun loopBlock ->
-        Expr.LoopKernel { kernel = loopBlock; memCaptures; indexCaptures; exprCaptures })
-      hostAvoidCaptures
+      (fun loopBlock -> Expr.LoopKernel { kernel = loopBlock; captures = () })
+      (hostAvoidCaptures ())
       MallocHost
-      deviceAvoidCaptures
+      (deviceAvoidCaptures ())
       MallocDevice
       loopBlock
   | MapKernel mapKernel ->
@@ -727,7 +582,7 @@ let rec allocRequest
       ~writeToAddr:targetAddr
       Corn.Expr.
         { frameShape; mapArgs; mapIotas; mapBody; mapBodyMatcher; mapResults; type' }
-      : (Expr.mapKernel Expr.kernel, _) AllocAcc.t
+      : ((unit Expr.mapKernel, unit) Expr.kernel, _) AllocAcc.t
       =
       let bindingsForMapBody =
         List.map mapArgs ~f:(fun arg -> arg.binding)
@@ -836,11 +691,9 @@ let rec allocRequest
            ; mapResultMem
            ; type'
            }
-       ; memCaptures
-       ; indexCaptures
-       ; exprCaptures
+       ; captures = ()
        }
-        : Expr.mapKernel Expr.kernel)
+        : (unit Expr.mapKernel, unit) Expr.kernel)
     in
     let%map mapKernel = allocMapKernel ~writeToAddr:targetAddr mapKernel in
     statementToAllocResult ~mem:mapKernel.kernel.mapResultMem @@ MapKernel mapKernel
@@ -921,13 +774,14 @@ let rec allocRequest
     @@ IfParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' }
 
 and allocHost ~writeToAddr expr =
-  allocRequest hostAvoidCaptures ~mallocLoc:MallocHost ~writeToAddr expr
+  allocRequest (hostAvoidCaptures ()) ~mallocLoc:MallocHost ~writeToAddr expr
 
 and allocDevice ~writeToAddr expr : (device allocResult, _) AllocAcc.t =
-  allocRequest deviceAvoidCaptures ~mallocLoc:MallocDevice ~writeToAddr expr
+  allocRequest (deviceAvoidCaptures ()) ~mallocLoc:MallocDevice ~writeToAddr expr
 ;;
 
-let alloc (expr : Corn.t) : (Acorn.t, ('s option, string) Source.annotate) CompilerState.u
+let alloc (expr : Corn.t)
+  : (Acorn.sansCaptures, ('s option, string) Source.annotate) CompilerState.u
   =
   let open CompilerState.Let_syntax in
   let%map result, acc = allocHost ~writeToAddr:None expr in
@@ -938,7 +792,7 @@ let alloc (expr : Corn.t) : (Acorn.t, ('s option, string) Source.annotate) Compi
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
   type input = Corn.t
-  type output = Acorn.t
+  type output = Acorn.sansCaptures
   type error = (SB.source option, string) Source.annotate
 
   let name = "Alloc"
