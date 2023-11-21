@@ -136,24 +136,14 @@ module AllocAcc = struct
 end
 
 type ('l, 'e) captureAvoider =
-  { inExpr :
-      capturesToAvoid:Set.M(Identifier).t
-      -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
-      -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
-  (* ; inStatement :
-      capturesToAvoid:Set.M(Identifier).t
-      -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t
-      -> ('l Acorn.Expr.statementSansCaptures, 'e) AllocAcc.t *)
-  }
+  capturesToAvoid:Set.M(Identifier).t
+  -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
+  -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
 
-let hostAvoidCapturesPoly
-  : type s.
-    makeMemLet:(s Acorn.Expr.memLet -> s)
-    -> capturesToAvoid:Set.M(Identifier).t
-    -> (s, 'e) AllocAcc.t
-    -> (s, 'e) AllocAcc.t
+let hostAvoidCaptures
+  ~capturesToAvoid
+  (prog : (host Acorn.Expr.sansCaptures, _) AllocAcc.t)
   =
-  fun ~makeMemLet ~capturesToAvoid prog ->
   let open CompilerState in
   let open Let_syntax in
   let%bind result, allocs = prog in
@@ -169,19 +159,12 @@ let hostAvoidCapturesPoly
     | _ :: _ ->
       if List.is_empty allocsToDeclare
       then result
-      else makeMemLet { memArgs = allocsToDeclare; body = result }
+      else Acorn.Expr.MemLet { memArgs = allocsToDeclare; body = result }
   in
   return (result, allocsToPropogate)
 ;;
 
-let hostAvoidCaptures () : (host, _) captureAvoider =
-  { inExpr = hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.MemLet memLet)
-  (* ; inStatement =
-      hostAvoidCapturesPoly ~makeMemLet:(fun memLet -> Acorn.Expr.SMemLet memLet) *)
-  }
-;;
-
-let deviceAvoidCapturesPoly ~capturesToAvoid prog =
+let deviceAvoidCaptures ~capturesToAvoid prog =
   let open CompilerState in
   let open Let_syntax in
   let%bind result, acc = prog in
@@ -199,12 +182,6 @@ let deviceAvoidCapturesPoly ~capturesToAvoid prog =
       [%string
         "Cannot allocate array of unknown size inside kernel; allocation relies on \
          %{capturedStr}"]
-;;
-
-let deviceAvoidCaptures () : (device, _) captureAvoider =
-  { inExpr = deviceAvoidCapturesPoly
-  (* ; inStatement = deviceAvoidCapturesPoly  *)
-  }
 ;;
 
 type targetAddr =
@@ -395,7 +372,7 @@ let rec allocRequest
         ~writeToAddr:mapBodyTargetAddr
         mapBody
       >>| getExpr
-      |> innerCaptureAvoider.inExpr ~capturesToAvoid:bindingsForMapBody
+      |> innerCaptureAvoider ~capturesToAvoid:bindingsForMapBody
       |> extractAllocations
     in
     let mapMemArgs =
@@ -418,7 +395,7 @@ let rec allocRequest
       and body, bodyAllocations =
         allocRequest innerCaptureAvoider ~mallocLoc:innerMallocLoc ~writeToAddr:None body
         >>| getExpr
-        |> innerCaptureAvoider.inExpr
+        |> innerCaptureAvoider
              ~capturesToAvoid:
                (Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ])
         |> extractAllocations
@@ -462,7 +439,7 @@ let rec allocRequest
             ~writeToAddr:None
             body
           >>| getExpr
-          |> innerCaptureAvoider.inExpr
+          |> innerCaptureAvoider
                ~capturesToAvoid:
                  (Set.of_list
                     (module Identifier)
@@ -561,8 +538,7 @@ let rec allocRequest
         Expr.{ indexBinding; indexValue; sort })
       |> all
     and body =
-      avoidCaptures.inExpr ~capturesToAvoid:argBindings
-      @@ allocExpr ~writeToAddr:targetAddr body
+      avoidCaptures ~capturesToAvoid:argBindings @@ allocExpr ~writeToAddr:targetAddr body
     in
     writtenExprToAllocResult @@ IndexLet { indexArgs; body; type' }
   | ReifyIndex { index = Dimension dimIndex; type' = _ } ->
@@ -586,8 +562,7 @@ let rec allocRequest
         Expr.{ binding; value })
       |> all
     and body =
-      avoidCaptures.inExpr ~capturesToAvoid:argBindings
-      @@ allocExpr ~writeToAddr:targetAddr body
+      avoidCaptures ~capturesToAvoid:argBindings @@ allocExpr ~writeToAddr:targetAddr body
     in
     writtenExprToAllocResult @@ Let { args; body }
   | LoopBlock loopBlock ->
@@ -601,9 +576,9 @@ let rec allocRequest
   | LoopKernel loopBlock ->
     allocLoopBlock
       (fun loopBlock -> Expr.LoopKernel { kernel = loopBlock; captures = () })
-      (hostAvoidCaptures ())
+      hostAvoidCaptures
       MallocHost
-      (deviceAvoidCaptures ())
+      deviceAvoidCaptures
       MallocDevice
       loopBlock
   | MapKernel mapKernel ->
@@ -675,14 +650,14 @@ let rec allocRequest
         | MapBodyMap mapKernel ->
           let%map mapKernel, allocs =
             allocMapKernel ~writeToAddr:targetAddr mapKernel
-            |> deviceAvoidCapturesPoly ~capturesToAvoid:bindingsForMapBody
+            |> deviceAvoidCaptures ~capturesToAvoid:bindingsForMapBody
             |> extractAllocations
           in
           Expr.{ statements = []; subMaps = [ mapKernel.kernel ] }, allocs
         | MapBodyExpr expr ->
           let%map expr, allocs =
             allocDevice ~writeToAddr:targetAddr expr
-            |> deviceAvoidCapturesPoly ~capturesToAvoid:bindingsForMapBody
+            |> deviceAvoidCaptures ~capturesToAvoid:bindingsForMapBody
             |> extractAllocations
           in
           Expr.{ statements = [ expr.statement ]; subMaps = [] }, allocs
@@ -825,10 +800,10 @@ let rec allocRequest
     @@ IfParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' }
 
 and allocHost ~writeToAddr expr =
-  allocRequest (hostAvoidCaptures ()) ~mallocLoc:MallocHost ~writeToAddr expr
+  allocRequest hostAvoidCaptures ~mallocLoc:MallocHost ~writeToAddr expr
 
 and allocDevice ~writeToAddr expr : (device allocResult, _) AllocAcc.t =
-  allocRequest (deviceAvoidCaptures ()) ~mallocLoc:MallocDevice ~writeToAddr expr
+  allocRequest deviceAvoidCaptures ~mallocLoc:MallocDevice ~writeToAddr expr
 ;;
 
 let alloc (expr : Corn.t)
