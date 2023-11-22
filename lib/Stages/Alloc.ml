@@ -653,14 +653,14 @@ let rec allocRequest
             |> deviceAvoidCaptures ~capturesToAvoid:bindingsForMapBody
             |> extractAllocations
           in
-          Expr.{ statements = []; subMaps = [ mapKernel.kernel ] }, allocs
+          [], [ mapKernel.kernel ], allocs
         | MapBodyExpr expr ->
           let%map expr, allocs =
             allocDevice ~writeToAddr:targetAddr expr
             |> deviceAvoidCaptures ~capturesToAvoid:bindingsForMapBody
             |> extractAllocations
           in
-          Expr.{ statements = [ expr.statement ]; subMaps = [] }, allocs
+          [ expr.statement ], [], allocs
         | MapBodyValues elements ->
           let elementsAndTargetAddrs =
             match targetAddr with
@@ -670,18 +670,14 @@ let rec allocRequest
                 element, Some (TargetValue (Mem.tupleDeref ~tuple:targetAddr ~index)))
             | Some (TargetValues targetAddrs) -> List.zip_exn elements targetAddrs
           in
-          let%map subBodies, allocss =
+          let%map subStatements, subSubMaps, allocss =
             elementsAndTargetAddrs
             |> List.map ~f:(fun (element, targetAddr) ->
               allocMapBody ~writeToAddr:targetAddr element)
             |> all
-            >>| List.unzip
+            >>| List.unzip3
           in
-          ( Expr.
-              { statements = List.bind subBodies ~f:(fun subBody -> subBody.statements)
-              ; subMaps = List.bind subBodies ~f:(fun subBody -> subBody.subMaps)
-              }
-          , List.concat allocss )
+          List.concat subStatements, List.concat subSubMaps, List.concat allocss
         | MapBodyDeref { tuple; index } ->
           let rec mapBodyType : Corn.Expr.mapBody -> Type.t = function
             | MapBodyMap mapKernel -> mapKernel.type'
@@ -697,7 +693,7 @@ let rec allocRequest
           in
           allocMapBody ~writeToAddr:(Some (TargetValues tupleTargetAddrs)) tuple
       in
-      let%map mapBody, mapBodyAllocations =
+      let%map mapBodyStatements, mapBodySubMaps, mapBodyAllocations =
         allocMapBody ~writeToAddr:mapBodyTargetAddr mapBody
       in
       let mapMemArgs =
@@ -710,7 +706,8 @@ let rec allocRequest
            { frameShape
            ; mapArgs
            ; mapIotas
-           ; mapBody
+           ; mapBody =
+               { statement = Statements mapBodyStatements; subMaps = mapBodySubMaps }
            ; mapMemArgs
            ; mapBodyMatcher
            ; mapResults

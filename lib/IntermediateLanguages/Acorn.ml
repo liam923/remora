@@ -213,7 +213,7 @@ module Expr = struct
     | Fold : ('lOuter, 'lInner, 'c) fold -> ('lOuter, 'lInner, sequential, 'c) consumerOp
 
   and 'c mapBody =
-    { statements : (device, 'c) statement list
+    { statement : (device, 'c) statement
     ; subMaps : 'c mapKernel list
     }
 
@@ -312,8 +312,6 @@ module Expr = struct
   type captures =
     { exprCaptures : Set.M(Identifier).t
     ; indexCaptures : Set.M(Identifier).t
-    ; memCapturesByDevice : Set.M(Identifier).t
-    ; memCapturesByHost : Set.M(Identifier).t
     }
 
   type 'l sansCaptures = ('l, unit) t
@@ -641,11 +639,12 @@ module Expr = struct
         ]
 
     and sexp_of_mapBody : type c. (c -> Sexp.t) -> c mapBody -> Sexp.t =
-      fun sexp_of_c { statements; subMaps } ->
+      fun sexp_of_c { statement; subMaps } ->
       Sexp.List
         [ Sexp.List
-            (Sexp.Atom "statements"
-             :: List.map statements ~f:(sexp_of_statement sexp_of_device sexp_of_c))
+            [ Sexp.Atom "statement"
+            ; sexp_of_statement sexp_of_device sexp_of_c statement
+            ]
         ; Sexp.List
             (Sexp.Atom "sub-maps" :: List.map subMaps ~f:(sexp_of_mapKernel sexp_of_c))
         ]
@@ -808,22 +807,12 @@ module Expr = struct
         sexp_of_reifyShapeIndex ~toStr:"-to-box" reifyShapeIndexToBox
     ;;
 
-    let sexp_of_captures
-      { exprCaptures; indexCaptures; memCapturesByDevice; memCapturesByHost }
-      =
+    let sexp_of_captures { exprCaptures; indexCaptures } =
       Sexp.List
         [ Sexp.List
             [ Sexp.Atom "expr-captures"; [%sexp_of: Set.M(Identifier).t] exprCaptures ]
         ; Sexp.List
             [ Sexp.Atom "index-captures"; [%sexp_of: Set.M(Identifier).t] indexCaptures ]
-        ; Sexp.List
-            [ Sexp.Atom "mem-captures-by-device"
-            ; [%sexp_of: Set.M(Identifier).t] memCapturesByDevice
-            ]
-        ; Sexp.List
-            [ Sexp.Atom "mem-captures-by-host"
-            ; [%sexp_of: Set.M(Identifier).t] memCapturesByHost
-            ]
         ]
     ;;
   end
