@@ -1234,18 +1234,3 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
 let fuse (prog : Nested.t) : (CompilerState.state, Nested.t fusionResult, _) State.t =
   FuseState.asCompilerState (fuseLoops (Set.empty (module Identifier)) prog)
 ;;
-
-module Stage (SB : Source.BuilderT) = struct
-  type state = CompilerState.state
-  type input = Nested.t
-  type output = Nested.t
-  type error = (SB.source option, string) Source.annotate
-
-  let name = "Fuse"
-
-  let run input =
-    CompilerPipeline.S.make ~f:(fun inState ->
-      let outState, result = State.run (fuse input) inState in
-      outState, result.result)
-  ;;
-end
