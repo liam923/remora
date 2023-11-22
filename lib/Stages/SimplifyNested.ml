@@ -42,7 +42,7 @@ end
    while (+ 7 x) is computational *)
 let rec nonComputational : Expr.t -> bool = function
   | Ref _ -> true
-  | Frame frame -> List.for_all frame.elements ~f:nonComputational
+  | Frame _ -> false
   | BoxValue { box; type' = _ } -> nonComputational box
   | IndexLet _ -> false
   | ReifyIndex _ -> false

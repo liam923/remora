@@ -57,7 +57,7 @@ let nonComputational =
   let rec nonComputationalArray : Expr.array -> bool = function
     | Ref _ -> true
     | AtomAsArray atomicArray -> nonComputationalAtom atomicArray.element
-    | Frame frame -> List.for_all frame.elements ~f:nonComputationalArray
+    | Frame _ -> false
     | BoxValue { box; type' = _ } -> nonComputationalArray box
     | IndexLet _ -> false
     | ReifyIndex _ -> false
