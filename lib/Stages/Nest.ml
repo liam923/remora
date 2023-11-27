@@ -49,6 +49,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     let%map elements = elements |> List.map ~f:nestArray |> NestState.all in
     let rec nest type' dimensions elements =
       match dimensions with
+      | 0 :: _ -> Frame { dimension = 0; elements = []; type' }
       | dimension :: restDims ->
         let groupSize = List.length elements / dimension in
         let groups =

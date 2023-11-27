@@ -18,7 +18,6 @@ module Make (SB : Source.BuilderT) = struct
       @> (module TypeCheckStage.M (SB))
       @> (module Explicitize.Stage (SB))
       @> (module Inline.Stage (SB))
-      @> (module Simplify.Stage (SB))
       @> (module Nest.Stage (SB))
       @> (module FuseAndSimplify.Stage (SB))
       @> (module Kernelize.Stage (SB))

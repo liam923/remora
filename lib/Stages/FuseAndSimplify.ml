@@ -2,7 +2,7 @@ open! Base
 
 let rec fuseAndSimplify (prog : Nested.t) : (CompilerState.state, Nested.t, _) State.t =
   let open State.Let_syntax in
-  let%bind simplified = SimplifyNested.simplify prog in
+  let%bind simplified = Simplify.simplify prog in
   let%bind fusionResult = Fuse.fuse simplified in
   if fusionResult.fusedAny then fuseAndSimplify fusionResult.result else return simplified
 ;;
