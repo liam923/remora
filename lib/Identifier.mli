@@ -6,6 +6,7 @@ module type S = sig
 
   val comparator : (t, comparator_witness) Comparator.t
   val name : t -> string
+  val uniqueNum : t -> int
   val show : t -> string
 
   val create

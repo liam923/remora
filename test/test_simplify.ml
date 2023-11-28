@@ -258,9 +258,10 @@ let%expect_test "check simplifying" =
   [%expect {|
     (frame (frame 1 2) (frame 3 4) (frame 5 6)) |}];
   checkAndPrint {| (frame [0] int) |};
-  [%expect{| (frame) |}];
+  [%expect {| (frame) |}];
   checkAndPrint {| [[1 2] (+ [3 4] [5 6])] |};
-  [%expect{|
+  [%expect
+    {|
     (let ((+arg1.58 (frame 3 4)) (+arg2.59 (frame 5 6)))
      (frame (frame 1 2)
       (#0
@@ -270,10 +271,11 @@ let%expect_test "check simplifying" =
          (body-matcher map-result.60) (map-result (map-result.60))
          (consumer (values))))))) |}];
   checkAndPrint {| [(frame [0] int) (frame [0] int)] |};
-  [%expect{| (frame (frame) (frame)) |}];
+  [%expect {| (frame (frame) (frame)) |}];
   checkAndPrint
     {| [[(+ [1 2] [3 4]) (+ [1 2] [3 4]) (+ [1 2] [3 4])] [[4 5] [6 7] [8 9]]] |};
-  [%expect{|
+  [%expect
+    {|
     (let
      ((+arg1.78 (frame 1 2)) (+arg2.79 (frame 3 4)) (+arg1.86 (frame 1 2))
       (+arg2.87 (frame 3 4)) (+arg1.94 (frame 1 2)) (+arg2.95 (frame 3 4)))
@@ -299,15 +301,17 @@ let%expect_test "check simplifying" =
           (consumer (values))))))
       (frame (frame 4 5) (frame 6 7) (frame 8 9)))) |}];
   checkAndPrint {| [[[1 2] [3 4] [5 6]] [[7 8] [9 10] [11 12]]] |};
-  [%expect{|
+  [%expect
+    {|
     (frame (frame (frame 1 2) (frame 3 4) (frame 5 6))
      (frame (frame 7 8) (frame 9 10) (frame 11 12))) |}];
   checkAndPrint "(append{int | 3 2 []} [1 2 3] [4 5])";
-  [%expect{| (frame 1 2 3 4 5) |}];
+  [%expect {| (frame 1 2 3 4 5) |}];
   checkAndPrint "(append{int | 3 2 [1]} [[1] [2] [3]] [[4] [5]])";
-  [%expect{| (frame (frame 1) (frame 2) (frame 3) (frame 4) (frame 5)) |}];
+  [%expect {| (frame (frame 1) (frame 2) (frame 3) (frame 4) (frame 5)) |}];
   checkAndPrint "[[1 1] [2 2] (+ [2 2] 1)]";
-  [%expect{|
+  [%expect
+    {|
     (let ((+arg1.56 (frame 2 2)))
      (frame (frame 1 1) (frame 2 2)
       (#0
@@ -316,7 +320,8 @@ let%expect_test "check simplifying" =
          (body-matcher map-result.57) (map-result (map-result.57))
          (consumer (values))))))) |}];
   checkAndPrint "(append{int | 3 2 [2]} [[1 1] [2 2] (+ [2 2] 1)] [[4 4] [5 5]])";
-  [%expect{|
+  [%expect
+    {|
     (let ((+arg1.63 (frame 2 2)))
      (frame (frame 1 1) (frame 2 2)
       (#0
@@ -326,7 +331,8 @@ let%expect_test "check simplifying" =
          (consumer (values)))))
       (frame 4 4) (frame 5 5))) |}];
   checkAndPrint "iota{| [1 2 3]}";
-  [%expect{|
+  [%expect
+    {|
     (#0
      (#0
       (loop-block (frame-shape 1)
@@ -346,7 +352,8 @@ let%expect_test "check simplifying" =
        (body-matcher map-result.46) (map-result (map-result.46))
        (consumer (values))))) |}];
   checkAndPrint "(index{int | [1 2 3] [4 5] 3} iota{| [1 2 3 4 5]} [0 1 0])";
-  [%expect{|
+  [%expect
+    {|
     (index
      (#0
       (#0
@@ -385,7 +392,8 @@ let%expect_test "check simplifying" =
       (+ [1 2 3] 4))
     (foo (array [0] int))
     |};
-  [%expect{|
+  [%expect
+    {|
     (#0
      (#0
       (loop-block (frame-shape 0)
@@ -402,7 +410,8 @@ let%expect_test "check simplifying" =
     (lift [i [1 2 3]]
       (replicate{int | [i] []} 5))
     |};
-  [%expect{|
+  [%expect
+    {|
     (let ((index-value.53 (frame 1 2 3)))
      (#0
       (#0
@@ -421,7 +430,8 @@ let%expect_test "check simplifying" =
     (lift [@i [1 2 3]]
       (replicate{int | @i []} 5))
     |};
-  [%expect{|
+  [%expect
+    {|
     (index-let ((@i.45 runtime-value (frame 1 2 3)))
      (box ((shape @i.45))
       (#0
@@ -433,7 +443,8 @@ let%expect_test "check simplifying" =
       (define x (reduce{int | 2 [] []} + [1 2 3]))
       (+ x iota{ | [1001]})
     |};
-  [%expect{|
+  [%expect
+    {|
     (let
      ((reduce-arg.70 (frame 1 2 3))
       (+arg2.78
