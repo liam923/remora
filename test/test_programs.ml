@@ -2173,29 +2173,29 @@ let%expect_test "sum rows" =
        (consumer (values)))))
     Result of stage Kernelize:
     (#0
-     (map-kernel (frame-shape 1000000) () (iota iota.70)
-      (body-matcher map-result.75) (map-result (map-result.75))
-      (#1
-       (loop-block (frame-shape 10) (map () (iota (iota.72 : iota.70)) iota.72)
-        (body-matcher reduce-arg.80) (map-result ())
-        (consumer
-         (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-          (+ reduce-arg1.65 reduce-arg2.66)))))))
+     (kernel (blocks 80) (threads 128)
+      (map-kernel (frame-shape 1000000) () (iota iota.70)
+       (body-matcher map-result.75) (map-result (map-result.75))
+       (#1
+        (loop-block (frame-shape 10) (map () (iota (iota.72 : iota.70)) iota.72)
+         (body-matcher reduce-arg.80) (map-result ())
+         (consumer
+          (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+           (+ reduce-arg1.65 reduce-arg2.66))))))))
     Result of stage Alloc:
     (mem-let
-     ((map-mem.116
+     ((map-mem.121 (Malloc (hostOrDevice MallocDevice) (type' (Tuple ()))))
+      (map-mem.116
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
      (#0
       (begin
-       (kernel
+       (kernel (blocks 80) (threads 128)
         (map-kernel (frame-shape 1000000)
          ((map-mem.117
            (Ref (id ((name map-mem) (id 116)))
             (type' (Array ((element (Literal IntLiteral)) (size 1000000))))))
-          (map-mem.118
-           (Malloc (hostOrDevice MallocDevice)
-            (type' (Array ((element (Tuple ())) (size 1000000)))))))
+          (map-mem.118 (Ref (id ((name map-mem) (id 121))) (type' (Tuple ())))))
          (iota iota.70) (body-matcher map-result.75) (map-result (map-result.75))
          (map-result-mem
           (Values
@@ -2229,19 +2229,19 @@ let%expect_test "sum rows" =
           (Tuple ((Array ((element (Literal IntLiteral)) (size 1000000)))))))))))
     Result of stage Capture:
     (mem-let
-     ((map-mem.116
+     ((map-mem.121 (Malloc (hostOrDevice MallocDevice) (type' (Tuple ()))))
+      (map-mem.116
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
      (#0
       (begin
-       (kernel captures ((expr-captures ()) (index-captures ()))
+       (kernel captures ((expr-captures ()) (index-captures ())) (blocks 80)
+        (threads 128)
         (map-kernel (frame-shape 1000000)
          ((map-mem.117
            (Ref (id ((name map-mem) (id 116)))
             (type' (Array ((element (Literal IntLiteral)) (size 1000000))))))
-          (map-mem.118
-           (Malloc (hostOrDevice MallocDevice)
-            (type' (Array ((element (Tuple ())) (size 1000000)))))))
+          (map-mem.118 (Ref (id ((name map-mem) (id 121))) (type' (Tuple ())))))
          (iota iota.70) (body-matcher map-result.75) (map-result (map-result.75))
          (map-result-mem
           (Values

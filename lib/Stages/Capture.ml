@@ -59,7 +59,7 @@ module Captures = struct
     | Index.Dimension dim -> getInDim dim
   ;;
 
-  let rec getInExpr : (Expr.device, unit) Acorn.Expr.t -> t = function
+  let rec getInExpr : (device, unit) Acorn.Expr.t -> t = function
     | Ref { id; type' = _ } -> of_expr id
     | BoxValue { box; type' = _ } -> getInExpr box
     | IndexLet { indexArgs; body; type' = _ } ->
@@ -155,7 +155,7 @@ module Captures = struct
     | Literal _ -> empty
     | Getmem { addr = _; type' = _ } -> empty
 
-  and getInStatement : (Expr.device, unit) Acorn.Expr.statement -> t = function
+  and getInStatement : (device, unit) Acorn.Expr.statement -> t = function
     | Putmem { addr = _; expr; type' = _ } -> getInExpr expr
     | ComputeForSideEffects expr -> getInExpr expr
     | Statements statements -> getList statements ~f:getInStatement
@@ -250,6 +250,8 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
           ; type'
           }
       ; captures = ()
+      ; blocks
+      ; threads
       } ->
     let mapBodyBindings =
       List.map mapArgs ~f:(fun arg -> arg.binding)
@@ -260,22 +262,32 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
     let consumerCaptures, consumer =
       match consumer with
       | None -> Captures.empty, None
-      | Some (ReducePar { arg; zero; mappedMemArgs; body; d; itemPad; character; type' })
-        ->
+      | Some
+          (ReducePar
+            { reduce = { arg; zero; mappedMemArgs; body; d; itemPad; character; type' }
+            ; interimResultMem
+            ; outerBody
+            ; outerMappedMemArgs
+            }) ->
         let bindings =
           Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
         in
         ( Captures.(getInExpr body - bindings)
         , Some
             (Expr.ReducePar
-               { arg
-               ; zero = Option.map zero ~f:annotateExpr
-               ; mappedMemArgs
-               ; body = annotateExpr body
-               ; d
-               ; itemPad
-               ; character
-               ; type'
+               { reduce =
+                   { arg
+                   ; zero = Option.map zero ~f:annotateExpr
+                   ; mappedMemArgs
+                   ; body = annotateExpr body
+                   ; d
+                   ; itemPad
+                   ; character
+                   ; type'
+                   }
+               ; interimResultMem
+               ; outerBody = annotateExpr outerBody
+               ; outerMappedMemArgs
                }) )
       | Some (Scatter { valuesArg; indicesArg; dIn; dOut; mem; type' }) ->
         ( Captures.empty
@@ -295,6 +307,8 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
           ; type'
           }
       ; captures = Captures.(mapBodyCaptures + consumerCaptures)
+      ; blocks
+      ; threads
       }
   | Box { indices; body; bodyType; type' } ->
     Box { indices; body = annotateExpr body; bodyType; type' }
@@ -322,7 +336,7 @@ and annotateStatement
   : type l. l Expr.statementSansCaptures -> l Expr.statementWithCaptures
   = function
   | Putmem { addr; expr; type' } -> Putmem { addr; expr = annotateExpr expr; type' }
-  | MapKernel { kernel; captures = () } ->
+  | MapKernel { kernel; captures = (); blocks; threads } ->
     let rec annotateMapKernel
       Expr.
         { frameShape
@@ -360,7 +374,7 @@ and annotateStatement
         } )
     in
     let captures, kernel = annotateMapKernel kernel in
-    MapKernel { kernel; captures }
+    MapKernel { kernel; captures; blocks; threads }
   | ComputeForSideEffects expr -> ComputeForSideEffects (annotateExpr expr)
   | Statements statements -> Statements (List.map statements ~f:annotateStatement)
   | SLet { args; body } ->

@@ -37,14 +37,15 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (map-kernel (frame-shape 1000000) () (iota iota.70)
-      (body-matcher map-result.75) (map-result (map-result.75))
-      (#1
-       (loop-block (frame-shape 10) (map () (iota (iota.72 : iota.70)) iota.72)
-        (body-matcher reduce-arg.80) (map-result ())
-        (consumer
-         (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-          (+ reduce-arg1.65 reduce-arg2.66))))))) |}];
+     (kernel (blocks 80) (threads 128)
+      (map-kernel (frame-shape 1000000) () (iota iota.70)
+       (body-matcher map-result.75) (map-result (map-result.75))
+       (#1
+        (loop-block (frame-shape 10) (map () (iota (iota.72 : iota.70)) iota.72)
+         (body-matcher reduce-arg.80) (map-result ())
+         (consumer
+          (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+           (+ reduce-arg1.65 reduce-arg2.66)))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
@@ -58,12 +59,14 @@ let%expect_test "check kernelizing" =
       (loop-block (frame-shape 10)
        (map () (iota iota.70)
         (#1
-         (loop-kernel (frame-shape 1000000)
-          (map () (iota (iota.72 : iota.70)) iota.72)
-          (body-matcher reduce-arg.80) (map-result ())
-          (consumer
-           (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-            (+ reduce-arg1.65 reduce-arg2.66))))))
+         (kernel (blocks 80) (threads 128)
+          (loop-kernel (frame-shape 1000000)
+           (map () (iota (iota.72 : iota.70)) iota.72)
+           (body-matcher reduce-arg.80) (map-result ())
+           (consumer
+            ((reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+              (+ reduce-arg1.65 reduce-arg2.66))
+             (outer-body (+ reduce-arg1.65 reduce-arg2.66))))))))
        (body-matcher map-result.75) (map-result (map-result.75))
        (consumer (values))))) |}];
   kernelizeAndPrint
@@ -75,15 +78,16 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (map-kernel (frame-shape 1000000) () (iota iota.70)
-      (body-matcher map-result.75) (map-result (map-result.75))
-      (#1
-       (loop-block (frame-shape 1000000)
-        (map () (iota (iota.72 : iota.70)) iota.72) (body-matcher reduce-arg.80)
-        (map-result ())
-        (consumer
-         (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-          (+ reduce-arg1.65 reduce-arg2.66))))))) |}];
+     (kernel (blocks 80) (threads 128)
+      (map-kernel (frame-shape 1000000) () (iota iota.70)
+       (body-matcher map-result.75) (map-result (map-result.75))
+       (#1
+        (loop-block (frame-shape 1000000)
+         (map () (iota (iota.72 : iota.70)) iota.72) (body-matcher reduce-arg.80)
+         (map-result ())
+         (consumer
+          (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+           (+ reduce-arg1.65 reduce-arg2.66)))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
@@ -93,14 +97,16 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (map-kernel (frame-shape 5000) () (iota iota.70)
-      (body-matcher map-result.75) (map-result (map-result.75))
-      (#1
-       (loop-block (frame-shape 5000) (map () (iota (iota.72 : iota.70)) iota.72)
-        (body-matcher reduce-arg.80) (map-result ())
-        (consumer
-         (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-          (+ reduce-arg1.65 reduce-arg2.66))))))) |}];
+     (kernel (blocks 40) (threads 128)
+      (map-kernel (frame-shape 5000) () (iota iota.70)
+       (body-matcher map-result.75) (map-result (map-result.75))
+       (#1
+        (loop-block (frame-shape 5000)
+         (map () (iota (iota.72 : iota.70)) iota.72) (body-matcher reduce-arg.80)
+         (map-result ())
+         (consumer
+          (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+           (+ reduce-arg1.65 reduce-arg2.66)))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
@@ -114,12 +120,14 @@ let%expect_test "check kernelizing" =
       (loop-block (frame-shape 5000)
        (map () (iota iota.70)
         (#1
-         (loop-kernel (frame-shape 6000)
-          (map () (iota (iota.72 : iota.70)) iota.72)
-          (body-matcher reduce-arg.80) (map-result ())
-          (consumer
-           (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-            (+ reduce-arg1.65 reduce-arg2.66))))))
+         (kernel (blocks 47) (threads 128)
+          (loop-kernel (frame-shape 6000)
+           (map () (iota (iota.72 : iota.70)) iota.72)
+           (body-matcher reduce-arg.80) (map-result ())
+           (consumer
+            ((reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+              (+ reduce-arg1.65 reduce-arg2.66))
+             (outer-body (+ reduce-arg1.65 reduce-arg2.66))))))))
        (body-matcher map-result.75) (map-result (map-result.75))
        (consumer (values))))) |}];
   kernelizeAndPrint
@@ -131,27 +139,30 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (map-kernel (frame-shape 6000) () (iota iota.70)
-      (body-matcher map-result.75) (map-result (map-result.75))
-      (#1
-       (loop-block (frame-shape 5000) (map () (iota (iota.72 : iota.70)) iota.72)
-        (body-matcher reduce-arg.80) (map-result ())
-        (consumer
-         (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-          (+ reduce-arg1.65 reduce-arg2.66))))))) |}];
+     (kernel (blocks 47) (threads 128)
+      (map-kernel (frame-shape 6000) () (iota iota.70)
+       (body-matcher map-result.75) (map-result (map-result.75))
+       (#1
+        (loop-block (frame-shape 5000)
+         (map () (iota (iota.72 : iota.70)) iota.72) (body-matcher reduce-arg.80)
+         (map-result ())
+         (consumer
+          (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
+           (+ reduce-arg1.65 reduce-arg2.66)))))))) |}];
   kernelizeAndPrint "(+ 1 iota{ | [10 20 30]})";
   [%expect
     {|
     (#0
-     (map-kernel (frame-shape 10) () (iota iota.57) (body-matcher map-result.64)
-      (map-result (map-result.64))
-      (#0
-       (map-kernel (frame-shape 20) () (iota (iota.59 : iota.57))
-        (body-matcher map-result.66) (map-result (map-result.66))
-        (#0
-         (map-kernel (frame-shape 30) () (iota (iota.61 : iota.59))
-          (body-matcher map-result.68) (map-result (map-result.68))
-          (+ 1 iota.61))))))) |}];
+     (kernel (blocks 47) (threads 128)
+      (map-kernel (frame-shape 10) () (iota iota.57) (body-matcher map-result.64)
+       (map-result (map-result.64))
+       (#0
+        (map-kernel (frame-shape 20) () (iota (iota.59 : iota.57))
+         (body-matcher map-result.66) (map-result (map-result.66))
+         (#0
+          (map-kernel (frame-shape 30) () (iota (iota.61 : iota.59))
+           (body-matcher map-result.68) (map-result (map-result.68))
+           (+ 1 iota.61)))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])

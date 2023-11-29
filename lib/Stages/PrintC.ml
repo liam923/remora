@@ -32,7 +32,7 @@ module Buffer = struct
     let indentationSize = String.length indent in
     let rec size indentCount = function
       | Empty -> 0
-      | Line line -> (indentationSize * indentCount) + String.length line
+      | Line line -> (indentationSize * indentCount) + String.length line + 1
       | LineSeq { prev; next } -> size indentCount prev + size indentCount next
       | Indent lines -> size (indentCount + 1) lines
     in
@@ -40,10 +40,11 @@ module Buffer = struct
     let rec print indentCount = function
       | Empty -> ()
       | Line line ->
-        for _ = 0 to indentCount do
+        for _ = 1 to indentCount do
           Buffer.add_string buffer indent
         done;
-        Buffer.add_string buffer line
+        Buffer.add_string buffer line;
+        Buffer.add_string buffer "\n"
       | LineSeq { prev; next } ->
         print indentCount prev;
         print indentCount next
@@ -73,16 +74,19 @@ let rec showType : type' -> string = function
   | Int64 -> "int64_t"
   | Float64 -> "double"
   | Bool -> "boolean"
-  | Ptr t -> [%string "*%{showType t}"]
+  | Ptr t -> [%string "%{showType t}*"]
   | TypeRef name -> showName name
+  | TypeInstantiation { base; args } ->
+    let argsStr = args |> List.map ~f:showType |> String.concat ~sep:", " in
+    [%string "%{showType base}<%{argsStr}>"]
 ;;
 
 let rec showExpr = function
-  | Literal (Char c) -> [%string "'%{Char.escaped c}'"]
-  | Literal (Int64 i) -> Int.to_string i
-  | Literal (Float64 f) -> Float.to_string f
-  | Literal (Bool true) -> "true"
-  | Literal (Bool false) -> "false"
+  | Literal (CharLiteral c) -> [%string "'%{Char.escaped c}'"]
+  | Literal (Int64Literal i) -> Int.to_string i
+  | Literal (Float64Literal f) -> Float.to_string f
+  | Literal (BoolLiteral true) -> "true"
+  | Literal (BoolLiteral false) -> "false"
   | VarRef name -> showName name
   | FieldDeref { value; fieldName } -> [%string "%{showExpr value}.%{showName fieldName}"]
   | ArrayDeref { value; index } -> [%string "%{showExpr value}[%{showExpr index}]"]
@@ -96,6 +100,9 @@ let rec showExpr = function
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
     [%string "%{showName kernel}<<<%{blocks#Int}, %{threads#Int}>>>(%{argsStr})"]
   | Binop { op; arg1; arg2 } -> [%string "(%{showExpr arg1} %{op} %{showExpr arg2})"]
+  | StructConstructor { type'; args } ->
+    let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
+    [%string "(%{showType type'} {%{argsStr}})"]
 ;;
 
 let rec printStatement = function
@@ -113,8 +120,11 @@ let rec printStatement = function
     let%bind () = printLine [%string "}"] in
     return ()
   | Eval expr -> printLine [%string "%{showExpr expr};"]
+  | StrStatement statement -> printLine statement
 
 and printBlock block = block |> List.map ~f:printStatement |> Buffer.all_unit
+
+let printInclude include' = printLine [%string "#include %{include'}"]
 
 let printFunDec { name; value = { isKernel; args; returnType; body } } =
   let printArgs args =
@@ -152,11 +162,14 @@ let printMain = function
     return ()
 ;;
 
-let printProgram { structDecs; funDecs; main } =
-  let%bind () = structDecs |> List.map ~f:printStructDec |> Buffer.all_separated in
-  let%bind () = funDecs |> List.map ~f:printFunDec |> Buffer.all_separated in
-  let%bind () = printMain main in
-  return ()
+let printProgram { includes; prelude; structDecs; funDecs; main } =
+  Buffer.all_separated
+    ([ includes |> List.map ~f:printInclude |> Buffer.all_unit
+     ; prelude |> List.map ~f:printLine |> Buffer.all_unit
+     ]
+     @ List.map structDecs ~f:printStructDec
+     @ List.map funDecs ~f:printFunDec
+     @ [ printMain main ])
 ;;
 
 let printC prog = printProgram prog |> Buffer.create ~indent:"    "

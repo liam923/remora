@@ -148,6 +148,16 @@ module ParallelismWorthwhileness = struct
   ;;
 end
 
+let getThreads (_ : DeviceInfo.t) = 128
+
+let getBlocks ~threads:threadsPerBlock ~parShape deviceInfo =
+  let blocksToReachThreads threads = (threads + threadsPerBlock - 1) / threadsPerBlock in
+  let maxBlocks = blocksToReachThreads (DeviceInfo.maxThreads deviceInfo) in
+  match ParallelismShape.known parShape with
+  | Some parShape -> Int.min (blocksToReachThreads parShape) maxBlocks
+  | None -> maxBlocks
+;;
+
 let decideParallelism ~par:(parExpr, parParShape) ~seq:(seqExpr, seqParShape) =
   let open KernelizeState.Let_syntax in
   let%map deviceInfo = KernelizeState.getDeviceInfo () in
@@ -298,10 +308,15 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
         ; type'
         }
     in
+    let%bind deviceInfo = KernelizeState.getDeviceInfo () in
+    let threads = getThreads deviceInfo in
+    let blocks = getBlocks ~threads ~parShape:mapAsKernelParShape deviceInfo in
     let%map hostExpr, hostParShape =
       decideParallelism
         ~par:
-          (Expr.values [ Expr.MapKernel mapAsKernel; Expr.values [] ], mapAsKernelParShape)
+          ( Expr.values
+              [ Expr.MapKernel { kernel = mapAsKernel; blocks; threads }; Expr.values [] ]
+          , mapAsKernelParShape )
         ~seq:(mapAsHostExpr, mapBodyOpts.hostParShape)
     in
     { hostExpr
@@ -362,13 +377,16 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
           then
             Some
               ( Expr.ReducePar
-                  { arg
-                  ; zero = Option.map zeroOpts ~f:hostExpr
-                  ; body = bodyOpts.deviceExpr
-                  ; d
-                  ; itemPad
-                  ; character
-                  ; type'
+                  { reduce =
+                      { arg
+                      ; zero = Option.map zeroOpts ~f:hostExpr
+                      ; body = bodyOpts.deviceExpr
+                      ; d
+                      ; itemPad
+                      ; character
+                      ; type'
+                      }
+                  ; outerBody = bodyOpts.hostExpr
                   }
               , ParallelismShape.max
                   (ParallelismShape.singleDimensionParallelism (Add d)
@@ -417,17 +435,24 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     let%map hostExpr, hostParShape =
       match parConsumer with
       | Some (parConsumerExpr, parConsumerParShape) ->
+        let%bind deviceInfo = KernelizeState.getDeviceInfo () in
+        let threads = getThreads deviceInfo in
+        let blocks = getBlocks ~threads ~parShape:parConsumerParShape deviceInfo in
         decideParallelism
           ~par:
             ( Expr.LoopKernel
-                { frameShape
-                ; mapArgs
-                ; mapIotas
-                ; mapBody = mapBodyOpts.deviceExpr
-                ; mapBodyMatcher
-                ; mapResults
-                ; consumer = Some parConsumerExpr
-                ; type'
+                { kernel =
+                    { frameShape
+                    ; mapArgs
+                    ; mapIotas
+                    ; mapBody = mapBodyOpts.deviceExpr
+                    ; mapBodyMatcher
+                    ; mapResults
+                    ; consumer = Some parConsumerExpr
+                    ; type'
+                    }
+                ; blocks
+                ; threads
                 }
             , parConsumerParShape )
           ~seq:

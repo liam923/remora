@@ -50,12 +50,16 @@ and type' =
   | Bool
   | Ptr of type'
   | TypeRef of name
+  | TypeInstantiation of
+      { base : type'
+      ; args : type' list
+      }
 
 and literal =
-  | Char of char
-  | Int64 of int
-  | Float64 of float
-  | Bool of bool
+  | CharLiteral of char
+  | Int64Literal of int
+  | Float64Literal of float
+  | BoolLiteral of bool
 
 and expr =
   | Literal of literal
@@ -89,6 +93,10 @@ and expr =
       ; arg1 : expr
       ; arg2 : expr
       }
+  | StructConstructor of
+      { type' : type'
+      ; args : expr list
+      }
 
 and statement =
   | Return of expr
@@ -104,11 +112,14 @@ and statement =
       ; elseBranch : block
       }
   | Eval of expr
+  | StrStatement of string
 
 and block = statement list
 
 and program =
-  { funDecs : fun' declaration list
+  { includes : string list
+  ; prelude : string list
+  ; funDecs : fun' declaration list
   ; structDecs : struct' declaration list
   ; main : block option
   }

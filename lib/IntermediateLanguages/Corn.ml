@@ -108,6 +108,11 @@ module Expr = struct
     ; type' : Type.t
     }
 
+  and ('lOuter, 'lInner) parReduce =
+    { reduce : ('lOuter, 'lInner) reduce
+    ; outerBody : 'lOuter t
+    }
+
   and ('lOuter, 'lInner) fold =
     { zeroArg : 'lOuter foldZeroArg
     ; arrayArgs : foldArrayArg list
@@ -128,7 +133,7 @@ module Expr = struct
 
   and ('lOuter, 'lInner, 'p) consumerOp =
     | ReduceSeq : ('lOuter, 'lInner) reduce -> ('lOuter, 'lInner, sequential) consumerOp
-    | ReducePar : (host, device) reduce -> (host, device, parallel) consumerOp
+    | ReducePar : (host, device) parReduce -> (host, device, parallel) consumerOp
     | Scatter : scatter -> _ consumerOp
     | Fold : ('lOuter, 'lInner) fold -> ('lOuter, 'lInner, sequential) consumerOp
 
@@ -149,6 +154,12 @@ module Expr = struct
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
     ; type' : Type.t
+    }
+
+  and 'k kernel =
+    { kernel : 'k
+    ; blocks : int
+    ; threads : int
     }
 
   and 'l values =
@@ -214,8 +225,8 @@ module Expr = struct
     | ReifyIndex : reifyIndex -> _ t
     | Let : 'l let' -> 'l t
     | LoopBlock : ('l, 'l, sequential) loopBlock -> 'l t
-    | LoopKernel : (host, device, parallel) loopBlock -> host t
-    | MapKernel : mapKernel -> host t
+    | LoopKernel : (host, device, parallel) loopBlock kernel -> host t
+    | MapKernel : mapKernel kernel -> host t
     | Box : 'l box -> 'l t
     | Literal : literal -> _ t
     | Values : 'l values -> 'l t
@@ -242,8 +253,8 @@ module Expr = struct
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
     | LoopBlock loopBlock -> Tuple loopBlock.type'
-    | LoopKernel loopKernel -> Tuple loopKernel.type'
-    | MapKernel mapKernel -> mapKernel.type'
+    | LoopKernel loopKernel -> Tuple loopKernel.kernel.type'
+    | MapKernel mapKernel -> mapKernel.kernel.type'
     | SubArray subArray -> subArray.type'
     | Append append -> append.type'
     | Zip zip -> zip.type'
@@ -394,6 +405,15 @@ module Expr = struct
            ; sexp_of_t sexp_of_b body
            ])
 
+    and sexp_of_parReduce
+      : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) parReduce -> Sexp.t
+      =
+      fun sexp_of_a sexp_of_b { reduce; outerBody } ->
+      Sexp.List
+        [ sexp_of_reduce sexp_of_a sexp_of_b reduce
+        ; Sexp.List [ Sexp.Atom "outer-body"; sexp_of_t sexp_of_a outerBody ]
+        ]
+
     and sexp_of_fold : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) fold -> Sexp.t =
       fun sexp_of_a
           sexp_of_b
@@ -435,7 +455,7 @@ module Expr = struct
       =
       fun sexp_of_a sexp_of_b _ -> function
       | ReduceSeq reduce -> sexp_of_reduce sexp_of_a sexp_of_b reduce
-      | ReducePar reduce -> sexp_of_reduce sexp_of_host sexp_of_device reduce
+      | ReducePar reduce -> sexp_of_parReduce sexp_of_host sexp_of_device reduce
       | Fold fold -> sexp_of_fold sexp_of_a sexp_of_b fold
       | Scatter scatter -> sexp_of_scatter scatter
 
@@ -536,6 +556,15 @@ module Expr = struct
                  ]
             :: [ sexp_of_mapBody mapBody ]))
 
+    and sexp_of_kernel : type k. (k -> Sexp.t) -> k kernel -> Sexp.t =
+      fun sexp_of_k { kernel; blocks; threads } ->
+      Sexp.List
+        [ Sexp.Atom "kernel"
+        ; Sexp.List [ Sexp.Atom "blocks"; Int.sexp_of_t blocks ]
+        ; Sexp.List [ Sexp.Atom "threads"; Int.sexp_of_t threads ]
+        ; sexp_of_k kernel
+        ]
+
     and sexp_of_subArray : type a. (a -> Sexp.t) -> a subArray -> Sexp.t =
       fun sexp_of_a { arrayArg; indexArg; type' = _ } ->
       Sexp.List
@@ -599,13 +628,10 @@ module Expr = struct
       | LoopBlock loopBlock ->
         sexp_of_loopBlock sexp_of_a sexp_of_a sexp_of_sequential loopBlock
       | LoopKernel loopKernel ->
-        sexp_of_loopBlock
-          ~kernel:true
-          sexp_of_host
-          sexp_of_device
-          sexp_of_parallel
+        sexp_of_kernel
+          (sexp_of_loopBlock ~kernel:true sexp_of_host sexp_of_device sexp_of_parallel)
           loopKernel
-      | MapKernel mapKernel -> sexp_of_mapKernel mapKernel
+      | MapKernel mapKernel -> sexp_of_kernel sexp_of_mapKernel mapKernel
       | SubArray subArray -> sexp_of_subArray sexp_of_a subArray
       | Append append -> sexp_of_append sexp_of_a append
       | Zip zip -> sexp_of_zip sexp_of_a zip
