@@ -64,19 +64,8 @@ module Expr = struct
     }
   [@@deriving equal]
 
-  type reduceCharacter =
-    [ `Reduce
-    | `Scan
-    | `OpenScan
-    ]
-  [@@deriving equal]
-
-  type foldCharacter =
-    [ `Fold
-    | `Trace
-    | `OpenTrace
-    ]
-  [@@deriving equal]
+  type reduceCharacter = Nucleus.Expr.reduceCharacter [@@deriving equal]
+  type foldCharacter = Nucleus.Expr.foldCharacter [@@deriving equal]
 
   type frame =
     { dimension : int
@@ -413,9 +402,9 @@ module Expr = struct
       | Reduce { arg; zero; body; d = _; associative; character; type' = _ } ->
         let characterName =
           match character with
-          | `Reduce -> "reduce"
-          | `Scan -> "scan"
-          | `OpenScan -> "open-scan"
+          | Reduce -> "reduce"
+          | Scan -> "scan"
+          | OpenScan -> "open-scan"
         in
         let zeroName =
           match zero with
@@ -437,9 +426,9 @@ module Expr = struct
       | Fold { zeroArg; arrayArgs; body; d = _; character; type' = _ } ->
         let opName =
           match character with
-          | `Fold -> "fold"
-          | `Trace -> "trace"
-          | `OpenTrace -> "open-trace"
+          | Fold -> "fold"
+          | Trace -> "trace"
+          | OpenTrace -> "open-trace"
         in
         Sexp.List
           [ Sexp.Atom opName

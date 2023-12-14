@@ -382,9 +382,9 @@ module Expr = struct
       fun sexp_of_a sexp_of_b { arg; zero; body; d = _; character; type' = _ } ->
       let characterName =
         match character with
-        | `Reduce -> "reduce"
-        | `Scan -> "scan"
-        | `OpenScan -> "open-scan"
+        | Reduce -> "reduce"
+        | Scan -> "scan"
+        | OpenScan -> "open-scan"
       in
       let zeroName =
         match zero with
@@ -416,9 +416,9 @@ module Expr = struct
       fun sexp_of_a sexp_of_b { zeroArg; arrayArgs; body; d = _; character; type' = _ } ->
       let opName =
         match character with
-        | `Fold -> "fold"
-        | `Trace -> "trace"
-        | `OpenTrace -> "open-trace"
+        | Fold -> "fold"
+        | Trace -> "trace"
+        | OpenTrace -> "open-trace"
       in
       Sexp.List
         [ Sexp.Atom opName

@@ -42,9 +42,9 @@ module ConsumerCompatibility = struct
     | Reduce of
         { hasZero : bool
         ; associative : bool
-        ; character : [ `Reduce | `Scan | `OpenScan ]
+        ; character : Expr.reduceCharacter
         }
-    | Fold of { character : [ `Fold | `Trace | `OpenTrace ] }
+    | Fold of { character : Expr.foldCharacter }
   [@@deriving equal]
 
   type t =

@@ -483,7 +483,8 @@ let rec allocRequest
       @ mapBodyMemArgs
     in
     let processReduce Corn.Expr.{ arg; zero; body; d; character; type' = reduceType } =
-      let%map zero =
+      let d = convertDimension d in
+      let%bind zero =
         zero
         |> Option.map ~f:(fun zero ->
           allocRequest
@@ -507,6 +508,24 @@ let rec allocRequest
                (Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ])
         |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
       in
+      let%map character =
+        match character with
+        | Reduce -> return Expr.Reduce
+        | Scan ->
+          let resultType = Type.array ~element:(Expr.type' body) ~size:(Add d) in
+          let%map mem = malloc ~hostOrDevice:outerMallocLoc resultType "scan-result" in
+          Expr.Scan mem
+        | OpenScan ->
+          let resultType =
+            Type.array
+              ~element:(Expr.type' body)
+              ~size:(Add { d with const = d.const + 1 })
+          in
+          let%map mem =
+            malloc ~hostOrDevice:outerMallocLoc resultType "open-scan-result"
+          in
+          Expr.OpenScan mem
+      in
       Expr.
         { arg =
             { firstBinding = arg.firstBinding
@@ -516,7 +535,7 @@ let rec allocRequest
         ; zero
         ; mappedMemArgs = bodyMemArgs
         ; body
-        ; d = convertDimension d
+        ; d
         ; character
         ; type' = canonicalizeType reduceType
         }
@@ -564,7 +583,8 @@ let rec allocRequest
                })
         , true )
       | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
-        let%map zeroValue =
+        let d = convertDimension d in
+        let%bind zeroValue =
           allocRequest
             outerCaptureAvoider
             ~mallocLoc:outerMallocLoc
@@ -588,6 +608,24 @@ let rec allocRequest
                      @ List.map arrayArgs ~f:(fun arg -> arg.binding)))
           |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
         in
+        let%map character =
+          match character with
+          | Fold -> return (Expr.Fold : lOuter Expr.foldCharacter)
+          | Trace ->
+            let resultType = Type.array ~element:(Expr.type' body) ~size:(Add d) in
+            let%map mem = malloc ~hostOrDevice:outerMallocLoc resultType "trace-result" in
+            Expr.Trace mem
+          | OpenTrace ->
+            let resultType =
+              Type.array
+                ~element:(Expr.type' body)
+                ~size:(Add { d with const = d.const + 1 })
+            in
+            let%map mem =
+              malloc ~hostOrDevice:outerMallocLoc resultType "open-trace-result"
+            in
+            Expr.OpenTrace mem
+        in
         ( Some
             (Expr.Fold
                { zeroArg = { zeroBinding = zeroArg.zeroBinding; zeroValue }
@@ -596,7 +634,7 @@ let rec allocRequest
                      Expr.{ binding; production = convertProduction production })
                ; mappedMemArgs = bodyMemArgs
                ; body
-               ; d = convertDimension d
+               ; d
                ; character
                ; type' = canonicalizeType type'
                })

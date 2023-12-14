@@ -99,7 +99,7 @@ module Stdlib : S = struct
                           (Reduce
                              { associative = true
                              ; explicitZero = false
-                             ; character = `Reduce
+                             ; character = Reduce
                              })
                     ; type'
                     })
@@ -124,7 +124,7 @@ module Stdlib : S = struct
                           (Reduce
                              { associative = true
                              ; explicitZero = true
-                             ; character = `Reduce
+                             ; character = Reduce
                              })
                     ; type'
                     })
@@ -150,7 +150,7 @@ module Stdlib : S = struct
                           (Reduce
                              { associative = false
                              ; explicitZero = false
-                             ; character = `Reduce
+                             ; character = Reduce
                              })
                     ; type'
                     })
@@ -175,7 +175,7 @@ module Stdlib : S = struct
                           (Reduce
                              { associative = true
                              ; explicitZero = false
-                             ; character = `Scan
+                             ; character = Scan
                              })
                     ; type'
                     })
@@ -198,10 +198,7 @@ module Stdlib : S = struct
                     { name =
                         Func
                           (Reduce
-                             { associative = true
-                             ; explicitZero = true
-                             ; character = `Scan
-                             })
+                             { associative = true; explicitZero = true; character = Scan })
                     ; type'
                     })
             ; type' =
@@ -220,7 +217,7 @@ module Stdlib : S = struct
           Intrinsic
             { makeValue =
                 (fun type' ->
-                  Expr.Primitive { name = Func (Fold { character = `Fold }); type' })
+                  Expr.Primitive { name = Func (Fold { character = Fold }); type' })
             ; type' =
                 {|
                 (Pi (d @cell-shape)

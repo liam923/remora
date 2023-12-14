@@ -107,6 +107,18 @@ module Expr = struct
     }
   [@@deriving sexp, compare, equal]
 
+  type reduceCharacter =
+    | Reduce
+    | Scan
+    | OpenScan
+  [@@deriving compare, sexp, equal]
+
+  type foldCharacter =
+    | Fold
+    | Trace
+    | OpenTrace
+  [@@deriving compare, sexp, equal]
+
   type primitiveFuncName =
     | Add
     | Sub
@@ -116,9 +128,9 @@ module Expr = struct
     | Reduce of
         { associative : bool
         ; explicitZero : bool
-        ; character : [ `Reduce | `Scan | `OpenScan ]
+        ; character : reduceCharacter
         }
-    | Fold of { character : [ `Fold | `Trace | `OpenTrace ] }
+    | Fold of { character : foldCharacter }
     | Append
     | Index
     | Scatter

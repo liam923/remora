@@ -121,10 +121,10 @@ module GenState = struct
 
   type ('a, 'e) u = (state, 'a, 'e) t
 
-  let defineFun (name : CBuilder.name) ~(f : C.name -> (C.fun', 'e) u) : (C.name, 'e) u =
-    makeF ~f:(fun inState ->
-      CBuilder.defineFunL name ~f:(fun name -> run (f name) inState))
-  ;;
+  (* let defineFun (name : CBuilder.name) ~(f : C.name -> (C.fun', 'e) u) : (C.name, 'e) u =
+     makeF ~f:(fun inState ->
+     CBuilder.defineFunL name ~f:(fun name -> run (f name) inState))
+     ;; *)
 
   let defineStruct (name : CBuilder.name) ~(f : C.name -> (C.struct', 'e) u)
     : (C.name, 'e) u
@@ -150,17 +150,26 @@ module GenState = struct
 
   let block prog =
     let open Let_syntax in
+    let%bind outerBlockState = get () in
+    let%bind () = set { outerBlockState with statementsRev = [] } in
     let%bind () = prog in
-    flushBlock ()
+    let%bind innerBlockState = get () in
+    let%bind () =
+      set { innerBlockState with statementsRev = outerBlockState.statementsRev }
+    in
+    return @@ List.rev innerBlockState.statementsRev
   ;;
 
   let createName name = returnF (CBuilder.createName name)
 
-  let storeExpr ?(name = "storedExpr") expr =
+  let storeExpr ?(name = "storedExpr") (expr : C.expr) =
     let open Let_syntax in
-    let%bind name = createName (NameOfStr { str = name; needsUniquifying = true }) in
-    let%map () = writeStatement @@ C.Define { name; type' = None; value = Some expr } in
-    C.VarRef name
+    match expr with
+    | Literal _ | VarRef _ -> (* Don't need to store if its a constant *) return expr
+    | _ ->
+      let%bind name = createName (NameOfStr { str = name; needsUniquifying = true }) in
+      let%map () = writeStatement @@ C.Define { name; type' = None; value = Some expr } in
+      C.VarRef name
   ;;
 end
 
@@ -234,9 +243,8 @@ let rec genType ?(wrapInPtr = false) type' : (C.type', _) GenState.u =
     cType
 ;;
 
-type 'l hostOrDevice =
-  | Host : host hostOrDevice
-  | Device : device hostOrDevice
+type 'l hostOrDevice = Host : host hostOrDevice
+(* | Device : device hostOrDevice *)
 
 let genDim ({ const; refs; lens } : Index.dimension) =
   let addRefs init =
@@ -739,36 +747,86 @@ and genExpr
     in
     let%bind mapResultDerefersAndTypes =
       mapResultTypes
-      |> List.mapi ~f:(fun i resultType ->
+      |> List.mapi ~f:(fun i resultTypeArr ->
         let%bind derefer =
           genArrayDeref
-            ~arrayType:resultType
+            ~arrayType:resultTypeArr
             ~isMem:true
             (C.FieldDeref { value = cMapResultMem; fieldName = tupleFieldName i })
         in
-        return @@ (derefer, resultType))
+        return @@ (derefer, guillotineType resultTypeArr))
       |> GenState.all
     in
     let%bind loopVar =
       GenState.createName (NameOfStr { str = "i"; needsUniquifying = true })
     in
-    let%bind consumerPreLoop, consumerInLoop, consumerResult =
+    let%bind consumerInLoop, consumerResult =
       match consumer with
       | None ->
-        let preLoop = return () in
-        let inLoop = return () in
         let%bind unitType = genType @@ Tuple [] in
-        return @@ (preLoop, inLoop, C.StructConstructor { type' = unitType; args = [] })
-      | Some (ReduceSeq { arg; zero; mappedMemArgs; body; d; character; type' }) ->
+        return @@ (return (), C.StructConstructor { type' = unitType; args = [] })
+      | Some (ReduceSeq { arg; zero; mappedMemArgs; body; d = _; character; type' = _ })
+        ->
         let accVar = C.Name.UniqueName arg.firstBinding in
         let stepVar = C.Name.UniqueName arg.secondBinding in
         let%bind accType = genType @@ Expr.type' body in
         let%bind cZero =
           zero |> Option.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all_opt
         in
-        let preLoop =
+        let%bind () =
           GenState.writeStatement
           @@ C.Define { name = accVar; type' = Some accType; value = cZero }
+        in
+        let%bind reduceMemArgsWithDerefers =
+          mappedMemArgs
+          |> List.map ~f:(fun arg ->
+            let%bind argRef = genMem ~hostOrDevice ~store:true arg.mem in
+            let%bind derefer =
+              genArrayDeref ~arrayType:(Mem.type' arg.mem) ~isMem:true argRef
+            in
+            return @@ (arg, derefer))
+          |> GenState.all
+        in
+        let%bind characterInLoop, characterResult =
+          match character with
+          | Reduce -> return @@ (return (), C.VarRef accVar)
+          | Scan mem ->
+            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind memDerefer =
+              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
+            in
+            let inLoop =
+              genCopyExprToMem
+                ~mem:(memDerefer (VarRef loopVar))
+                ~expr:(VarRef accVar)
+                ~type':(Expr.type' body)
+            in
+            return (inLoop, cMem)
+          | OpenScan mem ->
+            (* Ignoring the case of open scan with no zero since it is non-sensical *)
+            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind memDerefer =
+              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
+            in
+            let%bind () =
+              genCopyExprToMem
+                ~mem:(memDerefer (Literal (Int64Literal 0)))
+                ~expr:(VarRef accVar)
+                ~type':(Expr.type' body)
+            in
+            let inLoop =
+              genCopyExprToMem
+                ~mem:
+                  (memDerefer
+                   @@ Binop
+                        { op = "+"
+                        ; arg1 = VarRef loopVar
+                        ; arg2 = Literal (Int64Literal 1)
+                        })
+                ~expr:(VarRef accVar)
+                ~type':(Expr.type' body)
+            in
+            return (inLoop, cMem)
         in
         let inLoop =
           let rec getValueOfProductionTuple
@@ -789,6 +847,17 @@ and genExpr
             GenState.writeStatement
             @@ C.Define { name = stepVar; type' = Some accType; value = Some stepValue }
           in
+          let%bind () =
+            reduceMemArgsWithDerefers
+            |> List.map ~f:(fun (arg, derefer) ->
+              GenState.writeStatement
+              @@ C.Define
+                   { name = UniqueName arg.memBinding
+                   ; type' = None
+                   ; value = Some (derefer (VarRef loopVar))
+                   })
+            |> GenState.all_unit
+          in
           let doReduceStep =
             let%bind body = genExpr ~hostOrDevice ~store:false body in
             GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
@@ -806,23 +875,25 @@ and genExpr
                    (C.Assign { lhs = VarRef accVar; rhs = VarRef stepVar })
             in
             let%bind subsequentIteration = GenState.block @@ doReduceStep in
-            GenState.writeStatement
-            @@ C.Ite
-                 { cond =
-                     C.Binop
-                       { op = "=="
-                       ; arg1 = VarRef loopVar
-                       ; arg2 = Literal (Int64Literal 0)
-                       }
-                 ; thenBranch = firstIteration
-                 ; elseBranch = subsequentIteration
-                 }
+            let%bind () =
+              GenState.writeStatement
+              @@ C.Ite
+                   { cond =
+                       C.Binop
+                         { op = "=="
+                         ; arg1 = VarRef loopVar
+                         ; arg2 = Literal (Int64Literal 0)
+                         }
+                   ; thenBranch = firstIteration
+                   ; elseBranch = subsequentIteration
+                   }
+            in
+            characterInLoop
         in
-        return @@ (preLoop, inLoop, C.VarRef accVar)
-      | Some (Fold _) -> poop
-      | Some (Scatter _) -> poop
+        return @@ (inLoop, characterResult)
+      | Some (Fold _) -> raise Unimplemented.default
+      | Some (Scatter _) -> raise Unimplemented.default
     in
-    let%bind () = consumerPreLoop in
     let%bind body =
       GenState.block
       @@
@@ -1023,7 +1094,7 @@ and genMemLet
   let%bind () =
     memArgs
     |> List.map ~f:(fun { memBinding; mem } ->
-      let%bind varType = genType @@ Mem.type' mem in
+      let%bind varType = genType ~wrapInPtr:true @@ Mem.type' mem in
       let%bind mem = genMem ~hostOrDevice ~store:false mem in
       GenState.writeStatement
       @@ C.Define { name = UniqueName memBinding; type' = Some varType; value = Some mem })

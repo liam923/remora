@@ -65,12 +65,16 @@ open Buffer
 open Buffer.Let_syntax
 
 let showName (name : name) =
+  let replacements =
+    Map.of_alist_exn (module Char) [ '-', "_"; '+', "plus"; '*', "mul"; '/', "div" ]
+  in
   let nameStr =
     match name with
     | UniqueName id -> [%string "%{Identifier.name id}_%{Identifier.uniqueNum id#Int}"]
-    | StrName str -> [%string "%{str}_"]
+    | StrName str -> str
   in
-  String.substr_replace_all nameStr ~pattern:"-" ~with_:"_"
+  String.concat_map nameStr ~f:(fun c ->
+    Map.find replacements c |> Option.value ~default:(String.of_char c))
 ;;
 
 let rec showType : type' -> string = function
@@ -178,17 +182,17 @@ let printFunDec { name; value = { isKernel; args; returnType; body } } =
       [%string "%{kernel}%{showType returnType} %{showName name}(%{printArgs args}) {"]
   in
   let%bind () = indent @@ printBlock body in
-  let%bind () = printLine "}" in
+  let%bind () = printLine "};" in
   return ()
 ;;
 
 let printStructDec { name; value = fields } =
   let printField { name; type' } =
-    printLine [%string "%{showType type'} %{showName name}"]
+    printLine [%string "%{showType type'} %{showName name};"]
   in
   let%bind () = printLine [%string "struct %{showName name} {"] in
   let%bind () = fields |> List.map ~f:printField |> all_unit in
-  let%bind () = printLine "}" in
+  let%bind () = printLine "};" in
   return ()
 ;;
 

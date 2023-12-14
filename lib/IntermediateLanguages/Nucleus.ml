@@ -127,6 +127,9 @@ module Expr = struct
     ; value : array
     }
 
+  and reduceCharacter = Typed.Expr.reduceCharacter
+  and foldCharacter = Typed.Expr.foldCharacter
+
   and arrayPrimitive =
     | Map of
         { frameShape : Index.shape
@@ -143,7 +146,7 @@ module Expr = struct
         ; d : Index.dimension
         ; cellShape : Index.shape
         ; associative : bool
-        ; character : [ `Reduce | `Scan | `OpenScan ]
+        ; character : reduceCharacter
         ; type' : Type.array
         }
     | Fold of
@@ -152,7 +155,7 @@ module Expr = struct
         ; body : array
         ; d : Index.dimension
         ; cellShape : Index.shape
-        ; character : [ `Fold | `Trace | `OpenTrace ]
+        ; character : foldCharacter
         ; type' : Type.array
         }
     | Append of

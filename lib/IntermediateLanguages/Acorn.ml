@@ -229,9 +229,15 @@ module Expr = struct
     ; type' : Type.t
     }
 
-  type reduceCharacter = Corn.Expr.reduceCharacter
+  type 'l reduceCharacter =
+    | Reduce
+    | Scan of 'l Mem.t
+    | OpenScan of 'l Mem.t
 
-  type foldCharacter = Corn.Expr.foldCharacter
+  type 'l foldCharacter =
+    | Fold
+    | Trace of 'l Mem.t
+    | OpenTrace of 'l Mem.t
 
   and ('l, 'c) boxValue =
     { box : ('l, 'c) t
@@ -360,7 +366,7 @@ module Expr = struct
     ; mappedMemArgs : 'lOuter memArg list
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
-    ; character : reduceCharacter
+    ; character : 'lOuter reduceCharacter
     ; type' : Type.t
     }
 
@@ -380,7 +386,7 @@ module Expr = struct
     ; mappedMemArgs : 'lOuter memArg list
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
-    ; character : foldCharacter
+    ; character : 'lOuter foldCharacter
     ; type' : Type.t
     }
 
@@ -695,9 +701,9 @@ module Expr = struct
           { arg; zero; mappedMemArgs; body; d = _; character; type' = _ } ->
       let characterName =
         match character with
-        | `Reduce -> "reduce"
-        | `Scan -> "scan"
-        | `OpenScan -> "open-scan"
+        | Reduce -> "reduce"
+        | Scan _ -> "scan"
+        | OpenScan _ -> "open-scan"
       in
       let zeroName =
         match zero with
@@ -753,9 +759,9 @@ module Expr = struct
           { zeroArg; arrayArgs; mappedMemArgs; body; d = _; character; type' = _ } ->
       let opName =
         match character with
-        | `Fold -> "fold"
-        | `Trace -> "trace"
-        | `OpenTrace -> "open-trace"
+        | Fold -> "fold"
+        | Trace _ -> "trace"
+        | OpenTrace _ -> "open-trace"
       in
       Sexp.List
         [ Sexp.Atom opName
