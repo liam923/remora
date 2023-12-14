@@ -775,8 +775,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
             | None -> return None
           in
           ( I.ArrayPrimitive
-              (Reduce
-                 { arg; body; zero; d; itemPad; cellShape; associative; character; type' })
+              (Reduce { arg; body; zero; d; cellShape; associative; character; type' })
           , functions )
         | _ ->
           raise
@@ -882,7 +881,6 @@ and inlineTermApplication subs indexEnv appStack termApplication =
                  ; arrayArgs
                  ; body
                  ; d
-                 ; itemPad
                  ; cellShape
                  ; character
                  ; type'

@@ -634,7 +634,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
     let%bind consumerUsages, consumer =
       match consumer, consumerRequest with
       | _, Elements [] | None, _ -> return (Set.empty (module Identifier), None)
-      | Some (Reduce { arg; zero; d; body; itemPad; associative; character; type' }), _ ->
+      | Some (Reduce { arg; zero; d; body; associative; character; type' }), _ ->
         let%bind zero =
           zero |> Option.map ~f:(reduceTuplesInExpr Whole) |> ReduceTupleState.all_opt
         in
@@ -672,14 +672,13 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
             ; zero
             ; body = Expr.let' ~args:unpackers ~body
             ; d
-            ; itemPad
             ; associative
             ; character
             ; type'
             }
         in
         usages, Some reduce
-      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }), _ ->
+      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }), _ ->
         let%bind body = reduceTuplesInExpr Whole body in
         let%bind caches = ReduceTupleState.getCaches () in
         let bindings =
@@ -716,7 +715,6 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
             ; arrayArgs
             ; body = Expr.let' ~args:unpackers ~body
             ; d
-            ; itemPad
             ; character
             ; type'
             }

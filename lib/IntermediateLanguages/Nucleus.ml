@@ -141,7 +141,6 @@ module Expr = struct
         ; zero : array option
         ; body : array
         ; d : Index.dimension
-        ; itemPad : Index.shape
         ; cellShape : Index.shape
         ; associative : bool
         ; character : [ `Reduce | `Scan | `OpenScan ]
@@ -152,7 +151,6 @@ module Expr = struct
         ; arrayArgs : arg list
         ; body : array
         ; d : Index.dimension
-        ; itemPad : Index.shape
         ; cellShape : Index.shape
         ; character : [ `Fold | `Trace | `OpenTrace ]
         ; type' : Type.array

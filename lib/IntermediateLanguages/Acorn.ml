@@ -262,7 +262,6 @@ module Expr = struct
     ; mappedMemArgs : 'lOuter memArg list
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
-    ; itemPad : Index.shape
     ; character : reduceCharacter
     ; type' : Type.t
     }
@@ -280,7 +279,6 @@ module Expr = struct
     ; mappedMemArgs : 'lOuter memArg list
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
-    ; itemPad : Index.shape
     ; character : foldCharacter
     ; type' : Type.t
     }
@@ -577,7 +575,7 @@ module Expr = struct
       fun sexp_of_a
           sexp_of_b
           sexp_of_c
-          { arg; zero; mappedMemArgs; body; d = _; itemPad; character; type' = _ } ->
+          { arg; zero; mappedMemArgs; body; d = _; character; type' = _ } ->
       let characterName =
         match character with
         | `Reduce -> "reduce"
@@ -591,7 +589,7 @@ module Expr = struct
       in
       let opName = [%string "%{characterName}%{zeroName}"] in
       Sexp.List
-        ([ Sexp.Atom opName; Index.sexp_of_shape itemPad ]
+        ([ Sexp.Atom opName ]
          @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a sexp_of_c) |> Option.to_list)
          @ (match mappedMemArgs with
             | [] -> []
@@ -635,15 +633,7 @@ module Expr = struct
       fun sexp_of_a
           sexp_of_b
           sexp_of_c
-          { zeroArg
-          ; arrayArgs
-          ; mappedMemArgs
-          ; body
-          ; d = _
-          ; itemPad
-          ; character
-          ; type' = _
-          } ->
+          { zeroArg; arrayArgs; mappedMemArgs; body; d = _; character; type' = _ } ->
       let opName =
         match character with
         | `Fold -> "fold"
@@ -652,7 +642,6 @@ module Expr = struct
       in
       Sexp.List
         [ Sexp.Atom opName
-        ; Index.sexp_of_shape itemPad
         ; Sexp.List
             [ Sexp.Atom (Identifier.show zeroArg.zeroBinding)
             ; sexp_of_t sexp_of_a sexp_of_c zeroArg.zeroValue

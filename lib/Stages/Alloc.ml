@@ -422,9 +422,7 @@ let rec allocRequest
         Acorn.Expr.{ memBinding; mem = outerMemDeviceToL mem })
       @ mapBodyMemArgs
     in
-    let processReduce
-      Corn.Expr.{ arg; zero; body; d; itemPad; character; type' = reduceType }
-      =
+    let processReduce Corn.Expr.{ arg; zero; body; d; character; type' = reduceType } =
       let%map zero =
         zero
         |> Option.map ~f:(fun zero ->
@@ -455,7 +453,6 @@ let rec allocRequest
         ; mappedMemArgs = bodyMemArgs
         ; body
         ; d
-        ; itemPad
         ; character
         ; type' = canonicalizeType reduceType
         }
@@ -502,7 +499,7 @@ let rec allocRequest
                ; outerMappedMemArgs = outerBodyMemArgs
                })
         , true )
-      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let%map zeroValue =
           allocRequest
             outerCaptureAvoider
@@ -534,7 +531,6 @@ let rec allocRequest
                ; mappedMemArgs = bodyMemArgs
                ; body
                ; d
-               ; itemPad
                ; character
                ; type' = canonicalizeType type'
                })

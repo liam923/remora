@@ -113,32 +113,24 @@ module Captures = struct
         | None -> empty
         | Some
             (ReduceSeq
-              { arg; zero; mappedMemArgs = _; body; d; itemPad; character = _; type' = _ })
-          ->
+              { arg; zero; mappedMemArgs = _; body; d; character = _; type' = _ }) ->
           let zeroCaptures = getOpt zero ~f:getInExpr in
           let argBindings =
             Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
           in
           let bodyCaptures = getInExpr body - argBindings in
-          zeroCaptures + bodyCaptures + getInDim d + getInShape itemPad
+          zeroCaptures + bodyCaptures + getInDim d
         | Some
             (Fold
-              { zeroArg
-              ; arrayArgs
-              ; mappedMemArgs = _
-              ; body
-              ; d
-              ; itemPad
-              ; character = _
-              ; type' = _
-              }) ->
+              { zeroArg; arrayArgs; mappedMemArgs = _; body; d; character = _; type' = _ })
+          ->
           let zeroCaptures = getInExpr zeroArg.zeroValue in
           let argBindings =
             zeroArg.zeroBinding :: List.map arrayArgs ~f:(fun arg -> arg.binding)
             |> Set.of_list (module Identifier)
           in
           let bodyCaptures = getInExpr body - argBindings in
-          zeroCaptures + bodyCaptures + getInDim d + getInShape itemPad
+          zeroCaptures + bodyCaptures + getInDim d
         | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; mem = _; type' = _ })
           -> getInDim dIn + getInDim dOut
       in
@@ -198,26 +190,23 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       } ->
     let consumer =
       Option.map consumer ~f:(function
-        | ReduceSeq { arg; zero; mappedMemArgs; body; d; itemPad; character; type' } ->
+        | ReduceSeq { arg; zero; mappedMemArgs; body; d; character; type' } ->
           Expr.ReduceSeq
             { arg
             ; zero = Option.map zero ~f:annotateExpr
             ; mappedMemArgs
             ; body = annotateExpr body
             ; d
-            ; itemPad
             ; character
             ; type'
             }
-        | Fold { zeroArg; arrayArgs; mappedMemArgs; body; d; itemPad; character; type' }
-          ->
+        | Fold { zeroArg; arrayArgs; mappedMemArgs; body; d; character; type' } ->
           Expr.Fold
             { zeroArg = { zeroArg with zeroValue = annotateExpr zeroArg.zeroValue }
             ; arrayArgs
             ; mappedMemArgs
             ; body = annotateExpr body
             ; d
-            ; itemPad
             ; character
             ; type'
             }
@@ -264,7 +253,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       | None -> Captures.empty, None
       | Some
           (ReducePar
-            { reduce = { arg; zero; mappedMemArgs; body; d; itemPad; character; type' }
+            { reduce = { arg; zero; mappedMemArgs; body; d; character; type' }
             ; interimResultMem
             ; outerBody
             ; outerMappedMemArgs
@@ -281,7 +270,6 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
                    ; mappedMemArgs
                    ; body = annotateExpr body
                    ; d
-                   ; itemPad
                    ; character
                    ; type'
                    }

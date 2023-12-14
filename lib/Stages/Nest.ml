@@ -180,8 +180,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     let%map body = decompose mapArgs None frameShape in
     Let { args = letArgs; body; type' = Nested.Expr.type' body }
   | ArrayPrimitive
-      (Reduce
-        { arg; zero; body; d; itemPad; cellShape = _; associative; character; type' }) ->
+      (Reduce { arg; zero; body; d; cellShape = _; associative; character; type' }) ->
     let type' = nestTypeArray type' in
     let%bind productionBinding = NestState.createId "reduce-arg"
     and argValue = nestArray arg.value in
@@ -198,9 +197,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       | Some zero -> nestArray zero |> NestState.map ~f:(fun z -> Some z)
       | None -> return None
     and body = nestArray body in
-    let consumer =
-      Reduce { arg; zero; body; d; itemPad; associative; character; type' }
-    in
+    let consumer = Reduce { arg; zero; body; d; associative; character; type' } in
     let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap (Nested.Index.Add d) [ productionBinding, argValue ]
     in
@@ -224,8 +221,8 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
             }
       ; type'
       }
-  | ArrayPrimitive
-      (Fold { zeroArg; arrayArgs; body; d; itemPad; cellShape = _; character; type' }) ->
+  | ArrayPrimitive (Fold { zeroArg; arrayArgs; body; d; cellShape = _; character; type' })
+    ->
     let type' = nestTypeArray type' in
     let%bind zeroArgValue = nestArray zeroArg.value in
     let zeroArg = { zeroBinding = zeroArg.binding; zeroValue = zeroArgValue } in
@@ -243,7 +240,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       |> NestState.all
     and body = nestArray body in
     let arrayBindings, arrayValues, arrayArgs = List.unzip3 arrays in
-    let consumer = Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' } in
+    let consumer = Fold { zeroArg; arrayArgs; body; d; character; type' } in
     let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap (Nested.Index.Add d) (List.zip_exn arrayBindings arrayValues)
     in

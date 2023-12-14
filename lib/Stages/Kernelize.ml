@@ -348,7 +348,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     let%bind consumerAsHostExpr, consumerAsDeviceExpr, consumerAsHostParShape, parConsumer
       =
       match consumer with
-      | Reduce { arg; zero; body; d; itemPad; associative; character; type' } ->
+      | Reduce { arg; zero; body; d; associative; character; type' } ->
         let%map zeroOpts = zero |> Option.map ~f:getOpts |> KernelizeState.all_opt
         and bodyOpts = getOpts body in
         let zeroOptsHostParShapeAsList =
@@ -359,7 +359,6 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             ; zero = Option.map zeroOpts ~f:hostExpr
             ; body = bodyOpts.hostExpr
             ; d
-            ; itemPad
             ; character
             ; type'
             }
@@ -368,7 +367,6 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             ; zero = Option.map zeroOpts ~f:deviceExpr
             ; body = bodyOpts.deviceExpr
             ; d
-            ; itemPad
             ; character
             ; type'
             }
@@ -382,7 +380,6 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                       ; zero = Option.map zeroOpts ~f:hostExpr
                       ; body = bodyOpts.deviceExpr
                       ; d
-                      ; itemPad
                       ; character
                       ; type'
                       }
@@ -392,7 +389,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                   (ParallelismShape.singleDimensionParallelism (Add d)
                    :: zeroOptsHostParShapeAsList) )
           else None )
-      | Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' } ->
+      | Fold { zeroArg; arrayArgs; body; d; character; type' } ->
         let%map bodyOpts = getOpts body
         and zeroArgValueOpts = getOpts zeroArg.zeroValue in
         ( Expr.Fold
@@ -403,7 +400,6 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             ; arrayArgs
             ; body = bodyOpts.hostExpr
             ; d
-            ; itemPad
             ; character
             ; type'
             }
@@ -415,7 +411,6 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             ; arrayArgs
             ; body = bodyOpts.deviceExpr
             ; d
-            ; itemPad
             ; character
             ; type'
             }

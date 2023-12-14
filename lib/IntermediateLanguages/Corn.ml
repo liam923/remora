@@ -103,7 +103,6 @@ module Expr = struct
     ; zero : 'lOuter t option
     ; body : 'lInner t
     ; d : Index.dimension
-    ; itemPad : Index.shape
     ; character : reduceCharacter
     ; type' : Type.t
     }
@@ -118,7 +117,6 @@ module Expr = struct
     ; arrayArgs : foldArrayArg list
     ; body : 'lInner t
     ; d : Index.dimension
-    ; itemPad : Index.shape
     ; character : foldCharacter
     ; type' : Type.t
     }
@@ -381,7 +379,7 @@ module Expr = struct
     and sexp_of_reduce
       : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) reduce -> Sexp.t
       =
-      fun sexp_of_a sexp_of_b { arg; zero; body; d = _; itemPad; character; type' = _ } ->
+      fun sexp_of_a sexp_of_b { arg; zero; body; d = _; character; type' = _ } ->
       let characterName =
         match character with
         | `Reduce -> "reduce"
@@ -395,7 +393,7 @@ module Expr = struct
       in
       let opName = [%string "%{characterName}%{zeroName}"] in
       Sexp.List
-        ([ Sexp.Atom opName; Index.sexp_of_shape itemPad ]
+        ([ Sexp.Atom opName ]
          @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a) |> Option.to_list)
          @ [ Sexp.List
                [ Sexp.Atom (Identifier.show arg.firstBinding)
@@ -415,9 +413,7 @@ module Expr = struct
         ]
 
     and sexp_of_fold : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) fold -> Sexp.t =
-      fun sexp_of_a
-          sexp_of_b
-          { zeroArg; arrayArgs; body; d = _; itemPad; character; type' = _ } ->
+      fun sexp_of_a sexp_of_b { zeroArg; arrayArgs; body; d = _; character; type' = _ } ->
       let opName =
         match character with
         | `Fold -> "fold"
@@ -426,7 +422,6 @@ module Expr = struct
       in
       Sexp.List
         [ Sexp.Atom opName
-        ; Index.sexp_of_shape itemPad
         ; Sexp.List
             [ Sexp.Atom (Identifier.show zeroArg.zeroBinding)
             ; sexp_of_t sexp_of_a zeroArg.zeroValue

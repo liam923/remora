@@ -152,9 +152,7 @@ let getCounts =
       and consumerCounts =
         match consumer with
         | None -> Counts.empty
-        | Some
-            (Reduce
-              { arg; body; zero; d; itemPad; associative = _; character = _; type' = _ })
+        | Some (Reduce { arg; body; zero; d; associative = _; character = _; type' = _ })
           ->
           let argCounts = getCountsProductionTuple inLoop arg.production
           and bodyCounts = getCountsExpr true body
@@ -162,11 +160,9 @@ let getCounts =
             zero
             |> Option.map ~f:(getCountsExpr inLoop)
             |> Option.value ~default:Counts.empty
-          and dCounts = getCountsIndex inLoop (Dimension d)
-          and itemPadCounts = getCountsIndex inLoop (Shape itemPad) in
-          Counts.merge [ argCounts; bodyCounts; zeroCounts; dCounts; itemPadCounts ]
-        | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character = _; type' = _ })
-          ->
+          and dCounts = getCountsIndex inLoop (Dimension d) in
+          Counts.merge [ argCounts; bodyCounts; zeroCounts; dCounts ]
+        | Some (Fold { zeroArg; arrayArgs; body; d; character = _; type' = _ }) ->
           let zeroCounts = getCountsExpr inLoop zeroArg.zeroValue
           and arrayCounts =
             arrayArgs
@@ -174,9 +170,8 @@ let getCounts =
               Counts.one production.productionId ~inLoop)
             |> Counts.merge
           and bodyCounts = getCountsExpr true body
-          and dCounts = getCountsIndex inLoop (Dimension d)
-          and itemPadCounts = getCountsIndex inLoop (Shape itemPad) in
-          Counts.merge [ zeroCounts; arrayCounts; bodyCounts; dCounts; itemPadCounts ]
+          and dCounts = getCountsIndex inLoop (Dimension d) in
+          Counts.merge [ zeroCounts; arrayCounts; bodyCounts; dCounts ]
         | Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' = _ }) ->
           Counts.merge
             [ Counts.one valuesArg.productionId ~inLoop
@@ -276,7 +271,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
       in
       match consumer with
       | None -> return None
-      | Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' }) ->
+      | Some (Reduce { arg; body; zero; d; associative; character; type' }) ->
         let rec productionTupleContainsIdInSubs : Expr.productionTuple -> bool = function
           | ProductionTuple { elements; type' = _ } ->
             List.exists elements ~f:productionTupleContainsIdInSubs
@@ -293,8 +288,8 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
             Some zero
           | None -> return None
         in
-        Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' })
-      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
+        Some (Reduce { arg; body; zero; d; associative; character; type' })
+      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let%map zeroArg =
           let%map zeroValue = subExpr subKey subValue zeroArg.zeroValue in
           { zeroBinding = zeroArg.zeroBinding; zeroValue }
@@ -305,7 +300,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
             { binding; production })
           |> Option.all
         and body = subExpr subKey subValue body in
-        Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' })
+        Some (Fold { zeroArg; arrayArgs; body; d; character; type' })
       | Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' }) ->
         let%map valuesArg = subProduction valuesArg
         and indicesArg = subProduction indicesArg in
@@ -491,11 +486,11 @@ let rec optimize : Expr.t -> Expr.t =
     let consumer =
       match consumer with
       | None -> None
-      | Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' }) ->
+      | Some (Reduce { arg; body; zero; d; associative; character; type' }) ->
         let body = optimize body
         and zero = Option.map zero ~f:optimize in
-        Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' })
-      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
+        Some (Reduce { arg; body; zero; d; associative; character; type' })
+      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let body = optimize body
         and zeroArg = { zeroArg with zeroValue = optimize zeroArg.zeroValue } in
         (* Simplify the zero args, removing unused ones *)
@@ -505,7 +500,7 @@ let rec optimize : Expr.t -> Expr.t =
             (* DISCARD!!! *)
             (Counts.get bodyCounts arg.binding).count > 0)
         in
-        Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' })
+        Some (Fold { zeroArg; arrayArgs; body; d; character; type' })
       | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
         scatter -> scatter
     in
@@ -681,7 +676,7 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
     let consumer, consumerHoistings =
       match consumer with
       | (None | Some (Scatter _)) as consumer -> consumer, []
-      | Some (Reduce { arg; body; zero; d; itemPad; associative; character; type' }) ->
+      | Some (Reduce { arg; body; zero; d; associative; character; type' }) ->
         let bindings =
           if minDimensionSize d >= if Option.is_none zero then 2 else 1
           then BindingSet.of_list [ arg.firstBinding; arg.secondBinding ]
@@ -697,9 +692,9 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
             let zero, hoistings = hoistDeclarations zero in
             Some zero, hoistings
         in
-        ( Some (Expr.Reduce { arg; body; zero; d; itemPad; associative; character; type' })
+        ( Some (Expr.Reduce { arg; body; zero; d; associative; character; type' })
         , bodyHoistings @ zeroHoistings )
-      | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let bindings =
           if minDimensionSize d >= 1
           then
@@ -717,7 +712,6 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
                ; arrayArgs
                ; body
                ; d
-               ; itemPad
                ; character
                ; type'
                })
@@ -944,7 +938,7 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
       let%map consumer, consumerHoistings =
         match consumer with
         | (None | Some (Scatter _)) as consumer -> return (consumer, [])
-        | Some (Reduce { arg; zero; body; d; itemPad; associative; character; type' }) ->
+        | Some (Reduce { arg; zero; body; d; associative; character; type' }) ->
           let bindings =
             if minDimensionSize d >= if Option.is_some zero then 2 else 1
             then BindingSet.of_list [ arg.firstBinding; arg.secondBinding ]
@@ -960,10 +954,9 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
               let%map zero, hoistings = hoistExpressions loopBarrier zero in
               Some zero, hoistings
           in
-          ( Some
-              (Expr.Reduce { arg; zero; body; d; itemPad; associative; character; type' })
+          ( Some (Expr.Reduce { arg; zero; body; d; associative; character; type' })
           , bodyHoistings @ zeroHoistings )
-        | Some (Fold { zeroArg; arrayArgs; body; d; itemPad; character; type' }) ->
+        | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
           let%bind zeroArgValue, zeroArgsHoistings =
             hoistExpressions loopBarrier zeroArg.zeroValue
           in
@@ -984,7 +977,6 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
                  ; arrayArgs
                  ; body
                  ; d
-                 ; itemPad
                  ; character
                  ; type'
                  })
