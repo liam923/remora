@@ -891,8 +891,121 @@ and genExpr
             characterInLoop
         in
         return @@ (inLoop, characterResult)
-      | Some (Fold _) -> raise Unimplemented.default
-      | Some (Scatter _) -> raise Unimplemented.default
+      | Some
+          (Fold { arrayArgs; zeroArg; mappedMemArgs; body; d = _; character; type' = _ })
+        ->
+        let accVar = C.Name.UniqueName zeroArg.zeroBinding in
+        let%bind accType = genType @@ Expr.type' body in
+        let%bind cZero = genExpr ~hostOrDevice ~store:false zeroArg.zeroValue in
+        let%bind () =
+          GenState.writeStatement
+          @@ C.Define { name = accVar; type' = Some accType; value = Some cZero }
+        in
+        let%bind foldMemArgsWithDerefers =
+          mappedMemArgs
+          |> List.map ~f:(fun arg ->
+            let%bind argRef = genMem ~hostOrDevice ~store:true arg.mem in
+            let%bind derefer =
+              genArrayDeref ~arrayType:(Mem.type' arg.mem) ~isMem:true argRef
+            in
+            return @@ (arg, derefer))
+          |> GenState.all
+        in
+        let%bind characterInLoop, characterResult =
+          match character with
+          | Fold -> return @@ (return (), C.VarRef accVar)
+          | Trace mem ->
+            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind memDerefer =
+              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
+            in
+            let inLoop =
+              genCopyExprToMem
+                ~mem:(memDerefer (VarRef loopVar))
+                ~expr:(VarRef accVar)
+                ~type':(Expr.type' body)
+            in
+            return (inLoop, cMem)
+          | OpenTrace mem ->
+            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind memDerefer =
+              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
+            in
+            let%bind () =
+              genCopyExprToMem
+                ~mem:(memDerefer (Literal (Int64Literal 0)))
+                ~expr:(VarRef accVar)
+                ~type':(Expr.type' body)
+            in
+            let inLoop =
+              genCopyExprToMem
+                ~mem:
+                  (memDerefer
+                   @@ Binop
+                        { op = "+"
+                        ; arg1 = VarRef loopVar
+                        ; arg2 = Literal (Int64Literal 1)
+                        })
+                ~expr:(VarRef accVar)
+                ~type':(Expr.type' body)
+            in
+            return (inLoop, cMem)
+        in
+        let inLoop =
+          let%bind () =
+            arrayArgs
+            |> List.map ~f:(fun { binding; production } ->
+              let productionValue = C.VarRef (UniqueName production.productionId) in
+              GenState.writeStatement
+              @@ C.Define
+                   { name = UniqueName binding
+                   ; type' = None
+                   ; value = Some productionValue
+                   })
+            |> GenState.all_unit
+          in
+          let%bind () =
+            foldMemArgsWithDerefers
+            |> List.map ~f:(fun (arg, derefer) ->
+              GenState.writeStatement
+              @@ C.Define
+                   { name = UniqueName arg.memBinding
+                   ; type' = None
+                   ; value = Some (derefer (VarRef loopVar))
+                   })
+            |> GenState.all_unit
+          in
+          let%bind body = genExpr ~hostOrDevice ~store:false body in
+          let%bind () =
+            GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
+          in
+          characterInLoop
+        in
+        return @@ (inLoop, characterResult)
+      | Some (Scatter { valuesArg; indicesArg; mem; dIn = _; dOut = _; type' = _ }) ->
+        let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+        let cValueArg = C.VarRef (UniqueName valuesArg.productionId) in
+        let cIndexArg = C.VarRef (UniqueName indicesArg.productionId) in
+        let%bind outputDerefer =
+          genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
+        in
+        let inLoop =
+          let%bind scatterBlock =
+            GenState.block
+            @@ genCopyExprToMem
+                 ~mem:(outputDerefer cIndexArg)
+                 ~expr:cValueArg
+                 ~type':(guillotineType @@ Mem.type' mem)
+          in
+          GenState.writeStatement
+          @@ C.Ite
+               { cond =
+                   Binop { op = ">="; arg1 = cIndexArg; arg2 = Literal (Int64Literal 0) }
+               ; thenBranch = scatterBlock
+               ; elseBranch = []
+               }
+        in
+        return @@ (inLoop, cMem)
     in
     let%bind body =
       GenState.block
