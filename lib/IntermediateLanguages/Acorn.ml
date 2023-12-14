@@ -4,13 +4,101 @@ open! Base
    which explicit memory allocations and kernels annotated with values
    they capture (A for allocate + Corn) *)
 
-module Index = Corn.Index
+module Index = struct
+  type dimension =
+    { const : int
+    ; refs : int Map.M(Identifier).t
+        (* lens is like refs, but instead of ids refering to dimension variables, they are
+           shape variables and represent the lengths of them *)
+    ; lens : int Map.M(Identifier).t
+    }
+  [@@deriving compare, equal]
+
+  type shapeElement =
+    | Add of dimension
+    | ShapeRef of Identifier.t
+  [@@deriving compare, equal]
+
+  type shape = shapeElement list [@@deriving compare, equal]
+  type neShape = shapeElement NeList.t [@@deriving compare, equal]
+
+  type t =
+    | Dimension of dimension
+    | Shape of shape
+  [@@deriving compare, equal]
+
+  let dimensionConstant n =
+    { const = n
+    ; refs = Map.empty (module Identifier)
+    ; lens = Map.empty (module Identifier)
+    }
+  ;;
+
+  let dimensionRef r =
+    { const = 0
+    ; refs = Map.singleton (module Identifier) r 1
+    ; lens = Map.empty (module Identifier)
+    }
+  ;;
+
+  let dimensionLen l =
+    { const = 0
+    ; refs = Map.empty (module Identifier)
+    ; lens = Map.singleton (module Identifier) l 1
+    }
+  ;;
+
+  let addDimensions a b =
+    { const = a.const + b.const
+    ; refs = Map.merge_skewed a.refs b.refs ~combine:(fun ~key:_ a b -> a + b)
+    ; lens = Map.merge_skewed a.lens b.lens ~combine:(fun ~key:_ a b -> a + b)
+    }
+  ;;
+
+  let sort = function
+    | Dimension _ -> Sort.Dim
+    | Shape _ -> Sort.Shape
+  ;;
+
+  let sexp_of_dimension ({ const; refs; lens } : dimension) =
+    match Map.to_alist refs, Map.to_alist lens with
+    | [], [] -> Sexp.Atom (Int.to_string const)
+    | [ (ref, 1) ], [] when const = 0 -> Sexp.Atom (Identifier.show ref)
+    | [], [ (ref, 1) ] when const = 0 ->
+      Sexp.List [ Sexp.Atom "len"; Sexp.Atom (Identifier.show ref) ]
+    | refs, lens ->
+      Sexp.List
+        ([ Sexp.Atom "+"; Sexp.Atom (Int.to_string const) ]
+         @ List.bind refs ~f:(fun (ref, count) ->
+           let refSexp = Sexp.Atom (Identifier.show ref) in
+           List.init count ~f:(fun _ -> refSexp))
+         @ List.bind lens ~f:(fun (ref, count) ->
+           let refSexp = Sexp.List [ Sexp.Atom "len"; Sexp.Atom (Identifier.show ref) ] in
+           List.init count ~f:(fun _ -> refSexp)))
+  ;;
+
+  let sexp_of_shapeElement = function
+    | Add dimension -> sexp_of_dimension dimension
+    | ShapeRef ref -> Sexp.Atom (Identifier.show ref)
+  ;;
+
+  let sexp_of_shape shape =
+    Sexp.List (Sexp.Atom "shape" :: List.map shape ~f:sexp_of_shapeElement)
+  ;;
+
+  let sexp_of_neShape shape = sexp_of_shape @@ NeList.to_list shape
+
+  let sexp_of_t = function
+    | Shape shape -> sexp_of_shape shape
+    | Dimension dimension -> sexp_of_dimension dimension
+  ;;
+end
 
 module Type = struct
   module T = struct
     type array =
-      { element : nonTuple
-      ; size : Index.shapeElement
+      { element : atom
+      ; shape : Index.neShape
       }
 
     and sigmaParam = Corn.Type.sigmaParam
@@ -20,46 +108,19 @@ module Type = struct
       ; body : t
       }
 
-    and tuple = t list
     and literal = Corn.Type.literal
 
-    and nonTuple =
-      | Array of array
+    and atom =
       | Sigma of sigma
       | Literal of literal
 
+    and tuple = t list
+
     and t =
       | Tuple of tuple
-      | NonTuple of nonTuple
-    [@@deriving compare]
-
-    let rec sexp_of_array { element; size } =
-      Sexp.List
-        [ Sexp.List [ Sexp.Atom "element"; sexp_of_nonTuple element ]
-        ; Sexp.List [ Sexp.Atom "size"; Index.sexp_of_shapeElement size ]
-        ]
-
-    and sexp_of_sigmaParam = Corn.Type.sexp_of_sigmaParam
-
-    and sexp_of_sigma { parameters; body } =
-      Sexp.List
-        [ Sexp.List
-            [ Sexp.Atom "parameters"; List.sexp_of_t sexp_of_sigmaParam parameters ]
-        ; Sexp.List [ Sexp.Atom "body"; sexp_of_t body ]
-        ]
-
-    and sexp_of_tuple elements = List.sexp_of_t sexp_of_t elements
-    and sexp_of_literal = Corn.Type.sexp_of_literal
-
-    and sexp_of_nonTuple = function
-      | Array array -> Sexp.List [ Sexp.Atom "Array"; sexp_of_array array ]
-      | Sigma sigma -> Sexp.List [ Sexp.Atom "Sigma"; sexp_of_sigma sigma ]
-      | Literal literal -> Sexp.List [ Sexp.Atom "Literal"; sexp_of_literal literal ]
-
-    and sexp_of_t = function
-      | Tuple tuple -> Sexp.List [ Sexp.Atom "Tuple"; sexp_of_tuple tuple ]
-      | NonTuple t -> sexp_of_nonTuple t
-    ;;
+      | Atom of atom
+      | Array of array
+    [@@deriving compare, sexp_of]
   end
 
   include T
@@ -67,8 +128,16 @@ module Type = struct
 
   let rec array ~element ~size =
     match element with
-    | NonTuple t -> NonTuple (Array { element = t; size })
+    | Array innerArray ->
+      Array { element = innerArray.element; shape = NeList.cons size innerArray.shape }
+    | Atom atom -> Array { element = atom; shape = [ size ] }
     | Tuple elements -> Tuple (List.map elements ~f:(fun t -> array ~element:t ~size))
+  ;;
+
+  let arrayOfShape ~element ~shape =
+    match shape with
+    | [] -> Atom element
+    | head :: rest -> Array { element; shape = head :: rest }
   ;;
 end
 
@@ -84,6 +153,7 @@ module Mem = struct
     | MallocDevice
   [@@deriving sexp_of]
 
+  (** A Mem.t represents a location in memory, on either host or device *)
   type 'l t =
     | Ref :
         { id : Identifier.t
@@ -109,10 +179,12 @@ module Mem = struct
     | Index :
         { mem : 'l t
         ; offset : Index.dimension
-        ; elementType : Type.t
         ; type' : Type.t
         }
         -> 'l t
+        (** mem is expected to have an array type (or a tuple of arrays) where the
+            first shape element is a single dimension. offset is an index of an element
+            in that array *)
   [@@deriving sexp_of]
 
   let type' : type l. l t -> Type.t = function
@@ -129,15 +201,14 @@ module Mem = struct
       TupleDeref { tuple = deviceToHost tuple; index; type' }
     | Values { elements; type' } ->
       Values { elements = List.map elements ~f:deviceToHost; type' }
-    | Index { mem; offset; elementType; type' } ->
-      Index { mem = deviceToHost mem; offset; elementType; type' }
+    | Index { mem; offset; type' } -> Index { mem = deviceToHost mem; offset; type' }
   ;;
 
   let tupleDeref : type l. tuple:l t -> index:int -> l t =
     fun ~tuple ~index ->
     let extractElementType = function
       | Type.Tuple types -> List.nth_exn types index
-      | Type.NonTuple _ -> raise (Unreachable.Error "Expected tuple type")
+      | Type.Array _ | Type.Atom _ -> raise (Unreachable.Error "Expected tuple type")
     in
     match tuple with
     | Values { elements; type' = _ } -> List.nth_exn elements index
@@ -187,11 +258,11 @@ module Expr = struct
     }
 
   and 'l reifyShapeIndex =
-    { shapeIndex : Index.shape
+    { shape : Index.shape
     ; mem : 'l Mem.t
     }
 
-  and reifyDimensionIndex = { dimIndex : Index.dimension }
+  and reifyDimensionIndex = { dim : Index.dimension }
 
   and ('l, 'c) letArg =
     { binding : Identifier.t
@@ -213,10 +284,14 @@ module Expr = struct
     ; body : 's
     }
 
+  and ('l, 'c) boxIndex =
+    { expr : ('l, 'c) t
+    ; index : Index.t
+    }
+
   and ('l, 'c) box =
-    { indices : Index.t list
+    { indices : ('l, 'c) boxIndex list
     ; body : ('l, 'c) t
-    ; bodyType : Type.t
     ; type' : Type.sigma
     }
 
@@ -229,7 +304,12 @@ module Expr = struct
     }
 
   and tupleMatch = Nested.Expr.tupleMatch
-  and mapArg = Nested.Expr.mapArg
+
+  and mapArg =
+    { binding : Identifier.t
+    ; ref : ref
+    }
+
   and mapIota = Nested.Expr.mapIota
 
   (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
@@ -241,7 +321,7 @@ module Expr = struct
     ; mapBody : ('lInner, 'c) t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
-    ; mapResultMem : 'lOuter Mem.t
+    ; mapResultMem : 'lOuter Mem.t (** where the result of the map should be written *)
     ; consumer : ('lOuter, 'lInner, 'p, 'c) consumerOp option
     ; type' : Type.tuple
     }
@@ -251,10 +331,28 @@ module Expr = struct
     ; zeroValue : ('l, 'c) t
     }
 
-  and production = Nested.Expr.production
-  and foldArrayArg = Nested.Expr.foldArrayArg
-  and productionTuple = Nested.Expr.productionTuple
-  and reduceArg = Nested.Expr.reduceArg
+  and production =
+    { productionId : Identifier.t
+    ; type' : Type.t
+    }
+
+  and foldArrayArg =
+    { binding : Identifier.t
+    ; production : production
+    }
+
+  and productionTuple =
+    | ProductionTuple of
+        { elements : productionTuple list
+        ; type' : Type.t
+        }
+    | ProductionTupleAtom of production
+
+  and reduceArg =
+    { firstBinding : Identifier.t
+    ; secondBinding : Identifier.t
+    ; production : productionTuple
+    }
 
   and ('lOuter, 'lInner, 'c) reduce =
     { arg : reduceArg
@@ -266,10 +364,13 @@ module Expr = struct
     ; type' : Type.t
     }
 
+  (** Represents a reduce that happens in parallel. While most of the reduction occurs
+      on device, the last few steps occur on host. *)
   and ('lOuter, 'lInner, 'c) parReduce =
     { reduce : ('lOuter, 'lInner, 'c) reduce
     ; interimResultMem : 'lOuter Mem.t
-    ; outerBody : ('lOuter, 'c) t
+        (** Where to write the results of the reduction steps that occur on device *)
+    ; outerBody : ('lOuter, 'c) t (** The last few steps, which occur on host *)
     ; outerMappedMemArgs : 'lOuter memArg list
     }
 
@@ -336,7 +437,13 @@ module Expr = struct
     ; type' : Type.t
     }
 
-  and parallelism = Corn.Expr.parallelism
+  and parallelism =
+    | KnownParallelism of int
+    | Parallelism of
+        { shape : Index.shapeElement
+        ; rest : parallelism
+        }
+    | MaxParallelism of parallelism list
 
   and 'c ifParallelismHitsCutoff =
     { parallelism : parallelism
@@ -396,8 +503,7 @@ module Expr = struct
     | Statements : ('l, 'c) statement list -> ('l, 'c) statement
     | SLet : ('l, ('l, 'c) statement, 'c) let' -> ('l, 'c) statement
     | SMemLet : ('l, ('l, 'c) statement) memLet -> ('l, 'c) statement
-    | ReifyShapeIndexToArray : 'l reifyShapeIndex -> ('l, _) statement
-    | ReifyShapeIndexToBox : 'l reifyShapeIndex -> ('l, _) statement
+    | ReifyShapeIndex : 'l reifyShapeIndex -> ('l, _) statement
 
   type captures =
     { exprCaptures : Set.M(Identifier).t
@@ -410,10 +516,10 @@ module Expr = struct
   type 'l statementWithCaptures = ('l, captures) statement
 
   let rec type' : type l c. (l, c) t -> Type.t = function
-    | Box box -> NonTuple (Sigma box.type')
-    | Literal (IntLiteral _) -> NonTuple (Literal IntLiteral)
-    | Literal (CharacterLiteral _) -> NonTuple (Literal CharacterLiteral)
-    | Literal (BooleanLiteral _) -> NonTuple (Literal BooleanLiteral)
+    | Box box -> Atom (Sigma box.type')
+    | Literal (IntLiteral _) -> Atom (Literal IntLiteral)
+    | Literal (CharacterLiteral _) -> Atom (Literal CharacterLiteral)
+    | Literal (BooleanLiteral _) -> Atom (Literal BooleanLiteral)
     | ScalarPrimitive scalarPrimitive -> scalarPrimitive.type'
     | TupleDeref tupleDeref -> tupleDeref.type'
     | Values values -> Tuple values.type'
@@ -422,7 +528,7 @@ module Expr = struct
     | IndexLet indexLet -> indexLet.type'
     | Let let' -> type' let'.body
     | MemLet memLet -> type' memLet.body
-    | ReifyDimensionIndex _ -> NonTuple (Literal IntLiteral)
+    | ReifyDimensionIndex _ -> Atom (Literal IntLiteral)
     | LoopBlock loopBlock -> Tuple loopBlock.type'
     | LoopKernel loopKernel -> Tuple loopKernel.kernel.type'
     | SubArray subArray -> subArray.type'
@@ -431,11 +537,11 @@ module Expr = struct
     | Getmem getmem -> getmem.type'
   ;;
 
-  let rec eseq ~statements ~expr =
+  let eseq ~statements ~expr =
     match statements with
     | [] -> expr
-    | first :: rest ->
-      Eseq { statement = first; expr = eseq ~statements:rest ~expr; type' = type' expr }
+    | [ statement ] -> Eseq { statement; expr; type' = type' expr }
+    | statements -> Eseq { statement = Statements statements; expr; type' = type' expr }
   ;;
 
   let putmem ~expr ~addr = Putmem { expr; addr; type' = type' expr }
@@ -443,7 +549,7 @@ module Expr = struct
 
   let tupleDeref ~tuple ~index =
     let extractElementType = function
-      | Type.NonTuple _ -> raise @@ Unreachable.Error "expected tuple type"
+      | Type.Atom _ | Type.Array _ -> raise @@ Unreachable.Error "expected tuple type"
       | Type.Tuple elements -> List.nth_exn elements index
     in
     TupleDeref { tuple; index; type' = extractElementType (type' tuple) }
@@ -456,11 +562,20 @@ module Expr = struct
 
     let rec sexp_of_box : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) box -> Sexp.t
       =
-      fun sexp_of_a sexp_of_c { indices; body; bodyType = _; type' = _ } ->
+      fun sexp_of_a sexp_of_c { indices; body; type' = _ } ->
       Sexp.List
         [ Sexp.Atom "box"
-        ; Sexp.List (List.map indices ~f:Index.sexp_of_t)
+        ; Sexp.List (List.map indices ~f:(sexp_of_boxIndex sexp_of_a sexp_of_c))
         ; sexp_of_t sexp_of_a sexp_of_c body
+        ]
+
+    and sexp_of_boxIndex
+      : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) boxIndex -> Sexp.t
+      =
+      fun sexp_of_a sexp_of_c { expr; index } ->
+      Sexp.List
+        [ Sexp.List [ Sexp.Atom "expr"; sexp_of_t sexp_of_a sexp_of_c expr ]
+        ; Sexp.List [ Sexp.Atom "index"; Index.sexp_of_t index ]
         ]
 
     and sexp_of_literal = [%sexp_of: Nested.Expr.literal]
@@ -538,18 +653,16 @@ module Expr = struct
         ; sexp_of_s body
         ]
 
-    and sexp_of_reifyShapeIndex
-      : type a. ?toStr:string -> (a -> Sexp.t) -> a reifyShapeIndex -> Sexp.t
-      =
-      fun ?(toStr = "") sexp_of_a { shapeIndex; mem } ->
+    and sexp_of_reifyShapeIndex : type a. (a -> Sexp.t) -> a reifyShapeIndex -> Sexp.t =
+      fun sexp_of_a { shape; mem } ->
       Sexp.List
-        [ Sexp.Atom [%string "reify-shape-index%{toStr}"]
-        ; Index.sexp_of_shape shapeIndex
+        [ Sexp.Atom [%string "reify-shape-index"]
+        ; Index.sexp_of_shape shape
         ; Sexp.List [ Sexp.Atom "mem"; Mem.sexp_of_t sexp_of_a mem ]
         ]
 
-    and sexp_of_reifyDimensionIndex { dimIndex } =
-      Sexp.List [ Sexp.Atom "reify-dimension-index"; Index.sexp_of_dimension dimIndex ]
+    and sexp_of_reifyDimensionIndex { dim } =
+      Sexp.List [ Sexp.Atom "reify-dimension-index"; Index.sexp_of_dimension dim ]
 
     and sexp_of_memArg : type a. (a -> Sexp.t) -> a memArg -> Sexp.t =
       fun sexp_of_a { memBinding; mem } ->
@@ -566,7 +679,11 @@ module Expr = struct
         ]
 
     and sexp_of_tupleMatch = [%sexp_of: Nested.Expr.tupleMatch]
-    and sexp_of_productionTuple = [%sexp_of: Nested.Expr.productionTuple]
+
+    and sexp_of_productionTuple = function
+      | ProductionTuple { elements; type' = _ } ->
+        Sexp.List (List.map elements ~f:sexp_of_productionTuple)
+      | ProductionTupleAtom p -> Sexp.Atom (Identifier.show p.productionId)
 
     and sexp_of_reduce
       : type a b c.
@@ -682,7 +799,10 @@ module Expr = struct
       | Fold fold -> sexp_of_fold sexp_of_a sexp_of_b sexp_of_c fold
       | Scatter scatter -> sexp_of_scatter sexp_of_a scatter
 
-    and sexp_of_mapArg = [%sexp_of: Nested.Expr.mapArg]
+    and sexp_of_mapArg { binding; ref } =
+      Sexp.List
+        [ Sexp.Atom (Identifier.show binding); Sexp.Atom (Identifier.show ref.id) ]
+
     and sexp_of_mapIota = [%sexp_of: Nested.Expr.mapIota]
 
     and sexp_of_loopBlock
@@ -803,7 +923,16 @@ module Expr = struct
         ; sexp_of_t sexp_of_a sexp_of_c indexArg
         ]
 
-    and sexp_of_parallelism = Corn.Expr.sexp_of_parallelism
+    and sexp_of_parallelism = function
+      | KnownParallelism n -> Sexp.Atom (Int.to_string n)
+      | Parallelism { shape; rest } ->
+        Sexp.List
+          [ Sexp.Atom "Parallelism"
+          ; Index.sexp_of_shapeElement shape
+          ; sexp_of_parallelism rest
+          ]
+      | MaxParallelism pars ->
+        Sexp.List (Sexp.Atom "MaxParallelism" :: List.map pars ~f:sexp_of_parallelism)
 
     and sexp_of_ifParallelismHitsCutoff
       : type c. (c -> Sexp.t) -> c ifParallelismHitsCutoff -> Sexp.t
@@ -912,10 +1041,8 @@ module Expr = struct
         sexp_of_let sexp_of_a (sexp_of_statement sexp_of_a sexp_of_c) sexp_of_c let'
       | SMemLet memLet ->
         sexp_of_memLet sexp_of_a (sexp_of_statement sexp_of_a sexp_of_c) memLet
-      | ReifyShapeIndexToArray reifyShapeIndexToArray ->
-        sexp_of_reifyShapeIndex ~toStr:"-to-array" sexp_of_a reifyShapeIndexToArray
-      | ReifyShapeIndexToBox reifyShapeIndexToBox ->
-        sexp_of_reifyShapeIndex ~toStr:"-to-box" sexp_of_a reifyShapeIndexToBox
+      | ReifyShapeIndex reifyShapeIndex ->
+        sexp_of_reifyShapeIndex sexp_of_a reifyShapeIndex
     ;;
 
     let sexp_of_captures { exprCaptures; indexCaptures } =

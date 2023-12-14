@@ -1,25 +1,33 @@
 open! Base
-module Index = Acorn.Index
 
 type host = Acorn.host [@@deriving sexp_of]
 type device = Acorn.device [@@deriving sexp_of]
 
-let getUsesInDimension Index.{ const = _; refs } =
-  refs |> Map.keys |> Set.of_list (module Identifier)
+let getUsesInDimension Acorn.Index.{ const = _; refs; lens } =
+  Set.union
+    (refs |> Map.keys |> Set.of_list (module Identifier))
+    (lens |> Map.keys |> Set.of_list (module Identifier))
 ;;
 
 let getUsesInShapeElement = function
-  | Index.Add dim -> getUsesInDimension dim
-  | Index.ShapeRef ref -> Set.singleton (module Identifier) ref
+  | Acorn.Index.Add dim -> getUsesInDimension dim
+  | Acorn.Index.ShapeRef ref -> Set.singleton (module Identifier) ref
+;;
+
+let getUsesInNeShape shape =
+  shape
+  |> NeList.to_list
+  |> List.map ~f:getUsesInShapeElement
+  |> Set.union_list (module Identifier)
 ;;
 
 let rec getUsesInType =
   let open Acorn.Type in
   function
-  | NonTuple (Literal _) -> Set.empty (module Identifier)
-  | NonTuple (Array { element; size }) ->
-    Set.union (getUsesInType (NonTuple element)) (getUsesInShapeElement size)
-  | NonTuple (Sigma { parameters; body }) ->
+  | Atom (Literal _) -> Set.empty (module Identifier)
+  | Array { element; shape } ->
+    Set.union (getUsesInType (Atom element)) (getUsesInNeShape shape)
+  | Atom (Sigma { parameters; body }) ->
     let params =
       parameters |> List.map ~f:(fun p -> p.binding) |> Set.of_list (module Identifier)
     in
@@ -28,29 +36,74 @@ let rec getUsesInType =
     elements |> List.map ~f:getUsesInType |> Set.union_list (module Identifier)
 ;;
 
+let convertDimension Corn.Index.{ const; refs } =
+  Acorn.Index.{ const; refs; lens = Map.empty (module Identifier) }
+;;
+
+let convertShapeElement = function
+  | Corn.Index.Add dim -> Acorn.Index.Add (convertDimension dim)
+  | Corn.Index.ShapeRef ref -> Acorn.Index.ShapeRef ref
+;;
+
+let convertShape = List.map ~f:convertShapeElement
+
+let getShapeLen shape =
+  let open Acorn.Index in
+  shape
+  |> List.map ~f:(function
+    | Add dim -> dim
+    | ShapeRef ref -> dimensionLen ref)
+  |> List.fold ~init:(dimensionConstant 0) ~f:addDimensions
+;;
+
+let rec convertParallelism (parallelism : Corn.Expr.parallelism) =
+  match parallelism with
+  | KnownParallelism n -> Acorn.Expr.KnownParallelism n
+  | Parallelism { shape; rest } ->
+    Acorn.Expr.Parallelism
+      { shape = convertShapeElement shape; rest = convertParallelism rest }
+  | MaxParallelism pars -> Acorn.Expr.MaxParallelism (List.map pars ~f:convertParallelism)
+;;
+
 let rec canonicalizeType (type' : Corn.Type.t) : Acorn.Type.t =
   match type' with
   | Tuple elements -> Tuple (canonicalizeTupleType elements)
-  | Array { element; size } -> Acorn.Type.array ~element:(canonicalizeType element) ~size
-  | Sigma sigma -> NonTuple (Sigma (canonicalizeSigmaType sigma))
-  | Literal literal -> NonTuple (Literal literal)
+  | Array { element; size } ->
+    Acorn.Type.array ~element:(canonicalizeType element) ~size:(convertShapeElement size)
+  | Sigma sigma -> Atom (Sigma (canonicalizeSigmaType sigma))
+  | Literal literal -> Atom (Literal literal)
 
 and canonicalizeSigmaType Corn.Type.{ parameters; body } =
   Acorn.Type.{ parameters; body = canonicalizeType body }
 
 and canonicalizeTupleType elements = List.map elements ~f:canonicalizeType
 
+let convertProduction ({ productionId; type' } : Corn.Expr.production)
+  : Acorn.Expr.production
+  =
+  { productionId; type' = canonicalizeType type' }
+;;
+
+let rec convertProductionTuple : Corn.Expr.productionTuple -> Acorn.Expr.productionTuple
+  = function
+  | ProductionTuple { elements; type' } ->
+    ProductionTuple
+      { elements = List.map elements ~f:convertProductionTuple
+      ; type' = canonicalizeType type'
+      }
+  | ProductionTupleAtom production -> ProductionTupleAtom (convertProduction production)
+;;
+
 let rec arrayElementType (type' : Acorn.Type.t) ~expectedSize : Acorn.Type.t =
   match type' with
-  | NonTuple (Array array) ->
-    assert (Index.equal_shapeElement array.size expectedSize);
-    NonTuple array.element
+  | Array array ->
+    assert (Acorn.Index.equal_shapeElement (NeList.hd array.shape) expectedSize);
+    Atom array.element
   | Tuple elements ->
     Tuple
       (List.map elements ~f:(fun elementType ->
          arrayElementType ~expectedSize elementType))
-  | NonTuple (Sigma _ | Literal _) ->
-    raise @@ Unreachable.Error "Expected array type or tuple of arrays"
+  | Atom _ -> raise @@ Unreachable.Error "Expected array type or tuple of arrays"
 ;;
 
 let typeAsTuple (type' : Acorn.Type.t) : Acorn.Type.tuple =
@@ -116,7 +169,9 @@ module AllocAcc = struct
 
   let multiplyAllocations
     : type l.
-      multiplier:Index.shapeElement -> ('a, 'e) t -> ('a * l Acorn.Expr.memArg list, 'e) t
+      multiplier:Acorn.Index.shapeElement
+      -> ('a, 'e) t
+      -> ('a * l Acorn.Expr.memArg list, 'e) t
     =
     fun ~multiplier prog ->
     let open CompilerState in
@@ -348,6 +403,10 @@ let rec allocRequest
       | Some (TargetValues [ mapTarget; consumerTarget ]) -> mapTarget, consumerTarget
       | Some (TargetValues _) -> raise @@ Unreachable.Error "Expected 2 element tuple"
     in
+    let mapArgs =
+      List.map mapArgs ~f:(fun { binding; ref } ->
+        Expr.{ binding; ref = { id = ref.id; type' = canonicalizeType ref.type' } })
+    in
     let bindingsForMapBody =
       List.map mapArgs ~f:(fun arg -> arg.binding)
       @ List.map mapIotas ~f:(fun iota -> iota.iota)
@@ -359,7 +418,8 @@ let rec allocRequest
         createTargetAddrMapArgs type' (Some (TargetValue mem))
       | Some (TargetValue targetValue) ->
         let elementType =
-          arrayElementType ~expectedSize:frameShape @@ Mem.type' targetValue
+          arrayElementType ~expectedSize:(convertShapeElement frameShape)
+          @@ Mem.type' targetValue
         in
         let%map binding =
           createId
@@ -415,7 +475,7 @@ let rec allocRequest
         mapBody
       >>| getExpr
       |> innerCaptureAvoider ~capturesToAvoid:bindingsForMapBody
-      |> multiplyAllocations ~multiplier:frameShape
+      |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
     in
     let mapMemArgs =
       List.map mapTargetAddrMemArgs ~f:(fun { memBinding; mem } ->
@@ -445,14 +505,18 @@ let rec allocRequest
         |> innerCaptureAvoider
              ~capturesToAvoid:
                (Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ])
-        |> multiplyAllocations ~multiplier:frameShape
+        |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
       in
       Expr.
-        { arg
+        { arg =
+            { firstBinding = arg.firstBinding
+            ; secondBinding = arg.secondBinding
+            ; production = convertProductionTuple arg.production
+            }
         ; zero
         ; mappedMemArgs = bodyMemArgs
         ; body
-        ; d
+        ; d = convertDimension d
         ; character
         ; type' = canonicalizeType reduceType
         }
@@ -522,15 +586,17 @@ let rec allocRequest
                     (module Identifier)
                     ([ zeroArg.zeroBinding ]
                      @ List.map arrayArgs ~f:(fun arg -> arg.binding)))
-          |> multiplyAllocations ~multiplier:frameShape
+          |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
         in
         ( Some
             (Expr.Fold
                { zeroArg = { zeroBinding = zeroArg.zeroBinding; zeroValue }
-               ; arrayArgs
+               ; arrayArgs =
+                   List.map arrayArgs ~f:(fun { binding; production } ->
+                     Expr.{ binding; production = convertProduction production })
                ; mappedMemArgs = bodyMemArgs
                ; body
-               ; d
+               ; d = convertDimension d
                ; character
                ; type' = canonicalizeType type'
                })
@@ -542,12 +608,18 @@ let rec allocRequest
         in
         ( Some
             (Expr.Scatter
-               { valuesArg; indicesArg; dIn; dOut; mem = outerMemDeviceToL mem; type' })
+               { valuesArg = convertProduction valuesArg
+               ; indicesArg = convertProduction indicesArg
+               ; dIn = convertDimension dIn
+               ; dOut = convertDimension dOut
+               ; mem = outerMemDeviceToL mem
+               ; type'
+               })
         , false )
     in
     let%bind consumer, consumerCopyRequired = processConsumer consumer in
     let loopBlock : (lOuter, lInner, seqOrPar, unit) Expr.loopBlock =
-      { frameShape
+      { frameShape = convertShapeElement frameShape
       ; mapArgs
       ; mapIotas
       ; mapBody
@@ -585,7 +657,6 @@ let rec allocRequest
                (Mem.Index
                   { mem
                   ; offset = Index.dimensionConstant offset
-                  ; elementType = canonicalizeType elementType
                   ; type' = canonicalizeType elementType
                   }))
         in
@@ -621,21 +692,36 @@ let rec allocRequest
     in
     writtenExprToAllocResult
     @@ IndexLet { indexArgs; body; type' = canonicalizeType type' }
-  | ReifyIndex { index = Dimension dimIndex; type' = _ } ->
-    unwrittenExprToAllocResult @@ ReifyDimensionIndex { dimIndex }
-  | ReifyIndex { index = Shape shapeIndex; type' } ->
+  | ReifyIndex { index = Dimension dim; type' = _ } ->
+    unwrittenExprToAllocResult @@ ReifyDimensionIndex { dim = convertDimension dim }
+  | ReifyIndex { index = Shape shape; type' } ->
     let type' = canonicalizeType type' in
+    let shape = convertShape shape in
     (match type' with
-     | NonTuple (Sigma { parameters = _; body = bodyType }) ->
-       let%map mem = getMemForResult bodyType "reify-index-array" in
-       statementToAllocResult
-         ~mem
-         (ReifyShapeIndexToBox { shapeIndex; mem = memDeviceToL mem })
+     | Atom (Sigma sigma) ->
+       let shapeLen = getShapeLen shape in
+       let%bind mem =
+         malloc
+           ~hostOrDevice:mallocLoc
+           (Array { element = Literal IntLiteral; shape = [ Add shapeLen ] })
+           "reify-index-array"
+       in
+       unwrittenExprToAllocResult
+       @@ Box
+            { indices =
+                [ { expr = ReifyDimensionIndex { dim = shapeLen }
+                  ; index = Dimension shapeLen
+                  }
+                ]
+            ; body =
+                Expr.eseq
+                  ~statements:[ ReifyShapeIndex { shape; mem } ]
+                  ~expr:(Getmem { addr = mem; type' = sigma.body })
+            ; type' = sigma
+            }
      | _ ->
        let%map mem = getMemForResult type' "reify-index-array" in
-       statementToAllocResult
-         ~mem
-         (ReifyShapeIndexToArray { shapeIndex; mem = memDeviceToL mem }))
+       statementToAllocResult ~mem (ReifyShapeIndex { shape; mem = memDeviceToL mem }))
   | Let { args; body; type' = _ } ->
     let argBindings =
       args |> List.map ~f:(fun arg -> arg.binding) |> Set.of_list (module Identifier)
@@ -681,6 +767,10 @@ let rec allocRequest
       : ((unit Expr.mapKernel, unit) Expr.kernel, _) AllocAcc.t
       =
       let type' = canonicalizeType type' in
+      let mapArgs =
+        List.map mapArgs ~f:(fun { binding; ref } ->
+          Expr.{ binding; ref = { id = ref.id; type' = canonicalizeType ref.type' } })
+      in
       let bindingsForMapBody =
         List.map mapArgs ~f:(fun arg -> arg.binding)
         @ List.map mapIotas ~f:(fun iota -> iota.iota)
@@ -692,7 +782,8 @@ let rec allocRequest
           createTargetAddrMapArgs type' (Some (TargetValue mem))
         | Some (TargetValue targetValue) ->
           let elementType =
-            arrayElementType ~expectedSize:frameShape @@ Mem.type' targetValue
+            arrayElementType ~expectedSize:(convertShapeElement frameShape)
+            @@ Mem.type' targetValue
           in
           let%map binding =
             createId
@@ -788,7 +879,7 @@ let rec allocRequest
       in
       let%map (mapBodyStatements, mapBodySubMaps), mapBodyMemArgs =
         allocMapBody ~writeToAddr:mapBodyTargetAddr mapBody
-        |> multiplyAllocations ~multiplier:frameShape
+        |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
       in
       let mapMemArgs =
         List.map mapTargetAddrMemArgs ~f:(fun { memBinding; mem } ->
@@ -796,7 +887,7 @@ let rec allocRequest
         @ mapBodyMemArgs
       in
       ({ kernel =
-           { frameShape
+           { frameShape = convertShapeElement frameShape
            ; mapArgs
            ; mapIotas
            ; mapBody =
@@ -822,15 +913,44 @@ let rec allocRequest
       ; statement = MapKernel mapKernel
       }
   | Literal literal -> unwrittenExprToAllocResult @@ Literal literal
-  | Box { indices; body; bodyType; type' } ->
-    let%bind body = allocExpr ~writeToAddr:None body in
+  | Box { indices; body; bodyType = _; type' } ->
+    let%bind indices =
+      indices
+      |> List.map ~f:(fun index ->
+        match index with
+        | Dimension dim ->
+          let dim = convertDimension dim in
+          return
+          @@ Expr.{ expr = Expr.ReifyDimensionIndex { dim }; index = Dimension dim }
+        | Shape shape ->
+          let shape = convertShape shape in
+          let reifiedShapeType =
+            Type.Array
+              { element = Literal IntLiteral; shape = [ Add (getShapeLen shape) ] }
+          in
+          let%map mem =
+            malloc ~hostOrDevice:mallocLoc reifiedShapeType "reify-index-array"
+          in
+          Expr.
+            { expr =
+                eseq
+                  ~statements:[ ReifyShapeIndex { shape; mem } ]
+                  ~expr:(Getmem { addr = mem; type' = reifiedShapeType })
+            ; index = Shape shape
+            })
+      |> all
+    in
+    let sigmaParamBindings =
+      type'.parameters
+      |> List.map ~f:(fun p -> p.binding)
+      |> Set.of_list (module Identifier)
+    in
+    let%bind body =
+      allocExpr ~writeToAddr:None body
+      |> avoidCaptures ~capturesToAvoid:sigmaParamBindings
+    in
     unwrittenExprToAllocResult
-    @@ Box
-         { indices
-         ; body
-         ; bodyType = canonicalizeType bodyType
-         ; type' = canonicalizeSigmaType type'
-         }
+    @@ Box { indices; body; type' = canonicalizeSigmaType type' }
   | Values { elements; type' } ->
     let elementsAndTargetAddrs =
       match targetAddr with
@@ -887,22 +1007,16 @@ let rec allocRequest
           | Array array -> array
           | _ -> raise @@ Unreachable.Error "expected array type"
         in
-        let elementType = argType.element in
         let argCount =
           match argType.size with
-          | Add dim -> dim
+          | Add dim -> convertDimension dim
           | ShapeRef _ -> raise @@ Unreachable.Error "expected dimension index"
         in
         let newOffset = Index.addDimensions offset argCount in
         let argTarget =
           Some
             (TargetValue
-               (Mem.Index
-                  { mem
-                  ; offset
-                  ; elementType = canonicalizeType elementType
-                  ; type' = canonicalizeType @@ Array argType
-                  }))
+               (Mem.Index { mem; offset; type' = canonicalizeType @@ Array argType }))
         in
         newOffset, allocStatement ~writeToAddr:argTarget arg)
       |> all
@@ -915,7 +1029,12 @@ let rec allocRequest
     and else' = allocExpr ~writeToAddr:targetAddr else' in
     unwrittenExprToAllocResult
     @@ IfParallelismHitsCutoff
-         { parallelism; cutoff; then'; else'; type' = canonicalizeType type' }
+         { parallelism = convertParallelism parallelism
+         ; cutoff
+         ; then'
+         ; else'
+         ; type' = canonicalizeType type'
+         }
 
 and allocHost ~writeToAddr expr =
   allocRequest

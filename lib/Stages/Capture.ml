@@ -45,7 +45,9 @@ module Captures = struct
       }
   ;;
 
-  let getInDim Index.{ const = _; refs } = refs |> Map.keys |> getList ~f:of_index
+  let getInDim Index.{ const = _; refs; lens } =
+    (refs |> Map.keys |> getList ~f:of_index) + (lens |> Map.keys |> getList ~f:of_index)
+  ;;
 
   let getInShapeElement = function
     | Index.Add dim -> getInDim dim
@@ -55,8 +57,8 @@ module Captures = struct
   let getInShape = getList ~f:getInShapeElement
 
   let getInIndex = function
-    | Index.Shape shape -> getInShape shape
     | Index.Dimension dim -> getInDim dim
+    | Index.Shape shape -> getInShape shape
   ;;
 
   let rec getInExpr : (device, unit) Acorn.Expr.t -> t = function
@@ -135,15 +137,16 @@ module Captures = struct
           -> getInDim dIn + getInDim dOut
       in
       getInShapeElement frameShape + iotaCaptures + bodyCaptures + consumerCaptures
-    | Box { indices; body; bodyType = _; type' = _ } ->
-      getList indices ~f:getInIndex + getInExpr body
+    | Box { indices; body; type' = _ } ->
+      getList indices ~f:(fun { expr; index } -> getInExpr expr + getInIndex index)
+      + getInExpr body
     | Values { elements; type' = _ } -> getList elements ~f:getInExpr
     | ScalarPrimitive { op = _; args; type' = _ } -> getList args ~f:getInExpr
     | TupleDeref { tuple; index = _; type' = _ } -> getInExpr tuple
     | SubArray { arrayArg; indexArg; type' = _ } ->
       getInExpr arrayArg + getInExpr indexArg
     | Eseq { statement; expr; type' = _ } -> getInStatement statement + getInExpr expr
-    | ReifyDimensionIndex { dimIndex } -> getInDim dimIndex
+    | ReifyDimensionIndex { dim } -> getInDim dim
     | Literal _ -> empty
     | Getmem { addr = _; type' = _ } -> empty
 
@@ -154,8 +157,7 @@ module Captures = struct
     | SLet { args; body } ->
       getList args ~f:(fun arg -> getInExpr arg.value) + getInStatement body
     | SMemLet { memArgs = _; body } -> getInStatement body
-    | ReifyShapeIndexToArray { shapeIndex; mem = _ } -> getInShape shapeIndex
-    | ReifyShapeIndexToBox { shapeIndex; mem = _ } -> getInShape shapeIndex
+    | ReifyShapeIndex { shape; mem = _ } -> getInShape shape
   ;;
 end
 
@@ -298,8 +300,14 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       ; blocks
       ; threads
       }
-  | Box { indices; body; bodyType; type' } ->
-    Box { indices; body = annotateExpr body; bodyType; type' }
+  | Box { indices; body; type' } ->
+    Box
+      { indices =
+          List.map indices ~f:(fun { expr; index } ->
+            Expr.{ expr = annotateExpr expr; index })
+      ; body = annotateExpr body
+      ; type'
+      }
   | Values { elements; type' } ->
     Values { elements = List.map elements ~f:annotateExpr; type' }
   | ScalarPrimitive { op; args; type' } ->
@@ -368,7 +376,7 @@ and annotateStatement
   | SLet { args; body } ->
     SLet { args = List.map args ~f:annotateArg; body = annotateStatement body }
   | SMemLet { memArgs; body } -> SMemLet { memArgs; body = annotateStatement body }
-  | (ReifyShapeIndexToArray _ | ReifyShapeIndexToBox _) as statement -> statement
+  | ReifyShapeIndex _ as statement -> statement
 
 and annotateArg : type l. (l, unit) Expr.letArg -> (l, Expr.captures) Expr.letArg =
   fun { binding; value } -> { binding; value = annotateExpr value }

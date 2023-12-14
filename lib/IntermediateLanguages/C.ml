@@ -68,6 +68,10 @@ and expr =
       { value : expr
       ; fieldName : name
       }
+  | PtrFieldDeref of
+      { value : expr
+      ; fieldName : name
+      }
   | ArrayDeref of
       { value : expr
       ; index : expr
@@ -80,6 +84,7 @@ and expr =
       }
   | FunCall of
       { fun' : name
+      ; typeArgs : type' list option
       ; args : expr list
       }
   | KernelLaunch of
@@ -97,15 +102,19 @@ and expr =
       { type' : type'
       ; args : expr list
       }
+  | Arr of expr list
 
 and statement =
   | Return of expr
   | Define of
       { name : name
-      ; type' : type'
+      ; type' : type' option
       ; value : expr option
       }
-  | Assign of expr * expr
+  | Assign of
+      { lhs : expr
+      ; rhs : expr
+      }
   | Ite of
       { cond : expr
       ; thenBranch : block
@@ -113,7 +122,16 @@ and statement =
       }
   | Eval of expr
   | StrStatement of string
+  | ForLoop of
+      { loopVar : name
+      ; loopVarType : type'
+      ; initialValue : expr
+      ; cond : expr
+      ; loopVarUpdate : varUpdate
+      ; body : block
+      }
 
+and varUpdate = IncrementOne
 and block = statement list
 
 and program =
@@ -125,3 +143,9 @@ and program =
   }
 
 and t = program [@@deriving sexp_of]
+
+let fieldDeref ~value ~fieldName ~valueIsPtr =
+  if valueIsPtr
+  then PtrFieldDeref { value; fieldName }
+  else FieldDeref { value; fieldName }
+;;

@@ -64,9 +64,13 @@ end
 open Buffer
 open Buffer.Let_syntax
 
-let showName : name -> string = function
-  | UniqueName id -> [%string "%{Identifier.name id}_%{Identifier.uniqueNum id#Int}"]
-  | StrName str -> [%string "%{str}_"]
+let showName (name : name) =
+  let nameStr =
+    match name with
+    | UniqueName id -> [%string "%{Identifier.name id}_%{Identifier.uniqueNum id#Int}"]
+    | StrName str -> [%string "%{str}_"]
+  in
+  String.substr_replace_all nameStr ~pattern:"-" ~with_:"_"
 ;;
 
 let rec showType : type' -> string = function
@@ -89,13 +93,22 @@ let rec showExpr = function
   | Literal (BoolLiteral false) -> "false"
   | VarRef name -> showName name
   | FieldDeref { value; fieldName } -> [%string "%{showExpr value}.%{showName fieldName}"]
+  | PtrFieldDeref { value; fieldName } ->
+    [%string "%{showExpr value}->%{showName fieldName}"]
   | ArrayDeref { value; index } -> [%string "%{showExpr value}[%{showExpr index}]"]
   | PtrDeref expr -> [%string "*%{showExpr expr}"]
   | Ternary { cond; then'; else' } ->
     [%string "(%{showExpr cond} ? %{showExpr then'} : %{showExpr else'})"]
-  | FunCall { fun'; args } ->
+  | FunCall { fun'; typeArgs; args } ->
+    let typeArgsStr =
+      match typeArgs with
+      | None -> ""
+      | Some typeArgs ->
+        let typeArgsStr = typeArgs |> List.map ~f:showType |> String.concat ~sep:", " in
+        [%string "<%{typeArgsStr}>"]
+    in
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
-    [%string "%{showName fun'}(%{argsStr})"]
+    [%string "%{showName fun'}%{typeArgsStr}(%{argsStr})"]
   | KernelLaunch { kernel; blocks; threads; args } ->
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
     [%string "%{showName kernel}<<<%{blocks#Int}, %{threads#Int}>>>(%{argsStr})"]
@@ -103,15 +116,27 @@ let rec showExpr = function
   | StructConstructor { type'; args } ->
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
     [%string "(%{showType type'} {%{argsStr}})"]
+  | Arr elements ->
+    let elementsStr = elements |> List.map ~f:showExpr |> String.concat ~sep:", " in
+    [%string "{%{elementsStr}}"]
 ;;
 
 let rec printStatement = function
   | Return expr -> printLine [%string "return %{showExpr expr};"]
-  | Define { name; type'; value = None } ->
-    printLine [%string "%{showType type'} %{showName name};"]
-  | Define { name; type'; value = Some rhs } ->
-    printLine [%string "%{showType type'} %{showName name} = %{showExpr rhs};"]
-  | Assign (lhs, rhs) -> printLine [%string "%{showExpr lhs} = %{showExpr rhs};"]
+  | Define { name; type'; value = rhs } ->
+    let typeStr = type' |> Option.map ~f:showType |> Option.value ~default:"auto" in
+    let rhsStr =
+      match rhs with
+      | None -> ""
+      | Some rhs -> [%string " = %{showExpr rhs}"]
+    in
+    printLine [%string "%{typeStr} %{showName name}%{rhsStr};"]
+  | Assign { lhs; rhs } -> printLine [%string "%{showExpr lhs} = %{showExpr rhs};"]
+  | Ite { cond; thenBranch; elseBranch = [] } ->
+    let%bind () = printLine [%string "if (%{showExpr cond}) {"] in
+    let%bind () = indent @@ printBlock thenBranch in
+    let%bind () = printLine "}" in
+    return ()
   | Ite { cond; thenBranch; elseBranch } ->
     let%bind () = printLine [%string "if (%{showExpr cond}) {"] in
     let%bind () = indent @@ printBlock thenBranch in
@@ -121,6 +146,20 @@ let rec printStatement = function
     return ()
   | Eval expr -> printLine [%string "%{showExpr expr};"]
   | StrStatement statement -> printLine statement
+  | ForLoop { loopVar; loopVarType; initialValue; cond; loopVarUpdate; body } ->
+    let loopVarUpdateStr =
+      match loopVarUpdate with
+      | IncrementOne -> [%string "++%{showName loopVar}"]
+    in
+    let declStr =
+      [%string "%{showType loopVarType} %{showName loopVar} = %{showExpr initialValue}"]
+    in
+    let%bind () =
+      printLine [%string "for (%{declStr}; %{showExpr cond}; %{loopVarUpdateStr}) {"]
+    in
+    let%bind () = indent @@ printBlock body in
+    let%bind () = printLine [%string "}"] in
+    return ()
 
 and printBlock block = block |> List.map ~f:printStatement |> Buffer.all_unit
 
