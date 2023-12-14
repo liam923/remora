@@ -654,8 +654,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
                   ])))
      | Reduce { associative; explicitZero; character } ->
        (match primitive.appStack with
-        | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]; TypeApp [ Atom t ] ]
-          ->
+        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
           (* If there is no explicit zero, the index argument for d is
              actually d-1 *)
           let d = if explicitZero then d else { const = d.const + 1; refs = d.refs } in
@@ -786,9 +785,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
                   ])))
      | Fold { character } ->
        (match primitive.appStack with
-        | [ IndexApp [ Dimension d; Shape itemPad; Shape cellShape ]
-          ; TypeApp [ Atom t; Array u ]
-          ] ->
+        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t; Array u ] ] ->
           (* Extract the arguments to the function. Note that the arguments
              differ depending on explicitZero *)
           let f, zero, arrayArg =

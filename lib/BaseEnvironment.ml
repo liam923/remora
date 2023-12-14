@@ -105,11 +105,11 @@ module Stdlib : S = struct
                     })
             ; type' =
                 {|
-                (Pi (d-1 @item-pad @cell-shape)
+                (Pi (d-1 @cell-shape)
                   (Forall (t)
                     (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t (+ d-1 1) @item-pad @cell-shape])
-                        [t @item-pad @cell-shape])))
+                         [t (+ d-1 1) @cell-shape])
+                        [t @cell-shape])))
                 |}
             }
       }
@@ -130,12 +130,12 @@ module Stdlib : S = struct
                     })
             ; type' =
                 {|
-                (Pi (d @item-pad @cell-shape)
+                (Pi (d @cell-shape)
                   (Forall (t)
                     (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
                          [t @cell-shape]
-                         [t d @item-pad @cell-shape])
-                        [t @item-pad @cell-shape])))
+                         [t d @cell-shape])
+                        [t @cell-shape])))
                 |}
             }
       }
@@ -156,11 +156,11 @@ module Stdlib : S = struct
                     })
             ; type' =
                 {|
-                  (Pi (d-1 @item-pad @cell-shape)
+                  (Pi (d-1 @cell-shape)
                     (Forall (t)
                       (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                           [t (+ d-1 1) @item-pad @cell-shape])
-                          [t @item-pad @cell-shape])))
+                           [t (+ d-1 1) @cell-shape])
+                          [t @cell-shape])))
                   |}
             }
       }
@@ -181,11 +181,11 @@ module Stdlib : S = struct
                     })
             ; type' =
                 {|
-                (Pi (d-1 @item-pad @cell-shape)
+                (Pi (d-1 @cell-shape)
                   (Forall (t)
                     (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t (+ d-1 1) @item-pad @cell-shape])
-                        [t (+ d-1 1) @item-pad @cell-shape])))
+                         [t (+ d-1 1) @cell-shape])
+                        [t (+ d-1 1) @cell-shape])))
                 |}
             }
       }
@@ -206,12 +206,12 @@ module Stdlib : S = struct
                     })
             ; type' =
                 {|
-                (Pi (d @item-pad @cell-shape)
+                (Pi (d @cell-shape)
                   (Forall (t)
                     (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
                          [t @cell-shape]
-                         [t d @item-pad @cell-shape])
-                        [t d @item-pad @cell-shape])))
+                         [t d @cell-shape])
+                        [t d @cell-shape])))
                 |}
             }
       }
@@ -223,11 +223,11 @@ module Stdlib : S = struct
                   Expr.Primitive { name = Func (Fold { character = `Fold }); type' })
             ; type' =
                 {|
-                (Pi (d @item-pad @cell-shape)
+                (Pi (d @cell-shape)
                   (Forall (t @u)
                     (-> ((-> (@u [t @cell-shape]) @u)
                          @u
-                         [t d @item-pad @cell-shape])
+                         [t d @cell-shape])
                         @u)))
                 |}
             }

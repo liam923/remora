@@ -70,32 +70,32 @@ let%expect_test "simple addition" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 47))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 45)))
+       (((binding ((name f) (id 41))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 39)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 46)))
+        ((binding ((name +arg2) (id 40)))
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 47))))))
-         (args (((id ((name +arg1) (id 45)))) ((id ((name +arg2) (id 46))))))
+        ((func (Ref ((id ((name f) (id 41))))))
+         (args (((id ((name +arg1) (id 39)))) ((id ((name +arg2) (id 40))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 48)))
+       (((binding ((name f) (id 42)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 49)))
+        ((binding ((name +arg1) (id 43)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 50)))
+        ((binding ((name +arg2) (id 44)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 2)))
@@ -109,22 +109,22 @@ let%expect_test "simple addition" =
              ((ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg1) (id 49)))
+                  ((id ((name +arg1) (id 43)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))
               (ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg2) (id 50)))
+                  ((id ((name +arg2) (id 44)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))))
             (type' (Literal IntLiteral)))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
-    (let ((f.51 (values)) (+arg1.52 1) (+arg2.53 2))
-     (let ((f.48 f.51) (+arg1.49 +arg1.52) (+arg2.50 +arg2.53))
-      (+ +arg1.49 +arg2.50)))
+    (let ((f.45 (values)) (+arg1.46 1) (+arg2.47 2))
+     (let ((f.42 f.45) (+arg1.43 +arg1.46) (+arg2.44 +arg2.47))
+      (+ +arg1.43 +arg2.44)))
     Result of stage Fuse and Simplify:
     3
     Result of stage Kernelize:
@@ -144,71 +144,71 @@ let%expect_test "simple function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name add) (id 45)))
+     ((binding ((name add) (id 39)))
       (value
        (Scalar
         ((element
           (TermLambda
            ((params
-             (((binding ((name x) (id 46)))
+             (((binding ((name x) (id 40)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-              ((binding ((name y) (id 47)))
+              ((binding ((name y) (id 41)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (body
              (TermApplication
               ((func (Primitive ((name (Func Add)))))
                (args
-                ((Ref ((id ((name x) (id 46))))) (Ref ((id ((name y) (id 47))))))))))))))))
+                ((Ref ((id ((name x) (id 40))))) (Ref ((id ((name y) (id 41))))))))))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name add) (id 45))))))
+        ((func (Ref ((id ((name add) (id 39))))))
          (args
           ((Scalar ((element (Literal (IntLiteral 5)))))
            (Scalar ((element (Literal (IntLiteral 10))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name add) (id 45)))
+       (((binding ((name add) (id 39)))
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name x) (id 46)))
+                (((binding ((name x) (id 40)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name y) (id 47)))
+                 ((binding ((name y) (id 41)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 50)))
+                   (((binding ((name f) (id 44)))
                      (value (Primitive ((name (Func Add))))))
-                    ((binding ((name +arg1) (id 48)))
-                     (value (Ref ((id ((name x) (id 46)))))))
-                    ((binding ((name +arg2) (id 49)))
-                     (value (Ref ((id ((name y) (id 47)))))))))
+                    ((binding ((name +arg1) (id 42)))
+                     (value (Ref ((id ((name x) (id 40)))))))
+                    ((binding ((name +arg2) (id 43)))
+                     (value (Ref ((id ((name y) (id 41)))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 50))))))
+                    ((func (Ref ((id ((name f) (id 44))))))
                      (args
-                      (((id ((name +arg1) (id 48))))
-                       ((id ((name +arg2) (id 49))))))
+                      (((id ((name +arg1) (id 42))))
+                       ((id ((name +arg2) (id 43))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 53)))
-            (value (Ref ((id ((name add) (id 45)))))))
-           ((binding ((name x) (id 51)))
+          (((binding ((name f) (id 47)))
+            (value (Ref ((id ((name add) (id 39)))))))
+           ((binding ((name x) (id 45)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))
-           ((binding ((name y) (id 52)))
+           ((binding ((name y) (id 46)))
             (value (Scalar ((element (Literal (IntLiteral 10)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 53))))))
-            (args (((id ((name x) (id 51)))) ((id ((name y) (id 52))))))
+           ((func (Ref ((id ((name f) (id 47))))))
+            (args (((id ((name x) (id 45)))) ((id ((name y) (id 46))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -217,7 +217,7 @@ let%expect_test "simple function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name add) (id 55)))
+       (((binding ((name add) (id 49)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -226,17 +226,17 @@ let%expect_test "simple function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 56)))
+          (((binding ((name f) (id 50)))
             (value
              (Ref
-              ((id ((name add) (id 55)))
+              ((id ((name add) (id 49)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name x) (id 58)))
+           ((binding ((name x) (id 52)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name y) (id 60)))
+           ((binding ((name y) (id 54)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 10)))
@@ -245,20 +245,20 @@ let%expect_test "simple function definition and call" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name f) (id 57)))
+             (((binding ((name f) (id 51)))
                (value
                 (AtomAsArray
                  ((element (Values ((elements ()) (type' ()))))
                   (type' ((element (Tuple ())) (shape ())))))))
-              ((binding ((name +arg1) (id 59)))
+              ((binding ((name +arg1) (id 53)))
                (value
                 (Ref
-                 ((id ((name x) (id 58)))
+                 ((id ((name x) (id 52)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name +arg2) (id 61)))
+              ((binding ((name +arg2) (id 55)))
                (value
                 (Ref
-                 ((id ((name y) (id 60)))
+                 ((id ((name y) (id 54)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (AtomAsArray
@@ -269,13 +269,13 @@ let%expect_test "simple function definition and call" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 59)))
+                        ((id ((name +arg1) (id 53)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 61)))
+                        ((id ((name +arg2) (id 55)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -284,13 +284,13 @@ let%expect_test "simple function definition and call" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
-    (let ((add.62 (values)))
-     (let ((add.55 add.62))
-      (let ((f.63 add.55) (x.64 5) (y.65 10))
-       (let ((f.56 f.63) (x.58 x.64) (y.60 y.65))
-        (let ((f.66 (values)) (+arg1.67 x.58) (+arg2.68 y.60))
-         (let ((f.57 f.66) (+arg1.59 +arg1.67) (+arg2.61 +arg2.68))
-          (+ +arg1.59 +arg2.61)))))))
+    (let ((add.56 (values)))
+     (let ((add.49 add.56))
+      (let ((f.57 add.49) (x.58 5) (y.59 10))
+       (let ((f.50 f.57) (x.52 x.58) (y.54 y.59))
+        (let ((f.60 (values)) (+arg1.61 x.52) (+arg2.62 y.54))
+         (let ((f.51 f.60) (+arg1.53 +arg1.61) (+arg2.55 +arg2.62))
+          (+ +arg1.53 +arg2.55)))))))
     Result of stage Fuse and Simplify:
     15
     Result of stage Kernelize:
@@ -310,58 +310,58 @@ let%expect_test "polymorphic function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name id) (id 45)))
+     ((binding ((name id) (id 39)))
       (value
        (Scalar
         ((element
           (TypeLambda
-           ((params (((binding ((name @t) (id 46))) (bound Array))))
+           ((params (((binding ((name @t) (id 40))) (bound Array))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name e) (id 47)))
-                     (bound (ArrayRef ((name @t) (id 46)))))))
-                  (body (Ref ((id ((name e) (id 47))))))))))))))))))
+                   (((binding ((name e) (id 41)))
+                     (bound (ArrayRef ((name @t) (id 40)))))))
+                  (body (Ref ((id ((name e) (id 41))))))))))))))))))
       (body
        (TermApplication
         ((func
           (TypeApplication
-           ((tFunc (Ref ((id ((name id) (id 45))))))
+           ((tFunc (Ref ((id ((name id) (id 39))))))
             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
          (args ((Scalar ((element (Literal (IntLiteral 5))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name id) (id 45)))
+       (((binding ((name id) (id 39)))
          (value
           (Scalar
            ((element
              (TypeLambda
-              ((params (((binding ((name @t) (id 46))) (bound Array))))
+              ((params (((binding ((name @t) (id 40))) (bound Array))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name e) (id 47)))
-                        (bound (ArrayRef ((name @t) (id 46)))))))
-                     (body (Ref ((id ((name e) (id 47)))))))))))))))))))))
+                      (((binding ((name e) (id 41)))
+                        (bound (ArrayRef ((name @t) (id 40)))))))
+                     (body (Ref ((id ((name e) (id 41)))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 49)))
+          (((binding ((name f) (id 43)))
             (value
              (TypeApplication
-              ((tFunc (Ref ((id ((name id) (id 45))))))
+              ((tFunc (Ref ((id ((name id) (id 39))))))
                (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-           ((binding ((name e) (id 48)))
+           ((binding ((name e) (id 42)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 49))))))
-            (args (((id ((name e) (id 48))))))
+           ((func (Ref ((id ((name f) (id 43))))))
+            (args (((id ((name e) (id 42))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -370,7 +370,7 @@ let%expect_test "polymorphic function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 51)))
+       (((binding ((name id) (id 45)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -379,26 +379,26 @@ let%expect_test "polymorphic function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 52)))
+          (((binding ((name f) (id 46)))
             (value
              (Ref
-              ((id ((name id) (id 51)))
+              ((id ((name id) (id 45)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name e) (id 53)))
+           ((binding ((name e) (id 47)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name e) (id 53)))
+           ((id ((name e) (id 47)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
-    (let ((id.54 (values)))
-     (let ((id.51 id.54))
-      (let ((f.55 id.51) (e.56 5)) (let ((f.52 f.55) (e.53 e.56)) e.53))))
+    (let ((id.48 (values)))
+     (let ((id.45 id.48))
+      (let ((f.49 id.45) (e.50 5)) (let ((f.46 f.49) (e.47 e.50)) e.47))))
     Result of stage Fuse and Simplify:
     5
     Result of stage Kernelize:
@@ -440,15 +440,15 @@ let%expect_test "function call with implicit map" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 47))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 45)))
+       (((binding ((name f) (id 41))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 39)))
          (value
           (Frame
            ((dimensions (2))
             (elements
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))))))))
-        ((binding ((name +arg2) (id 46)))
+        ((binding ((name +arg2) (id 40)))
          (value
           (Frame
            ((dimensions (2))
@@ -468,20 +468,20 @@ let%expect_test "function call with implicit map" =
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 48)))
-            (value (Ref ((id ((name +arg1) (id 45)))))))
-           ((binding ((name +arg2) (id 49)))
-            (value (Ref ((id ((name +arg2) (id 46)))))))))
+          (((binding ((name +arg1) (id 42)))
+            (value (Ref ((id ((name +arg1) (id 39)))))))
+           ((binding ((name +arg2) (id 43)))
+            (value (Ref ((id ((name +arg2) (id 40)))))))))
          (body
           (Map
            ((args
-             (((binding ((name +arg2) (id 50)))
-               (value (Ref ((id ((name +arg2) (id 49)))))))))
+             (((binding ((name +arg2) (id 44)))
+               (value (Ref ((id ((name +arg2) (id 43)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 47))))))
+              ((func (Ref ((id ((name f) (id 41))))))
                (args
-                (((id ((name +arg1) (id 48)))) ((id ((name +arg2) (id 50))))))
+                (((id ((name +arg1) (id 42)))) ((id ((name +arg2) (id 44))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 3) (refs ())))))
             (type'
@@ -502,12 +502,12 @@ let%expect_test "function call with implicit map" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 51)))
+       (((binding ((name f) (id 45)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 52)))
+        ((binding ((name +arg1) (id 46)))
          (value
           (Frame
            ((dimensions (2))
@@ -521,7 +521,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 54)))
+        ((binding ((name +arg2) (id 48)))
          (value
           (Frame
            ((dimensions (2))
@@ -563,17 +563,17 @@ let%expect_test "function call with implicit map" =
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 53)))
+          (((binding ((name +arg1) (id 47)))
             (value
              (Ref
-              ((id ((name +arg1) (id 52)))
+              ((id ((name +arg1) (id 46)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))
-           ((binding ((name +arg2) (id 55)))
+           ((binding ((name +arg2) (id 49)))
             (value
              (Ref
-              ((id ((name +arg2) (id 54)))
+              ((id ((name +arg2) (id 48)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape
@@ -582,10 +582,10 @@ let%expect_test "function call with implicit map" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 56)))
+             (((binding ((name +arg2) (id 50)))
                (value
                 (Ref
-                 ((id ((name +arg2) (id 55)))
+                 ((id ((name +arg2) (id 49)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -598,13 +598,13 @@ let%expect_test "function call with implicit map" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 53)))
+                        ((id ((name +arg1) (id 47)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 56)))
+                        ((id ((name +arg2) (id 50)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -620,92 +620,92 @@ let%expect_test "function call with implicit map" =
         (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))
     Result of stage Nest:
     (let
-     ((f.57 (values)) (+arg1.58 (frame 1 2))
-      (+arg2.59 (frame (frame 3 4 5) (frame 6 7 8))))
-     (let ((f.51 f.57) (+arg1.52 +arg1.58) (+arg2.54 +arg2.59))
-      (let ((+arg1.60 +arg1.52) (+arg2.61 +arg2.54))
+     ((f.51 (values)) (+arg1.52 (frame 1 2))
+      (+arg2.53 (frame (frame 3 4 5) (frame 6 7 8))))
+     (let ((f.45 f.51) (+arg1.46 +arg1.52) (+arg2.48 +arg2.53))
+      (let ((+arg1.54 +arg1.46) (+arg2.55 +arg2.48))
        (#0
         (#0
          (loop-block (frame-shape 2)
-          (map ((+arg1.63 +arg1.60) (+arg2.64 +arg2.61))
-           (let ((+arg1.53 +arg1.63) (+arg2.55 +arg2.64))
-            (let ((+arg2.65 +arg2.55))
+          (map ((+arg1.57 +arg1.54) (+arg2.58 +arg2.55))
+           (let ((+arg1.47 +arg1.57) (+arg2.49 +arg2.58))
+            (let ((+arg2.59 +arg2.49))
              (#0
               (#0
                (loop-block (frame-shape 3)
-                (map ((+arg2.67 +arg2.65))
-                 (let ((+arg2.56 +arg2.67)) (+ +arg1.53 +arg2.56)))
-                (body-matcher map-result.66) (map-result (map-result.66))
+                (map ((+arg2.61 +arg2.59))
+                 (let ((+arg2.50 +arg2.61)) (+ +arg1.47 +arg2.50)))
+                (body-matcher map-result.60) (map-result (map-result.60))
                 (consumer (values))))))))
-          (body-matcher map-result.62) (map-result (map-result.62))
+          (body-matcher map-result.56) (map-result (map-result.56))
           (consumer (values))))))))
     Result of stage Fuse and Simplify:
-    (let ((+arg1.60 (frame 1 2)) (+arg2.61 (frame (frame 3 4 5) (frame 6 7 8))))
+    (let ((+arg1.54 (frame 1 2)) (+arg2.55 (frame (frame 3 4 5) (frame 6 7 8))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((+arg1.63 +arg1.60) (+arg2.64 +arg2.61))
-         (let ((+arg2.65 +arg2.64))
+        (map ((+arg1.57 +arg1.54) (+arg2.58 +arg2.55))
+         (let ((+arg2.59 +arg2.58))
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg2.67 +arg2.65)) (+ +arg1.63 +arg2.67))
-             (body-matcher map-result.66) (map-result (map-result.66))
+             (map ((+arg2.61 +arg2.59)) (+ +arg1.57 +arg2.61))
+             (body-matcher map-result.60) (map-result (map-result.60))
              (consumer (values)))))))
-        (body-matcher map-result.62) (map-result (map-result.62))
+        (body-matcher map-result.56) (map-result (map-result.56))
         (consumer (values))))))
     Result of stage Kernelize:
-    (let ((+arg1.60 (frame 1 2)) (+arg2.61 (frame (frame 3 4 5) (frame 6 7 8))))
+    (let ((+arg1.54 (frame 1 2)) (+arg2.55 (frame (frame 3 4 5) (frame 6 7 8))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((+arg1.63 +arg1.60) (+arg2.64 +arg2.61))
-         (let ((+arg2.65 +arg2.64))
+        (map ((+arg1.57 +arg1.54) (+arg2.58 +arg2.55))
+         (let ((+arg2.59 +arg2.58))
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg2.67 +arg2.65)) (+ +arg1.63 +arg2.67))
-             (body-matcher map-result.66) (map-result (map-result.66))
+             (map ((+arg2.61 +arg2.59)) (+ +arg1.57 +arg2.61))
+             (body-matcher map-result.60) (map-result (map-result.60))
              (consumer (values)))))))
-        (body-matcher map-result.62) (map-result (map-result.62))
+        (body-matcher map-result.56) (map-result (map-result.56))
         (consumer (values))))))
     Result of stage Alloc:
     (mem-let
-     ((map-mem.89
+     ((map-mem.83
        (Malloc (hostOrDevice MallocHost)
         (type'
          (Array
           ((element (Array ((element (Literal IntLiteral)) (size 3)))) (size 2))))))
-      (frame-array.82
+      (frame-array.76
        (Malloc (hostOrDevice MallocHost)
         (type'
          (Array
           ((element (Array ((element (Literal IntLiteral)) (size 3)))) (size 2))))))
-      (frame-array.79
+      (frame-array.73
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal IntLiteral)) (size 2)))))))
      (let
-      ((+arg1.60
+      ((+arg1.54
         (begin
          (begin-do
           (putmem 1
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 79)))
+             (Ref (id ((name frame-array) (id 73)))
               (type' (Array ((element (Literal IntLiteral)) (size 2))))))
             (offset 0) (elementType (Literal IntLiteral))
             (type' (Literal IntLiteral))))
           (putmem 2
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 79)))
+             (Ref (id ((name frame-array) (id 73)))
               (type' (Array ((element (Literal IntLiteral)) (size 2))))))
             (offset 1) (elementType (Literal IntLiteral))
             (type' (Literal IntLiteral)))))
          (getmem
-          (Ref (id ((name frame-array) (id 79)))
+          (Ref (id ((name frame-array) (id 73)))
            (type' (Array ((element (Literal IntLiteral)) (size 2))))))))
-       (+arg2.61
+       (+arg2.55
         (begin
          (begin-do
           (begin-do
@@ -714,7 +714,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -729,7 +729,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -744,7 +744,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -760,7 +760,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -775,7 +775,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -790,7 +790,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -801,7 +801,7 @@ let%expect_test "function call with implicit map" =
              (offset 2) (elementType (Literal IntLiteral))
              (type' (Literal IntLiteral))))))
          (getmem
-          (Ref (id ((name frame-array) (id 82)))
+          (Ref (id ((name frame-array) (id 76)))
            (type'
             (Array
              ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -810,42 +810,42 @@ let%expect_test "function call with implicit map" =
        (#0
         (loop (frame-shape 2)
          (map
-          ((+arg1.63 +arg1.60) (+arg2.64 +arg2.61)
-           (map-mem.90
-            (Ref (id ((name map-mem) (id 89)))
+          ((+arg1.57 +arg1.54) (+arg2.58 +arg2.55)
+           (map-mem.84
+            (Ref (id ((name map-mem) (id 83)))
              (type'
               (Array
                ((element (Array ((element (Literal IntLiteral)) (size 3))))
                 (size 2)))))))
-          (let ((+arg2.65 +arg2.64))
+          (let ((+arg2.59 +arg2.58))
            (#0
             (#0
              (loop (frame-shape 3)
               (map
-               ((+arg2.67 +arg2.65)
-                (map-mem.91
-                 (Ref (id ((name map-mem) (id 90)))
+               ((+arg2.61 +arg2.59)
+                (map-mem.85
+                 (Ref (id ((name map-mem) (id 84)))
                   (type' (Array ((element (Literal IntLiteral)) (size 3)))))))
-               (let ((expr-result.92 (+ +arg1.63 +arg2.67)))
+               (let ((expr-result.86 (+ +arg1.57 +arg2.61)))
                 (begin
-                 (putmem expr-result.92
-                  (Ref (id ((name map-mem) (id 91)))
+                 (putmem expr-result.86
+                  (Ref (id ((name map-mem) (id 85)))
                    (type' (Literal IntLiteral))))
-                 expr-result.92)))
-              (body-matcher map-result.66) (map-result (map-result.66))
+                 expr-result.86)))
+              (body-matcher map-result.60) (map-result (map-result.60))
               (map-result-mem
                (Values
                 (elements
-                 ((Ref (id ((name map-mem) (id 90)))
+                 ((Ref (id ((name map-mem) (id 84)))
                    (type' (Array ((element (Literal IntLiteral)) (size 3)))))))
                 (type'
                  (Tuple ((Array ((element (Literal IntLiteral)) (size 3))))))))
               (consumer (values)))))))
-         (body-matcher map-result.62) (map-result (map-result.62))
+         (body-matcher map-result.56) (map-result (map-result.56))
          (map-result-mem
           (Values
            (elements
-            ((Ref (id ((name map-mem) (id 89)))
+            ((Ref (id ((name map-mem) (id 83)))
               (type'
                (Array
                 ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -858,41 +858,41 @@ let%expect_test "function call with implicit map" =
          (consumer (values)))))))
     Result of stage Capture:
     (mem-let
-     ((map-mem.89
+     ((map-mem.83
        (Malloc (hostOrDevice MallocHost)
         (type'
          (Array
           ((element (Array ((element (Literal IntLiteral)) (size 3)))) (size 2))))))
-      (frame-array.82
+      (frame-array.76
        (Malloc (hostOrDevice MallocHost)
         (type'
          (Array
           ((element (Array ((element (Literal IntLiteral)) (size 3)))) (size 2))))))
-      (frame-array.79
+      (frame-array.73
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal IntLiteral)) (size 2)))))))
      (let
-      ((+arg1.60
+      ((+arg1.54
         (begin
          (begin-do
           (putmem 1
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 79)))
+             (Ref (id ((name frame-array) (id 73)))
               (type' (Array ((element (Literal IntLiteral)) (size 2))))))
             (offset 0) (elementType (Literal IntLiteral))
             (type' (Literal IntLiteral))))
           (putmem 2
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 79)))
+             (Ref (id ((name frame-array) (id 73)))
               (type' (Array ((element (Literal IntLiteral)) (size 2))))))
             (offset 1) (elementType (Literal IntLiteral))
             (type' (Literal IntLiteral)))))
          (getmem
-          (Ref (id ((name frame-array) (id 79)))
+          (Ref (id ((name frame-array) (id 73)))
            (type' (Array ((element (Literal IntLiteral)) (size 2))))))))
-       (+arg2.61
+       (+arg2.55
         (begin
          (begin-do
           (begin-do
@@ -901,7 +901,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -916,7 +916,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -931,7 +931,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -947,7 +947,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -962,7 +962,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -977,7 +977,7 @@ let%expect_test "function call with implicit map" =
              (mem
               (Index
                (mem
-                (Ref (id ((name frame-array) (id 82)))
+                (Ref (id ((name frame-array) (id 76)))
                  (type'
                   (Array
                    ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -988,7 +988,7 @@ let%expect_test "function call with implicit map" =
              (offset 2) (elementType (Literal IntLiteral))
              (type' (Literal IntLiteral))))))
          (getmem
-          (Ref (id ((name frame-array) (id 82)))
+          (Ref (id ((name frame-array) (id 76)))
            (type'
             (Array
              ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -997,42 +997,42 @@ let%expect_test "function call with implicit map" =
        (#0
         (loop (frame-shape 2)
          (map
-          ((+arg1.63 +arg1.60) (+arg2.64 +arg2.61)
-           (map-mem.90
-            (Ref (id ((name map-mem) (id 89)))
+          ((+arg1.57 +arg1.54) (+arg2.58 +arg2.55)
+           (map-mem.84
+            (Ref (id ((name map-mem) (id 83)))
              (type'
               (Array
                ((element (Array ((element (Literal IntLiteral)) (size 3))))
                 (size 2)))))))
-          (let ((+arg2.65 +arg2.64))
+          (let ((+arg2.59 +arg2.58))
            (#0
             (#0
              (loop (frame-shape 3)
               (map
-               ((+arg2.67 +arg2.65)
-                (map-mem.91
-                 (Ref (id ((name map-mem) (id 90)))
+               ((+arg2.61 +arg2.59)
+                (map-mem.85
+                 (Ref (id ((name map-mem) (id 84)))
                   (type' (Array ((element (Literal IntLiteral)) (size 3)))))))
-               (let ((expr-result.92 (+ +arg1.63 +arg2.67)))
+               (let ((expr-result.86 (+ +arg1.57 +arg2.61)))
                 (begin
-                 (putmem expr-result.92
-                  (Ref (id ((name map-mem) (id 91)))
+                 (putmem expr-result.86
+                  (Ref (id ((name map-mem) (id 85)))
                    (type' (Literal IntLiteral))))
-                 expr-result.92)))
-              (body-matcher map-result.66) (map-result (map-result.66))
+                 expr-result.86)))
+              (body-matcher map-result.60) (map-result (map-result.60))
               (map-result-mem
                (Values
                 (elements
-                 ((Ref (id ((name map-mem) (id 90)))
+                 ((Ref (id ((name map-mem) (id 84)))
                    (type' (Array ((element (Literal IntLiteral)) (size 3)))))))
                 (type'
                  (Tuple ((Array ((element (Literal IntLiteral)) (size 3))))))))
               (consumer (values)))))))
-         (body-matcher map-result.62) (map-result (map-result.62))
+         (body-matcher map-result.56) (map-result (map-result.56))
          (map-result-mem
           (Values
            (elements
-            ((Ref (id ((name map-mem) (id 89)))
+            ((Ref (id ((name map-mem) (id 83)))
               (type'
                (Array
                 ((element (Array ((element (Literal IntLiteral)) (size 3))))
@@ -1060,7 +1060,7 @@ let%expect_test "box and unbox" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name words) (id 45)))
+     ((binding ((name words) (id 39)))
       (value
        (Frame
         ((dimensions (2))
@@ -1079,7 +1079,7 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 46)) 1)))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 40)) 1)))))))))))))))
            (Scalar
             ((element
               (Box
@@ -1093,12 +1093,12 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))))))))))
       (body
        (Unbox
-        ((indexBindings ((((name len) (id 47)) Dim)))
-         (valueBinding ((name word) (id 48)))
-         (box (Ref ((id ((name words) (id 45))))))
+        ((indexBindings ((((name len) (id 41)) Dim)))
+         (valueBinding ((name word) (id 42)))
+         (box (Ref ((id ((name words) (id 39))))))
          (body
           (TermApplication
            ((func (Primitive ((name (Func Equal)))))
@@ -1146,14 +1146,14 @@ let%expect_test "box and unbox" =
                                              ((const 0)
                                               (refs ((((name d) (id 0)) 1)))))))))))))))))))))))))))
                       (args
-                       ((Dimension ((const 0) (refs ((((name len) (id 47)) 1)))))
+                       ((Dimension ((const 0) (refs ((((name len) (id 41)) 1)))))
                         (Shape ()))))))
                    (args ((Atom (Literal CharacterLiteral)))))))
-                (args ((Ref ((id ((name word) (id 48)))))))))))))))))))
+                (args ((Ref ((id ((name word) (id 42)))))))))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name words) (id 45)))
+       (((binding ((name words) (id 39)))
          (value
           (Frame
            ((dimensions (2))
@@ -1173,7 +1173,7 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 46)) 1)))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 40)) 1)))))))))))))))
               (Scalar
                ((element
                  (Box
@@ -1188,36 +1188,36 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 46)) 1)))))))))))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 40)) 1)))))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name box) (id 54)))
-            (value (Ref ((id ((name words) (id 45)))))))))
+          (((binding ((name box) (id 48)))
+            (value (Ref ((id ((name words) (id 39)))))))))
          (body
           (IndexLet
            ((indexArgs
-             (((indexBinding ((name len) (id 47)))
+             (((indexBinding ((name len) (id 41)))
                (indexValue
-                (FromBox (box (Ref ((id ((name box) (id 54)))))) (i 0)))
+                (FromBox (box (Ref ((id ((name box) (id 48)))))) (i 0)))
                (sort Dim))))
             (body
              (Map
               ((args
-                (((binding ((name word) (id 48)))
-                  (value (BoxValue ((box (Ref ((id ((name box) (id 54))))))))))))
+                (((binding ((name word) (id 42)))
+                  (value (BoxValue ((box (Ref ((id ((name box) (id 48))))))))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 53)))
+                   (((binding ((name f) (id 47)))
                      (value (Primitive ((name (Func Equal))))))
-                    ((binding ((name =arg1) (id 49)))
+                    ((binding ((name =arg1) (id 43)))
                      (value (Scalar ((element (Literal (IntLiteral 3)))))))
-                    ((binding ((name =arg2) (id 52)))
+                    ((binding ((name =arg2) (id 46)))
                      (value
                       (Map
                        ((args
-                         (((binding ((name f) (id 51)))
+                         (((binding ((name f) (id 45)))
                            (value
                             (TypeApplication
                              ((tFunc
@@ -1268,24 +1268,24 @@ let%expect_test "box and unbox" =
                                                           ((((name d) (id 0)) 1)))))))))))))))))))))))))))
                                  (args
                                   ((Dimension
-                                    ((const 0) (refs ((((name len) (id 47)) 1)))))
+                                    ((const 0) (refs ((((name len) (id 41)) 1)))))
                                    (Shape ()))))))
                               (args ((Atom (Literal CharacterLiteral))))))))
-                          ((binding ((name arr) (id 50)))
-                           (value (Ref ((id ((name word) (id 48)))))))))
+                          ((binding ((name arr) (id 44)))
+                           (value (Ref ((id ((name word) (id 42)))))))))
                         (body
                          (TermApplication
-                          ((func (Ref ((id ((name f) (id 51))))))
-                           (args (((id ((name arr) (id 50))))))
+                          ((func (Ref ((id ((name f) (id 45))))))
+                           (args (((id ((name arr) (id 44))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 53))))))
+                    ((func (Ref ((id ((name f) (id 47))))))
                      (args
-                      (((id ((name =arg1) (id 49))))
-                       ((id ((name =arg2) (id 52))))))
+                      (((id ((name =arg1) (id 43))))
+                       ((id ((name =arg2) (id 46))))))
                      (type' ((element (Literal BooleanLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
@@ -1305,7 +1305,7 @@ let%expect_test "box and unbox" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name words) (id 60)))
+       (((binding ((name words) (id 54)))
          (value
           (Frame
            ((dimensions (2))
@@ -1336,21 +1336,21 @@ let%expect_test "box and unbox" =
                    (bodyType
                     ((element (Literal CharacterLiteral))
                      (shape
-                      ((Add ((const 0) (refs ((((name len) (id 46)) 1)))))))))
+                      ((Add ((const 0) (refs ((((name len) (id 40)) 1)))))))))
                    (type'
-                    ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))))
                 (type'
                  ((element
                    (Sigma
-                    ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))
                   (shape ())))))
               (AtomAsArray
                ((element
@@ -1374,65 +1374,65 @@ let%expect_test "box and unbox" =
                    (bodyType
                     ((element (Literal CharacterLiteral))
                      (shape
-                      ((Add ((const 0) (refs ((((name len) (id 46)) 1)))))))))
+                      ((Add ((const 0) (refs ((((name len) (id 40)) 1)))))))))
                    (type'
-                    ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))))
                 (type'
                  ((element
                    (Sigma
-                    ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))
                   (shape ())))))))
             (type'
              ((element
                (Sigma
-                ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                  (body
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))
               (shape ((Add ((const 2) (refs ())))))))))))))
       (body
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name box) (id 61)))
+          (((binding ((name box) (id 55)))
             (value
              (Ref
-              ((id ((name words) (id 60)))
+              ((id ((name words) (id 54)))
                (type'
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                   ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                     (body
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))
                  (shape ((Add ((const 2) (refs ())))))))))))))
          (body
           (IndexLet
            ((indexArgs
-             (((indexBinding ((name len) (id 47)))
+             (((indexBinding ((name len) (id 41)))
                (indexValue
                 (FromBox
                  (box
                   (Ref
-                   ((id ((name box) (id 61)))
+                   ((id ((name box) (id 55)))
                     (type'
                      ((element
                        (Sigma
                         ((parameters
-                          (((binding ((name len) (id 46))) (bound Dim))))
+                          (((binding ((name len) (id 40))) (bound Dim))))
                          (body
                           ((element (Literal CharacterLiteral))
                            (shape
-                            ((Add ((const 0) (refs ((((name len) (id 46)) 1))))))))))))
+                            ((Add ((const 0) (refs ((((name len) (id 40)) 1))))))))))))
                       (shape ()))))))
                  (i 0)))
                (sort Dim))))
@@ -1443,22 +1443,22 @@ let%expect_test "box and unbox" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 55)))
+                   (((binding ((name f) (id 49)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name =arg1) (id 56)))
+                    ((binding ((name =arg1) (id 50)))
                      (value
                       (AtomAsArray
                        ((element (Literal (IntLiteral 3)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name =arg2) (id 59)))
+                    ((binding ((name =arg2) (id 53)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 58)))
+                         (((binding ((name f) (id 52)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
@@ -1467,7 +1467,7 @@ let%expect_test "box and unbox" =
                          (ReifyIndex
                           ((index
                             (Dimension
-                             ((const 0) (refs ((((name len) (id 47)) 1))))))
+                             ((const 0) (refs ((((name len) (id 41)) 1))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
@@ -1479,14 +1479,14 @@ let%expect_test "box and unbox" =
                          ((ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name =arg1) (id 56)))
+                              ((id ((name =arg1) (id 50)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))
                           (ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name =arg2) (id 59)))
+                              ((id ((name =arg2) (id 53)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))))
@@ -1502,68 +1502,68 @@ let%expect_test "box and unbox" =
        ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ())))))))))
     Result of stage Nest:
     (let
-     ((words.62 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
-     (let ((words.60 words.62))
-      (let ((box.63 words.60))
+     ((words.56 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     (let ((words.54 words.56))
+      (let ((box.57 words.54))
        (#0
         (#0
          (loop-block (frame-shape 2)
-          (map ((box.65 box.63))
-           (let ((box.61 box.65))
-            (index-let ((len.47 box-index-0 box.61))
+          (map ((box.59 box.57))
+           (let ((box.55 box.59))
+            (index-let ((len.41 box-index-0 box.55))
              (let ()
               (let ()
                (let
-                ((f.66 (values)) (=arg1.67 3)
-                 (=arg2.69
-                  (let ((f.68 (values)))
-                   (let ((f.58 f.68)) (reify-index len.47)))))
-                (let ((f.55 f.66) (=arg1.56 =arg1.67) (=arg2.59 =arg2.69))
-                 (= =arg1.56 =arg2.59))))))))
-          (body-matcher map-result.64) (map-result (map-result.64))
+                ((f.60 (values)) (=arg1.61 3)
+                 (=arg2.63
+                  (let ((f.62 (values)))
+                   (let ((f.52 f.62)) (reify-index len.41)))))
+                (let ((f.49 f.60) (=arg1.50 =arg1.61) (=arg2.53 =arg2.63))
+                 (= =arg1.50 =arg2.53))))))))
+          (body-matcher map-result.58) (map-result (map-result.58))
           (consumer (values))))))))
     Result of stage Fuse and Simplify:
     (let
-     ((box.63 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     ((box.57 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((box.65 box.63))
-         (index-let ((len.47 box-index-0 box.65)) (= 3 (reify-index len.47))))
-        (body-matcher map-result.64) (map-result (map-result.64))
+        (map ((box.59 box.57))
+         (index-let ((len.41 box-index-0 box.59)) (= 3 (reify-index len.41))))
+        (body-matcher map-result.58) (map-result (map-result.58))
         (consumer (values))))))
     Result of stage Kernelize:
     (let
-     ((box.63 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     ((box.57 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((box.65 box.63))
-         (index-let ((len.47 box-index-0 box.65)) (= 3 (reify-index len.47))))
-        (body-matcher map-result.64) (map-result (map-result.64))
+        (map ((box.59 box.57))
+         (index-let ((len.41 box-index-0 box.59)) (= 3 (reify-index len.41))))
+        (body-matcher map-result.58) (map-result (map-result.58))
         (consumer (values))))))
     Result of stage Alloc:
     (mem-let
-     ((map-mem.81
+     ((map-mem.75
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal BooleanLiteral)) (size 2))))))
-      (frame-array.77
+      (frame-array.71
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))
-      (frame-array.72
+      (frame-array.66
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
-      (frame-array.71
+      (frame-array.65
        (Malloc (hostOrDevice MallocHost)
         (type'
          (Array
           ((element
             (Sigma
-             ((parameters (((binding ((name len) (id 46))) (bound Dim))))
-              (body (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+             ((parameters (((binding ((name len) (id 40))) (bound Dim))))
+              (body (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
            (size 2)))))))
      (let
-      ((box.63
+      ((box.57
         (begin
          (begin-do
           (putmem
@@ -1573,49 +1573,49 @@ let%expect_test "box and unbox" =
               (putmem 'h'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 72)))
+                 (Ref (id ((name frame-array) (id 66)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
                 (offset 0) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral))))
               (putmem 'e'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 72)))
+                 (Ref (id ((name frame-array) (id 66)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
                 (offset 1) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral))))
               (putmem 'y'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 72)))
+                 (Ref (id ((name frame-array) (id 66)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
                 (offset 2) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral)))))
              (getmem
-              (Ref (id ((name frame-array) (id 72)))
+              (Ref (id ((name frame-array) (id 66)))
                (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))))
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 71)))
+             (Ref (id ((name frame-array) (id 65)))
               (type'
                (Array
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                   ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                     (body
-                     (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                     (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
                  (size 2))))))
             (offset 0)
             (elementType
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
             (type'
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46)))))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40)))))))))
           (putmem
            (box (2)
             (begin
@@ -1623,98 +1623,98 @@ let%expect_test "box and unbox" =
               (putmem 'h'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 77)))
+                 (Ref (id ((name frame-array) (id 71)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))
                 (offset 0) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral))))
               (putmem 'i'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 77)))
+                 (Ref (id ((name frame-array) (id 71)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))
                 (offset 1) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral)))))
              (getmem
-              (Ref (id ((name frame-array) (id 77)))
+              (Ref (id ((name frame-array) (id 71)))
                (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))))
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 71)))
+             (Ref (id ((name frame-array) (id 65)))
               (type'
                (Array
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                   ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                     (body
-                     (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                     (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
                  (size 2))))))
             (offset 1)
             (elementType
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
             (type'
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46))))))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40))))))))))
          (getmem
-          (Ref (id ((name frame-array) (id 71)))
+          (Ref (id ((name frame-array) (id 65)))
            (type'
             (Array
              ((element
                (Sigma
-                ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                  (body
-                  (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                  (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
               (size 2)))))))))
       (#0
        (#0
         (loop (frame-shape 2)
          (map
-          ((box.65 box.63)
-           (map-mem.82
-            (Ref (id ((name map-mem) (id 81)))
+          ((box.59 box.57)
+           (map-mem.76
+            (Ref (id ((name map-mem) (id 75)))
              (type' (Array ((element (Literal BooleanLiteral)) (size 2)))))))
-          (index-let ((len.47 box-index-0 box.65))
-           (let ((expr-result.83 (= 3 (reify-dimension-index len.47))))
+          (index-let ((len.41 box-index-0 box.59))
+           (let ((expr-result.77 (= 3 (reify-dimension-index len.41))))
             (begin
-             (putmem expr-result.83
-              (Ref (id ((name map-mem) (id 82)))
+             (putmem expr-result.77
+              (Ref (id ((name map-mem) (id 76)))
                (type' (Literal BooleanLiteral))))
-             expr-result.83))))
-         (body-matcher map-result.64) (map-result (map-result.64))
+             expr-result.77))))
+         (body-matcher map-result.58) (map-result (map-result.58))
          (map-result-mem
           (Values
            (elements
-            ((Ref (id ((name map-mem) (id 81)))
+            ((Ref (id ((name map-mem) (id 75)))
               (type' (Array ((element (Literal BooleanLiteral)) (size 2)))))))
            (type'
             (Tuple ((Array ((element (Literal BooleanLiteral)) (size 2))))))))
          (consumer (values)))))))
     Result of stage Capture:
     (mem-let
-     ((map-mem.81
+     ((map-mem.75
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal BooleanLiteral)) (size 2))))))
-      (frame-array.77
+      (frame-array.71
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))
-      (frame-array.72
+      (frame-array.66
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
-      (frame-array.71
+      (frame-array.65
        (Malloc (hostOrDevice MallocHost)
         (type'
          (Array
           ((element
             (Sigma
-             ((parameters (((binding ((name len) (id 46))) (bound Dim))))
-              (body (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+             ((parameters (((binding ((name len) (id 40))) (bound Dim))))
+              (body (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
            (size 2)))))))
      (let
-      ((box.63
+      ((box.57
         (begin
          (begin-do
           (putmem
@@ -1724,49 +1724,49 @@ let%expect_test "box and unbox" =
               (putmem 'h'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 72)))
+                 (Ref (id ((name frame-array) (id 66)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
                 (offset 0) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral))))
               (putmem 'e'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 72)))
+                 (Ref (id ((name frame-array) (id 66)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
                 (offset 1) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral))))
               (putmem 'y'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 72)))
+                 (Ref (id ((name frame-array) (id 66)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))
                 (offset 2) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral)))))
              (getmem
-              (Ref (id ((name frame-array) (id 72)))
+              (Ref (id ((name frame-array) (id 66)))
                (type' (Array ((element (Literal CharacterLiteral)) (size 3))))))))
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 71)))
+             (Ref (id ((name frame-array) (id 65)))
               (type'
                (Array
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                   ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                     (body
-                     (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                     (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
                  (size 2))))))
             (offset 0)
             (elementType
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
             (type'
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46)))))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40)))))))))
           (putmem
            (box (2)
             (begin
@@ -1774,72 +1774,72 @@ let%expect_test "box and unbox" =
               (putmem 'h'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 77)))
+                 (Ref (id ((name frame-array) (id 71)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))
                 (offset 0) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral))))
               (putmem 'i'
                (Index
                 (mem
-                 (Ref (id ((name frame-array) (id 77)))
+                 (Ref (id ((name frame-array) (id 71)))
                   (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))
                 (offset 1) (elementType (Literal CharacterLiteral))
                 (type' (Literal CharacterLiteral)))))
              (getmem
-              (Ref (id ((name frame-array) (id 77)))
+              (Ref (id ((name frame-array) (id 71)))
                (type' (Array ((element (Literal CharacterLiteral)) (size 2))))))))
            (Index
             (mem
-             (Ref (id ((name frame-array) (id 71)))
+             (Ref (id ((name frame-array) (id 65)))
               (type'
                (Array
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                   ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                     (body
-                     (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                     (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
                  (size 2))))))
             (offset 1)
             (elementType
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
             (type'
              (Sigma
-              ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+              ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                (body
-                (Array ((element (Literal CharacterLiteral)) (size len.46))))))))))
+                (Array ((element (Literal CharacterLiteral)) (size len.40))))))))))
          (getmem
-          (Ref (id ((name frame-array) (id 71)))
+          (Ref (id ((name frame-array) (id 65)))
            (type'
             (Array
              ((element
                (Sigma
-                ((parameters (((binding ((name len) (id 46))) (bound Dim))))
+                ((parameters (((binding ((name len) (id 40))) (bound Dim))))
                  (body
-                  (Array ((element (Literal CharacterLiteral)) (size len.46)))))))
+                  (Array ((element (Literal CharacterLiteral)) (size len.40)))))))
               (size 2)))))))))
       (#0
        (#0
         (loop (frame-shape 2)
          (map
-          ((box.65 box.63)
-           (map-mem.82
-            (Ref (id ((name map-mem) (id 81)))
+          ((box.59 box.57)
+           (map-mem.76
+            (Ref (id ((name map-mem) (id 75)))
              (type' (Array ((element (Literal BooleanLiteral)) (size 2)))))))
-          (index-let ((len.47 box-index-0 box.65))
-           (let ((expr-result.83 (= 3 (reify-dimension-index len.47))))
+          (index-let ((len.41 box-index-0 box.59))
+           (let ((expr-result.77 (= 3 (reify-dimension-index len.41))))
             (begin
-             (putmem expr-result.83
-              (Ref (id ((name map-mem) (id 82)))
+             (putmem expr-result.77
+              (Ref (id ((name map-mem) (id 76)))
                (type' (Literal BooleanLiteral))))
-             expr-result.83))))
-         (body-matcher map-result.64) (map-result (map-result.64))
+             expr-result.77))))
+         (body-matcher map-result.58) (map-result (map-result.58))
          (map-result-mem
           (Values
            (elements
-            ((Ref (id ((name map-mem) (id 81)))
+            ((Ref (id ((name map-mem) (id 75)))
               (type' (Array ((element (Literal BooleanLiteral)) (size 2)))))))
            (type'
             (Tuple ((Array ((element (Literal BooleanLiteral)) (size 2))))))))
@@ -1850,30 +1850,30 @@ let%expect_test "sum rows" =
   printStages
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
-      (reduce{int | d-1 [] []} + row))
+      (reduce{int | d-1 []} + row))
     (sum-row{ | 9} iota{ | [1000000 10]})
     |};
   [%expect
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name sum-row) (id 45)))
+     ((binding ((name sum-row) (id 39)))
       (value
        (Scalar
         ((element
           (IndexLambda
-           ((params (((binding ((name d-1) (id 46))) (bound Dim))))
+           ((params (((binding ((name d-1) (id 40))) (bound Dim))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name row) (id 47)))
+                   (((binding ((name row) (id 41)))
                      (bound
                       (Arr
                        ((element (Literal IntLiteral))
                         (shape
-                         ((Add ((const 1) (refs ((((name d-1) (id 46)) 1)))))))))))))
+                         ((Add ((const 1) (refs ((((name d-1) (id 40)) 1)))))))))))))
                   (body
                    (TermApplication
                     ((func
@@ -1888,17 +1888,17 @@ let%expect_test "sum rows" =
                                  (character Reduce)))))))
                            (args
                             ((Dimension
-                              ((const 0) (refs ((((name d-1) (id 46)) 1)))))
-                             (Shape ()) (Shape ()))))))
+                              ((const 0) (refs ((((name d-1) (id 40)) 1)))))
+                             (Shape ()))))))
                         (args ((Atom (Literal IntLiteral)))))))
                      (args
                       ((Primitive ((name (Func Add))))
-                       (Ref ((id ((name row) (id 47))))))))))))))))))))))
+                       (Ref ((id ((name row) (id 41))))))))))))))))))))))
       (body
        (TermApplication
         ((func
           (IndexApplication
-           ((iFunc (Ref ((id ((name sum-row) (id 45))))))
+           ((iFunc (Ref ((id ((name sum-row) (id 39))))))
             (args ((Dimension ((const 9) (refs ()))))))))
          (args
           ((IndexApplication
@@ -1909,27 +1909,27 @@ let%expect_test "sum rows" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name sum-row) (id 45)))
+       (((binding ((name sum-row) (id 39)))
          (value
           (Scalar
            ((element
              (IndexLambda
-              ((params (((binding ((name d-1) (id 46))) (bound Dim))))
+              ((params (((binding ((name d-1) (id 40))) (bound Dim))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name row) (id 47)))
+                      (((binding ((name row) (id 41)))
                         (bound
                          (Arr
                           ((element (Literal IntLiteral))
                            (shape
-                            ((Add ((const 1) (refs ((((name d-1) (id 46)) 1)))))))))))))
+                            ((Add ((const 1) (refs ((((name d-1) (id 40)) 1)))))))))))))
                      (body
                       (Map
                        ((args
-                         (((binding ((name f) (id 50)))
+                         (((binding ((name f) (id 44)))
                            (value
                             (TypeApplication
                              ((tFunc
@@ -1942,31 +1942,31 @@ let%expect_test "sum rows" =
                                        (explicitZero false) (character Reduce)))))))
                                  (args
                                   ((Dimension
-                                    ((const 0) (refs ((((name d-1) (id 46)) 1)))))
-                                   (Shape ()) (Shape ()))))))
+                                    ((const 0) (refs ((((name d-1) (id 40)) 1)))))
+                                   (Shape ()))))))
                               (args ((Atom (Literal IntLiteral))))))))
-                          ((binding ((name reduce-f-arg) (id 48)))
+                          ((binding ((name reduce-f-arg) (id 42)))
                            (value (Primitive ((name (Func Add))))))
-                          ((binding ((name reduce-array-arg) (id 49)))
-                           (value (Ref ((id ((name row) (id 47)))))))))
+                          ((binding ((name reduce-array-arg) (id 43)))
+                           (value (Ref ((id ((name row) (id 41)))))))))
                         (body
                          (TermApplication
-                          ((func (Ref ((id ((name f) (id 50))))))
+                          ((func (Ref ((id ((name f) (id 44))))))
                            (args
-                            (((id ((name reduce-f-arg) (id 48))))
-                             ((id ((name reduce-array-arg) (id 49))))))
+                            (((id ((name reduce-f-arg) (id 42))))
+                             ((id ((name reduce-array-arg) (id 43))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 52)))
+          (((binding ((name f) (id 46)))
             (value
              (IndexApplication
-              ((iFunc (Ref ((id ((name sum-row) (id 45))))))
+              ((iFunc (Ref ((id ((name sum-row) (id 39))))))
                (args ((Dimension ((const 9) (refs ())))))))))
-           ((binding ((name row) (id 51)))
+           ((binding ((name row) (id 45)))
             (value
              (IndexApplication
               ((iFunc (Primitive ((name (Val Iota)))))
@@ -1977,12 +1977,12 @@ let%expect_test "sum rows" =
          (body
           (Map
            ((args
-             (((binding ((name row) (id 53)))
-               (value (Ref ((id ((name row) (id 51)))))))))
+             (((binding ((name row) (id 47)))
+               (value (Ref ((id ((name row) (id 45)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 52))))))
-               (args (((id ((name row) (id 53))))))
+              ((func (Ref ((id ((name f) (id 46))))))
+               (args (((id ((name row) (id 47))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 1000000) (refs ())))))
             (type'
@@ -2003,7 +2003,7 @@ let%expect_test "sum rows" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name sum-row) (id 55)))
+       (((binding ((name sum-row) (id 49)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -2012,21 +2012,21 @@ let%expect_test "sum rows" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 56)))
+          (((binding ((name f) (id 50)))
             (value
              (Ref
-              ((id ((name sum-row) (id 55)))
+              ((id ((name sum-row) (id 49)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name row) (id 62)))
+           ((binding ((name row) (id 56)))
             (value
              (ArrayPrimitive
               (Map
                (frameShape
                 ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ())))))
-               (args ()) (iotaVar (((name iota) (id 61))))
+               (args ()) (iotaVar (((name iota) (id 55))))
                (body
                 (Ref
-                 ((id ((name iota) (id 61)))
+                 ((id ((name iota) (id 55)))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
                 ((element (Literal IntLiteral))
@@ -2037,10 +2037,10 @@ let%expect_test "sum rows" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 1000000) (refs ())))))
             (args
-             (((binding ((name row) (id 63)))
+             (((binding ((name row) (id 57)))
                (value
                 (Ref
-                 ((id ((name row) (id 62)))
+                 ((id ((name row) (id 56)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape
@@ -2050,20 +2050,20 @@ let%expect_test "sum rows" =
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 57)))
+                (((binding ((name f) (id 51)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name reduce-f-arg) (id 58)))
+                 ((binding ((name reduce-f-arg) (id 52)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name reduce-array-arg) (id 64)))
+                 ((binding ((name reduce-array-arg) (id 58)))
                   (value
                    (Ref
-                    ((id ((name row) (id 63)))
+                    ((id ((name row) (id 57)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 10) (refs ())))))))))))))
@@ -2071,11 +2071,11 @@ let%expect_test "sum rows" =
                 (ArrayPrimitive
                  (Reduce
                   (arg
-                   ((firstBinding ((name reduce-arg1) (id 65)))
-                    (secondBinding ((name reduce-arg2) (id 66)))
+                   ((firstBinding ((name reduce-arg1) (id 59)))
+                    (secondBinding ((name reduce-arg2) (id 60)))
                     (value
                      (Ref
-                      ((id ((name reduce-array-arg) (id 64)))
+                      ((id ((name reduce-array-arg) (id 58)))
                        (type'
                         ((element (Literal IntLiteral))
                          (shape ((Add ((const 10) (refs ()))))))))))))
@@ -2089,21 +2089,21 @@ let%expect_test "sum rows" =
                          ((ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name reduce-arg1) (id 65)))
+                              ((id ((name reduce-arg1) (id 59)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))
                           (ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name reduce-arg2) (id 66)))
+                              ((id ((name reduce-arg2) (id 60)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))))
                         (type' (Literal IntLiteral)))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
-                  (d ((const 10) (refs ()))) (itemPad ()) (cellShape ())
-                  (associative true) (character Reduce)
+                  (d ((const 10) (refs ()))) (cellShape ()) (associative true)
+                  (character Reduce)
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
@@ -2116,91 +2116,91 @@ let%expect_test "sum rows" =
        ((element (Literal IntLiteral))
         (shape ((Add ((const 1000000) (refs ())))))))))
     Result of stage Nest:
-    (let ((sum-row.67 (values)))
-     (let ((sum-row.55 sum-row.67))
+    (let ((sum-row.61 (values)))
+     (let ((sum-row.49 sum-row.61))
       (let
-       ((f.68 sum-row.55)
-        (row.73
+       ((f.62 sum-row.49)
+        (row.67
          (let ()
           (#0
            (#0
             (loop-block (frame-shape 1000000)
-             (map () (iota iota.70)
+             (map () (iota iota.64)
               (#0
                (#0
                 (loop-block (frame-shape 10)
-                 (map () (iota (iota.72 : iota.70))
-                  (let ((iota.61 iota.72)) iota.61))
-                 (body-matcher map-result.71) (map-result (map-result.71))
+                 (map () (iota (iota.66 : iota.64))
+                  (let ((iota.55 iota.66)) iota.55))
+                 (body-matcher map-result.65) (map-result (map-result.65))
                  (consumer (values))))))
-             (body-matcher map-result.69) (map-result (map-result.69))
+             (body-matcher map-result.63) (map-result (map-result.63))
              (consumer (values))))))))
-       (let ((f.56 f.68) (row.62 row.73))
-        (let ((row.74 row.62))
+       (let ((f.50 f.62) (row.56 row.67))
+        (let ((row.68 row.56))
          (#0
           (#0
            (loop-block (frame-shape 1000000)
-            (map ((row.76 row.74))
-             (let ((row.63 row.76))
+            (map ((row.70 row.68))
+             (let ((row.57 row.70))
               (let
-               ((f.77 (values)) (reduce-f-arg.78 (values))
-                (reduce-array-arg.79 row.63))
+               ((f.71 (values)) (reduce-f-arg.72 (values))
+                (reduce-array-arg.73 row.57))
                (let
-                ((f.57 f.77) (reduce-f-arg.58 reduce-f-arg.78)
-                 (reduce-array-arg.64 reduce-array-arg.79))
-                (let ((reduce-arg.81 reduce-array-arg.64))
+                ((f.51 f.71) (reduce-f-arg.52 reduce-f-arg.72)
+                 (reduce-array-arg.58 reduce-array-arg.73))
+                (let ((reduce-arg.75 reduce-array-arg.58))
                  (#1
                   (loop-block (frame-shape 10)
-                   (map ((reduce-arg.82 reduce-arg.81)) (values reduce-arg.82))
-                   (body-matcher (reduce-arg.80)) (map-result ())
+                   (map ((reduce-arg.76 reduce-arg.75)) (values reduce-arg.76))
+                   (body-matcher (reduce-arg.74)) (map-result ())
                    (consumer
-                    (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-                     (+ reduce-arg1.65 reduce-arg2.66))))))))))
-            (body-matcher map-result.75) (map-result (map-result.75))
+                    (reduce (reduce-arg1.59 reduce-arg2.60 reduce-arg.74)
+                     (+ reduce-arg1.59 reduce-arg2.60))))))))))
+            (body-matcher map-result.69) (map-result (map-result.69))
             (consumer (values))))))))))
     Result of stage Fuse and Simplify:
     (#0
      (#0
       (loop-block (frame-shape 1000000)
-       (map () (iota iota.70)
+       (map () (iota iota.64)
         (#1
-         (loop-block (frame-shape 10) (map () (iota (iota.72 : iota.70)) iota.72)
-          (body-matcher reduce-arg.80) (map-result ())
+         (loop-block (frame-shape 10) (map () (iota (iota.66 : iota.64)) iota.66)
+          (body-matcher reduce-arg.74) (map-result ())
           (consumer
-           (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-            (+ reduce-arg1.65 reduce-arg2.66))))))
-       (body-matcher map-result.75) (map-result (map-result.75))
+           (reduce (reduce-arg1.59 reduce-arg2.60 reduce-arg.74)
+            (+ reduce-arg1.59 reduce-arg2.60))))))
+       (body-matcher map-result.69) (map-result (map-result.69))
        (consumer (values)))))
     Result of stage Kernelize:
     (#0
      (kernel (blocks 80) (threads 128)
-      (map-kernel (frame-shape 1000000) () (iota iota.70)
-       (body-matcher map-result.75) (map-result (map-result.75))
+      (map-kernel (frame-shape 1000000) () (iota iota.64)
+       (body-matcher map-result.69) (map-result (map-result.69))
        (#1
-        (loop-block (frame-shape 10) (map () (iota (iota.72 : iota.70)) iota.72)
-         (body-matcher reduce-arg.80) (map-result ())
+        (loop-block (frame-shape 10) (map () (iota (iota.66 : iota.64)) iota.66)
+         (body-matcher reduce-arg.74) (map-result ())
          (consumer
-          (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-           (+ reduce-arg1.65 reduce-arg2.66))))))))
+          (reduce (reduce-arg1.59 reduce-arg2.60 reduce-arg.74)
+           (+ reduce-arg1.59 reduce-arg2.60))))))))
     Result of stage Alloc:
     (mem-let
-     ((map-mem.121 (Malloc (hostOrDevice MallocDevice) (type' (Tuple ()))))
-      (map-mem.116
+     ((map-mem.115 (Malloc (hostOrDevice MallocDevice) (type' (Tuple ()))))
+      (map-mem.110
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
      (#0
       (begin
        (kernel (blocks 80) (threads 128)
         (map-kernel (frame-shape 1000000)
-         ((map-mem.117
-           (Ref (id ((name map-mem) (id 116)))
+         ((map-mem.111
+           (Ref (id ((name map-mem) (id 110)))
             (type' (Array ((element (Literal IntLiteral)) (size 1000000))))))
-          (map-mem.118 (Ref (id ((name map-mem) (id 121))) (type' (Tuple ())))))
-         (iota iota.70) (body-matcher map-result.75) (map-result (map-result.75))
+          (map-mem.112 (Ref (id ((name map-mem) (id 115))) (type' (Tuple ())))))
+         (iota iota.64) (body-matcher map-result.69) (map-result (map-result.69))
          (map-result-mem
           (Values
            (elements
-            ((Ref (id ((name map-mem) (id 116)))
+            ((Ref (id ((name map-mem) (id 110)))
               (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
            (type'
             (Tuple ((Array ((element (Literal IntLiteral)) (size 1000000))))))))
@@ -2209,28 +2209,28 @@ let%expect_test "sum rows" =
             (putmem
              (loop (frame-shape 10)
               (map
-               ((map-mem.119
-                 (Ref (id ((name map-mem) (id 118))) (type' (Tuple ())))))
-               (iota (iota.72 : iota.70)) iota.72)
-              (body-matcher reduce-arg.80) (map-result ())
+               ((map-mem.113
+                 (Ref (id ((name map-mem) (id 112))) (type' (Tuple ())))))
+               (iota (iota.66 : iota.64)) iota.66)
+              (body-matcher reduce-arg.74) (map-result ())
               (map-result-mem
-               (Ref (id ((name map-mem) (id 118))) (type' (Tuple ()))))
+               (Ref (id ((name map-mem) (id 112))) (type' (Tuple ()))))
               (consumer
-               (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-                (+ reduce-arg1.65 reduce-arg2.66))))
-             (Ref (id ((name map-mem) (id 117))) (type' (Literal IntLiteral))))))
+               (reduce (reduce-arg1.59 reduce-arg2.60 reduce-arg.74)
+                (+ reduce-arg1.59 reduce-arg2.60))))
+             (Ref (id ((name map-mem) (id 111))) (type' (Literal IntLiteral))))))
           (sub-maps))))
        (getmem
         (Values
          (elements
-          ((Ref (id ((name map-mem) (id 116)))
+          ((Ref (id ((name map-mem) (id 110)))
             (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
          (type'
           (Tuple ((Array ((element (Literal IntLiteral)) (size 1000000)))))))))))
     Result of stage Capture:
     (mem-let
-     ((map-mem.121 (Malloc (hostOrDevice MallocDevice) (type' (Tuple ()))))
-      (map-mem.116
+     ((map-mem.115 (Malloc (hostOrDevice MallocDevice) (type' (Tuple ()))))
+      (map-mem.110
        (Malloc (hostOrDevice MallocHost)
         (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
      (#0
@@ -2238,15 +2238,15 @@ let%expect_test "sum rows" =
        (kernel captures ((expr-captures ()) (index-captures ())) (blocks 80)
         (threads 128)
         (map-kernel (frame-shape 1000000)
-         ((map-mem.117
-           (Ref (id ((name map-mem) (id 116)))
+         ((map-mem.111
+           (Ref (id ((name map-mem) (id 110)))
             (type' (Array ((element (Literal IntLiteral)) (size 1000000))))))
-          (map-mem.118 (Ref (id ((name map-mem) (id 121))) (type' (Tuple ())))))
-         (iota iota.70) (body-matcher map-result.75) (map-result (map-result.75))
+          (map-mem.112 (Ref (id ((name map-mem) (id 115))) (type' (Tuple ())))))
+         (iota iota.64) (body-matcher map-result.69) (map-result (map-result.69))
          (map-result-mem
           (Values
            (elements
-            ((Ref (id ((name map-mem) (id 116)))
+            ((Ref (id ((name map-mem) (id 110)))
               (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
            (type'
             (Tuple ((Array ((element (Literal IntLiteral)) (size 1000000))))))))
@@ -2255,21 +2255,21 @@ let%expect_test "sum rows" =
             (putmem
              (loop (frame-shape 10)
               (map
-               ((map-mem.119
-                 (Ref (id ((name map-mem) (id 118))) (type' (Tuple ())))))
-               (iota (iota.72 : iota.70)) iota.72)
-              (body-matcher reduce-arg.80) (map-result ())
+               ((map-mem.113
+                 (Ref (id ((name map-mem) (id 112))) (type' (Tuple ())))))
+               (iota (iota.66 : iota.64)) iota.66)
+              (body-matcher reduce-arg.74) (map-result ())
               (map-result-mem
-               (Ref (id ((name map-mem) (id 118))) (type' (Tuple ()))))
+               (Ref (id ((name map-mem) (id 112))) (type' (Tuple ()))))
               (consumer
-               (reduce (shape) (reduce-arg1.65 reduce-arg2.66 reduce-arg.80)
-                (+ reduce-arg1.65 reduce-arg2.66))))
-             (Ref (id ((name map-mem) (id 117))) (type' (Literal IntLiteral))))))
+               (reduce (reduce-arg1.59 reduce-arg2.60 reduce-arg.74)
+                (+ reduce-arg1.59 reduce-arg2.60))))
+             (Ref (id ((name map-mem) (id 111))) (type' (Literal IntLiteral))))))
           (sub-maps))))
        (getmem
         (Values
          (elements
-          ((Ref (id ((name map-mem) (id 116)))
+          ((Ref (id ((name map-mem) (id 110)))
             (type' (Array ((element (Literal IntLiteral)) (size 1000000)))))))
          (type'
           (Tuple ((Array ((element (Literal IntLiteral)) (size 1000000))))))))))) |}]
