@@ -94,15 +94,18 @@ let rec convertProductionTuple : Corn.Expr.productionTuple -> Acorn.Expr.product
   | ProductionTupleAtom production -> ProductionTupleAtom (convertProduction production)
 ;;
 
-let rec arrayElementType (type' : Acorn.Type.t) ~expectedSize : Acorn.Type.t =
+(* Chop the head element of the shape of the array. If a tuple, do this recursively until
+   an array is hit *)
+let rec guillotineType (type' : Acorn.Type.t) ~expectedSize : Acorn.Type.t =
   match type' with
-  | Array array ->
-    assert (Acorn.Index.equal_shapeElement (NeList.hd array.shape) expectedSize);
-    Atom array.element
+  | Array { element; shape = head :: rest } ->
+    assert (Acorn.Index.equal_shapeElement head expectedSize);
+    NeList.of_list rest
+    |> Option.map ~f:(fun shape -> Acorn.Type.Array { element; shape })
+    |> Option.value ~default:(Atom element)
   | Tuple elements ->
     Tuple
-      (List.map elements ~f:(fun elementType ->
-         arrayElementType ~expectedSize elementType))
+      (List.map elements ~f:(fun elementType -> guillotineType ~expectedSize elementType))
   | Atom _ -> raise @@ Unreachable.Error "Expected array type or tuple of arrays"
 ;;
 
@@ -418,7 +421,7 @@ let rec allocRequest
         createTargetAddrMapArgs type' (Some (TargetValue mem))
       | Some (TargetValue targetValue) ->
         let elementType =
-          arrayElementType ~expectedSize:(convertShapeElement frameShape)
+          guillotineType ~expectedSize:(convertShapeElement frameShape)
           @@ Mem.type' targetValue
         in
         let%map binding =
@@ -820,7 +823,7 @@ let rec allocRequest
           createTargetAddrMapArgs type' (Some (TargetValue mem))
         | Some (TargetValue targetValue) ->
           let elementType =
-            arrayElementType ~expectedSize:(convertShapeElement frameShape)
+            guillotineType ~expectedSize:(convertShapeElement frameShape)
             @@ Mem.type' targetValue
           in
           let%map binding =
