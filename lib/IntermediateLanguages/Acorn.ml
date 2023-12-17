@@ -153,13 +153,14 @@ module Mem = struct
     | MallocDevice
   [@@deriving sexp_of]
 
+  type ref =
+    { id : Identifier.t
+    ; type' : Type.t
+    }
+
   (** A Mem.t represents a location in memory, on either host or device *)
-  type 'l t =
-    | Ref :
-        { id : Identifier.t
-        ; type' : Type.t
-        }
-        -> _ t
+  and 'l t =
+    | Ref : ref -> _ t
     | TupleDeref :
         { tuple : 'l t
         ; index : int
@@ -322,12 +323,15 @@ module Expr = struct
   and ('lOuter, 'lInner, 'p, 'c) loopBlock =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
-    ; mapMemArgs : 'lOuter memArg list
+    ; mapMemArgs : 'lInner memArg list
     ; mapIotas : mapIota list
     ; mapBody : ('lInner, 'c) t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
-    ; mapResultMem : 'lOuter Mem.t (** where the result of the map should be written *)
+    ; mapResultMemInterim : 'lInner Mem.t
+        (** a memory location where map results can be written *)
+    ; mapResultMemFinal : 'lOuter Mem.t
+        (** where the map results should be written to after the map is complete *)
     ; consumer : ('lOuter, 'lInner, 'p, 'c) consumerOp option
     ; type' : Type.tuple
     }
@@ -374,7 +378,8 @@ module Expr = struct
       on device, the last few steps occur on host. *)
   and ('lOuter, 'lInner, 'c) parReduce =
     { reduce : ('lOuter, 'lInner, 'c) reduce
-    ; interimResultMem : 'lOuter Mem.t
+    ; interimResultMemInterim : 'lOuter Mem.t
+    ; interimResultMemFinal : 'lOuter Mem.t
         (** Where to write the results of the reduction steps that occur on device *)
     ; outerBody : ('lOuter, 'c) t (** The last few steps, which occur on host *)
     ; outerMappedMemArgs : 'lOuter memArg list
@@ -409,19 +414,26 @@ module Expr = struct
 
   and 'c mapBody =
     { statement : (device, 'c) statement
-    ; subMaps : 'c mapKernel list
+    ; subMaps : 'c mapInKernel list
     }
 
-  and 'c mapKernel =
+  and 'c mapInKernel =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
-    ; mapMemArgs : host memArg list
+    ; mapMemArgs : device memArg list
     ; mapIotas : mapIota list
     ; mapBody : 'c mapBody
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
-    ; mapResultMem : host Mem.t
+    ; mapResultMemInterim : device Mem.t
+        (** a memory location where map results can be written *)
     ; type' : Type.t
+    }
+
+  and 'c mapKernel =
+    { map : 'c mapInKernel
+    ; mapResultMemFinal : host Mem.t
+        (** where the map results should be written to after the map is complete *)
     }
 
   and ('l, 'c) values =
@@ -512,8 +524,8 @@ module Expr = struct
     | ReifyShapeIndex : 'l reifyShapeIndex -> ('l, _) statement
 
   type captures =
-    { exprCaptures : Set.M(Identifier).t
-    ; indexCaptures : Set.M(Identifier).t
+    { exprCaptures : Type.t Map.M(Identifier).t
+    ; indexCaptures : Sort.t Map.M(Identifier).t
     }
 
   type 'l sansCaptures = ('l, unit) t
@@ -737,11 +749,22 @@ module Expr = struct
       fun sexp_of_a
           sexp_of_b
           sexp_of_c
-          { reduce; interimResultMem; outerBody; outerMappedMemArgs } ->
+          { reduce
+          ; interimResultMemInterim
+          ; interimResultMemFinal
+          ; outerBody
+          ; outerMappedMemArgs
+          } ->
       Sexp.List
         [ sexp_of_reduce sexp_of_a sexp_of_b sexp_of_c reduce
         ; Sexp.List
-            [ Sexp.Atom "interim-result-mem"; Mem.sexp_of_t sexp_of_a interimResultMem ]
+            [ Sexp.Atom "interim-result-mem-interim"
+            ; Mem.sexp_of_t sexp_of_a interimResultMemInterim
+            ]
+        ; Sexp.List
+            [ Sexp.Atom "interim-result-mem-final"
+            ; Mem.sexp_of_t sexp_of_a interimResultMemFinal
+            ]
         ; Sexp.List [ Sexp.Atom "outer-body"; sexp_of_t sexp_of_a sexp_of_c outerBody ]
         ; Sexp.List
             [ Sexp.Atom "mapped-mem-args"
@@ -831,7 +854,8 @@ module Expr = struct
           ; mapBody
           ; mapBodyMatcher
           ; mapResults
-          ; mapResultMem
+          ; mapResultMemInterim
+          ; mapResultMemFinal
           ; consumer
           ; type' = _
           } ->
@@ -842,7 +866,7 @@ module Expr = struct
             ([ Sexp.Atom "map"
              ; Sexp.List
                  (List.map mapArgs ~f:sexp_of_mapArg
-                  @ List.map mapMemArgs ~f:(sexp_of_memArg sexp_of_a))
+                  @ List.map mapMemArgs ~f:(sexp_of_memArg sexp_of_b))
              ]
              @ (if List.length mapIotas > 0
                 then
@@ -855,7 +879,14 @@ module Expr = struct
             ; Sexp.List
                 (List.map mapResults ~f:(fun id -> Sexp.Atom (Identifier.show id)))
             ]
-        ; Sexp.List [ Sexp.Atom "map-result-mem"; Mem.sexp_of_t sexp_of_a mapResultMem ]
+        ; Sexp.List
+            [ Sexp.Atom "map-result-mem-interim"
+            ; Mem.sexp_of_t sexp_of_b mapResultMemInterim
+            ]
+        ; Sexp.List
+            [ Sexp.Atom "map-result-mem-final"
+            ; Mem.sexp_of_t sexp_of_a mapResultMemFinal
+            ]
         ; Sexp.List
             [ Sexp.Atom "consumer"
             ; (match consumer with
@@ -873,10 +904,10 @@ module Expr = struct
             ; sexp_of_statement sexp_of_device sexp_of_c statement
             ]
         ; Sexp.List
-            (Sexp.Atom "sub-maps" :: List.map subMaps ~f:(sexp_of_mapKernel sexp_of_c))
+            (Sexp.Atom "sub-maps" :: List.map subMaps ~f:(sexp_of_mapInKernel sexp_of_c))
         ]
 
-    and sexp_of_mapKernel : type c. (c -> Sexp.t) -> c mapKernel -> Sexp.t =
+    and sexp_of_mapInKernel : type c. (c -> Sexp.t) -> c mapInKernel -> Sexp.t =
       fun sexp_of_c
           { frameShape
           ; mapArgs
@@ -885,7 +916,7 @@ module Expr = struct
           ; mapBody
           ; mapBodyMatcher
           ; mapResults
-          ; mapResultMem
+          ; mapResultMemInterim
           ; type' = _
           } ->
       Sexp.List
@@ -893,7 +924,7 @@ module Expr = struct
          ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
          ; Sexp.List
              (List.map mapArgs ~f:sexp_of_mapArg
-              @ List.map mapMemArgs ~f:(sexp_of_memArg sexp_of_host))
+              @ List.map mapMemArgs ~f:(sexp_of_memArg sexp_of_device))
          ]
          @ (if List.length mapIotas > 0
             then
@@ -916,8 +947,20 @@ module Expr = struct
                      (List.map mapResults ~f:(fun id -> Sexp.Atom (Identifier.show id)))
                  ]
             :: Sexp.List
-                 [ Sexp.Atom "map-result-mem"; Mem.sexp_of_t sexp_of_host mapResultMem ]
+                 [ Sexp.Atom "map-result-mem-interim"
+                 ; Mem.sexp_of_t sexp_of_device mapResultMemInterim
+                 ]
             :: [ sexp_of_mapBody sexp_of_c mapBody ]))
+
+    and sexp_of_mapKernel : type c. (c -> Sexp.t) -> c mapKernel -> Sexp.t =
+      fun sexp_of_c { map; mapResultMemFinal } ->
+      Sexp.List
+        [ Sexp.List [ Sexp.Atom "map"; sexp_of_mapInKernel sexp_of_c map ]
+        ; Sexp.List
+            [ Sexp.Atom "map-result-mem-final"
+            ; Mem.sexp_of_t sexp_of_host mapResultMemFinal
+            ]
+        ]
 
     and sexp_of_subArray
       : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) subArray -> Sexp.t
@@ -1054,9 +1097,13 @@ module Expr = struct
     let sexp_of_captures { exprCaptures; indexCaptures } =
       Sexp.List
         [ Sexp.List
-            [ Sexp.Atom "expr-captures"; [%sexp_of: Set.M(Identifier).t] exprCaptures ]
+            [ Sexp.Atom "expr-captures"
+            ; [%sexp_of: Type.t Map.M(Identifier).t] exprCaptures
+            ]
         ; Sexp.List
-            [ Sexp.Atom "index-captures"; [%sexp_of: Set.M(Identifier).t] indexCaptures ]
+            [ Sexp.Atom "index-captures"
+            ; [%sexp_of: Sort.t Map.M(Identifier).t] indexCaptures
+            ]
         ]
     ;;
   end

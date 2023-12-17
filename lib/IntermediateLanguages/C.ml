@@ -20,7 +20,7 @@ end
 type name = Name.t
 
 and fun' =
-  { args : funArg list
+  { args : funParam list
   ; returnType : type'
   ; body : block
   ; isKernel : bool
@@ -33,7 +33,7 @@ and 't declaration =
   ; value : 't
   }
 
-and funArg =
+and funParam =
   { name : name
   ; type' : type'
   }

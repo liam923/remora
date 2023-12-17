@@ -564,6 +564,89 @@ let genCopyExprToMem =
   genCopyExprToMem ~memNeedsPtrDeref:true
 ;;
 
+(*
+   let rec genCopyBetweenMachines ~(type' : Type.t) ~isMem ~copyDirection source =
+  let open GenState.Let_syntax in
+  match type' with
+  | Array { element; shape } ->
+    let size = genShapeSize @@ NeList.to_list shape in
+    let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
+    let copyFun =
+      match copyDirection with
+      | `HostToDevice -> "copyHostToDevice"
+      | `DeviceToHost -> "copyDeviceToHost"
+    in
+    return
+    @@ C.FunCall
+         { fun' = StrName copyFun
+         ; typeArgs = Some [ cElementType ]
+         ; args = [ source; size ]
+         }
+  | Tuple elements ->
+    let%bind cType = genType ~wrapInPtr:isMem type' in
+    let%bind args =
+      elements
+      |> List.mapi ~f:(fun i elementType ->
+        genCopyBetweenMachines ~type':elementType ~isMem ~copyDirection
+        @@ C.FieldDeref { value = source; fieldName = tupleFieldName i })
+      |> GenState.all
+    in
+    return @@ C.StructConstructor { type' = cType; args }
+  | Atom _ -> return source
+;; *)
+
+(* let rec handleCaptures Expr.{ indexCaptures; exprCaptures }
+  : (C.funParam list * C.expr list, _) GenState.u
+  =
+  let open GenState.Let_syntax in
+  let indexCapturesParamsAndArgs =
+    indexCaptures
+    |> Map.to_alist
+    |> List.map ~f:(fun (id, sort) ->
+      let cRef = C.VarRef (UniqueName id) in
+      match sort with
+      | Dim -> ({ name = UniqueName id; type' = Int64 } : C.funParam), cRef
+      | Shape ->
+        let dimCount =
+          C.FieldDeref { value = cRef; fieldName = sliceDimCountFieldName }
+        in
+        let dims = C.FieldDeref { value = cRef; fieldName = sliceDimsFieldName } in
+        let arg =
+          C.StructConstructor
+            { type' = TypeRef (StrName "Slice")
+            ; args =
+                [ FunCall
+                    { fun' = StrName "copyHostToDevice"
+                    ; typeArgs = Some [ Int64 ]
+                    ; args = [ dims; dimCount ]
+                    }
+                ; dimCount
+                ]
+            }
+        in
+        let param : C.funParam = { name = UniqueName id; type' = Int64 } in
+        param, arg)
+  in
+  let%bind exprCapturesParamsAndArgs =
+    exprCaptures
+    |> Map.to_alist
+    |> List.map ~f:(fun (id, type') ->
+      let%bind cType = genType type' in
+      let%bind arg =
+        genCopyBetweenMachines
+          ~type'
+          ~isMem:false
+          ~copyDirection:`HostToDevice
+          (VarRef (UniqueName id))
+      in
+      let param : C.funParam = { name = UniqueName id; type' = cType } in
+      return (param, arg))
+    |> GenState.all
+  in
+  let paramsAndArgs = indexCapturesParamsAndArgs @ exprCapturesParamsAndArgs in
+  return @@ List.unzip paramsAndArgs
+;; *)
+
 let rec genStmnt
   : type l.
     hostOrDevice:l hostOrDevice
@@ -579,7 +662,15 @@ let rec genStmnt
     let%bind addr = genMem ~hostOrDevice ~store:true addr in
     let%bind expr = genExpr ~hostOrDevice ~store:true expr in
     genCopyExprToMem ~expr ~mem:addr ~type'
-  | Host, MapKernel _ -> raise Unimplemented.default
+  | Host, MapKernel { kernel = _; captures = _; blocks = _; threads = _ } ->
+    (* let%bind captureParams, captureArgs = handleCaptures captures in
+    let resultMemArg = kernel.mapResultMem in
+    let resultMemParam : C.funParam =
+      { name = UniqueName mapMemResultRef.id; type' = mapMemResultRef.type' }
+    in
+    let args = resultMemArg :: captureArgs in
+    let params = resultMemParam :: captureParams in *)
+    raise Unimplemented.default
   | _, ComputeForSideEffects expr ->
     let%bind expr = genExpr ~hostOrDevice ~store:false expr in
     GenState.writeStatement @@ C.Eval expr
@@ -713,8 +804,9 @@ and genExpr
         ; mapIotas
         ; mapBody
         ; mapBodyMatcher
-        ; mapResults
-        ; mapResultMem
+        ; mapResults (* mapResultMemInterim = mapResultMemFinal for LoopBlock *)
+        ; mapResultMemInterim = _
+        ; mapResultMemFinal = mapResultMem
         ; consumer
         ; type'
         } ) ->

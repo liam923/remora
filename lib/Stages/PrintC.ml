@@ -172,7 +172,7 @@ let printInclude include' = printLine [%string "#include %{include'}"]
 let printFunDec { name; value = { isKernel; args; returnType; body } } =
   let printArgs args =
     args
-    |> List.map ~f:(fun ({ name; type' } : funArg) ->
+    |> List.map ~f:(fun ({ name; type' } : funParam) ->
       [%string "%{showType type'} %{showName name}"])
     |> String.concat ~sep:", "
   in
