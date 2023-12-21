@@ -8,6 +8,7 @@ module Captures = struct
     Expr.
       { exprCaptures = Map.empty (module Identifier)
       ; indexCaptures = Map.empty (module Identifier)
+      ; memCaptures = Map.empty (module Identifier)
       }
   ;;
 
@@ -15,6 +16,8 @@ module Captures = struct
     Expr.
       { exprCaptures =
           Map.merge_skewed a.exprCaptures b.exprCaptures ~combine:(fun ~key:_ a _ -> a)
+      ; memCaptures =
+          Map.merge_skewed a.memCaptures b.memCaptures ~combine:(fun ~key:_ a _ -> a)
       ; indexCaptures =
           Map.merge_skewed a.indexCaptures b.indexCaptures ~combine:(fun ~key:_ a _ -> a)
       }
@@ -23,6 +26,7 @@ module Captures = struct
   let diff (a : t) b =
     Expr.
       { exprCaptures = Set.fold b ~init:a.exprCaptures ~f:Map.remove
+      ; memCaptures = Set.fold b ~init:a.memCaptures ~f:Map.remove
       ; indexCaptures = Set.fold b ~init:a.indexCaptures ~f:Map.remove
       }
   ;;
@@ -36,6 +40,15 @@ module Captures = struct
   let of_ref (ref : Expr.ref) =
     Expr.
       { exprCaptures = Map.singleton (module Identifier) ref.id ref.type'
+      ; memCaptures = Map.empty (module Identifier)
+      ; indexCaptures = Map.empty (module Identifier)
+      }
+  ;;
+
+  let of_memRef (ref : Mem.ref) =
+    Expr.
+      { exprCaptures = Map.empty (module Identifier)
+      ; memCaptures = Map.singleton (module Identifier) ref.id ref.type'
       ; indexCaptures = Map.empty (module Identifier)
       }
   ;;
@@ -43,6 +56,7 @@ module Captures = struct
   let of_index sort index =
     Expr.
       { exprCaptures = Map.empty (module Identifier)
+      ; memCaptures = Map.empty (module Identifier)
       ; indexCaptures = Map.singleton (module Identifier) index sort
       }
   ;;
@@ -64,6 +78,27 @@ module Captures = struct
     | Index.Shape shape -> getInShape shape
   ;;
 
+  let rec getInType = function
+    | Type.Atom (Literal _) -> empty
+    | Type.Array { element; shape } ->
+      getInType (Atom element) + getInShape (NeList.to_list shape)
+    | Type.Atom (Sigma { parameters; body }) ->
+      let bindings =
+        parameters
+        |> List.map ~f:(fun param -> param.binding)
+        |> Set.of_list (module Identifier)
+      in
+      getInType body - bindings
+    | Type.Tuple elements -> getList elements ~f:getInType
+  ;;
+
+  let rec getInMem : Acorn.Mem.t -> t = function
+    | Ref ref -> of_memRef ref
+    | TupleDeref { tuple; index = _; type' = _ } -> getInMem tuple
+    | Values { elements; type' = _ } -> getList elements ~f:getInMem
+    | Index { mem; offset; type' } -> getInMem mem + getInDim offset + getInType type'
+  ;;
+
   let rec getInExpr : (device, unit) Acorn.Expr.t -> t = function
     | Ref ref -> of_ref ref
     | BoxValue { box; type' = _ } -> getInExpr box
@@ -81,7 +116,15 @@ module Captures = struct
       in
       let bodyCaptures = getInExpr body - bindings in
       argCaptures + bodyCaptures
-    | MemLet { memArgs = _; body } -> getInExpr body
+    | MallocLet { memArgs; body } ->
+      let argCaptures = getList memArgs ~f:(fun arg -> getInType arg.memType) in
+      let bindings =
+        memArgs
+        |> List.map ~f:(fun arg -> arg.memBinding)
+        |> Set.of_list (module Identifier)
+      in
+      let bodyCaptures = getInExpr body - bindings in
+      argCaptures + bodyCaptures
     | Let { args; body } ->
       let argCaptures = getList args ~f:(fun arg -> getInExpr arg.value) in
       let bindings =
@@ -93,12 +136,12 @@ module Captures = struct
         { frameShape
         ; mapArgs
         ; mapIotas
-        ; mapMemArgs = _
+        ; mapMemArgs
         ; mapBody
         ; mapBodyMatcher = _
         ; mapResults = _
-        ; mapResultMemInterim = _
-        ; mapResultMemFinal = _
+        ; mapResultMemInterim
+        ; mapResultMemFinal
         ; consumer
         ; type' = _
         } ->
@@ -110,10 +153,12 @@ module Captures = struct
       in
       let bodyBindings =
         List.map mapArgs ~f:(fun arg -> arg.binding)
+        @ List.map mapMemArgs ~f:(fun arg -> arg.memBinding)
         @ List.map mapIotas ~f:(fun iota -> iota.iota)
         |> Set.of_list (module Identifier)
       in
       let mapArgCaptures = getList mapArgs ~f:(fun arg -> of_ref arg.ref) in
+      let mapMemArgCaptures = getList mapMemArgs ~f:(fun arg -> getInMem arg.mem) in
       let bodyCaptures = getInExpr mapBody - bodyBindings in
       let consumerCaptures =
         match consumer with
@@ -138,35 +183,54 @@ module Captures = struct
           in
           let bodyCaptures = getInExpr body - argBindings in
           zeroCaptures + bodyCaptures + getInDim d
-        | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; mem = _; type' = _ })
-          -> getInDim dIn + getInDim dOut
+        | Some
+            (Scatter
+              { valuesArg = _
+              ; indicesArg = _
+              ; dIn
+              ; dOut
+              ; memInterim = _
+              ; memFinal = _
+              ; type' = _
+              }) -> getInDim dIn + getInDim dOut
       in
       getInShapeElement frameShape
       + mapArgCaptures
+      + mapMemArgCaptures
       + iotaCaptures
       + bodyCaptures
       + consumerCaptures
+      + getInMem mapResultMemInterim
+      + getInMem mapResultMemFinal
     | Box { indices; body; type' = _ } ->
       getList indices ~f:(fun { expr; index } -> getInExpr expr + getInIndex index)
       + getInExpr body
     | Values { elements; type' = _ } -> getList elements ~f:getInExpr
     | ScalarPrimitive { op = _; args; type' = _ } -> getList args ~f:getInExpr
     | TupleDeref { tuple; index = _; type' = _ } -> getInExpr tuple
-    | SubArray { arrayArg; indexArg; type' = _ } ->
-      getInExpr arrayArg + getInExpr indexArg
+    | SubArray { arrayArg; indexArg; type' } ->
+      getInExpr arrayArg + getInExpr indexArg + getInType type'
     | Eseq { statement; expr; type' = _ } -> getInStatement statement + getInExpr expr
     | ReifyDimensionIndex { dim } -> getInDim dim
     | Literal _ -> empty
-    | Getmem { addr = _; type' = _ } -> empty
+    | Getmem { addr; type' = _ } -> getInMem addr
 
   and getInStatement : (device, unit) Acorn.Expr.statement -> t = function
-    | Putmem { addr = _; expr; type' = _ } -> getInExpr expr
+    | Putmem { addr; expr; type' = _ } -> getInMem addr + getInExpr expr
     | ComputeForSideEffects expr -> getInExpr expr
     | Statements statements -> getList statements ~f:getInStatement
     | SLet { args; body } ->
       getList args ~f:(fun arg -> getInExpr arg.value) + getInStatement body
-    | SMemLet { memArgs = _; body } -> getInStatement body
-    | ReifyShapeIndex { shape; mem = _ } -> getInShape shape
+    | SMallocLet { memArgs; body } ->
+      let argCaptures = getList memArgs ~f:(fun arg -> getInType arg.memType) in
+      let bindings =
+        memArgs
+        |> List.map ~f:(fun arg -> arg.memBinding)
+        |> Set.of_list (module Identifier)
+      in
+      let bodyCaptures = getInStatement body - bindings in
+      argCaptures + bodyCaptures
+    | ReifyShapeIndex { shape; mem } -> getInShape shape + getInMem mem
   ;;
 end
 
@@ -184,7 +248,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       ; body = annotateExpr body
       ; type'
       }
-  | MemLet { memArgs; body } -> MemLet { memArgs; body = annotateExpr body }
+  | MallocLet { memArgs; body } -> MallocLet { memArgs; body = annotateExpr body }
   | Let { args; body } ->
     Let { args = List.map args ~f:annotateArg; body = annotateExpr body }
   | LoopBlock
@@ -222,8 +286,8 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
             ; character
             ; type'
             }
-        | Scatter { valuesArg; indicesArg; dIn; dOut; mem; type' } ->
-          Expr.Scatter { valuesArg; indicesArg; dIn; dOut; mem; type' })
+        | Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' } ->
+          Expr.Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' })
     in
     LoopBlock
       { frameShape
@@ -258,11 +322,15 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       } ->
     let mapBodyBindings =
       List.map mapArgs ~f:(fun arg -> arg.binding)
+      @ List.map mapMemArgs ~f:(fun arg -> arg.memBinding)
       @ List.map mapIotas ~f:(fun iota -> iota.iota)
       |> Set.of_list (module Identifier)
     in
     let mapArgCaptures =
       Captures.getList mapArgs ~f:(fun arg -> Captures.of_ref arg.ref)
+    in
+    let mapMemArgCaptures =
+      Captures.getList mapMemArgs ~f:(fun arg -> Captures.getInMem arg.mem)
     in
     let mapBodyCaptures = Captures.(getInExpr mapBody - mapBodyBindings) in
     let consumerCaptures, consumer =
@@ -296,9 +364,12 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
                ; outerBody = annotateExpr outerBody
                ; outerMappedMemArgs
                }) )
-      | Some (Scatter { valuesArg; indicesArg; dIn; dOut; mem; type' }) ->
+      | Some (Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' })
+        ->
         ( Captures.empty
-        , Some (Expr.Scatter { valuesArg; indicesArg; dIn; dOut; mem; type' }) )
+        , Some
+            (Expr.Scatter
+               { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' }) )
     in
     LoopKernel
       { kernel =
@@ -314,7 +385,9 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
           ; consumer
           ; type'
           }
-      ; captures = Captures.(mapArgCaptures + mapBodyCaptures + consumerCaptures)
+      ; captures =
+          Captures.(
+            mapArgCaptures + mapMemArgCaptures + mapBodyCaptures + consumerCaptures)
       ; blocks
       ; threads
       }
@@ -369,11 +442,15 @@ and annotateStatement
       =
       let mapBodyBindings =
         List.map mapArgs ~f:(fun arg -> arg.binding)
+        @ List.map mapMemArgs ~f:(fun arg -> arg.memBinding)
         @ List.map mapIotas ~f:(fun iota -> iota.iota)
         |> Set.of_list (module Identifier)
       in
       let mapArgCaptures =
         Captures.getList mapArgs ~f:(fun arg -> Captures.of_ref arg.ref)
+      in
+      let mapMemArgCaptures =
+        Captures.getList mapMemArgs ~f:(fun arg -> Captures.getInMem arg.mem)
       in
       let subCaptures, subMaps =
         mapBody.subMaps |> List.map ~f:annotateMapInKernel |> List.unzip
@@ -381,14 +458,21 @@ and annotateStatement
       let bodyCaptures = Captures.getInStatement mapBody.statement in
       let captures =
         Captures.(
-          merge_list subCaptures + mapArgCaptures + bodyCaptures - mapBodyBindings)
+          merge_list subCaptures
+          + mapArgCaptures
+          + mapMemArgCaptures
+          + (bodyCaptures - mapBodyBindings))
       in
       ( captures
       , { frameShape
         ; mapArgs
         ; mapIotas
         ; mapMemArgs
-        ; mapBody = { statement = annotateStatement mapBody.statement; subMaps }
+        ; mapBody =
+            { statement = annotateStatement mapBody.statement
+            ; mallocs = mapBody.mallocs
+            ; subMaps
+            }
         ; mapBodyMatcher
         ; mapResults
         ; mapResultMemInterim
@@ -402,7 +486,7 @@ and annotateStatement
   | Statements statements -> Statements (List.map statements ~f:annotateStatement)
   | SLet { args; body } ->
     SLet { args = List.map args ~f:annotateArg; body = annotateStatement body }
-  | SMemLet { memArgs; body } -> SMemLet { memArgs; body = annotateStatement body }
+  | SMallocLet { memArgs; body } -> SMallocLet { memArgs; body = annotateStatement body }
   | ReifyShapeIndex _ as statement -> statement
 
 and annotateArg : type l. (l, unit) Expr.letArg -> (l, Expr.captures) Expr.letArg =

@@ -20,8 +20,8 @@ end
 type name = Name.t
 
 and fun' =
-  { args : funParam list
-  ; returnType : type'
+  { params : funParam list
+  ; returnType : type' option
   ; body : block
   ; isKernel : bool
   }

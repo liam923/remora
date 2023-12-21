@@ -22,22 +22,39 @@ T *mallocHost(int64_t count) {
 };
 
 template<typename T>
-T *mallocDevice(int64_t count) {
+__host__ T *mallocDevice(int64_t count) {
   T* array;
   HANDLE_ERROR(cudaMalloc((void **) &array, count * sizeof(T)));
   return array;
 };
 
 template<typename T>
-T* copyHostToDevice(T* hostArray, int64_t count) {
+__device__ T *mallocDeviceOnDevice(int64_t count) {
+  return malloc(count * sizeof(T));
+};
+
+template<typename T>
+T* copyHostToDeviceMalloc(T* hostArray, int64_t count) {
   T* deviceArray = mallocDevice<T>(count);
   HANDLE_ERROR(cudaMemcpy(deviceArray, hostArray, count * sizeof(T), cudaMemcpyHostToDevice));
   return deviceArray;
 };
 
 template<typename T>
-T* copyDeviceToHost(T* deviceArray, int64_t count) {
+T* copyDeviceToHostMalloc(T* deviceArray, int64_t count) {
   T* hostArray = mallocHost<T>(count);
+  HANDLE_ERROR(cudaMemcpy(hostArray, deviceArray, count * sizeof(T), cudaMemcpyDeviceToHost));
+  return hostArray;
+};
+
+template<typename T>
+T* copyHostToDevice(T* deviceArray, T* hostArray, int64_t count) {
+  HANDLE_ERROR(cudaMemcpy(deviceArray, hostArray, count * sizeof(T), cudaMemcpyHostToDevice));
+  return deviceArray;
+};
+
+template<typename T>
+T* copyDeviceToHost(T* hostArray, T* deviceArray, int64_t count) {
   HANDLE_ERROR(cudaMemcpy(hostArray, deviceArray, count * sizeof(T), cudaMemcpyDeviceToHost));
   return hostArray;
 };
@@ -121,10 +138,10 @@ module GenState = struct
 
   type ('a, 'e) u = (state, 'a, 'e) t
 
-  (* let defineFun (name : CBuilder.name) ~(f : C.name -> (C.fun', 'e) u) : (C.name, 'e) u =
-     makeF ~f:(fun inState ->
-     CBuilder.defineFunL name ~f:(fun name -> run (f name) inState))
-     ;; *)
+  let defineFun (name : CBuilder.name) ~(f : C.name -> (C.fun', 'e) u) : (C.name, 'e) u =
+    makeF ~f:(fun inState ->
+      CBuilder.defineFunL name ~f:(fun name -> run (f name) inState))
+  ;;
 
   let defineStruct (name : CBuilder.name) ~(f : C.name -> (C.struct', 'e) u)
     : (C.name, 'e) u
@@ -243,8 +260,9 @@ let rec genType ?(wrapInPtr = false) type' : (C.type', _) GenState.u =
     cType
 ;;
 
-type 'l hostOrDevice = Host : host hostOrDevice
-(* | Device : device hostOrDevice *)
+type 'l hostOrDevice =
+  | Host : host hostOrDevice
+  | Device : device hostOrDevice
 
 let genDim ({ const; refs; lens } : Index.dimension) =
   let addRefs init =
@@ -421,58 +439,69 @@ let rec genArrayDeref ~arrayType ?resultType ~isMem array
   | Type.Atom _ -> raise @@ Unreachable.Error "Expected array type"
 ;;
 
-let rec genMem
-  : type l. hostOrDevice:l hostOrDevice -> store:bool -> l Mem.t -> (C.expr, _) GenState.u
+let genMalloc
+  : type l.
+    hostOrDevice:l hostOrDevice
+    -> store:bool
+    -> memLoc:Expr.mallocLoc
+    -> Type.t
+    -> (C.expr, _) GenState.u
   =
-  fun ~hostOrDevice ~store expr ->
+  fun ~hostOrDevice ~store ~memLoc type' ->
+  let open GenState.Let_syntax in
+  let mallocer =
+    match hostOrDevice, memLoc with
+    | Host, MallocHost -> "mallocHost"
+    | Host, MallocDevice -> "mallocDevice"
+    | Device, MallocDevice -> "mallocDeviceOnDevice"
+    | Device, MallocHost ->
+      raise @@ Unreachable.Error "cannot malloc host memory from device"
+  in
+  let rec mallocType type' =
+    match type' with
+    | Type.Array { element; shape } ->
+      let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
+      let numElements = genShapeSize @@ NeList.to_list shape in
+      return
+      @@ C.FunCall
+           { fun' = StrName mallocer
+           ; typeArgs = Some [ cElementType ]
+           ; args = [ numElements ]
+           }
+    | Type.Tuple elements ->
+      let%bind cType = genType ~wrapInPtr:true (Tuple elements) in
+      let%bind mallocedElements = elements |> List.map ~f:mallocType |> GenState.all in
+      return @@ C.StructConstructor { type' = cType; args = mallocedElements }
+    | Type.Atom _ ->
+      let%bind cType = genType ~wrapInPtr:false type' in
+      return
+      @@ C.FunCall
+           { fun' = StrName mallocer
+           ; typeArgs = Some [ cType ]
+           ; args = [ Literal (Int64Literal 1) ]
+           }
+  in
+  let%bind mem = mallocType type' in
+  if store then GenState.storeExpr ~name:"mem" mem else return mem
+;;
+
+let rec genMem : store:bool -> Mem.t -> (C.expr, _) GenState.u =
+  fun ~store expr ->
   let open GenState.Let_syntax in
   let storeIfRequested ~name e = if store then GenState.storeExpr ~name e else return e in
-  match hostOrDevice, expr with
-  | _, Ref { id; type' = _ } -> return @@ C.VarRef (UniqueName id)
-  | Host, Malloc { hostOrDevice; type' } ->
-    let mallocer =
-      match hostOrDevice with
-      | MallocHost -> "mallocHost"
-      | MallocDevice -> "mallocHost"
-    in
-    let rec mallocType type' =
-      match type' with
-      | Type.Array { element; shape } ->
-        let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
-        let numElements = genShapeSize @@ NeList.to_list shape in
-        return
-        @@ C.FunCall
-             { fun' = StrName mallocer
-             ; typeArgs = Some [ cElementType ]
-             ; args = [ numElements ]
-             }
-      | Type.Tuple elements ->
-        let%bind cType = genType ~wrapInPtr:true (Tuple elements) in
-        let%bind mallocedElements = elements |> List.map ~f:mallocType |> GenState.all in
-        return @@ C.StructConstructor { type' = cType; args = mallocedElements }
-      | Type.Atom _ ->
-        let%bind cType = genType ~wrapInPtr:false type' in
-        return
-        @@ C.FunCall
-             { fun' = StrName mallocer
-             ; typeArgs = Some [ cType ]
-             ; args = [ Literal (Int64Literal 1) ]
-             }
-    in
-    mallocType type'
-  | _, Values { elements; type' } ->
-    let%bind elements =
-      elements |> List.map ~f:(genMem ~hostOrDevice ~store) |> GenState.all
-    in
+  match expr with
+  | Ref { id; type' = _ } -> return @@ C.VarRef (UniqueName id)
+  | Values { elements; type' } ->
+    let%bind elements = elements |> List.map ~f:(genMem ~store) |> GenState.all in
     let%bind type' = genType ~wrapInPtr:true type' in
     storeIfRequested ~name:"memValues" @@ C.StructConstructor { type'; args = elements }
-  | _, TupleDeref { tuple; index; type' = _ } ->
-    let%map tuple = genMem ~hostOrDevice ~store tuple in
+  | TupleDeref { tuple; index; type' = _ } ->
+    let%map tuple = genMem ~store tuple in
     C.FieldDeref { value = tuple; fieldName = tupleFieldName index }
-  | _, Index { mem; offset; type' } ->
+  | Index { mem; offset; type' } ->
     let memType = Mem.type' mem in
     let%bind offset = genDim offset |> GenState.storeExpr ~name:"offset" in
-    let%bind mem = genMem ~hostOrDevice ~store:true mem in
+    let%bind mem = genMem ~store:true mem in
     let%bind derefer =
       genArrayDeref ~arrayType:memType ~resultType:type' ~isMem:true mem
     in
@@ -564,18 +593,17 @@ let genCopyExprToMem =
   genCopyExprToMem ~memNeedsPtrDeref:true
 ;;
 
-(*
-   let rec genCopyBetweenMachines ~(type' : Type.t) ~isMem ~copyDirection source =
+let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir source =
   let open GenState.Let_syntax in
+  let copyFun =
+    match copyDir with
+    | `HostToDevice -> "copyHostToDeviceMalloc"
+    | `DeviceToHost -> "copyDeviceToHostMalloc"
+  in
   match type' with
   | Array { element; shape } ->
     let size = genShapeSize @@ NeList.to_list shape in
     let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
-    let copyFun =
-      match copyDirection with
-      | `HostToDevice -> "copyHostToDevice"
-      | `DeviceToHost -> "copyDeviceToHost"
-    in
     return
     @@ C.FunCall
          { fun' = StrName copyFun
@@ -583,29 +611,159 @@ let genCopyExprToMem =
          ; args = [ source; size ]
          }
   | Tuple elements ->
-    let%bind cType = genType ~wrapInPtr:isMem type' in
+    let%bind cType = genType type' in
     let%bind args =
       elements
       |> List.mapi ~f:(fun i elementType ->
-        genCopyBetweenMachines ~type':elementType ~isMem ~copyDirection
+        genCopyExprBetweenMachines ~type':elementType ~copyDir
         @@ C.FieldDeref { value = source; fieldName = tupleFieldName i })
       |> GenState.all
     in
     return @@ C.StructConstructor { type' = cType; args }
-  | Atom _ -> return source
-;; *)
+  | Atom (Literal _) -> return source
+  | Atom (Sigma { parameters; body }) ->
+    let%bind copiedParams =
+      parameters
+      |> List.map ~f:(fun param ->
+        let sourceValue =
+          C.FieldDeref { value = source; fieldName = UniqueName param.binding }
+        in
+        let value =
+          match param.bound with
+          | Dim -> sourceValue
+          | Shape ->
+            let dimCount =
+              C.FieldDeref { value = sourceValue; fieldName = sliceDimCountFieldName }
+            in
+            C.StructConstructor
+              { type' = TypeRef (StrName "Slice")
+              ; args =
+                  [ FunCall
+                      { fun' = StrName copyFun
+                      ; typeArgs = Some [ Int64 ]
+                      ; args =
+                          [ FieldDeref { value = source; fieldName = sliceDimsFieldName }
+                          ; dimCount
+                          ]
+                      }
+                  ; dimCount
+                  ]
+              }
+        in
+        let%bind () =
+          GenState.writeStatement
+          @@ Define { name = UniqueName param.binding; type' = None; value = Some value }
+        in
+        return @@ C.VarRef (UniqueName param.binding))
+      |> GenState.all
+    in
+    let%bind copiedValue =
+      genCopyExprBetweenMachines ~type':body ~copyDir
+      @@ FieldDeref { value = source; fieldName = boxValueFieldName }
+    in
+    let%bind type' = genType type' in
+    return @@ C.StructConstructor { type'; args = copiedValue :: copiedParams }
+;;
 
-(* let rec handleCaptures Expr.{ indexCaptures; exprCaptures }
-  : (C.funParam list * C.expr list, _) GenState.u
+let rec genMoveMemDeviceToHost ~(type' : Type.t) ~target ~source =
+  let open GenState.Let_syntax in
+  let copyFun = "copyDeviceToHost" in
+  match type' with
+  | Array { element; shape } ->
+    let size = genShapeSize @@ NeList.to_list shape in
+    let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
+    GenState.writeStatement
+    @@ C.Eval
+         (FunCall
+            { fun' = StrName copyFun
+            ; typeArgs = Some [ cElementType ]
+            ; args = [ target; source; size ]
+            })
+  | Tuple elements ->
+    elements
+    |> List.mapi ~f:(fun i elementType ->
+      genMoveMemDeviceToHost
+        ~type':elementType
+        ~target:(C.FieldDeref { value = target; fieldName = tupleFieldName i })
+        ~source:(C.FieldDeref { value = source; fieldName = tupleFieldName i }))
+    |> GenState.all_unit
+  | Atom (Literal _) ->
+    let%bind cType = genType ~wrapInPtr:false type' in
+    GenState.writeStatement
+    @@ C.Eval
+         (FunCall
+            { fun' = StrName copyFun
+            ; typeArgs = Some [ cType ]
+            ; args = [ target; source; Literal (Int64Literal 1) ]
+            })
+  | Atom (Sigma { parameters; body }) ->
+    let%bind () =
+      parameters
+      |> List.map ~f:(fun param ->
+        let sourceValue =
+          C.FieldDeref { value = source; fieldName = UniqueName param.binding }
+        in
+        let value =
+          match param.bound with
+          | Dim -> sourceValue
+          | Shape ->
+            let dimCount =
+              C.FieldDeref { value = sourceValue; fieldName = sliceDimCountFieldName }
+            in
+            C.StructConstructor
+              { type' = TypeRef (StrName "Slice")
+              ; args =
+                  [ FunCall
+                      { fun' = StrName copyFun
+                      ; typeArgs = Some [ Int64 ]
+                      ; args =
+                          [ FieldDeref { value = source; fieldName = sliceDimsFieldName }
+                          ; dimCount
+                          ]
+                      }
+                  ; dimCount
+                  ]
+              }
+        in
+        let%bind () =
+          GenState.writeStatement
+          @@ Define { name = UniqueName param.binding; type' = None; value = Some value }
+        in
+        GenState.writeStatement
+        @@ C.Assign
+             { lhs = FieldDeref { value = target; fieldName = UniqueName param.binding }
+             ; rhs = VarRef (UniqueName param.binding)
+             })
+      |> GenState.all_unit
+    in
+    let%bind copiedValue =
+      genCopyExprBetweenMachines ~type':body ~copyDir:`DeviceToHost
+      @@ FieldDeref { value = source; fieldName = boxValueFieldName }
+    in
+    GenState.writeStatement
+    @@ C.Assign
+         { lhs = FieldDeref { value = target; fieldName = boxValueFieldName }
+         ; rhs = copiedValue
+         }
+;;
+
+type kernelPass =
+  { arg : C.expr
+  ; param : C.funParam
+  }
+
+let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
+  : (kernelPass list, _) GenState.u
   =
   let open GenState.Let_syntax in
-  let indexCapturesParamsAndArgs =
+  let indexPasses =
     indexCaptures
     |> Map.to_alist
     |> List.map ~f:(fun (id, sort) ->
       let cRef = C.VarRef (UniqueName id) in
       match sort with
-      | Dim -> ({ name = UniqueName id; type' = Int64 } : C.funParam), cRef
+      | Dim ->
+        { arg = cRef; param = ({ name = UniqueName id; type' = Int64 } : C.funParam) }
       | Shape ->
         let dimCount =
           C.FieldDeref { value = cRef; fieldName = sliceDimCountFieldName }
@@ -625,27 +783,32 @@ let genCopyExprToMem =
             }
         in
         let param : C.funParam = { name = UniqueName id; type' = Int64 } in
-        param, arg)
+        { arg; param })
   in
-  let%bind exprCapturesParamsAndArgs =
+  let%bind exprPasses =
     exprCaptures
     |> Map.to_alist
     |> List.map ~f:(fun (id, type') ->
       let%bind cType = genType type' in
       let%bind arg =
-        genCopyBetweenMachines
-          ~type'
-          ~isMem:false
-          ~copyDirection:`HostToDevice
-          (VarRef (UniqueName id))
+        genCopyExprBetweenMachines ~type' ~copyDir:`HostToDevice (VarRef (UniqueName id))
       in
       let param : C.funParam = { name = UniqueName id; type' = cType } in
-      return (param, arg))
+      return { arg; param })
     |> GenState.all
   in
-  let paramsAndArgs = indexCapturesParamsAndArgs @ exprCapturesParamsAndArgs in
-  return @@ List.unzip paramsAndArgs
-;; *)
+  let%bind memPasses =
+    memCaptures
+    |> Map.to_alist
+    |> List.map ~f:(fun (id, type') ->
+      let%bind cType = genType type' in
+      let param : C.funParam = { name = UniqueName id; type' = cType } in
+      return { arg = VarRef (UniqueName id); param })
+    |> GenState.all
+  in
+  let paramsAndArgs = indexPasses @ exprPasses @ memPasses in
+  return paramsAndArgs
+;;
 
 let rec genStmnt
   : type l.
@@ -659,25 +822,50 @@ let rec genStmnt
   | _, Statements statements ->
     statements |> List.map ~f:(genStmnt ~hostOrDevice) |> GenState.all_unit
   | _, Putmem { addr; expr; type' } ->
-    let%bind addr = genMem ~hostOrDevice ~store:true addr in
+    let%bind addr = genMem ~store:true addr in
     let%bind expr = genExpr ~hostOrDevice ~store:true expr in
     genCopyExprToMem ~expr ~mem:addr ~type'
-  | Host, MapKernel { kernel = _; captures = _; blocks = _; threads = _ } ->
-    (* let%bind captureParams, captureArgs = handleCaptures captures in
-    let resultMemArg = kernel.mapResultMem in
-    let resultMemParam : C.funParam =
-      { name = UniqueName mapMemResultRef.id; type' = mapMemResultRef.type' }
+  | Host, MapKernel { kernel; captures; blocks; threads } ->
+    let%bind kernelPasses = handleCaptures captures in
+    let%bind resultInterim = genMem ~store:true kernel.map.mapResultMemInterim in
+    let%bind kernelName =
+      GenState.defineFun
+        (NameOfStr { str = "mapKernel"; needsUniquifying = true })
+        ~f:(fun _ ->
+          return
+          @@ C.
+               { params = List.map kernelPasses ~f:(fun pass -> pass.param)
+               ; body
+               ; returnType = None
+               ; isKernel = true
+               })
     in
-    let args = resultMemArg :: captureArgs in
-    let params = resultMemParam :: captureParams in *)
+    let%bind () =
+      GenState.writeStatement
+      @@ C.Eval
+           (KernelLaunch
+              { kernel = kernelName
+              ; blocks
+              ; threads
+              ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
+              })
+    in
+    let%bind resultFinal = genMem ~store:true kernel.mapResultMemFinal in
+    let%bind () =
+      genMoveMemDeviceToHost
+        ~type':(Mem.type' kernel.mapResultMemFinal)
+        ~target:resultFinal
+        ~source:resultInterim
+    in
     raise Unimplemented.default
   | _, ComputeForSideEffects expr ->
     let%bind expr = genExpr ~hostOrDevice ~store:false expr in
     GenState.writeStatement @@ C.Eval expr
   | _, SLet let' -> genLet ~hostOrDevice ~genBody:(genStmnt ~hostOrDevice) let'
-  | _, SMemLet memLet -> genMemLet ~hostOrDevice ~genBody:(genStmnt ~hostOrDevice) memLet
+  | _, SMallocLet mallocLet ->
+    genMallocLet ~hostOrDevice ~genBody:(genStmnt ~hostOrDevice) mallocLet
   | _, ReifyShapeIndex { shape; mem } ->
-    let%bind mem = genMem ~hostOrDevice ~store:true mem in
+    let%bind mem = genMem ~store:true mem in
     reifyShapeIndexToMem ~mem shape >>| fun _ -> ()
 
 and genExpr
@@ -793,8 +981,8 @@ and genExpr
     in
     genExpr ~hostOrDevice ~store body
   | _, Let let' -> genLet ~hostOrDevice ~genBody:(genExpr ~hostOrDevice ~store) let'
-  | _, MemLet memLet ->
-    genMemLet ~hostOrDevice ~genBody:(genExpr ~hostOrDevice ~store) memLet
+  | _, MallocLet mallocLet ->
+    genMallocLet ~hostOrDevice ~genBody:(genExpr ~hostOrDevice ~store) mallocLet
   | _, ReifyDimensionIndex { dim } -> GenState.storeExpr ~name:"reifiedDim" @@ genDim dim
   | ( _
     , LoopBlock
@@ -822,14 +1010,14 @@ and genExpr
     let%bind mapMemArgsWithDerefers =
       mapMemArgs
       |> List.map ~f:(fun arg ->
-        let%bind argRef = genMem ~hostOrDevice ~store:true arg.mem in
+        let%bind argRef = genMem ~store:true arg.mem in
         let%bind derefer =
           genArrayDeref ~arrayType:(Mem.type' arg.mem) ~isMem:true argRef
         in
         return @@ (arg, derefer))
       |> GenState.all
     in
-    let%bind cMapResultMem = genMem ~hostOrDevice ~store:true mapResultMem in
+    let%bind cMapResultMem = genMem ~store:true mapResultMem in
     let mapResultTypes =
       match type' with
       | [ Tuple mapResultTypes; _ ] -> mapResultTypes
@@ -872,7 +1060,7 @@ and genExpr
         let%bind reduceMemArgsWithDerefers =
           mappedMemArgs
           |> List.map ~f:(fun arg ->
-            let%bind argRef = genMem ~hostOrDevice ~store:true arg.mem in
+            let%bind argRef = genMem ~store:true arg.mem in
             let%bind derefer =
               genArrayDeref ~arrayType:(Mem.type' arg.mem) ~isMem:true argRef
             in
@@ -883,7 +1071,7 @@ and genExpr
           match character with
           | Reduce -> return @@ (return (), C.VarRef accVar)
           | Scan mem ->
-            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind cMem = genMem ~store:true mem in
             let%bind memDerefer =
               genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
             in
@@ -896,7 +1084,7 @@ and genExpr
             return (inLoop, cMem)
           | OpenScan mem ->
             (* Ignoring the case of open scan with no zero since it is non-sensical *)
-            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind cMem = genMem ~store:true mem in
             let%bind memDerefer =
               genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
             in
@@ -996,7 +1184,7 @@ and genExpr
         let%bind foldMemArgsWithDerefers =
           mappedMemArgs
           |> List.map ~f:(fun arg ->
-            let%bind argRef = genMem ~hostOrDevice ~store:true arg.mem in
+            let%bind argRef = genMem ~store:true arg.mem in
             let%bind derefer =
               genArrayDeref ~arrayType:(Mem.type' arg.mem) ~isMem:true argRef
             in
@@ -1007,7 +1195,7 @@ and genExpr
           match character with
           | Fold -> return @@ (return (), C.VarRef accVar)
           | Trace mem ->
-            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind cMem = genMem ~store:true mem in
             let%bind memDerefer =
               genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
             in
@@ -1019,7 +1207,7 @@ and genExpr
             in
             return (inLoop, cMem)
           | OpenTrace mem ->
-            let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+            let%bind cMem = genMem ~store:true mem in
             let%bind memDerefer =
               genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
             in
@@ -1074,8 +1262,18 @@ and genExpr
           characterInLoop
         in
         return @@ (inLoop, characterResult)
-      | Some (Scatter { valuesArg; indicesArg; mem; dIn = _; dOut = _; type' = _ }) ->
-        let%bind cMem = genMem ~hostOrDevice ~store:true mem in
+      | Some
+          (Scatter
+            { valuesArg
+            ; indicesArg
+            ; memInterim = _
+            ; memFinal = mem
+            ; dIn = _
+            ; dOut = _
+            ; type' = _
+            }) ->
+        (* For sequential, memInterim = memFinal, so can just write directly to memFinal *)
+        let%bind cMem = genMem ~store:true mem in
         let cValueArg = C.VarRef (UniqueName valuesArg.productionId) in
         let cIndexArg = C.VarRef (UniqueName indicesArg.productionId) in
         let%bind outputDerefer =
@@ -1264,7 +1462,7 @@ and genExpr
       | Atom (Literal BooleanLiteral)
       | Atom (Literal CharacterLiteral) -> return @@ C.PtrDeref mem
     in
-    let%bind mem = genMem ~hostOrDevice ~store:true addr in
+    let%bind mem = genMem ~store:true addr in
     genGetmem mem type'
 
 and genLet
@@ -1287,20 +1485,20 @@ and genLet
   in
   genBody body
 
-and genMemLet
+and genMallocLet
   : type l sIn sOut.
     hostOrDevice:l hostOrDevice
     -> genBody:(sIn -> (sOut, _) GenState.u)
-    -> (l, sIn) Expr.memLet
+    -> sIn Expr.mallocLet
     -> (sOut, _) GenState.u
   =
   fun ~hostOrDevice ~genBody { memArgs; body } ->
   let open GenState.Let_syntax in
   let%bind () =
     memArgs
-    |> List.map ~f:(fun { memBinding; mem } ->
-      let%bind varType = genType ~wrapInPtr:true @@ Mem.type' mem in
-      let%bind mem = genMem ~hostOrDevice ~store:false mem in
+    |> List.map ~f:(fun { memBinding; memType; memLoc } ->
+      let%bind varType = genType ~wrapInPtr:true memType in
+      let%bind mem = genMalloc ~hostOrDevice ~store:false ~memLoc memType in
       GenState.writeStatement
       @@ C.Define { name = UniqueName memBinding; type' = Some varType; value = Some mem })
     |> GenState.all_unit

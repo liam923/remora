@@ -118,7 +118,7 @@ let typeAsTuple (type' : Acorn.Type.t) : Acorn.Type.tuple =
 module AllocAcc = struct
   type allocation =
     { binding : Identifier.t
-    ; hostOrDevice : Acorn.Mem.mallocHostOrDevice
+    ; mallocLoc : Acorn.Expr.mallocLoc
     ; uses : Set.M(Identifier).t
     ; type' : Acorn.Type.t
     }
@@ -152,10 +152,10 @@ module AllocAcc = struct
     id, []
   ;;
 
-  let malloc ~hostOrDevice type' name =
+  let malloc ~mallocLoc type' name =
     let open CompilerState.Let_syntax in
     let%map binding, _ = createId name in
-    let acc = { binding; hostOrDevice; uses = getUsesInType type'; type' } in
+    let acc = { binding; mallocLoc; uses = getUsesInType type'; type' } in
     let ref = Acorn.Mem.Ref { id = binding; type' } in
     ref, [ acc ]
   ;;
@@ -171,10 +171,8 @@ module AllocAcc = struct
   ;;
 
   let multiplyAllocations
-    : type l.
-      multiplier:Acorn.Index.shapeElement
-      -> ('a, 'e) t
-      -> ('a * l Acorn.Expr.memArg list, 'e) t
+    :  multiplier:Acorn.Index.shapeElement -> ('a, 'e) t
+    -> ('a * Acorn.Expr.memArg list, 'e) t
     =
     fun ~multiplier prog ->
     let open CompilerState in
@@ -185,7 +183,7 @@ module AllocAcc = struct
       |> List.map ~f:(fun alloc ->
         let%map binding = createId (Identifier.name alloc.binding) in
         ( { binding
-          ; hostOrDevice = alloc.hostOrDevice
+          ; mallocLoc = alloc.mallocLoc
           ; uses = Set.union (getUsesInShapeElement multiplier) alloc.uses
           ; type' = Acorn.Type.array ~element:alloc.type' ~size:multiplier
           }
@@ -199,22 +197,14 @@ module AllocAcc = struct
     (result, memArgs), allocs
   ;;
 
-  let allocationToMallocMemArg { binding; hostOrDevice; uses = _; type' }
-    : host Acorn.Expr.memArg
+  let allocationToMallocMemArg { binding; mallocLoc; uses = _; type' }
+    : Acorn.Expr.memMallocArg
     =
-    { memBinding = binding; mem = Malloc { hostOrDevice; type' } }
+    { memBinding = binding; memType = type'; memLoc = mallocLoc }
   ;;
 end
 
-type ('l, 'e) captureAvoider =
-  capturesToAvoid:Set.M(Identifier).t
-  -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
-  -> ('l Acorn.Expr.sansCaptures, 'e) AllocAcc.t
-
-let hostAvoidCaptures
-  ~capturesToAvoid
-  (prog : (host Acorn.Expr.sansCaptures, _) AllocAcc.t)
-  =
+let avoidCapturesGen ~wrap ~capturesToAvoid prog =
   let open CompilerState in
   let open Let_syntax in
   let%bind result, allocs = prog in
@@ -228,36 +218,30 @@ let hostAvoidCaptures
     match allocsToDeclare with
     | [] -> result
     | _ :: _ ->
-      if List.is_empty allocsToDeclare
-      then result
-      else Acorn.Expr.MemLet { memArgs = allocsToDeclare; body = result }
+      if List.is_empty allocsToDeclare then result else wrap ~allocsToDeclare result
   in
   return (result, allocsToPropogate)
 ;;
 
-let deviceAvoidCaptures ~capturesToAvoid prog =
-  let open CompilerState in
-  let open Let_syntax in
-  let%bind result, acc = prog in
-  let usesInAcc =
-    acc
-    |> List.map ~f:(fun (alloc : AllocAcc.allocation) -> alloc.uses)
-    |> Set.union_list (module Identifier)
-  in
-  let intersection = Set.inter usesInAcc capturesToAvoid in
-  match Set.to_list intersection with
-  | [] -> return (result, acc)
-  | captured :: _ ->
-    let capturedStr = Identifier.show captured in
-    CompilerState.error
-      [%string
-        "Cannot allocate array of unknown size inside kernel; allocation relies on \
-         %{capturedStr}"]
+let avoidCaptures ~capturesToAvoid prog =
+  avoidCapturesGen
+    ~wrap:(fun ~allocsToDeclare body ->
+      Acorn.Expr.MallocLet { memArgs = allocsToDeclare; body })
+    ~capturesToAvoid
+    prog
 ;;
 
-type 'l targetAddr =
-  | TargetValue of 'l Acorn.Mem.t
-  | TargetValues of 'l targetAddr option list
+let avoidCapturesInStatement ~capturesToAvoid prog =
+  avoidCapturesGen
+    ~wrap:(fun ~allocsToDeclare body ->
+      Acorn.Expr.SMallocLet { memArgs = allocsToDeclare; body })
+    ~capturesToAvoid
+    prog
+;;
+
+type targetAddr =
+  | TargetValue of Acorn.Mem.t
+  | TargetValues of targetAddr option list
 [@@deriving sexp_of]
 
 type 'l allocResult =
@@ -267,31 +251,28 @@ type 'l allocResult =
 
 let rec allocRequest
   : type l.
-    (l, 'e) captureAvoider
-    -> mallocLoc:Acorn.Mem.mallocHostOrDevice
-    -> writeToAddr:l targetAddr option
-    -> memDeviceToL:(device Acorn.Mem.t -> l Acorn.Mem.t)
+    mallocLoc:Acorn.Expr.mallocLoc
+    -> writeToAddr:targetAddr option
     -> l Corn.Expr.t
     -> (l allocResult, 'e) AllocAcc.t
   =
-  fun avoidCaptures ~mallocLoc ~writeToAddr:targetAddr ~memDeviceToL expr ->
+  fun ~mallocLoc ~writeToAddr:targetAddr expr ->
   let open AllocAcc in
   let open Let_syntax in
   let open Acorn in
-  let alloc = allocRequest avoidCaptures ~mallocLoc ~memDeviceToL in
+  let alloc = allocRequest ~mallocLoc in
   let getExpr { expr; statement = _ } = expr in
   let getStatement { expr = _; statement } = statement in
   let allocStatement ~writeToAddr expr = alloc ~writeToAddr expr >>| getStatement in
   let allocExpr ~writeToAddr expr = alloc ~writeToAddr expr >>| getExpr in
   let rec partialUnwrittenExprToAllocResult
     : type l'.
-      memDeviceToL:(device Mem.t -> l' Mem.t)
-      -> targetAddr:l' targetAddr option
+      targetAddr:targetAddr option
       -> exprToWriteExtractor:(l' Expr.sansCaptures -> (l', unit) Expr.t)
       -> l' Expr.sansCaptures
       -> (l' allocResult, 'e) AllocAcc.t
     =
-    fun ~memDeviceToL ~targetAddr ~exprToWriteExtractor expr ->
+    fun ~targetAddr ~exprToWriteExtractor expr ->
     match targetAddr with
     | None ->
       return { expr; statement = ComputeForSideEffects (exprToWriteExtractor expr) }
@@ -316,7 +297,6 @@ let rec allocRequest
         targetAddrs
         |> List.mapi ~f:(fun index targetAddr ->
           partialUnwrittenExprToAllocResult
-            ~memDeviceToL
             ~targetAddr
             ~exprToWriteExtractor
             (Expr.tupleDeref ~tuple:(Ref ref) ~index))
@@ -339,19 +319,15 @@ let rec allocRequest
       }
   in
   let unwrittenExprToAllocResult expr =
-    partialUnwrittenExprToAllocResult
-      ~memDeviceToL
-      ~targetAddr
-      ~exprToWriteExtractor:(fun e -> e)
-      expr
+    partialUnwrittenExprToAllocResult ~targetAddr ~exprToWriteExtractor:(fun e -> e) expr
   in
   let writtenExprToAllocResult expr = { expr; statement = ComputeForSideEffects expr } in
   let statementToAllocResult ~mem statement =
     { expr = Expr.eseq ~statements:[ statement ] ~expr:(Expr.getmem mem); statement }
   in
-  let rec getMemForResult ?(targetAddr = targetAddr) type' name : (l Mem.t, _) AllocAcc.t =
+  let rec getMemForResult ?(targetAddr = targetAddr) type' name : (Mem.t, _) AllocAcc.t =
     match targetAddr with
-    | None -> malloc ~hostOrDevice:mallocLoc type' name
+    | None -> malloc ~mallocLoc type' name
     | Some (TargetValue memVal) -> return memVal
     | Some (TargetValues targetAddrs) ->
       let type' = typeAsTuple type' in
@@ -365,19 +341,15 @@ let rec allocRequest
     : type lInner seqOrPar.
       ((l, lInner, seqOrPar, unit) Expr.loopBlock -> l Expr.sansCaptures)
       -> blocks:int
-      -> (lInner, 'e) captureAvoider
-      -> Acorn.Mem.mallocHostOrDevice
-      -> (device Acorn.Mem.t -> lInner Acorn.Mem.t)
-      -> (l targetAddr option -> lInner targetAddr option)
-      -> (lInner Acorn.Mem.t -> (l Acorn.Mem.t, 'e) AllocAcc.t)
+      -> Acorn.Expr.mallocLoc
+      -> (targetAddr option -> targetAddr option)
+      -> (Acorn.Mem.t -> (Acorn.Mem.t, 'e) AllocAcc.t)
       -> (l, lInner, seqOrPar) Corn.Expr.loopBlock
       -> (l allocResult, 'e) AllocAcc.t
     =
     fun wrapLoopBlock
         ~blocks
-        innerCaptureAvoider
         innerMallocLoc
-        innerMemDeviceToL
         createMapTargetAddr
         createMapResultMemFinal
         { frameShape
@@ -410,7 +382,7 @@ let rec allocRequest
     in
     let rec createTargetAddrMapArgs type' = function
       | None ->
-        let%bind mem = malloc ~hostOrDevice:innerMallocLoc type' "map-mem" in
+        let%bind mem = malloc ~mallocLoc:innerMallocLoc type' "map-mem" in
         createTargetAddrMapArgs type' (Some (TargetValue mem))
       | Some (TargetValue targetValue) ->
         let elementType =
@@ -464,14 +436,9 @@ let rec allocRequest
     in
     let mapBodyTargetAddr = createTargetAddr mapBodyMatcher in
     let%bind mapBody, mapBodyMemArgs =
-      allocRequest
-        innerCaptureAvoider
-        ~mallocLoc:innerMallocLoc
-        ~writeToAddr:mapBodyTargetAddr
-        ~memDeviceToL:innerMemDeviceToL
-        mapBody
+      allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:mapBodyTargetAddr mapBody
       >>| getExpr
-      |> innerCaptureAvoider ~capturesToAvoid:bindingsForMapBody
+      |> avoidCaptures ~capturesToAvoid:bindingsForMapBody
       |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
     in
     let mapMemArgs =
@@ -484,18 +451,12 @@ let rec allocRequest
       let%bind zero =
         zero
         |> Option.map ~f:(fun zero ->
-          allocRequest avoidCaptures ~mallocLoc ~writeToAddr:None ~memDeviceToL zero
-          >>| getExpr)
+          allocRequest ~mallocLoc ~writeToAddr:None zero >>| getExpr)
         |> all_opt
       and body, bodyMemArgs =
-        allocRequest
-          innerCaptureAvoider
-          ~mallocLoc:innerMallocLoc
-          ~writeToAddr:None
-          ~memDeviceToL:innerMemDeviceToL
-          body
+        allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:None body
         >>| getExpr
-        |> innerCaptureAvoider
+        |> avoidCaptures
              ~capturesToAvoid:
                (Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ])
         |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
@@ -505,7 +466,7 @@ let rec allocRequest
         | Reduce -> return Expr.Reduce
         | Scan ->
           let resultType = Type.array ~element:(Expr.type' body) ~size:(Add d) in
-          let%map mem = malloc ~hostOrDevice:mallocLoc resultType "scan-result" in
+          let%map mem = malloc ~mallocLoc resultType "scan-result" in
           Expr.Scan mem
         | OpenScan ->
           let resultType =
@@ -513,7 +474,7 @@ let rec allocRequest
               ~element:(Expr.type' body)
               ~size:(Add { d with const = d.const + 1 })
           in
-          let%map mem = malloc ~hostOrDevice:mallocLoc resultType "open-scan-result" in
+          let%map mem = malloc ~mallocLoc resultType "open-scan-result" in
           Expr.OpenScan mem
       in
       Expr.
@@ -542,7 +503,7 @@ let rec allocRequest
       | Some (ReducePar { reduce; outerBody }) ->
         let%bind reduce = processReduce reduce in
         let%bind outerBody, outerBodyMemArgs =
-          allocRequest avoidCaptures ~mallocLoc ~writeToAddr:None ~memDeviceToL outerBody
+          allocRequest ~mallocLoc ~writeToAddr:None outerBody
           >>| getExpr
           |> avoidCaptures
                ~capturesToAvoid:
@@ -557,10 +518,10 @@ let rec allocRequest
             ~size:(Add (Index.dimensionConstant blocks))
         in
         let%bind interimResultMemInterim =
-          malloc ~hostOrDevice:MallocDevice interimResultMemType "reduce-interim-result"
+          malloc ~mallocLoc:innerMallocLoc interimResultMemType "reduce-interim-result"
         in
         let%bind interimResultMemFinal =
-          malloc ~hostOrDevice:MallocHost interimResultMemType "reduce-interim-result"
+          malloc ~mallocLoc interimResultMemType "reduce-interim-result"
         in
         return
         @@ ( Some
@@ -575,22 +536,11 @@ let rec allocRequest
       | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let d = convertDimension d in
         let%bind zeroValue =
-          allocRequest
-            avoidCaptures
-            ~mallocLoc
-            ~writeToAddr:None
-            ~memDeviceToL
-            zeroArg.zeroValue
-          >>| getExpr
+          allocRequest ~mallocLoc ~writeToAddr:None zeroArg.zeroValue >>| getExpr
         and body, bodyMemArgs =
-          allocRequest
-            innerCaptureAvoider
-            ~mallocLoc:innerMallocLoc
-            ~writeToAddr:None
-            ~memDeviceToL:innerMemDeviceToL
-            body
+          allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:None body
           >>| getExpr
-          |> innerCaptureAvoider
+          |> avoidCaptures
                ~capturesToAvoid:
                  (Set.of_list
                     (module Identifier)
@@ -603,7 +553,7 @@ let rec allocRequest
           | Fold -> return (Expr.Fold : l Expr.foldCharacter)
           | Trace ->
             let resultType = Type.array ~element:(Expr.type' body) ~size:(Add d) in
-            let%map mem = malloc ~hostOrDevice:mallocLoc resultType "trace-result" in
+            let%map mem = malloc ~mallocLoc resultType "trace-result" in
             Expr.Trace mem
           | OpenTrace ->
             let resultType =
@@ -611,7 +561,7 @@ let rec allocRequest
                 ~element:(Expr.type' body)
                 ~size:(Add { d with const = d.const + 1 })
             in
-            let%map mem = malloc ~hostOrDevice:mallocLoc resultType "open-trace-result" in
+            let%map mem = malloc ~mallocLoc resultType "open-trace-result" in
             Expr.OpenTrace mem
         in
         ( Some
@@ -629,19 +579,24 @@ let rec allocRequest
         , true )
       | Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' }) ->
         let type' = canonicalizeType type' in
-        let%map mem =
+        let%bind memInterim =
+          malloc ~mallocLoc:innerMallocLoc type' "scatter-interim-array"
+        in
+        let%bind memFinal =
           getMemForResult ~targetAddr:consumerTargetAddr type' "scatter-array"
         in
-        ( Some
-            (Expr.Scatter
-               { valuesArg = convertProduction valuesArg
-               ; indicesArg = convertProduction indicesArg
-               ; dIn = convertDimension dIn
-               ; dOut = convertDimension dOut
-               ; mem
-               ; type'
-               })
-        , false )
+        return
+        @@ ( Some
+               (Expr.Scatter
+                  { valuesArg = convertProduction valuesArg
+                  ; indicesArg = convertProduction indicesArg
+                  ; dIn = convertDimension dIn
+                  ; dOut = convertDimension dOut
+                  ; memInterim
+                  ; memFinal
+                  ; type'
+                  })
+           , false )
     in
     let%bind consumer, consumerCopyRequired = processConsumer consumer in
     let loopBlock : (l, lInner, seqOrPar, unit) Expr.loopBlock =
@@ -661,7 +616,6 @@ let rec allocRequest
     if consumerCopyRequired
     then
       partialUnwrittenExprToAllocResult
-        ~memDeviceToL
         ~targetAddr:consumerTargetAddr
         ~exprToWriteExtractor:(fun loopBlock -> Expr.tupleDeref ~tuple:loopBlock ~index:1)
         (wrapLoopBlock loopBlock)
@@ -729,7 +683,7 @@ let rec allocRequest
        let shapeLen = getShapeLen shape in
        let%bind mem =
          malloc
-           ~hostOrDevice:mallocLoc
+           ~mallocLoc
            (Array { element = Literal IntLiteral; shape = [ Add shapeLen ] })
            "reify-index-array"
        in
@@ -767,9 +721,7 @@ let rec allocRequest
     allocLoopBlock
       (fun loopBlock -> Expr.LoopBlock loopBlock)
       ~blocks:0
-      avoidCaptures
       mallocLoc
-      memDeviceToL
       (fun targetAddr -> targetAddr)
       (fun mem -> return mem)
       loopBlock
@@ -778,9 +730,7 @@ let rec allocRequest
       (fun loopBlock ->
         Expr.LoopKernel { kernel = loopBlock; captures = (); blocks; threads })
       ~blocks
-      deviceAvoidCaptures
       MallocDevice
-      (fun m -> m)
       (fun _ -> None)
       (fun _ ->
         getMemForResult (canonicalizeType @@ Tuple loopBlock.type') "map-mem-result")
@@ -804,7 +754,7 @@ let rec allocRequest
       in
       let rec createTargetAddrMapArgs type' = function
         | None ->
-          let%bind mem = malloc ~hostOrDevice:MallocDevice type' "map-mem" in
+          let%bind mem = malloc ~mallocLoc:MallocDevice type' "map-mem" in
           createTargetAddrMapArgs type' (Some (TargetValue mem))
         | Some (TargetValue targetValue) ->
           let elementType =
@@ -860,17 +810,22 @@ let rec allocRequest
       let rec allocMapBody ~writeToAddr:targetAddr (mapBody : Corn.Expr.mapBody) =
         match mapBody with
         | MapBodyMap mapKernel ->
-          let%map mapKernel =
+          let%bind mallocs, mapKernel =
             allocMapKernel ~writeToAddr:targetAddr mapKernel
-            |> deviceAvoidCaptures ~capturesToAvoid:bindingsForMapBody
+            >>| (fun mapKernel -> [], mapKernel)
+            |> avoidCapturesGen
+                 ~capturesToAvoid:bindingsForMapBody
+                 ~wrap:(fun ~allocsToDeclare (prevMallocs, mapKernel) ->
+                   prevMallocs @ allocsToDeclare, mapKernel)
           in
-          [], [ mapKernel ]
+          return @@ ([], mallocs, [ mapKernel ])
         | MapBodyExpr expr ->
           let%map expr =
             allocDevice ~writeToAddr:targetAddr expr
-            |> deviceAvoidCaptures ~capturesToAvoid:bindingsForMapBody
+            >>| getStatement
+            |> avoidCapturesInStatement ~capturesToAvoid:bindingsForMapBody
           in
-          [ expr.statement ], []
+          [ expr ], [], []
         | MapBodyValues elements ->
           let elementsAndTargetAddrs =
             match targetAddr with
@@ -880,14 +835,14 @@ let rec allocRequest
                 element, Some (TargetValue (Mem.tupleDeref ~tuple:targetAddr ~index)))
             | Some (TargetValues targetAddrs) -> List.zip_exn elements targetAddrs
           in
-          let%map subStatements, subSubMaps =
+          let%map subStatements, subMallocs, subSubMaps =
             elementsAndTargetAddrs
             |> List.map ~f:(fun (element, targetAddr) ->
               allocMapBody ~writeToAddr:targetAddr element)
             |> all
-            >>| List.unzip
+            >>| List.unzip3
           in
-          List.concat subStatements, List.concat subSubMaps
+          List.concat subStatements, List.concat subMallocs, List.concat subSubMaps
         | MapBodyDeref { tuple; index } ->
           let rec mapBodyType : Corn.Expr.mapBody -> Type.t = function
             | MapBodyMap mapKernel -> canonicalizeType mapKernel.type'
@@ -903,7 +858,7 @@ let rec allocRequest
           in
           allocMapBody ~writeToAddr:(Some (TargetValues tupleTargetAddrs)) tuple
       in
-      let%map (mapBodyStatements, mapBodySubMaps), mapBodyMemArgs =
+      let%map (mapBodyStatements, mapBodyMallocs, mapBodySubMaps), mapBodyMemArgs =
         allocMapBody ~writeToAddr:mapBodyTargetAddr mapBody
         |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
       in
@@ -915,7 +870,11 @@ let rec allocRequest
       ({ frameShape = convertShapeElement frameShape
        ; mapArgs
        ; mapIotas
-       ; mapBody = { statement = Statements mapBodyStatements; subMaps = mapBodySubMaps }
+       ; mapBody =
+           { statement = Statements mapBodyStatements
+           ; mallocs = mapBodyMallocs
+           ; subMaps = mapBodySubMaps
+           }
        ; mapMemArgs
        ; mapBodyMatcher
        ; mapResults
@@ -954,9 +913,7 @@ let rec allocRequest
             Type.Array
               { element = Literal IntLiteral; shape = [ Add (getShapeLen shape) ] }
           in
-          let%map mem =
-            malloc ~hostOrDevice:mallocLoc reifiedShapeType "reify-index-array"
-          in
+          let%map mem = malloc ~mallocLoc reifiedShapeType "reify-index-array" in
           Expr.
             { expr =
                 eseq
@@ -1062,21 +1019,10 @@ let rec allocRequest
          ; type' = canonicalizeType type'
          }
 
-and allocHost ~writeToAddr expr =
-  allocRequest
-    hostAvoidCaptures
-    ~mallocLoc:MallocHost
-    ~writeToAddr
-    ~memDeviceToL:Acorn.Mem.deviceToHost
-    expr
+and allocHost ~writeToAddr expr = allocRequest ~mallocLoc:MallocHost ~writeToAddr expr
 
-and allocDevice ~writeToAddr expr =
-  allocRequest
-    deviceAvoidCaptures
-    ~mallocLoc:MallocDevice
-    ~writeToAddr
-    ~memDeviceToL:(fun m -> m)
-    expr
+and allocDevice ~writeToAddr expr : (device allocResult, _) AllocAcc.t =
+  allocRequest ~mallocLoc:MallocDevice ~writeToAddr expr
 ;;
 
 let alloc (expr : Corn.t)
@@ -1084,7 +1030,7 @@ let alloc (expr : Corn.t)
   =
   let open CompilerState.Let_syntax in
   let%map result, acc = allocHost ~writeToAddr:None expr in
-  Acorn.Expr.MemLet
+  Acorn.Expr.MallocLet
     { memArgs = List.map acc ~f:AllocAcc.allocationToMallocMemArg; body = result.expr }
 ;;
 

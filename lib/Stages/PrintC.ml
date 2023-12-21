@@ -169,17 +169,17 @@ and printBlock block = block |> List.map ~f:printStatement |> Buffer.all_unit
 
 let printInclude include' = printLine [%string "#include %{include'}"]
 
-let printFunDec { name; value = { isKernel; args; returnType; body } } =
-  let printArgs args =
-    args
+let printFunDec { name; value = { isKernel; params; returnType; body } } =
+  let printParams params =
+    params
     |> List.map ~f:(fun ({ name; type' } : funParam) ->
       [%string "%{showType type'} %{showName name}"])
     |> String.concat ~sep:", "
   in
   let kernel = if isKernel then "__global__ " else "" in
+  let retTypeStr = Option.value_map returnType ~f:showType ~default:"void" in
   let%bind () =
-    printLine
-      [%string "%{kernel}%{showType returnType} %{showName name}(%{printArgs args}) {"]
+    printLine [%string "%{kernel}%{retTypeStr} %{showName name}(%{printParams params}) {"]
   in
   let%bind () = indent @@ printBlock body in
   let%bind () = printLine "};" in
