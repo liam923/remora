@@ -173,7 +173,6 @@ module Mem = struct
         (** mem is expected to have an array type (or a tuple of arrays) where the
             first shape element is a single dimension. offset is an index of an element
             in that array *)
-  [@@deriving sexp_of]
 
   let type' = function
     | Ref ref -> ref.type'
@@ -193,6 +192,27 @@ module Mem = struct
   ;;
 
   let values elements = Values { elements; type' = Tuple (List.map elements ~f:type') }
+
+  module Sexp_of = struct
+    let sexp_of_ref { id; type' = _ } = Sexp.Atom (Identifier.show id)
+
+    let rec sexp_of_t = function
+      | Ref ref -> sexp_of_ref ref
+      | TupleDeref { tuple; index; type' = _ } ->
+        Sexp.List [ Sexp.Atom [%string "#%{index#Int}"]; sexp_of_t tuple ]
+      | Values { elements; type' = _ } ->
+        Sexp.List (Sexp.Atom "values" :: List.map elements ~f:sexp_of_t)
+      | Index { mem; offset; type' } ->
+        Sexp.List
+          [ Sexp.Atom "index"
+          ; Sexp.List [ Sexp.Atom "mem"; sexp_of_t mem ]
+          ; Sexp.List [ Sexp.Atom "offset"; [%sexp_of: Index.dimension] offset ]
+          ; Sexp.List [ Sexp.Atom "type'"; [%sexp_of: Type.t] type' ]
+          ]
+    ;;
+  end
+
+  include Sexp_of
 end
 
 module Expr = struct
@@ -398,10 +418,8 @@ module Expr = struct
     | Fold : ('lOuter, 'lInner, 'c) fold -> ('lOuter, 'lInner, sequential, 'c) consumerOp
 
   and 'c mapBody =
-    { statement : (device, 'c) statement
-    ; mallocs : memMallocArg list
-    ; subMaps : 'c mapInKernel list
-    }
+    | MapBodyStatement of (device, 'c) statement
+    | MapBodySubMaps of 'c mapInKernel list
 
   and 'c mapInKernel =
     { frameShape : Index.shapeElement
@@ -409,15 +427,13 @@ module Expr = struct
     ; mapMemArgs : memArg list
     ; mapIotas : mapIota list
     ; mapBody : 'c mapBody
-    ; mapBodyMatcher : tupleMatch
-    ; mapResults : Identifier.t list
-    ; mapResultMemInterim : Mem.t
-        (** a memory location where map results can be written *)
     ; type' : Type.t
     }
 
   and 'c mapKernel =
     { map : 'c mapInKernel
+    ; mapResultMemInterim : Mem.t
+        (** a memory location where map results are written by the body *)
     ; mapResultMemFinal : Mem.t
         (** where the map results should be written to after the map is complete *)
     }
@@ -891,30 +907,14 @@ module Expr = struct
         ]
 
     and sexp_of_mapBody : type c. (c -> Sexp.t) -> c mapBody -> Sexp.t =
-      fun sexp_of_c { statement; mallocs; subMaps } ->
-      Sexp.List
-        [ Sexp.List
-            [ Sexp.Atom "statement"
-            ; sexp_of_statement sexp_of_device sexp_of_c statement
-            ]
-        ; Sexp.List
-            [ Sexp.Atom "mallocs"; Sexp.List (List.map mallocs ~f:sexp_of_memMallocArg) ]
-        ; Sexp.List
-            (Sexp.Atom "sub-maps" :: List.map subMaps ~f:(sexp_of_mapInKernel sexp_of_c))
-        ]
+      fun sexp_of_c mapBody ->
+      match mapBody with
+      | MapBodyStatement statement -> sexp_of_statement sexp_of_device sexp_of_c statement
+      | MapBodySubMaps subMaps ->
+        Sexp.List (List.map subMaps ~f:(sexp_of_mapInKernel sexp_of_c))
 
     and sexp_of_mapInKernel : type c. (c -> Sexp.t) -> c mapInKernel -> Sexp.t =
-      fun sexp_of_c
-          { frameShape
-          ; mapArgs
-          ; mapMemArgs
-          ; mapIotas
-          ; mapBody
-          ; mapBodyMatcher
-          ; mapResults
-          ; mapResultMemInterim
-          ; type' = _
-          } ->
+      fun sexp_of_c { frameShape; mapArgs; mapMemArgs; mapIotas; mapBody; type' = _ } ->
       Sexp.List
         ([ Sexp.Atom "map-kernel"
          ; Sexp.List [ Sexp.Atom "frame-shape"; Index.sexp_of_shapeElement frameShape ]
@@ -935,20 +935,14 @@ module Expr = struct
                          ]))
               ]
             else [])
-         @ (Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]
-            :: Sexp.List
-                 [ Sexp.Atom "map-result"
-                 ; Sexp.List
-                     (List.map mapResults ~f:(fun id -> Sexp.Atom (Identifier.show id)))
-                 ]
-            :: Sexp.List
-                 [ Sexp.Atom "map-result-mem-interim"; Mem.sexp_of_t mapResultMemInterim ]
-            :: [ sexp_of_mapBody sexp_of_c mapBody ]))
+         @ [ sexp_of_mapBody sexp_of_c mapBody ])
 
     and sexp_of_mapKernel : type c. (c -> Sexp.t) -> c mapKernel -> Sexp.t =
-      fun sexp_of_c { map; mapResultMemFinal } ->
+      fun sexp_of_c { map; mapResultMemInterim; mapResultMemFinal } ->
       Sexp.List
         [ Sexp.List [ Sexp.Atom "map"; sexp_of_mapInKernel sexp_of_c map ]
+        ; Sexp.List
+            [ Sexp.Atom "map-result-mem-interim"; Mem.sexp_of_t mapResultMemInterim ]
         ; Sexp.List [ Sexp.Atom "map-result-mem-final"; Mem.sexp_of_t mapResultMemFinal ]
         ]
 

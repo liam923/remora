@@ -131,7 +131,10 @@ and statement =
       ; body : block
       }
 
-and varUpdate = IncrementOne
+and varUpdate =
+  | IncrementOne
+  | Increment of expr
+
 and block = statement list
 
 and program =
@@ -149,3 +152,20 @@ let fieldDeref ~value ~fieldName ~valueIsPtr =
   then PtrFieldDeref { value; fieldName }
   else FieldDeref { value; fieldName }
 ;;
+
+module Syntax = struct
+  let ( + ) arg1 arg2 = Binop { op = "+"; arg1; arg2 }
+  let ( - ) arg1 arg2 = Binop { op = "-"; arg1; arg2 }
+  let ( * ) arg1 arg2 = Binop { op = "*"; arg1; arg2 }
+  let ( / ) arg1 arg2 = Binop { op = "/"; arg1; arg2 }
+  let ( % ) arg1 arg2 = Binop { op = "%"; arg1; arg2 }
+  let ( > ) arg1 arg2 = Binop { op = ">"; arg1; arg2 }
+  let ( >= ) arg1 arg2 = Binop { op = ">="; arg1; arg2 }
+  let ( < ) arg1 arg2 = Binop { op = "<"; arg1; arg2 }
+  let ( <= ) arg1 arg2 = Binop { op = "<="; arg1; arg2 }
+  let intLit i = Literal (Int64Literal i)
+  let refStr str = VarRef (StrName str)
+  let refId id = VarRef (UniqueName id)
+  let ( %-> ) value fieldName = FieldDeref { value; fieldName }
+  let ternary ~cond ~then' ~else' = Ternary { cond; then'; else' }
+end

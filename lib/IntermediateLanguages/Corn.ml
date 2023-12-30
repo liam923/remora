@@ -135,14 +135,17 @@ module Expr = struct
     | Scatter : scatter -> _ consumerOp
     | Fold : ('lOuter, 'lInner) fold -> ('lOuter, 'lInner, sequential) consumerOp
 
-  and mapBody =
+  and mapBodySubMap =
     | MapBodyMap of mapKernel
-    | MapBodyExpr of device t
-    | MapBodyValues of mapBody list
+    | MapBodyValues of mapBodySubMap list
     | MapBodyDeref of
-        { tuple : mapBody
+        { tuple : mapBodySubMap
         ; index : int
         }
+
+  and mapBody =
+    | MapBodyExpr of device t
+    | MapBodySubMap of mapBodySubMap
 
   and mapKernel =
     { frameShape : Index.shapeElement
@@ -504,16 +507,19 @@ module Expr = struct
             ]
         ]
 
-    and sexp_of_mapBody = function
+    and sexp_of_mapBodySubMap = function
       | MapBodyMap mapKernel -> sexp_of_mapKernel mapKernel
-      | MapBodyExpr expr -> sexp_of_t sexp_of_device expr
       | MapBodyValues values ->
-        Sexp.List (Sexp.Atom "values" :: List.map values ~f:sexp_of_mapBody)
+        Sexp.List (Sexp.Atom "values" :: List.map values ~f:sexp_of_mapBodySubMap)
       | MapBodyDeref { tuple; index } ->
         Sexp.List
           [ Sexp.Atom (String.concat [ "#"; Int.to_string index ])
-          ; sexp_of_mapBody tuple
+          ; sexp_of_mapBodySubMap tuple
           ]
+
+    and sexp_of_mapBody = function
+      | MapBodyExpr expr -> sexp_of_t sexp_of_device expr
+      | MapBodySubMap subMap -> sexp_of_mapBodySubMap subMap
 
     and sexp_of_mapKernel
       ({ frameShape; mapArgs; mapIotas; mapBody; mapBodyMatcher; mapResults; type' = _ } :

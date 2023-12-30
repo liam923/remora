@@ -66,7 +66,9 @@ open Buffer.Let_syntax
 
 let showName (name : name) =
   let replacements =
-    Map.of_alist_exn (module Char) [ '-', "_"; '+', "plus"; '*', "mul"; '/', "div" ]
+    Map.of_alist_exn
+      (module Char)
+      [ '-', "_"; '+', "plus"; '*', "mul"; '/', "div"; '.', "_" ]
   in
   let nameStr =
     match name with
@@ -154,6 +156,7 @@ let rec printStatement = function
     let loopVarUpdateStr =
       match loopVarUpdate with
       | IncrementOne -> [%string "++%{showName loopVar}"]
+      | Increment expr -> [%string "%{showName loopVar} += %{showExpr expr}"]
     in
     let declStr =
       [%string "%{showType loopVarType} %{showName loopVar} = %{showExpr initialValue}"]

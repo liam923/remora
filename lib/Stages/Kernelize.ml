@@ -332,7 +332,8 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
           ; type'
           }
     ; hostParShape
-    ; flattenedMapBody = MapBodyValues [ MapBodyMap mapAsKernel; MapBodyValues [] ]
+    ; flattenedMapBody =
+        MapBodySubMap (MapBodyValues [ MapBodyMap mapAsKernel; MapBodyValues [] ])
     ; flattenedMapBodyParShape = mapAsKernelParShape
     }
   | LoopBlock
@@ -512,11 +513,30 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
       =
       getOptsList elements
     in
+    let deviceExpr = Expr.Values { elements = elementsDeviceExprs; type' } in
+    let list_all_opt l =
+      let filtered = List.filter_opt l in
+      if List.length l = List.length filtered then Some filtered else None
+    in
+    let elementsFlattenedMapBodiesAsSubMaps =
+      elementsFlattenedMapBodies
+      |> List.map ~f:(function
+        | Expr.MapBodyExpr _ -> None
+        | Expr.MapBodySubMap subMap -> Some subMap)
+      |> list_all_opt
+    in
+    let flattenedMapBody, flattenedMapBodyParShape =
+      match elementsFlattenedMapBodiesAsSubMaps with
+      | Some elementsFlattenedMapBodies ->
+        ( Expr.MapBodySubMap (MapBodyValues elementsFlattenedMapBodies)
+        , elementsFlattenedMapBodiesParShape )
+      | None -> Expr.MapBodyExpr deviceExpr, ParallelismShape.empty
+    in
     { hostExpr = Values { elements = elementsHostExprs; type' }
-    ; deviceExpr = Values { elements = elementsDeviceExprs; type' }
+    ; deviceExpr
     ; hostParShape = elementsHostParShape
-    ; flattenedMapBody = Expr.MapBodyValues elementsFlattenedMapBodies
-    ; flattenedMapBodyParShape = elementsFlattenedMapBodiesParShape
+    ; flattenedMapBody
+    ; flattenedMapBodyParShape
     }
   | ScalarPrimitive { op; args; type' } ->
     let%map argsHostExprs, argsDeviceExprs, argsHostParShape, _, _ = getOptsList args in
@@ -536,16 +556,20 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
       | Values { elements; type' = _ } -> List.nth_exn elements index
       | tuple -> TupleDeref { tuple; index; type' }
     in
-    let flattenedMapBody =
+    let flattenedMapBody, flattenedMapBodyParShape =
       match tupleOpts.flattenedMapBody with
-      | MapBodyValues elements -> List.nth_exn elements index
-      | _ -> MapBodyDeref { tuple = tupleOpts.flattenedMapBody; index }
+      | MapBodyExpr _ -> Expr.MapBodyExpr deviceExpr, ParallelismShape.empty
+      | MapBodySubMap (MapBodyValues values) ->
+        Expr.MapBodySubMap (List.nth_exn values index), tupleOpts.flattenedMapBodyParShape
+      | MapBodySubMap subMaps ->
+        ( Expr.MapBodySubMap (MapBodyDeref { tuple = subMaps; index })
+        , tupleOpts.flattenedMapBodyParShape )
     in
     { hostExpr
     ; deviceExpr
     ; hostParShape = tupleOpts.hostParShape
     ; flattenedMapBody
-    ; flattenedMapBodyParShape = tupleOpts.flattenedMapBodyParShape
+    ; flattenedMapBodyParShape
     }
   | SubArray { arrayArg; indexArg; type' } ->
     let%map arrayArgOpts = getOpts arrayArg

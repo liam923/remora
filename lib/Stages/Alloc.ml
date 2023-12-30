@@ -737,20 +737,24 @@ let rec allocRequest
       loopBlock
   | MapKernel { kernel = mapKernel; blocks; threads } ->
     let rec allocMapKernel
+      ~outerBindingsForMapBody
       ~writeToAddr:targetAddr
       Corn.Expr.
         { frameShape; mapArgs; mapIotas; mapBody; mapBodyMatcher; mapResults; type' }
-      : (unit Expr.mapInKernel, _) AllocAcc.t
+      : (unit Expr.mapInKernel * Mem.t, _) AllocAcc.t
       =
       let type' = canonicalizeType type' in
       let mapArgs =
         List.map mapArgs ~f:(fun { binding; ref } ->
           Expr.{ binding; ref = { id = ref.id; type' = canonicalizeType ref.type' } })
       in
-      let bindingsForMapBody =
+      let innerBindingsForMapBody =
         List.map mapArgs ~f:(fun arg -> arg.binding)
         @ List.map mapIotas ~f:(fun iota -> iota.iota)
         |> Set.of_list (module Identifier)
+      in
+      let bindingsForMapBody =
+        Set.union outerBindingsForMapBody innerBindingsForMapBody
       in
       let rec createTargetAddrMapArgs type' = function
         | None ->
@@ -807,25 +811,19 @@ let rec allocRequest
         | Unpack elements -> Some (TargetValues (List.map elements ~f:createTargetAddr))
       in
       let mapBodyTargetAddr = createTargetAddr mapBodyMatcher in
-      let rec allocMapBody ~writeToAddr:targetAddr (mapBody : Corn.Expr.mapBody) =
-        match mapBody with
+      let rec allocMapBodySubMap
+        ~writeToAddr:targetAddr
+        (mapBodySubMap : Corn.Expr.mapBodySubMap)
+        =
+        match mapBodySubMap with
         | MapBodyMap mapKernel ->
-          let%bind mallocs, mapKernel =
-            allocMapKernel ~writeToAddr:targetAddr mapKernel
-            >>| (fun mapKernel -> [], mapKernel)
-            |> avoidCapturesGen
-                 ~capturesToAvoid:bindingsForMapBody
-                 ~wrap:(fun ~allocsToDeclare (prevMallocs, mapKernel) ->
-                   prevMallocs @ allocsToDeclare, mapKernel)
+          let%bind mapKernel =
+            allocMapKernel
+              ~outerBindingsForMapBody:bindingsForMapBody
+              ~writeToAddr:targetAddr
+              mapKernel
           in
-          return @@ ([], mallocs, [ mapKernel ])
-        | MapBodyExpr expr ->
-          let%map expr =
-            allocDevice ~writeToAddr:targetAddr expr
-            >>| getStatement
-            |> avoidCapturesInStatement ~capturesToAvoid:bindingsForMapBody
-          in
-          [ expr ], [], []
+          return [ mapKernel ]
         | MapBodyValues elements ->
           let elementsAndTargetAddrs =
             match targetAddr with
@@ -835,30 +833,43 @@ let rec allocRequest
                 element, Some (TargetValue (Mem.tupleDeref ~tuple:targetAddr ~index)))
             | Some (TargetValues targetAddrs) -> List.zip_exn elements targetAddrs
           in
-          let%map subStatements, subMallocs, subSubMaps =
+          let%bind subMaps =
             elementsAndTargetAddrs
             |> List.map ~f:(fun (element, targetAddr) ->
-              allocMapBody ~writeToAddr:targetAddr element)
+              allocMapBodySubMap ~writeToAddr:targetAddr element)
             |> all
-            >>| List.unzip3
           in
-          List.concat subStatements, List.concat subMallocs, List.concat subSubMaps
+          return @@ List.concat subMaps
         | MapBodyDeref { tuple; index } ->
-          let rec mapBodyType : Corn.Expr.mapBody -> Type.t = function
+          let rec mapBodySubMapType : Corn.Expr.mapBodySubMap -> Type.t = function
             | MapBodyMap mapKernel -> canonicalizeType mapKernel.type'
-            | MapBodyExpr expr -> canonicalizeType @@ Corn.Expr.type' expr
-            | MapBodyValues elements -> Tuple (List.map elements ~f:mapBodyType)
+            | MapBodyValues elements -> Tuple (List.map elements ~f:mapBodySubMapType)
             | MapBodyDeref { tuple; index } ->
-              let tupleType = typeAsTuple @@ mapBodyType tuple in
+              let tupleType = typeAsTuple @@ mapBodySubMapType tuple in
               List.nth_exn tupleType index
           in
-          let tupleSize = List.length @@ typeAsTuple (mapBodyType tuple) in
+          let tupleSize = List.length @@ typeAsTuple (mapBodySubMapType tuple) in
           let tupleTargetAddrs =
             List.init tupleSize ~f:(fun i -> if i = index then targetAddr else None)
           in
-          allocMapBody ~writeToAddr:(Some (TargetValues tupleTargetAddrs)) tuple
+          allocMapBodySubMap ~writeToAddr:(Some (TargetValues tupleTargetAddrs)) @@ tuple
       in
-      let%map (mapBodyStatements, mapBodyMallocs, mapBodySubMaps), mapBodyMemArgs =
+      let allocMapBody ~writeToAddr:targetAddr (mapBody : Corn.Expr.mapBody) =
+        match mapBody with
+        | MapBodyExpr expr ->
+          let%bind expr =
+            allocDevice ~writeToAddr:targetAddr expr
+            >>| getStatement
+            |> avoidCapturesInStatement ~capturesToAvoid:bindingsForMapBody
+          in
+          return @@ Expr.MapBodyStatement expr
+        | MapBodySubMap subMap ->
+          let%bind subMaps, _ =
+            allocMapBodySubMap ~writeToAddr:targetAddr subMap >>| List.unzip
+          in
+          return @@ Expr.MapBodySubMaps subMaps
+      in
+      let%map mapBody, mapBodyMemArgs =
         allocMapBody ~writeToAddr:mapBodyTargetAddr mapBody
         |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
       in
@@ -867,28 +878,27 @@ let rec allocRequest
           Acorn.Expr.{ memBinding; mem })
         @ mapBodyMemArgs
       in
-      ({ frameShape = convertShapeElement frameShape
-       ; mapArgs
-       ; mapIotas
-       ; mapBody =
-           { statement = Statements mapBodyStatements
-           ; mallocs = mapBodyMallocs
-           ; subMaps = mapBodySubMaps
-           }
-       ; mapMemArgs
-       ; mapBodyMatcher
-       ; mapResults
-       ; mapResultMemInterim
-       ; type'
-       }
-        : unit Expr.mapInKernel)
+      ( ({ frameShape = convertShapeElement frameShape
+         ; mapArgs
+         ; mapIotas
+         ; mapBody
+         ; mapMemArgs
+         ; type'
+         }
+          : unit Expr.mapInKernel)
+      , mapResultMemInterim )
     in
     let type' = canonicalizeType mapKernel.type' in
     let%bind mapResultMemFinal = getMemForResult type' "map-mem-result" in
-    let%map mapInKernel = allocMapKernel ~writeToAddr:None mapKernel in
+    let%map mapInKernel, mapResultMemInterim =
+      allocMapKernel
+        ~outerBindingsForMapBody:(Set.empty (module Identifier))
+        ~writeToAddr:None
+        mapKernel
+    in
     let mapKernel =
       Expr.MapKernel
-        { kernel = { map = mapInKernel; mapResultMemFinal }
+        { kernel = { map = mapInKernel; mapResultMemInterim; mapResultMemFinal }
         ; captures = ()
         ; blocks
         ; threads

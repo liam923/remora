@@ -248,16 +248,16 @@ let rec genType ?(wrapInPtr = false) type' : (C.type', _) GenState.u =
         in
         C.TypeRef name
     in
-    let%map () =
+    let%bind () =
       GenState.modify ~f:(fun (state : GenState.state) ->
         if wrapInPtr
         then
           { state with
-            ptrWrappedTypeCache = Map.set state.typeCache ~key:type' ~data:cType
+            ptrWrappedTypeCache = Map.set state.ptrWrappedTypeCache ~key:type' ~data:cType
           }
         else { state with typeCache = Map.set state.typeCache ~key:type' ~data:cType })
     in
-    cType
+    return cType
 ;;
 
 type 'l hostOrDevice =
@@ -267,33 +267,12 @@ type 'l hostOrDevice =
 let genDim ({ const; refs; lens } : Index.dimension) =
   let addRefs init =
     Map.fold refs ~init ~f:(fun ~key:dimVar ~data:multiplier cValSoFar ->
-      C.Binop
-        { op = "+"
-        ; arg1 = cValSoFar
-        ; arg2 =
-            C.Binop
-              { op = "*"
-              ; arg1 = C.VarRef (UniqueName dimVar)
-              ; arg2 = C.Literal (Int64Literal multiplier)
-              }
-        })
+      C.Syntax.(cValSoFar + (refId dimVar * intLit multiplier)))
   in
   let addLens init =
     Map.fold lens ~init ~f:(fun ~key:sliceVar ~data:multiplier cValSoFar ->
-      C.Binop
-        { op = "+"
-        ; arg1 = cValSoFar
-        ; arg2 =
-            C.Binop
-              { op = "*"
-              ; arg1 =
-                  C.FieldDeref
-                    { value = VarRef (UniqueName sliceVar)
-                    ; fieldName = sliceDimCountFieldName
-                    }
-              ; arg2 = C.Literal (Int64Literal multiplier)
-              }
-        })
+      C.Syntax.(
+        cValSoFar + (refId sliceVar %-> sliceDimCountFieldName * intLit multiplier)))
   in
   addLens @@ addRefs @@ C.Literal (Int64Literal const)
 ;;
@@ -751,6 +730,7 @@ type kernelPass =
   { arg : C.expr
   ; param : C.funParam
   }
+[@@deriving sexp_of]
 
 let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
   : (kernelPass list, _) GenState.u
@@ -801,13 +781,35 @@ let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
     memCaptures
     |> Map.to_alist
     |> List.map ~f:(fun (id, type') ->
-      let%bind cType = genType type' in
+      let%bind cType = genType ~wrapInPtr:true type' in
       let param : C.funParam = { name = UniqueName id; type' = cType } in
       return { arg = VarRef (UniqueName id); param })
     |> GenState.all
   in
   let paramsAndArgs = indexPasses @ exprPasses @ memPasses in
   return paramsAndArgs
+;;
+
+let rec genMax ~store l ~default =
+  let open GenState.Let_syntax in
+  let storeIfRequested e = if store then GenState.storeExpr ~name:"max" e else return e in
+  match l with
+  | [] -> return default
+  | [ value ] -> return value
+  | head :: rest ->
+    let%bind maxRest = genMax ~store:true rest ~default in
+    storeIfRequested
+    @@ C.Syntax.(ternary ~cond:(head > maxRest) ~then':head ~else':maxRest)
+;;
+
+let genIota ~loopVar ~loopSize ({ iota; nestIn } : Expr.mapIota) =
+  let value =
+    match nestIn with
+    | None -> loopVar
+    | Some parentIota -> C.Syntax.((VarRef (UniqueName parentIota) * loopSize) + loopVar)
+  in
+  GenState.writeStatement
+  @@ Define { name = UniqueName iota; type' = Some Int64; value = Some value }
 ;;
 
 let rec genStmnt
@@ -826,12 +828,173 @@ let rec genStmnt
     let%bind expr = genExpr ~hostOrDevice ~store:true expr in
     genCopyExprToMem ~expr ~mem:addr ~type'
   | Host, MapKernel { kernel; captures; blocks; threads } ->
-    let%bind kernelPasses = handleCaptures captures in
-    let%bind resultInterim = genMem ~store:true kernel.map.mapResultMemInterim in
+    let%bind capturePasses = handleCaptures captures in
+    let%bind resultInterim = genMem ~store:true kernel.mapResultMemInterim in
+    let module Map = struct
+      type hostAndDeviceExpr =
+        { host : C.expr
+        ; device : C.expr
+        }
+      [@@deriving sexp_of]
+
+      (* Represent map kernels that are annotated with some re-used values *)
+      type body =
+        | Statement of (device, Expr.captures) Expr.statement
+        | SubMaps of
+            { subMaps : t list
+            ; maxBodySize : hostAndDeviceExpr
+            }
+
+      and t =
+        { frameShapeSize : hostAndDeviceExpr
+        ; mapArgs : Expr.mapArg list
+        ; mapMemArgs : Expr.memArg list
+        ; mapIotas : Expr.mapIota list
+        ; mapBody : body
+        ; bodySize : hostAndDeviceExpr
+        }
+      [@@deriving sexp_of]
+    end
+    in
+    let hostAndDeviceExprFromHost ~name ~type' hostExpr =
+      let%map deviceVar =
+        GenState.createName @@ NameOfStr { str = name; needsUniquifying = true }
+      in
+      ( Map.{ host = hostExpr; device = VarRef deviceVar }
+      , { arg = hostExpr; param = { name = deviceVar; type' } } )
+    in
+    let rec annotateMapKernel
+      Expr.{ frameShape; mapArgs; mapMemArgs; mapIotas; mapBody; type' = _ }
+      =
+      let%bind frameShapeSize, frameShapeSizePass =
+        genShapeElementSize frameShape
+        |> GenState.storeExpr ~name:"frameShapeSize"
+        >>= hostAndDeviceExprFromHost ~name:"frameShapeSize" ~type':Int64
+      in
+      let%bind mapBody, bodySize, passesFromBody =
+        match mapBody with
+        | MapBodyStatement statement ->
+          return (Map.Statement statement, frameShapeSize, [])
+        | MapBodySubMaps subMaps ->
+          let%bind subMaps, passes =
+            subMaps |> List.map ~f:annotateMapKernel |> GenState.all >>| List.unzip
+          in
+          let%bind maxBodySize, maxBodySizePass =
+            subMaps
+            |> List.map ~f:(fun (subMap : Map.t) -> subMap.bodySize.host)
+            |> genMax ~store:false ~default:(C.Syntax.intLit 1)
+            >>= hostAndDeviceExprFromHost ~name:"maxBodySize" ~type':Int64
+          in
+          let%bind bodySize, bodySizePass =
+            C.Syntax.(maxBodySize.host * frameShapeSize.host)
+            |> GenState.storeExpr ~name:"bodySize"
+            >>= hostAndDeviceExprFromHost ~name:"bodySize" ~type':Int64
+          in
+          return
+            ( Map.SubMaps { subMaps; maxBodySize }
+            , bodySize
+            , maxBodySizePass :: bodySizePass :: List.concat passes )
+      in
+      return
+        ( Map.{ frameShapeSize; mapArgs; mapMemArgs; mapIotas; mapBody; bodySize }
+        , frameShapeSizePass :: passesFromBody )
+    in
+    let%bind annotatedMapKernel, mapKernelPasses = annotateMapKernel kernel.map in
+    let kernelPasses = capturePasses @ mapKernelPasses in
+    let rec genMapBody
+      chunkVar
+      Map.{ frameShapeSize; mapArgs; mapMemArgs; mapIotas; mapBody; bodySize = _ }
+      =
+      let%bind loopVar =
+        match mapBody with
+        | Statement _ -> return chunkVar
+        | SubMaps { subMaps = _; maxBodySize } ->
+          GenState.storeExpr ~name:"i" @@ C.Syntax.(chunkVar / maxBodySize.device)
+      in
+      let%bind mapBodyBlock =
+        GenState.block
+        @@
+        let%bind () =
+          mapArgs
+          |> List.map ~f:(fun { binding; ref } ->
+            let%bind derefer =
+              genArrayDeref ~arrayType:ref.type' ~isMem:false
+              @@ VarRef (UniqueName ref.id)
+            in
+            GenState.writeStatement
+            @@ C.Define
+                 { name = UniqueName binding
+                 ; type' = None
+                 ; value = Some (derefer loopVar)
+                 })
+          |> GenState.all_unit
+        in
+        let%bind () =
+          mapMemArgs
+          |> List.map ~f:(fun { memBinding; mem } ->
+            let%bind cMem = genMem ~store:true mem in
+            let%bind derefer =
+              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true @@ cMem
+            in
+            GenState.writeStatement
+            @@ C.Define
+                 { name = UniqueName memBinding
+                 ; type' = None
+                 ; value = Some (derefer loopVar)
+                 })
+          |> GenState.all_unit
+        in
+        let%bind () =
+          mapIotas
+          |> List.map ~f:(genIota ~loopVar ~loopSize:frameShapeSize.device)
+          |> GenState.all_unit
+        in
+        match mapBody with
+        | Statement statement -> genStmnt ~hostOrDevice:Device statement
+        | SubMaps { subMaps; maxBodySize } ->
+          subMaps
+          |> List.map ~f:(genMapBody C.Syntax.(chunkVar % maxBodySize.device))
+          |> GenState.all_unit
+      in
+      GenState.writeStatement
+      @@ C.Ite
+           { cond = C.Syntax.(loopVar < frameShapeSize.device)
+           ; thenBranch = mapBodyBlock
+           ; elseBranch = []
+           }
+    in
     let%bind kernelName =
       GenState.defineFun
         (NameOfStr { str = "mapKernel"; needsUniquifying = true })
         ~f:(fun _ ->
+          let%bind body =
+            GenState.block
+            @@
+            let%bind loopVar =
+              GenState.createName @@ NameOfStr { str = "i"; needsUniquifying = true }
+            in
+            let%bind mapBody =
+              GenState.block @@ genMapBody (VarRef loopVar) annotatedMapKernel
+            in
+            let%bind () =
+              GenState.writeStatement
+              @@ C.ForLoop
+                   { loopVar
+                   ; loopVarType = Int64
+                   ; initialValue =
+                       (* blockIdx.x * blockDim.x + threadIdx.x *)
+                       C.Syntax.(
+                         (refStr "blockIdx"
+                          %-> StrName "x"
+                          * (refStr "blockDim" %-> StrName "x"))
+                         + (refStr "threadIdx" %-> StrName "x"))
+                   ; cond = C.Syntax.(VarRef loopVar < annotatedMapKernel.bodySize.device)
+                   ; loopVarUpdate = Increment (C.Syntax.intLit @@ (blocks * threads))
+                   ; body = mapBody
+                   }
+            in
+            return ()
+          in
           return
           @@ C.
                { params = List.map kernelPasses ~f:(fun pass -> pass.param)
@@ -857,7 +1020,7 @@ let rec genStmnt
         ~target:resultFinal
         ~source:resultInterim
     in
-    raise Unimplemented.default
+    return ()
   | _, ComputeForSideEffects expr ->
     let%bind expr = genExpr ~hostOrDevice ~store:false expr in
     GenState.writeStatement @@ C.Eval expr
@@ -1324,21 +1487,7 @@ and genExpr
       in
       let%bind () =
         mapIotas
-        |> List.map ~f:(fun { iota; nestIn } ->
-          let value =
-            match nestIn with
-            | None -> C.VarRef loopVar
-            | Some parentIota ->
-              C.Binop
-                { op = "+"
-                ; arg1 =
-                    Binop
-                      { op = "*"; arg1 = VarRef (UniqueName parentIota); arg2 = steps }
-                ; arg2 = VarRef loopVar
-                }
-          in
-          GenState.writeStatement
-          @@ C.Define { name = UniqueName iota; type' = Some Int64; value = Some value })
+        |> List.map ~f:(genIota ~loopVar:(VarRef loopVar) ~loopSize:steps)
         |> GenState.all_unit
       in
       let%bind mapRes = genExpr ~hostOrDevice ~store:true mapBody in

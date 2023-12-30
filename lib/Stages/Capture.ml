@@ -424,20 +424,13 @@ and annotateStatement
   = function
   | Putmem { addr; expr; type' } -> Putmem { addr; expr = annotateExpr expr; type' }
   | MapKernel
-      { kernel = { map = mapKernel; mapResultMemFinal }; captures = (); blocks; threads }
-    ->
+      { kernel = { map = mapKernel; mapResultMemInterim; mapResultMemFinal }
+      ; captures = ()
+      ; blocks
+      ; threads
+      } ->
     let rec annotateMapInKernel
-      Expr.
-        { frameShape
-        ; mapArgs
-        ; mapIotas
-        ; mapMemArgs
-        ; mapBody
-        ; mapBodyMatcher
-        ; mapResults
-        ; mapResultMemInterim
-        ; type'
-        }
+      Expr.{ frameShape; mapArgs; mapIotas; mapMemArgs; mapBody; type' }
       : Expr.captures * Expr.captures Expr.mapInKernel
       =
       let mapBodyBindings =
@@ -452,36 +445,29 @@ and annotateStatement
       let mapMemArgCaptures =
         Captures.getList mapMemArgs ~f:(fun arg -> Captures.getInMem arg.mem)
       in
-      let subCaptures, subMaps =
-        mapBody.subMaps |> List.map ~f:annotateMapInKernel |> List.unzip
+      let bodyCaptures, mapBody =
+        match mapBody with
+        | MapBodyStatement statement ->
+          ( Captures.getInStatement statement
+          , Expr.MapBodyStatement (annotateStatement statement) )
+        | MapBodySubMaps subMaps ->
+          let captures, subMaps =
+            subMaps |> List.map ~f:annotateMapInKernel |> List.unzip
+          in
+          Captures.merge_list captures, Expr.MapBodySubMaps subMaps
       in
-      let bodyCaptures = Captures.getInStatement mapBody.statement in
       let captures =
-        Captures.(
-          merge_list subCaptures
-          + mapArgCaptures
-          + mapMemArgCaptures
-          + (bodyCaptures - mapBodyBindings))
+        Captures.(mapArgCaptures + mapMemArgCaptures + (bodyCaptures - mapBodyBindings))
       in
-      ( captures
-      , { frameShape
-        ; mapArgs
-        ; mapIotas
-        ; mapMemArgs
-        ; mapBody =
-            { statement = annotateStatement mapBody.statement
-            ; mallocs = mapBody.mallocs
-            ; subMaps
-            }
-        ; mapBodyMatcher
-        ; mapResults
-        ; mapResultMemInterim
-        ; type'
-        } )
+      captures, { frameShape; mapArgs; mapIotas; mapMemArgs; mapBody; type' }
     in
     let captures, mapKernel = annotateMapInKernel mapKernel in
     MapKernel
-      { kernel = { map = mapKernel; mapResultMemFinal }; captures; blocks; threads }
+      { kernel = { map = mapKernel; mapResultMemInterim; mapResultMemFinal }
+      ; captures
+      ; blocks
+      ; threads
+      }
   | ComputeForSideEffects expr -> ComputeForSideEffects (annotateExpr expr)
   | Statements statements -> Statements (List.map statements ~f:annotateStatement)
   | SLet { args; body } ->
