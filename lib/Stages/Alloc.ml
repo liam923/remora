@@ -325,7 +325,9 @@ let rec allocRequest
   let statementToAllocResult ~mem statement =
     { expr = Expr.eseq ~statements:[ statement ] ~expr:(Expr.getmem mem); statement }
   in
-  let rec getMemForResult ?(targetAddr = targetAddr) type' name : (Mem.t, _) AllocAcc.t =
+  let rec getMemForResult ?(mallocLoc = mallocLoc) ?(targetAddr = targetAddr) type' name
+    : (Mem.t, _) AllocAcc.t
+    =
     match targetAddr with
     | None -> malloc ~mallocLoc type' name
     | Some (TargetValue memVal) -> return memVal
@@ -338,20 +340,25 @@ let rec allocRequest
       >>| Mem.values
   in
   let allocLoopBlock
-    : type lInner seqOrPar.
-      ((l, lInner, seqOrPar, unit) Expr.loopBlock -> l Expr.sansCaptures)
+    : type lInner seqOrPar exists.
+      wrapLoopBlock:
+        ((l, lInner, seqOrPar, unit, exists) Expr.loopBlock -> l Expr.sansCaptures)
       -> blocks:int
-      -> Acorn.Expr.mallocLoc
-      -> (targetAddr option -> targetAddr option)
-      -> (Acorn.Mem.t -> (Acorn.Mem.t, 'e) AllocAcc.t)
-      -> (l, lInner, seqOrPar) Corn.Expr.loopBlock
+      -> innerMallocLoc:Acorn.Expr.mallocLoc
+      -> createMapTargetAddr:(targetAddr option -> targetAddr option)
+      -> createMapResultMemFinal:(Acorn.Mem.t -> (Acorn.Mem.t, 'e) AllocAcc.t)
+      -> createConsumerTargetAddr:(targetAddr option -> targetAddr option)
+      -> createConsumerResultMemFinal:(Acorn.Mem.t -> (Acorn.Mem.t, 'e) AllocAcc.t)
+      -> (l, lInner, seqOrPar, exists) Corn.Expr.loopBlock
       -> (l allocResult, 'e) AllocAcc.t
     =
-    fun wrapLoopBlock
+    fun ~wrapLoopBlock
         ~blocks
-        innerMallocLoc
-        createMapTargetAddr
-        createMapResultMemFinal
+        ~innerMallocLoc
+        ~createMapTargetAddr
+        ~createMapResultMemFinal
+        ~createConsumerTargetAddr
+        ~createConsumerResultMemFinal
         { frameShape
         ; mapArgs
         ; mapIotas
@@ -493,14 +500,14 @@ let rec allocRequest
     in
     let processConsumer
       : type t.
-        (l, lInner, t) Corn.Expr.consumerOp option
-        -> ((l, lInner, t, unit) Expr.consumerOp option * bool, _) AllocAcc.t
+        ((l, lInner, t) Corn.Expr.consumerOp, exists) Maybe.t
+        -> (((l, lInner, t, unit) Expr.consumerOp, exists) Maybe.t * bool, _) AllocAcc.t
       = function
-      | None -> return (None, false)
-      | Some (ReduceSeq reduce) ->
+      | Nothing -> return (Maybe.Nothing, false)
+      | Just (ReduceSeq reduce) ->
         let%map reduce = processReduce reduce in
-        Some (Expr.ReduceSeq reduce), true
-      | Some (ReducePar { reduce; outerBody }) ->
+        Maybe.Just (Expr.ReduceSeq reduce), true
+      | Just (ReducePar { reduce; outerBody }) ->
         let%bind reduce = processReduce reduce in
         let%bind outerBody, outerBodyMemArgs =
           allocRequest ~mallocLoc ~writeToAddr:None outerBody
@@ -524,7 +531,7 @@ let rec allocRequest
           malloc ~mallocLoc interimResultMemType "reduce-interim-result"
         in
         return
-        @@ ( Some
+        @@ ( Maybe.Just
                (Expr.ReducePar
                   { reduce
                   ; interimResultMemInterim
@@ -533,7 +540,7 @@ let rec allocRequest
                   ; outerMappedMemArgs = outerBodyMemArgs
                   })
            , true )
-      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+      | Just (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let d = convertDimension d in
         let%bind zeroValue =
           allocRequest ~mallocLoc ~writeToAddr:None zeroArg.zeroValue >>| getExpr
@@ -564,7 +571,7 @@ let rec allocRequest
             let%map mem = malloc ~mallocLoc resultType "open-trace-result" in
             Expr.OpenTrace mem
         in
-        ( Some
+        ( Maybe.Just
             (Expr.Fold
                { zeroArg = { zeroBinding = zeroArg.zeroBinding; zeroValue }
                ; arrayArgs =
@@ -577,16 +584,18 @@ let rec allocRequest
                ; type' = canonicalizeType type'
                })
         , true )
-      | Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' }) ->
+      | Just (Scatter { valuesArg; indicesArg; dIn; dOut; type' }) ->
         let type' = canonicalizeType type' in
         let%bind memInterim =
-          malloc ~mallocLoc:innerMallocLoc type' "scatter-interim-array"
+          getMemForResult
+            ~mallocLoc:innerMallocLoc
+            ~targetAddr:(createConsumerTargetAddr consumerTargetAddr)
+            type'
+            "scatter-array"
         in
-        let%bind memFinal =
-          getMemForResult ~targetAddr:consumerTargetAddr type' "scatter-array"
-        in
+        let%bind memFinal = createConsumerResultMemFinal memInterim in
         return
-        @@ ( Some
+        @@ ( Maybe.Just
                (Expr.Scatter
                   { valuesArg = convertProduction valuesArg
                   ; indicesArg = convertProduction indicesArg
@@ -599,7 +608,7 @@ let rec allocRequest
            , false )
     in
     let%bind consumer, consumerCopyRequired = processConsumer consumer in
-    let loopBlock : (l, lInner, seqOrPar, unit) Expr.loopBlock =
+    let loopBlock : (l, lInner, seqOrPar, unit, exists) Expr.loopBlock =
       { frameShape = convertShapeElement frameShape
       ; mapArgs
       ; mapIotas
@@ -719,21 +728,28 @@ let rec allocRequest
     writtenExprToAllocResult @@ Let { args; body }
   | LoopBlock loopBlock ->
     allocLoopBlock
-      (fun loopBlock -> Expr.LoopBlock loopBlock)
+      ~wrapLoopBlock:(fun loopBlock -> Expr.LoopBlock loopBlock)
       ~blocks:0
-      mallocLoc
-      (fun targetAddr -> targetAddr)
-      (fun mem -> return mem)
+      ~innerMallocLoc:mallocLoc
+      ~createMapTargetAddr:(fun targetAddr -> targetAddr)
+      ~createMapResultMemFinal:(fun mem -> return mem)
+      ~createConsumerTargetAddr:(fun targetAddr -> targetAddr)
+      ~createConsumerResultMemFinal:(fun mem -> return mem)
       loopBlock
   | LoopKernel { kernel = loopBlock; blocks; threads } ->
+    let type' = canonicalizeType @@ Tuple loopBlock.type' in
+    let%bind loopBlockResultMem = getMemForResult type' "loop-block-mem-result" in
     allocLoopBlock
-      (fun loopBlock ->
+      ~wrapLoopBlock:(fun loopBlock ->
         Expr.LoopKernel { kernel = loopBlock; captures = (); blocks; threads })
       ~blocks
-      MallocDevice
-      (fun _ -> None)
-      (fun _ ->
-        getMemForResult (canonicalizeType @@ Tuple loopBlock.type') "map-mem-result")
+      ~innerMallocLoc:MallocDevice
+      ~createMapTargetAddr:(fun _ -> None)
+      ~createMapResultMemFinal:(fun _ ->
+        return @@ Mem.tupleDeref ~tuple:loopBlockResultMem ~index:0)
+      ~createConsumerTargetAddr:(fun _ -> None)
+      ~createConsumerResultMemFinal:(fun _ ->
+        return @@ Mem.tupleDeref ~tuple:loopBlockResultMem ~index:1)
       loopBlock
   | MapKernel { kernel = mapKernel; blocks; threads } ->
     let rec allocMapKernel

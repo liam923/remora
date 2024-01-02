@@ -304,7 +304,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
         ; mapBody = mapBodyOpts.hostExpr
         ; mapBodyMatcher
         ; mapResults
-        ; consumer = None
+        ; consumer = Nothing
         ; type'
         }
     in
@@ -328,7 +328,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
           ; mapBody = mapBodyOpts.deviceExpr
           ; mapBodyMatcher
           ; mapResults
-          ; consumer = None
+          ; consumer = Nothing
           ; type'
           }
     ; hostParShape
@@ -444,7 +444,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                     ; mapBody = mapBodyOpts.deviceExpr
                     ; mapBodyMatcher
                     ; mapResults
-                    ; consumer = Some parConsumerExpr
+                    ; consumer = Just parConsumerExpr
                     ; type'
                     }
                 ; blocks
@@ -459,7 +459,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                 ; mapBody = mapBodyOpts.hostExpr
                 ; mapBodyMatcher
                 ; mapResults
-                ; consumer = Some consumerAsHostExpr
+                ; consumer = Just consumerAsHostExpr
                 ; type'
                 }
             , sequentialBlockParShape )
@@ -473,7 +473,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
               ; mapBody = mapBodyOpts.hostExpr
               ; mapBodyMatcher
               ; mapResults
-              ; consumer = Some consumerAsHostExpr
+              ; consumer = Just consumerAsHostExpr
               ; type'
               }
           , sequentialBlockParShape )
@@ -488,7 +488,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
            ; mapBody = mapBodyOpts.deviceExpr
            ; mapBodyMatcher
            ; mapResults
-           ; consumer = Some consumerAsDeviceExpr
+           ; consumer = Just consumerAsDeviceExpr
            ; type'
            })
       ~hostParShape

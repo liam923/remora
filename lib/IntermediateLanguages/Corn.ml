@@ -77,14 +77,14 @@ module Expr = struct
   and mapIota = Nested.Expr.mapIota
 
   (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
-  and ('lOuter, 'lInner, 'p) loopBlock =
+  and ('lOuter, 'lInner, 'p, 'e) loopBlock =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
     ; mapIotas : mapIota list
     ; mapBody : 'lInner t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
-    ; consumer : ('lOuter, 'lInner, 'p) consumerOp option
+    ; consumer : (('lOuter, 'lInner, 'p) consumerOp, 'e) Maybe.t
     ; type' : Type.tuple
     }
 
@@ -225,8 +225,8 @@ module Expr = struct
     | IndexLet : 'l indexLet -> 'l t
     | ReifyIndex : reifyIndex -> _ t
     | Let : 'l let' -> 'l t
-    | LoopBlock : ('l, 'l, sequential) loopBlock -> 'l t
-    | LoopKernel : (host, device, parallel) loopBlock kernel -> host t
+    | LoopBlock : ('l, 'l, sequential, 'e) loopBlock -> 'l t
+    | LoopKernel : (host, device, parallel, Maybe.doesExist) loopBlock kernel -> host t
     | MapKernel : mapKernel kernel -> host t
     | Box : 'l box -> 'l t
     | Literal : literal -> _ t
@@ -461,18 +461,20 @@ module Expr = struct
     and sexp_of_mapIota = [%sexp_of: Nested.Expr.mapIota]
 
     and sexp_of_loopBlock
-      : type a b p.
+      : type a b p e x.
         ?kernel:bool
         -> (a -> Sexp.t)
         -> (b -> Sexp.t)
         -> (p -> Sexp.t)
-        -> (a, b, p) loopBlock
+        -> x
+        -> (a, b, p, e) loopBlock
         -> Sexp.t
       =
       fun ?(kernel = false)
           sexp_of_a
           sexp_of_b
           sexp_of_p
+          _
           { frameShape
           ; mapArgs
           ; mapIotas
@@ -501,9 +503,9 @@ module Expr = struct
         ; Sexp.List
             [ Sexp.Atom "consumer"
             ; (match consumer with
-               | Some consumer ->
+               | Just consumer ->
                  sexp_of_consumerOp sexp_of_a sexp_of_b sexp_of_p consumer
-               | None -> sexp_of_values sexp_of_a { elements = []; type' = [] })
+               | Nothing -> sexp_of_values sexp_of_a { elements = []; type' = [] })
             ]
         ]
 
@@ -627,10 +629,15 @@ module Expr = struct
       | Let let' -> sexp_of_let sexp_of_a let'
       | ReifyIndex reifyIndex -> sexp_of_reifyIndex reifyIndex
       | LoopBlock loopBlock ->
-        sexp_of_loopBlock sexp_of_a sexp_of_a sexp_of_sequential loopBlock
+        sexp_of_loopBlock sexp_of_a sexp_of_a sexp_of_sequential () loopBlock
       | LoopKernel loopKernel ->
         sexp_of_kernel
-          (sexp_of_loopBlock ~kernel:true sexp_of_host sexp_of_device sexp_of_parallel)
+          (sexp_of_loopBlock
+             ~kernel:true
+             sexp_of_host
+             sexp_of_device
+             sexp_of_parallel
+             (sexp_of_consumerOp sexp_of_host sexp_of_device sexp_of_parallel))
           loopKernel
       | MapKernel mapKernel -> sexp_of_kernel sexp_of_mapKernel mapKernel
       | SubArray subArray -> sexp_of_subArray sexp_of_a subArray

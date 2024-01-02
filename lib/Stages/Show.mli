@@ -11,6 +11,15 @@ module Stage (B : Basic) (SB : Source.BuilderT) :
     with type output = string
     with type error = (SB.source option, string) Source.annotate
 
+module Passthrough : sig
+  module Stage (B : Basic) (SB : Source.BuilderT) :
+    CompilerPipeline.Stage
+      with type state = CompilerState.state
+      with type input = B.t
+      with type output = B.t
+      with type error = (SB.source option, string) Source.annotate
+end
+
 module type CustomBasic = sig
   type t
 

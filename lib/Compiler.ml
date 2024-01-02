@@ -23,6 +23,7 @@ module Make (SB : Source.BuilderT) = struct
       @> (module Kernelize.Stage (SB))
       @> (module Alloc.Stage (SB))
       @> (module Capture.Stage (SB))
+      (* @> (module Show.Passthrough.Stage (Acorn.WithCaptures) (SB)) *)
       @> (module Codegen.Stage (SB))
       @> (module PrintC.Stage (SB))
       @> empty)

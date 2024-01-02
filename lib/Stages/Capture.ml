@@ -162,8 +162,8 @@ module Captures = struct
       let bodyCaptures = getInExpr mapBody - bodyBindings in
       let consumerCaptures =
         match consumer with
-        | None -> empty
-        | Some
+        | Nothing -> empty
+        | Just
             (ReduceSeq
               { arg; zero; mappedMemArgs = _; body; d; character = _; type' = _ }) ->
           let zeroCaptures = getOpt zero ~f:getInExpr in
@@ -172,7 +172,7 @@ module Captures = struct
           in
           let bodyCaptures = getInExpr body - argBindings in
           zeroCaptures + bodyCaptures + getInDim d
-        | Some
+        | Just
             (Fold
               { zeroArg; arrayArgs; mappedMemArgs = _; body; d; character = _; type' = _ })
           ->
@@ -183,7 +183,7 @@ module Captures = struct
           in
           let bodyCaptures = getInExpr body - argBindings in
           zeroCaptures + bodyCaptures + getInDim d
-        | Some
+        | Just
             (Scatter
               { valuesArg = _
               ; indicesArg = _
@@ -265,7 +265,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       ; type'
       } ->
     let consumer =
-      Option.map consumer ~f:(function
+      Maybe.map consumer ~f:(function
         | ReduceSeq { arg; zero; mappedMemArgs; body; d; character; type' } ->
           Expr.ReduceSeq
             { arg
@@ -335,8 +335,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
     let mapBodyCaptures = Captures.(getInExpr mapBody - mapBodyBindings) in
     let consumerCaptures, consumer =
       match consumer with
-      | None -> Captures.empty, None
-      | Some
+      | Just
           (ReducePar
             { reduce = { arg; zero; mappedMemArgs; body; d; character; type' }
             ; interimResultMemInterim
@@ -348,7 +347,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
           Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
         in
         ( Captures.(getInExpr body - bindings)
-        , Some
+        , Maybe.Just
             (Expr.ReducePar
                { reduce =
                    { arg
@@ -364,10 +363,10 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
                ; outerBody = annotateExpr outerBody
                ; outerMappedMemArgs
                }) )
-      | Some (Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' })
+      | Just (Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' })
         ->
         ( Captures.empty
-        , Some
+        , Maybe.Just
             (Expr.Scatter
                { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' }) )
     in

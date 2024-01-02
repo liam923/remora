@@ -123,18 +123,42 @@ module GenState = struct
 
   include StateT.Make2 (CBuilder2)
 
+  (* A definition sitting between a Type.t and a C type *)
+  module CachedType = struct
+    module T = struct
+      type t =
+        | Literal of Type.literal
+        | Ptr of t
+        | Box of
+            { parameters : Type.sigmaParam list
+            ; body : t
+            }
+        | Tuple of t list
+      [@@deriving sexp_of, compare]
+    end
+
+    include T
+    include Comparator.Make (T)
+
+    let rec of_type ?(wrapInPtr = false) = function
+      | Type.Atom (Literal literal) ->
+        if wrapInPtr then Ptr (Literal literal) else Literal literal
+      | Type.Array array ->
+        let elementType = of_type ~wrapInPtr:false (Atom array.element) in
+        Ptr elementType
+      | Type.Atom (Sigma { parameters; body }) ->
+        let box = Box { parameters; body = of_type ~wrapInPtr:false body } in
+        if wrapInPtr then Ptr box else box
+      | Type.Tuple elements -> Tuple (List.map elements ~f:(of_type ~wrapInPtr))
+    ;;
+  end
+
   type state =
     { statementsRev : C.statement list
-    ; typeCache : C.type' Map.M(Type).t
-    ; ptrWrappedTypeCache : C.type' Map.M(Type).t
+    ; typeCache : C.type' Map.M(CachedType).t
     }
 
-  let emptyState =
-    { statementsRev = []
-    ; typeCache = Map.empty (module Type)
-    ; ptrWrappedTypeCache = Map.empty (module Type)
-    }
-  ;;
+  let emptyState = { statementsRev = []; typeCache = Map.empty (module CachedType) }
 
   type ('a, 'e) u = (state, 'a, 'e) t
 
@@ -201,63 +225,54 @@ let genTypeForSort sort =
   | Sort.Shape -> C.TypeRef (StrName "Slice")
 ;;
 
-let rec genType ?(wrapInPtr = false) type' : (C.type', _) GenState.u =
+let genType ?(wrapInPtr = false) type' : (C.type', _) GenState.u =
   let open GenState.Let_syntax in
-  let%bind (state : GenState.state) = GenState.get () in
-  let typeCache = if wrapInPtr then state.ptrWrappedTypeCache else state.typeCache in
-  match Map.find typeCache type' with
-  | Some cType -> return cType
-  | None ->
+  let rec genType (type' : GenState.CachedType.t) =
+    let%bind (state : GenState.state) = GenState.get () in
     let%bind cType =
-      match type' with
-      | Type.Atom (Literal IntLiteral) ->
-        return @@ if wrapInPtr then C.Ptr C.Int64 else C.Int64
-      | Type.Atom (Literal CharacterLiteral) ->
-        return @@ if wrapInPtr then C.Ptr C.Char else C.Char
-      | Type.Atom (Literal BooleanLiteral) ->
-        return @@ if wrapInPtr then C.Ptr C.Bool else C.Bool
-      | Type.Array array ->
-        let elementType = array.element in
-        let%map elementCType = genType ~wrapInPtr:false (Atom elementType) in
-        C.Ptr elementCType
-      | Type.Atom (Sigma { parameters; body }) ->
-        let%map name =
-          GenState.defineStruct
-            (NameOfStr { str = "Box"; needsUniquifying = true })
-            ~f:(fun _ ->
-              let paramFields =
-                List.map parameters ~f:(fun { binding; bound } ->
-                  C.{ name = UniqueName binding; type' = genTypeForSort bound })
-              in
-              let%map valueType = genType ~wrapInPtr:false body in
-              let valueField = C.{ name = boxValueFieldName; type' = valueType } in
-              valueField :: paramFields)
-        in
-        if wrapInPtr then C.Ptr (C.TypeRef name) else C.TypeRef name
-      | Type.Tuple elements ->
-        let%bind elementTypes =
-          elements |> List.map ~f:(genType ~wrapInPtr) |> GenState.all
-        in
-        let%map name =
-          GenState.defineStruct
-            (NameOfStr { str = "Tuple"; needsUniquifying = true })
-            ~f:(fun _ ->
-              return
-              @@ List.mapi elementTypes ~f:(fun i type' ->
-                C.{ name = tupleFieldName i; type' }))
-        in
-        C.TypeRef name
+      match Map.find state.typeCache type' with
+      | Some cType -> return cType
+      | None ->
+        (match type' with
+         | Literal IntLiteral -> return C.Int64
+         | Literal CharacterLiteral -> return C.Char
+         | Literal BooleanLiteral -> return C.Bool
+         | Ptr elementType ->
+           let%bind elementType = genType elementType in
+           return @@ C.Ptr elementType
+         | Box { parameters; body } ->
+           let%bind name =
+             GenState.defineStruct
+               (NameOfStr { str = "Box"; needsUniquifying = true })
+               ~f:(fun _ ->
+                 let paramFields =
+                   List.map parameters ~f:(fun { binding; bound } ->
+                     C.{ name = UniqueName binding; type' = genTypeForSort bound })
+                 in
+                 let%map valueType = genType body in
+                 let valueField = C.{ name = boxValueFieldName; type' = valueType } in
+                 valueField :: paramFields)
+           in
+           return @@ C.TypeRef name
+         | Tuple elements ->
+           let%bind elementTypes = elements |> List.map ~f:genType |> GenState.all in
+           let%map name =
+             GenState.defineStruct
+               (NameOfStr { str = "Tuple"; needsUniquifying = true })
+               ~f:(fun _ ->
+                 return
+                 @@ List.mapi elementTypes ~f:(fun i type' ->
+                   C.{ name = tupleFieldName i; type' }))
+           in
+           C.TypeRef name)
     in
     let%bind () =
       GenState.modify ~f:(fun (state : GenState.state) ->
-        if wrapInPtr
-        then
-          { state with
-            ptrWrappedTypeCache = Map.set state.ptrWrappedTypeCache ~key:type' ~data:cType
-          }
-        else { state with typeCache = Map.set state.typeCache ~key:type' ~data:cType })
+        { state with typeCache = Map.set state.typeCache ~key:type' ~data:cType })
     in
     return cType
+  in
+  genType @@ GenState.CachedType.of_type ~wrapInPtr type'
 ;;
 
 type 'l hostOrDevice =
@@ -812,6 +827,19 @@ let genIota ~loopVar ~loopSize ({ iota; nestIn } : Expr.mapIota) =
   @@ Define { name = UniqueName iota; type' = Some Int64; value = Some value }
 ;;
 
+let rec genMatchMapBody (matcher : Expr.tupleMatch) res =
+  match matcher with
+  | Binding id ->
+    GenState.writeStatement
+    @@ C.Define { name = UniqueName id; type' = None; value = Some res }
+  | Unpack matchers ->
+    matchers
+    |> List.mapi ~f:(fun i matcher ->
+      genMatchMapBody matcher
+      @@ C.FieldDeref { value = res; fieldName = tupleFieldName i })
+    |> GenState.all_unit
+;;
+
 let rec genStmnt
   : type l.
     hostOrDevice:l hostOrDevice
@@ -915,39 +943,12 @@ let rec genStmnt
         GenState.block
         @@
         let%bind () =
-          mapArgs
-          |> List.map ~f:(fun { binding; ref } ->
-            let%bind derefer =
-              genArrayDeref ~arrayType:ref.type' ~isMem:false
-              @@ VarRef (UniqueName ref.id)
-            in
-            GenState.writeStatement
-            @@ C.Define
-                 { name = UniqueName binding
-                 ; type' = None
-                 ; value = Some (derefer loopVar)
-                 })
-          |> GenState.all_unit
-        in
-        let%bind () =
-          mapMemArgs
-          |> List.map ~f:(fun { memBinding; mem } ->
-            let%bind cMem = genMem ~store:true mem in
-            let%bind derefer =
-              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true @@ cMem
-            in
-            GenState.writeStatement
-            @@ C.Define
-                 { name = UniqueName memBinding
-                 ; type' = None
-                 ; value = Some (derefer loopVar)
-                 })
-          |> GenState.all_unit
-        in
-        let%bind () =
-          mapIotas
-          |> List.map ~f:(genIota ~loopVar ~loopSize:frameShapeSize.device)
-          |> GenState.all_unit
+          genMapBodySetup
+            ~loopVar
+            ~loopSize:frameShapeSize.device
+            ~mapArgs
+            ~mapIotas
+            ~mapMemArgs
         in
         match mapBody with
         | Statement statement -> genStmnt ~hostOrDevice:Device statement
@@ -1205,10 +1206,10 @@ and genExpr
     in
     let%bind consumerInLoop, consumerResult =
       match consumer with
-      | None ->
+      | Nothing ->
         let%bind unitType = genType @@ Tuple [] in
         return @@ (return (), C.StructConstructor { type' = unitType; args = [] })
-      | Some (ReduceSeq { arg; zero; mappedMemArgs; body; d = _; character; type' = _ })
+      | Just (ReduceSeq { arg; zero; mappedMemArgs; body; d = _; character; type' = _ })
         ->
         let accVar = C.Name.UniqueName arg.firstBinding in
         let stepVar = C.Name.UniqueName arg.secondBinding in
@@ -1334,7 +1335,7 @@ and genExpr
             characterInLoop
         in
         return @@ (inLoop, characterResult)
-      | Some
+      | Just
           (Fold { arrayArgs; zeroArg; mappedMemArgs; body; d = _; character; type' = _ })
         ->
         let accVar = C.Name.UniqueName zeroArg.zeroBinding in
@@ -1425,7 +1426,7 @@ and genExpr
           characterInLoop
         in
         return @@ (inLoop, characterResult)
-      | Some
+      | Just
           (Scatter
             { valuesArg
             ; indicesArg
@@ -1491,19 +1492,7 @@ and genExpr
         |> GenState.all_unit
       in
       let%bind mapRes = genExpr ~hostOrDevice ~store:true mapBody in
-      let rec matchBody (matcher : Expr.tupleMatch) res =
-        match matcher with
-        | Binding id ->
-          GenState.writeStatement
-          @@ C.Define { name = UniqueName id; type' = None; value = Some res }
-        | Unpack matchers ->
-          matchers
-          |> List.mapi ~f:(fun i matcher ->
-            matchBody matcher
-            @@ C.FieldDeref { value = res; fieldName = tupleFieldName i })
-          |> GenState.all_unit
-      in
-      let%bind () = matchBody mapBodyMatcher mapRes in
+      let%bind () = genMatchMapBody mapBodyMatcher mapRes in
       let%bind () =
         List.zip_exn mapResults mapResultDerefersAndTypes
         |> List.map ~f:(fun (resultId, (resultDerefer, resultType)) ->
@@ -1532,7 +1521,217 @@ and genExpr
     in
     let%bind type' = genType @@ Tuple type' in
     return @@ C.StructConstructor { type'; args = [ mapResult; consumerResult ] }
-  | Host, LoopKernel _ -> raise Unimplemented.default
+  | ( Host
+    , LoopKernel
+        { kernel =
+            { frameShape = _
+            ; mapArgs
+            ; mapMemArgs
+            ; mapIotas
+            ; mapBody
+            ; mapBodyMatcher
+            ; mapResults
+            ; mapResultMemInterim
+            ; mapResultMemFinal
+            ; consumer =
+                Just
+                  (Scatter
+                    { valuesArg
+                    ; indicesArg
+                    ; dIn
+                    ; dOut = _
+                    ; memInterim = scatterResultMemInterim
+                    ; memFinal = scatterResultMemFinal
+                    ; type' = _
+                    })
+            ; type'
+            }
+        ; captures
+        ; blocks
+        ; threads
+        } ) ->
+    let%bind capturePasses = handleCaptures captures in
+    let createPass varName type' hostValue =
+      let%bind paramVar =
+        GenState.createName @@ NameOfStr { str = varName; needsUniquifying = true }
+      in
+      return (C.VarRef paramVar, { arg = hostValue; param = { name = paramVar; type' } })
+    in
+    let%bind dIn, dInPass = createPass "dIn" Int64 @@ genDim dIn in
+    let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemInterim in
+    let%bind cMapResultMemInterimType =
+      genType ~wrapInPtr:true @@ Mem.type' mapResultMemInterim
+    in
+    let%bind cMapResultMemInterimDevice, mapResultMemInterimPass =
+      createPass "mapResultMemInterim" cMapResultMemInterimType cMapResultMemInterimHost
+    in
+    let%bind cScatterResultMemInterimHost = genMem ~store:true scatterResultMemInterim in
+    let%bind cScatterResultMemInterimType =
+      genType ~wrapInPtr:true @@ Mem.type' scatterResultMemInterim
+    in
+    let%bind cScatterResultMemInterimDevice, scatterResultMemInterimPass =
+      createPass
+        "scatterResultMemInterim"
+        cScatterResultMemInterimType
+        cScatterResultMemInterimHost
+    in
+    let kernelPasses =
+      capturePasses @ [ dInPass; mapResultMemInterimPass; scatterResultMemInterimPass ]
+    in
+    let%bind kernelName =
+      GenState.defineFun
+        (NameOfStr { str = "scatterKernel"; needsUniquifying = true })
+        ~f:(fun _ ->
+          let%bind body =
+            GenState.block
+            @@
+            let%bind loopVar =
+              GenState.createName @@ NameOfStr { str = "i"; needsUniquifying = true }
+            in
+            let%bind scatterBody =
+              GenState.block
+              @@
+              (* perform the map body *)
+              let%bind () =
+                genMapBodySetup
+                  ~loopVar:(VarRef loopVar)
+                  ~loopSize:dIn
+                  ~mapArgs
+                  ~mapIotas
+                  ~mapMemArgs
+              in
+              let%bind mapResult = genExpr ~hostOrDevice:Device ~store:true mapBody in
+              let%bind () = genMatchMapBody mapBodyMatcher mapResult in
+              (* write the results of the map *)
+              let mapResultTypes =
+                match type' with
+                | [ Tuple mapResultTypes; _ ] -> mapResultTypes
+                | _ ->
+                  raise
+                  @@ Unreachable.Error
+                       "expected 2 element tuple where first element is a tuple"
+              in
+              let%bind mapResultDerefersAndTypes =
+                mapResultTypes
+                |> List.mapi ~f:(fun i resultTypeArr ->
+                  let%bind derefer =
+                    genArrayDeref
+                      ~arrayType:resultTypeArr
+                      ~isMem:true
+                      (C.FieldDeref
+                         { value = cMapResultMemInterimDevice
+                         ; fieldName = tupleFieldName i
+                         })
+                  in
+                  return @@ (derefer, guillotineType resultTypeArr))
+                |> GenState.all
+              in
+              let%bind () =
+                List.zip_exn mapResults mapResultDerefersAndTypes
+                |> List.map ~f:(fun (resultId, (resultDerefer, resultType)) ->
+                  genCopyExprToMem
+                    ~expr:(C.VarRef (UniqueName resultId))
+                    ~mem:(resultDerefer @@ VarRef loopVar)
+                    ~type':resultType)
+                |> GenState.all_unit
+              in
+              (* perform the scatter *)
+              let cValueArg = C.VarRef (UniqueName valuesArg.productionId) in
+              let cIndexArg = C.VarRef (UniqueName indicesArg.productionId) in
+              let%bind scatterResultMemInterimDerefer =
+                genArrayDeref
+                  ~arrayType:(Mem.type' scatterResultMemInterim)
+                  ~isMem:true
+                  cScatterResultMemInterimDevice
+              in
+              let%bind scatterBlock =
+                GenState.block
+                @@ genCopyExprToMem
+                     ~mem:(scatterResultMemInterimDerefer cIndexArg)
+                     ~expr:cValueArg
+                     ~type':(guillotineType @@ Mem.type' scatterResultMemInterim)
+              in
+              GenState.writeStatement
+              @@ C.Ite
+                   { cond =
+                       Binop
+                         { op = ">="; arg1 = cIndexArg; arg2 = Literal (Int64Literal 0) }
+                   ; thenBranch = scatterBlock
+                   ; elseBranch = []
+                   }
+            in
+            let%bind () =
+              GenState.writeStatement
+              @@ C.ForLoop
+                   { loopVar
+                   ; loopVarType = Int64
+                   ; initialValue =
+                       (* blockIdx.x * blockDim.x + threadIdx.x *)
+                       C.Syntax.(
+                         (refStr "blockIdx"
+                          %-> StrName "x"
+                          * (refStr "blockDim" %-> StrName "x"))
+                         + (refStr "threadIdx" %-> StrName "x"))
+                   ; cond = C.Syntax.(VarRef loopVar < dIn)
+                   ; loopVarUpdate = Increment (C.Syntax.intLit @@ (blocks * threads))
+                   ; body = scatterBody
+                   }
+            in
+            return ()
+          in
+          return
+          @@ C.
+               { params = List.map kernelPasses ~f:(fun pass -> pass.param)
+               ; body
+               ; returnType = None
+               ; isKernel = true
+               })
+    in
+    let%bind () =
+      GenState.writeStatement
+      @@ C.Eval
+           (KernelLaunch
+              { kernel = kernelName
+              ; blocks
+              ; threads
+              ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
+              })
+    in
+    let%bind mapResultFinal = genMem ~store:true mapResultMemFinal in
+    let%bind () =
+      genMoveMemDeviceToHost
+        ~type':(Mem.type' mapResultMemFinal)
+        ~target:mapResultFinal
+        ~source:cMapResultMemInterimHost
+    in
+    let%bind scatterResultFinal = genMem ~store:true scatterResultMemFinal in
+    let%bind () =
+      genMoveMemDeviceToHost
+        ~type':(Mem.type' scatterResultMemFinal)
+        ~target:scatterResultFinal
+        ~source:cScatterResultMemInterimHost
+    in
+    let%bind type' = genType @@ Tuple type' in
+    return @@ C.StructConstructor { type'; args = [ mapResultFinal; scatterResultFinal ] }
+  | ( Host
+    , LoopKernel
+        { kernel =
+            { frameShape = _
+            ; mapArgs = _
+            ; mapMemArgs = _
+            ; mapIotas = _
+            ; mapBody = _
+            ; mapBodyMatcher = _
+            ; mapResults = _
+            ; mapResultMemInterim = _
+            ; mapResultMemFinal = _
+            ; consumer = Just (ReducePar _)
+            ; type' = _
+            }
+        ; captures = _
+        ; blocks = _
+        ; threads = _
+        } ) -> raise Unimplemented.default
   | _, SubArray { arrayArg; indexArg = _; type' } ->
     let%bind array = genExpr ~hostOrDevice ~store:true arrayArg in
     let rec genSubArray (array : C.expr) (type' : Type.t) =
@@ -1653,6 +1852,41 @@ and genMallocLet
     |> GenState.all_unit
   in
   genBody body
+
+and genMapBodySetup
+  ~(loopVar : C.expr)
+  ~(loopSize : C.expr)
+  ~(mapArgs : Expr.mapArg list)
+  ~(mapIotas : Expr.mapIota list)
+  ~(mapMemArgs : Expr.memArg list)
+  : (unit, _) GenState.u
+  =
+  let open GenState.Let_syntax in
+  let%bind () =
+    mapArgs
+    |> List.map ~f:(fun { binding; ref } ->
+      let%bind derefer =
+        genArrayDeref ~arrayType:ref.type' ~isMem:false @@ VarRef (UniqueName ref.id)
+      in
+      GenState.writeStatement
+      @@ C.Define
+           { name = UniqueName binding; type' = None; value = Some (derefer loopVar) })
+    |> GenState.all_unit
+  in
+  let%bind () =
+    mapMemArgs
+    |> List.map ~f:(fun { memBinding; mem } ->
+      let%bind cMem = genMem ~store:true mem in
+      let%bind derefer = genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true @@ cMem in
+      GenState.writeStatement
+      @@ C.Define
+           { name = UniqueName memBinding; type' = None; value = Some (derefer loopVar) })
+    |> GenState.all_unit
+  in
+  let%bind () =
+    mapIotas |> List.map ~f:(genIota ~loopVar ~loopSize) |> GenState.all_unit
+  in
+  return ()
 ;;
 
 let genMainBlock (main : withCaptures) =
