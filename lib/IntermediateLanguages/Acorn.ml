@@ -371,7 +371,6 @@ module Expr = struct
   and ('lOuter, 'lInner, 'c) reduce =
     { arg : reduceArg
     ; zero : ('lOuter, 'c) t option
-    ; mappedMemArgs : memArg list
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
     ; character : 'lOuter reduceCharacter
@@ -386,7 +385,6 @@ module Expr = struct
     ; interimResultMemFinal : Mem.t
         (** Where to write the results of the reduction steps that occur on device *)
     ; outerBody : ('lOuter, 'c) t (** The last few steps, which occur on host *)
-    ; outerMappedMemArgs : memArg list
     }
 
   and ('lOuter, 'lInner, 'c) fold =
@@ -723,10 +721,7 @@ module Expr = struct
       : type a b c.
         (a -> Sexp.t) -> (b -> Sexp.t) -> (c -> Sexp.t) -> (a, b, c) reduce -> Sexp.t
       =
-      fun sexp_of_a
-          sexp_of_b
-          sexp_of_c
-          { arg; zero; mappedMemArgs; body; d = _; character; type' = _ } ->
+      fun sexp_of_a sexp_of_b sexp_of_c { arg; zero; body; d = _; character; type' = _ } ->
       let characterName =
         match character with
         | Reduce -> "reduce"
@@ -742,14 +737,6 @@ module Expr = struct
       Sexp.List
         ([ Sexp.Atom opName ]
          @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a sexp_of_c) |> Option.to_list)
-         @ (match mappedMemArgs with
-            | [] -> []
-            | _ ->
-              [ Sexp.List
-                  [ Sexp.Atom "mapped-mem-args"
-                  ; Sexp.List (List.map mappedMemArgs ~f:sexp_of_memArg)
-                  ]
-              ])
          @ [ Sexp.List
                [ Sexp.Atom (Identifier.show arg.firstBinding)
                ; Sexp.Atom (Identifier.show arg.secondBinding)
@@ -765,12 +752,7 @@ module Expr = struct
       fun sexp_of_a
           sexp_of_b
           sexp_of_c
-          { reduce
-          ; interimResultMemInterim
-          ; interimResultMemFinal
-          ; outerBody
-          ; outerMappedMemArgs
-          } ->
+          { reduce; interimResultMemInterim; interimResultMemFinal; outerBody } ->
       Sexp.List
         [ sexp_of_reduce sexp_of_a sexp_of_b sexp_of_c reduce
         ; Sexp.List
@@ -780,10 +762,6 @@ module Expr = struct
         ; Sexp.List
             [ Sexp.Atom "interim-result-mem-final"; Mem.sexp_of_t interimResultMemFinal ]
         ; Sexp.List [ Sexp.Atom "outer-body"; sexp_of_t sexp_of_a sexp_of_c outerBody ]
-        ; Sexp.List
-            [ Sexp.Atom "mapped-mem-args"
-            ; Sexp.List (List.map outerMappedMemArgs ~f:sexp_of_memArg)
-            ]
         ]
 
     and sexp_of_fold

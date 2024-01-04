@@ -163,9 +163,7 @@ module Captures = struct
       let consumerCaptures =
         match consumer with
         | Nothing -> empty
-        | Just
-            (ReduceSeq
-              { arg; zero; mappedMemArgs = _; body; d; character = _; type' = _ }) ->
+        | Just (ReduceSeq { arg; zero; body; d; character = _; type' = _ }) ->
           let zeroCaptures = getOpt zero ~f:getInExpr in
           let argBindings =
             Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
@@ -266,11 +264,10 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       } ->
     let consumer =
       Maybe.map consumer ~f:(function
-        | ReduceSeq { arg; zero; mappedMemArgs; body; d; character; type' } ->
+        | ReduceSeq { arg; zero; body; d; character; type' } ->
           Expr.ReduceSeq
             { arg
             ; zero = Option.map zero ~f:annotateExpr
-            ; mappedMemArgs
             ; body = annotateExpr body
             ; d
             ; character
@@ -337,11 +334,10 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       match consumer with
       | Just
           (ReducePar
-            { reduce = { arg; zero; mappedMemArgs; body; d; character; type' }
+            { reduce = { arg; zero; body; d; character; type' }
             ; interimResultMemInterim
             ; interimResultMemFinal
             ; outerBody
-            ; outerMappedMemArgs
             }) ->
         let bindings =
           Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
@@ -352,7 +348,6 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
                { reduce =
                    { arg
                    ; zero = Option.map zero ~f:annotateExpr
-                   ; mappedMemArgs
                    ; body = annotateExpr body
                    ; d
                    ; character
@@ -361,7 +356,6 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
                ; interimResultMemInterim
                ; interimResultMemFinal
                ; outerBody = annotateExpr outerBody
-               ; outerMappedMemArgs
                }) )
       | Just (Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' })
         ->

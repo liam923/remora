@@ -146,6 +146,8 @@ module AllocAcc = struct
       ;;
     end)
 
+  let returnF = CompilerState.map ~f:(fun v -> v, [])
+
   let createId name =
     let open CompilerState.Let_syntax in
     let%map id = CompilerState.createId name in
@@ -217,8 +219,7 @@ let avoidCapturesGen ~wrap ~capturesToAvoid prog =
   let result =
     match allocsToDeclare with
     | [] -> result
-    | _ :: _ ->
-      if List.is_empty allocsToDeclare then result else wrap ~allocsToDeclare result
+    | _ :: _ -> wrap ~allocsToDeclare result
   in
   return (result, allocsToPropogate)
 ;;
@@ -239,6 +240,20 @@ let avoidCapturesInStatement ~capturesToAvoid prog =
     prog
 ;;
 
+let declareAllAllocs prog =
+  let open CompilerState in
+  let open Let_syntax in
+  let%bind result, allocs = prog in
+  let result =
+    match allocs with
+    | [] -> result
+    | _ :: _ ->
+      Acorn.Expr.MallocLet
+        { memArgs = List.map allocs ~f:AllocAcc.allocationToMallocMemArg; body = result }
+  in
+  return result
+;;
+
 type targetAddr =
   | TargetValue of Acorn.Mem.t
   | TargetValues of targetAddr option list
@@ -248,6 +263,9 @@ type 'l allocResult =
   { expr : 'l Acorn.Expr.sansCaptures
   ; statement : 'l Acorn.Expr.statementSansCaptures
   }
+
+let getExpr { expr; statement = _ } = expr
+let getStatement { expr = _; statement } = statement
 
 let rec allocRequest
   : type l.
@@ -261,8 +279,6 @@ let rec allocRequest
   let open Let_syntax in
   let open Acorn in
   let alloc = allocRequest ~mallocLoc in
-  let getExpr { expr; statement = _ } = expr in
-  let getStatement { expr = _; statement } = statement in
   let allocStatement ~writeToAddr expr = alloc ~writeToAddr expr >>| getStatement in
   let allocExpr ~writeToAddr expr = alloc ~writeToAddr expr >>| getExpr in
   let rec partialUnwrittenExprToAllocResult
@@ -460,13 +476,11 @@ let rec allocRequest
         |> Option.map ~f:(fun zero ->
           allocRequest ~mallocLoc ~writeToAddr:None zero >>| getExpr)
         |> all_opt
-      and body, bodyMemArgs =
+      and body =
         allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:None body
         >>| getExpr
-        |> avoidCaptures
-             ~capturesToAvoid:
-               (Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ])
-        |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
+        |> declareAllAllocs
+        |> AllocAcc.returnF
       in
       let%map character =
         match character with
@@ -491,7 +505,6 @@ let rec allocRequest
             ; production = convertProductionTuple arg.production
             }
         ; zero
-        ; mappedMemArgs = bodyMemArgs
         ; body
         ; d
         ; character
@@ -509,15 +522,11 @@ let rec allocRequest
         Maybe.Just (Expr.ReduceSeq reduce), true
       | Just (ReducePar { reduce; outerBody }) ->
         let%bind reduce = processReduce reduce in
-        let%bind outerBody, outerBodyMemArgs =
+        let%bind outerBody =
           allocRequest ~mallocLoc ~writeToAddr:None outerBody
           >>| getExpr
-          |> avoidCaptures
-               ~capturesToAvoid:
-                 (Set.of_list
-                    (module Identifier)
-                    [ reduce.arg.firstBinding; reduce.arg.secondBinding ])
-          |> multiplyAllocations ~multiplier:(Add (Index.dimensionConstant blocks))
+          |> declareAllAllocs
+          |> AllocAcc.returnF
         in
         let interimResultMemType =
           Type.array
@@ -533,12 +542,7 @@ let rec allocRequest
         return
         @@ ( Maybe.Just
                (Expr.ReducePar
-                  { reduce
-                  ; interimResultMemInterim
-                  ; interimResultMemFinal
-                  ; outerBody
-                  ; outerMappedMemArgs = outerBodyMemArgs
-                  })
+                  { reduce; interimResultMemInterim; interimResultMemFinal; outerBody })
            , true )
       | Just (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let d = convertDimension d in
@@ -1054,10 +1058,8 @@ and allocDevice ~writeToAddr expr : (device allocResult, _) AllocAcc.t =
 let alloc (expr : Corn.t)
   : (Acorn.sansCaptures, ('s option, string) Source.annotate) CompilerState.u
   =
-  let open CompilerState.Let_syntax in
-  let%map result, acc = allocHost ~writeToAddr:None expr in
-  Acorn.Expr.MallocLet
-    { memArgs = List.map acc ~f:AllocAcc.allocationToMallocMemArg; body = result.expr }
+  let open AllocAcc in
+  allocHost ~writeToAddr:None expr >>| getExpr |> declareAllAllocs
 ;;
 
 module Stage (SB : Source.BuilderT) = struct

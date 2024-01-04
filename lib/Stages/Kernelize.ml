@@ -148,7 +148,7 @@ module ParallelismWorthwhileness = struct
   ;;
 end
 
-let getThreads (_ : DeviceInfo.t) = 128
+let getThreads (_ : DeviceInfo.t) = 32
 
 let getBlocks ~threads:threadsPerBlock ~parShape deviceInfo =
   let blocksToReachThreads threads = (threads + threadsPerBlock - 1) / threadsPerBlock in

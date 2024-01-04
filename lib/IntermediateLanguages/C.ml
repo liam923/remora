@@ -19,11 +19,17 @@ end
 
 type name = Name.t
 
+and funType =
+  | Host
+  | Device
+  | HostOrDevice
+  | Kernel
+
 and fun' =
   { params : funParam list
   ; returnType : type' option
   ; body : block
-  ; isKernel : bool
+  ; funType : funType
   }
 
 and struct' = structField list
@@ -111,6 +117,13 @@ and statement =
       ; type' : type' option
       ; value : expr option
       }
+  | DefineDetail of
+      { attributes : string list
+      ; name : name
+      ; type' : type' option
+      ; value : expr option
+      ; dims : expr list
+      }
   | Assign of
       { lhs : expr
       ; rhs : expr
@@ -130,6 +143,7 @@ and statement =
       ; loopVarUpdate : varUpdate
       ; body : block
       }
+  | SyncThreads
 
 and varUpdate =
   | IncrementOne
@@ -163,9 +177,25 @@ module Syntax = struct
   let ( >= ) arg1 arg2 = Binop { op = ">="; arg1; arg2 }
   let ( < ) arg1 arg2 = Binop { op = "<"; arg1; arg2 }
   let ( <= ) arg1 arg2 = Binop { op = "<="; arg1; arg2 }
+  let ( == ) arg1 arg2 = Binop { op = "=="; arg1; arg2 }
+  let ( && ) arg1 arg2 = Binop { op = "&&"; arg1; arg2 }
   let intLit i = Literal (Int64Literal i)
   let refStr str = VarRef (StrName str)
   let refId id = VarRef (UniqueName id)
   let ( %-> ) value fieldName = FieldDeref { value; fieldName }
+  let ( := ) lhs rhs = Assign { lhs; rhs }
+
+  let callBuiltin name ?(typeArgs = None) args =
+    FunCall { fun' = StrName name; typeArgs; args }
+  ;;
+
+  let arrayDeref value index = ArrayDeref { value; index }
+
+  let rec arrayDerefs value indices =
+    match indices with
+    | [] -> value
+    | head :: rest -> arrayDerefs (arrayDeref value head) rest
+  ;;
+
   let ternary ~cond ~then' ~else' = Ternary { cond; then'; else' }
 end

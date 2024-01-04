@@ -137,6 +137,20 @@ let rec printStatement = function
       | Some rhs -> [%string " = %{showExpr rhs}"]
     in
     printLine [%string "%{typeStr} %{showName name}%{rhsStr};"]
+  | DefineDetail { attributes; name; type'; value = rhs; dims } ->
+    let typeStr = type' |> Option.map ~f:showType |> Option.value ~default:"auto" in
+    let rhsStr =
+      match rhs with
+      | None -> ""
+      | Some rhs -> [%string " = %{showExpr rhs}"]
+    in
+    let attributesStr =
+      attributes |> List.map ~f:(fun at -> [%string "%{at} "]) |> String.concat
+    in
+    let dimsStr =
+      dims |> List.map ~f:(fun dim -> [%string "[%{showExpr dim}]"]) |> String.concat
+    in
+    printLine [%string "%{attributesStr}%{typeStr} %{showName name}%{dimsStr}%{rhsStr};"]
   | Assign { lhs; rhs } -> printLine [%string "%{showExpr lhs} = %{showExpr rhs};"]
   | Ite { cond; thenBranch; elseBranch = [] } ->
     let%bind () = printLine [%string "if (%{showExpr cond}) {"] in
@@ -167,22 +181,30 @@ let rec printStatement = function
     let%bind () = indent @@ printBlock body in
     let%bind () = printLine [%string "}"] in
     return ()
+  | SyncThreads -> printLine "__syncthreads();"
 
 and printBlock block = block |> List.map ~f:printStatement |> Buffer.all_unit
 
 let printInclude include' = printLine [%string "#include %{include'}"]
 
-let printFunDec { name; value = { isKernel; params; returnType; body } } =
+let printFunDec { name; value = { params; returnType; body; funType } } =
   let printParams params =
     params
     |> List.map ~f:(fun ({ name; type' } : funParam) ->
       [%string "%{showType type'} %{showName name}"])
     |> String.concat ~sep:", "
   in
-  let kernel = if isKernel then "__global__ " else "" in
+  let attributesStr =
+    match funType with
+    | Host -> ""
+    | Device -> "__device__ "
+    | HostOrDevice -> "__host__ __device__ "
+    | Kernel -> "__global__ "
+  in
   let retTypeStr = Option.value_map returnType ~f:showType ~default:"void" in
   let%bind () =
-    printLine [%string "%{kernel}%{retTypeStr} %{showName name}(%{printParams params}) {"]
+    printLine
+      [%string "%{attributesStr}%{retTypeStr} %{showName name}(%{printParams params}) {"]
   in
   let%bind () = indent @@ printBlock body in
   let%bind () = printLine "};" in
