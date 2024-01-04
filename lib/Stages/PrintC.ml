@@ -83,7 +83,7 @@ let rec showType : type' -> string = function
   | Char -> "char"
   | Int64 -> "int64_t"
   | Float64 -> "double"
-  | Bool -> "boolean"
+  | Bool -> "bool"
   | Ptr t -> [%string "%{showType t}*"]
   | TypeRef name -> showName name
   | TypeInstantiation { base; args } ->
@@ -92,7 +92,13 @@ let rec showType : type' -> string = function
 ;;
 
 let rec showExpr = function
-  | Literal (CharLiteral c) -> [%string "'%{Char.escaped c}'"]
+  | Literal (CharLiteral c) ->
+    let rec to_string_octal i =
+      if i < 8
+      then Int.to_string i
+      else String.concat [ to_string_octal (i / 8); Int.to_string (i % 8) ]
+    in
+    [%string "'\\%{Char.to_int c |> to_string_octal}'"]
   | Literal (Int64Literal i) -> Int.to_string i
   | Literal (Float64Literal f) -> Float.to_string f
   | Literal (BoolLiteral true) -> "true"

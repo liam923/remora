@@ -177,9 +177,11 @@ module Syntax = struct
   let ( >= ) arg1 arg2 = Binop { op = ">="; arg1; arg2 }
   let ( < ) arg1 arg2 = Binop { op = "<"; arg1; arg2 }
   let ( <= ) arg1 arg2 = Binop { op = "<="; arg1; arg2 }
+  let ( << ) arg1 arg2 = Binop { op = "<<"; arg1; arg2 }
   let ( == ) arg1 arg2 = Binop { op = "=="; arg1; arg2 }
   let ( && ) arg1 arg2 = Binop { op = "&&"; arg1; arg2 }
   let intLit i = Literal (Int64Literal i)
+  let charLit c = Literal (CharLiteral c)
   let refStr str = VarRef (StrName str)
   let refId id = VarRef (UniqueName id)
   let ( %-> ) value fieldName = FieldDeref { value; fieldName }

@@ -4,6 +4,7 @@ open Acorn
 let prelude =
   {|#include <cstdio>
 #include <algorithm>
+#include <iostream>
 
 static void HandleError(cudaError_t err,
                         const char *file,
@@ -103,6 +104,63 @@ __host__ __device__ int64_t product(Slice slice) {
     p *= slice.dims[i];
   }
   return p;
+};
+
+template<typename T>
+T at(T* elements, std::vector<int64_t> shape, std::vector<int64_t> index) {
+  int64_t elementIndex = 0;
+  int64_t stride = 1;
+  for (auto i = index.size() - 1;; i--) {
+    elementIndex += stride * index[i];
+    stride *= shape[i];
+
+    if (i == 0) break;
+  }
+  return elements[elementIndex];
+};
+
+template<typename T>
+void printArray(T* elements, int64_t* dims, int64_t dimCount) {
+  if (dimCount == 0) {
+    std::cout << elements[0] << "\n";
+    return;
+  }
+
+  std::vector<int64_t> indexes(dimCount, 0);
+
+  while (true) {
+    for (auto i = (int64_t)indexes.size() - 1; i >= 0; i--) {
+      if (indexes[i] == 0) std::cout << "[";
+      else break;
+    }
+
+    std::cout << at(elements, std::vector<int64_t>(dims, dims + dimCount), indexes);
+
+    long i = (long)indexes.size() - 1;
+    while (true) {
+      if (i < 0) {
+        std::cout << "\n";
+        return;
+      }
+
+      indexes[i]++;
+      if (indexes[i] == dims[i]) {
+        std::cout << "]";
+        indexes[i] = 0;
+        i--;
+      } else {
+        std::cout << ", ";
+        if (i == indexes.size() - 1) std::cout << " ";
+        else {
+          std::cout << "\n";
+          for (long j = 0; j <= i; j++) {
+            std::cout << " ";
+          }
+        }
+        break;
+      }
+    }
+  }
 };
 |}
   |> String.split_lines
@@ -238,6 +296,10 @@ let createVar name makeDefine =
   in
   let%bind () = GenState.writeStatement @@ makeDefine var in
   return @@ C.VarRef var
+;;
+
+let createVarAuto name value =
+  createVar name @@ fun name -> C.Define { name; type' = None; value = Some value }
 ;;
 
 let genTypeForSort sort =
@@ -1680,10 +1742,7 @@ and genExpr
         cReduceResultsMemInterimType
         cReduceResultsMemInterimHost
     in
-    let%bind dHost =
-      createVar "d"
-      @@ fun name -> C.Define { name; type' = None; value = Some (genDim d) }
-    in
+    let%bind dHost = createVarAuto "d" @@ genDim d in
     let%bind dDevice, dPass = createKernelPass "d" Int64 dHost in
     let kernelPasses =
       capturePasses @ [ mapResultMemInterimPass; reduceResultMemInterimPass; dPass ]
@@ -1725,96 +1784,52 @@ and genExpr
                 }
             in
             let%bind blockRemainder =
-              createVar "blockRemainder"
-              @@ fun name ->
-              C.Define
-                { name; type' = None; value = Some C.Syntax.(dDevice % intLit blocks) }
+              createVarAuto "blockRemainder" @@ C.Syntax.(dDevice % intLit blocks)
             in
             let%bind elementsPerBlock =
-              createVar "elementsPerBlock"
-              @@ fun name ->
-              C.Define
-                { name; type' = None; value = Some C.Syntax.(dDevice / intLit blocks) }
+              createVarAuto "elementsPerBlock" C.Syntax.(dDevice / intLit blocks)
             in
             let%bind elementsThisBlock =
-              createVar "elementsThisBlock"
-              @@ fun name ->
-              C.Define
-                { name
-                ; type' = None
-                ; value =
-                    Some
-                      C.Syntax.(
-                        ternary
-                          ~cond:(blockIndex < blockRemainder)
-                          ~then':(elementsPerBlock + intLit 1)
-                          ~else':elementsPerBlock)
-                }
+              createVarAuto "elementsThisBlock"
+              @@ C.Syntax.(
+                   ternary
+                     ~cond:(blockIndex < blockRemainder)
+                     ~then':(elementsPerBlock + intLit 1)
+                     ~else':elementsPerBlock)
             in
             let%bind blockStart =
-              createVar "blockStart"
-              @@ fun name ->
-              C.Define
-                { name
-                ; type' = None
-                ; value =
-                    Some
-                      C.Syntax.(
-                        ternary
-                          ~cond:(blockIndex < blockRemainder)
-                          ~then':(blockIndex * (elementsPerBlock + intLit 1))
-                          ~else':((blockIndex * elementsPerBlock) + blockRemainder))
-                }
+              createVarAuto "blockStart"
+              @@ C.Syntax.(
+                   ternary
+                     ~cond:(blockIndex < blockRemainder)
+                     ~then':(blockIndex * (elementsPerBlock + intLit 1))
+                     ~else':((blockIndex * elementsPerBlock) + blockRemainder))
             in
             let%bind threadRemainder =
-              createVar "threadRemainder"
-              @@ fun name ->
-              C.Define
-                { name
-                ; type' = None
-                ; value = Some C.Syntax.(elementsThisBlock % intLit threads)
-                }
+              createVarAuto "threadRemainder"
+              @@ C.Syntax.(elementsThisBlock % intLit threads)
             in
             let%bind elementsPerThread =
-              createVar "elementsPerThread"
-              @@ fun name ->
-              C.Define
-                { name
-                ; type' = None
-                ; value = Some C.Syntax.(elementsThisBlock / intLit threads)
-                }
+              createVarAuto "elementsPerThread"
+              @@ C.Syntax.(elementsThisBlock / intLit threads)
             in
             let%bind elementsThisThread =
-              createVar "elementsThisThread"
-              @@ fun name ->
-              C.Define
-                { name
-                ; type' = None
-                ; value =
-                    Some
-                      C.Syntax.(
-                        ternary
-                          ~cond:(threadIndex < threadRemainder)
-                          ~then':(elementsPerThread + intLit 1)
-                          ~else':elementsPerThread)
-                }
+              createVarAuto "elementsThisThread"
+              @@ C.Syntax.(
+                   ternary
+                     ~cond:(threadIndex < threadRemainder)
+                     ~then':(elementsPerThread + intLit 1)
+                     ~else':elementsPerThread)
             in
             let%bind threadSum =
               createVar "threadSum"
               @@ fun name -> C.Define { name; type' = Some cReduceType; value = None }
             in
             let%bind slices =
-              createVar "slices"
-              @@ fun name ->
-              C.Define
-                { name
-                ; type' = None
-                ; value =
-                    Some
-                      C.Syntax.(
-                        (elementsThisBlock + intLit Int.((threads * threads) - 1))
-                        / intLit Int.(threads * threads))
-                }
+              createVarAuto "slices"
+              @@ C.Syntax.(
+                   (elementsThisBlock + intLit Int.((threads * threads) - 1))
+                   / intLit Int.(threads * threads))
             in
             (* loop over chunks to compute the thread sum *)
             let%bind () =
@@ -1834,43 +1849,23 @@ and genExpr
                       ~loopVarUpdate:IncrementOne
                       ~body:(fun i ->
                         let%bind offset =
-                          createVar "offset"
-                          @@ fun name ->
-                          C.Define
-                            { name
-                            ; type' = None
-                            ; value =
-                                Some
-                                  C.Syntax.(
-                                    ternary
-                                      ~cond:(i < threadRemainder)
-                                      ~then':(i * (elementsPerThread + intLit 1))
-                                      ~else':((i * elementsPerThread) + threadRemainder))
-                            }
+                          createVarAuto "offset"
+                          @@ C.Syntax.(
+                               ternary
+                                 ~cond:(i < threadRemainder)
+                                 ~then':(i * (elementsPerThread + intLit 1))
+                                 ~else':((i * elementsPerThread) + threadRemainder))
                         in
                         let%bind indexInBlock =
-                          createVar "indexInBlock"
-                          @@ fun name ->
-                          C.Define
-                            { name
-                            ; type' = None
-                            ; value =
-                                Some
-                                  C.Syntax.(
-                                    offset + (slice * intLit threads) + threadIndex)
-                            }
+                          createVarAuto "indexInBlock"
+                          @@ C.Syntax.(offset + (slice * intLit threads) + threadIndex)
                         in
                         GenState.writeIte
                           ~cond:C.Syntax.(indexInBlock < elementsThisBlock)
                           ~thenBranch:
                             (let%bind index =
-                               createVar "index"
-                               @@ fun name ->
-                               C.Define
-                                 { name
-                                 ; type' = None
-                                 ; value = Some C.Syntax.(blockStart + indexInBlock)
-                                 }
+                               createVarAuto "index"
+                               @@ C.Syntax.(blockStart + indexInBlock)
                              in
                              let%bind () =
                                genMapBodyOnDevice
@@ -1902,19 +1897,12 @@ and genExpr
                   in
                   let%bind () = GenState.writeStatement C.SyncThreads in
                   let%bind elementsThisThreadAndSlice =
-                    createVar "elementsThisThreadAndSlice"
-                    @@ fun name ->
-                    C.Define
-                      { name
-                      ; type' = None
-                      ; value =
-                          Some
-                            C.Syntax.(
-                              ternary
-                                ~cond:(slice == slices - intLit 1)
-                                ~then':(elementsThisThread % intLit threads)
-                                ~else':(intLit threads))
-                      }
+                    createVarAuto "elementsThisThreadAndSlice"
+                    @@ C.Syntax.(
+                         ternary
+                           ~cond:(slice == slices - intLit 1)
+                           ~then':(elementsThisThread % intLit threads)
+                           ~else':(intLit threads))
                   in
                   let%bind () =
                     GenState.writeForLoop
@@ -1954,28 +1942,16 @@ and genExpr
                 ~cond:C.Syntax.(threadIndex == intLit 0 && elementsThisBlock > intLit 0)
                 ~thenBranch:
                   (let%bind blockSum =
-                     createVar "blockSum"
-                     @@ fun name ->
-                     C.Define
-                       { name
-                       ; type' = None
-                       ; value = Some C.Syntax.(arrayDerefs cache [ intLit 0; intLit 0 ])
-                       }
+                     createVarAuto "blockSum"
+                     @@ C.Syntax.(arrayDerefs cache [ intLit 0; intLit 0 ])
                    in
                    let%bind threadsWithSums =
-                     createVar "threadsWithSums"
-                     @@ fun name ->
-                     C.Define
-                       { name
-                       ; type' = None
-                       ; value =
-                           Some
-                             C.Syntax.(
-                               ternary
-                                 ~cond:(elementsPerThread == intLit 0)
-                                 ~then':threadRemainder
-                                 ~else':(intLit threads))
-                       }
+                     createVarAuto "threadsWithSums"
+                     @@ C.Syntax.(
+                          ternary
+                            ~cond:(elementsPerThread == intLit 0)
+                            ~then':threadRemainder
+                            ~else':(intLit threads))
                    in
                    let%bind () =
                      GenState.writeForLoop
@@ -2051,10 +2027,7 @@ and genExpr
       | Some zero -> genExpr ~hostOrDevice:Host ~store:false zero
       | None -> return @@ reduceResultsMemFinalDerefer C.Syntax.(intLit 0)
     in
-    let%bind reduceResult =
-      createVar "reduceResult"
-      @@ fun name -> C.Define { name; type' = None; value = Some reduceResultInitial }
-    in
+    let%bind reduceResult = createVarAuto "reduceResult" reduceResultInitial in
     let%bind () =
       GenState.writeForLoop
         ~loopVar:"i"
@@ -2303,12 +2276,41 @@ and genMapBodyOnDevice
   return ()
 ;;
 
+let genPrint type' value =
+  let open GenState.Let_syntax in
+  match type' with
+  | Type.Atom (Literal (IntLiteral | CharacterLiteral | BooleanLiteral)) ->
+    GenState.writeStatement
+    @@ C.Eval C.Syntax.(refStr "std::cout" << value << charLit '\n')
+  | Type.Atom (Sigma _) -> raise Unimplemented.default
+  | Type.Array { element; shape } ->
+    let%bind cElement = genType (Atom element) in
+    let shape = NeList.to_list shape in
+    let%bind dimCount = createVarAuto "dimCount" @@ genShapeDimCount shape in
+    let%bind dims =
+      createVarAuto "dims"
+      @@ C.Syntax.(callBuiltin "mallocHost" ~typeArgs:(Some [ Int64 ]) [ dimCount ])
+    in
+    let%bind _ = reifyShapeIndexToMem ~mem:dims shape in
+    let%bind () =
+      GenState.writeStatement
+      @@ C.Eval
+           C.Syntax.(
+             callBuiltin
+               "printArray"
+               ~typeArgs:(Some [ cElement ])
+               [ value; dims; dimCount ])
+    in
+    return ()
+  | Type.Tuple _ -> raise Unimplemented.default
+;;
+
 let genMainBlock (main : withCaptures) =
   let open GenState.Let_syntax in
   GenState.block
   @@
-  let%bind cVal = genExpr ~hostOrDevice:Host ~store:false main in
-  let%bind () = GenState.writeStatement @@ C.Eval cVal in
+  let%bind cVal = genExpr ~hostOrDevice:Host ~store:true main in
+  let%bind () = genPrint (Expr.type' main) cVal in
   return ()
 ;;
 
