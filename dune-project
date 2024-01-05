@@ -21,7 +21,18 @@
  (name remora)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune base menhir ppx_jane ppx_deriving (ocamlformat (and :with-test (= 0.26.0))))
+ (depends
+  ocaml
+  dune
+  base
+  menhir
+  ppx_jane
+  ppx_deriving
+  (core_unix :with-test)
+  (ocamlformat
+   (and
+    :with-test
+    (= 0.26.0))))
  (tags
   (topics "to describe" your project)))
 

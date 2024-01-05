@@ -6,6 +6,7 @@ module type S = sig
 
   val compiler : (CompilerState.state, string, string, error) CompilerPipeline.t
   val compileStringToString : string -> (string, error) MResult.t
+  val showError : error -> string
 end
 
 module Make (SourceBuilder : Source.BuilderT) : S with type source = SourceBuilder.source

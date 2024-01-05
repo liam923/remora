@@ -6,6 +6,7 @@ module type S = sig
 
   val compiler : (CompilerState.state, string, string, error) CompilerPipeline.t
   val compileStringToString : string -> (string, error) MResult.t
+  val showError : error -> string
 end
 
 module Make (SB : Source.BuilderT) = struct
@@ -31,6 +32,12 @@ module Make (SB : Source.BuilderT) = struct
 
   let compileStringToString input =
     CompilerPipeline.S.runA (CompilerPipeline.make compiler input) CompilerState.initial
+  ;;
+
+  let showError ({ elem = error; source } : error) =
+    match Option.map source ~f:SB.show with
+    | None | Some "" -> [%string "Error: %{error}"]
+    | Some source -> [%string "Error (%{source}): %{error}"]
   ;;
 end
 

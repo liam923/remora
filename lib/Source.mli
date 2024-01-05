@@ -20,6 +20,7 @@ module type BuilderT = sig
   val make : start:Lexing.position -> finish:Lexing.position -> source
   val merge : source -> source -> source
   val between : source -> source -> source
+  val show : source -> string
 end
 
 module Builder : BuilderT with type source = t

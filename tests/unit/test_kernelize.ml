@@ -37,7 +37,7 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (kernel (blocks 80) (threads 128)
+     (kernel (blocks 320) (threads 32)
       (map-kernel (frame-shape 1000000) () (iota iota.64)
        (body-matcher map-result.69) (map-result (map-result.69))
        (#1
@@ -59,7 +59,7 @@ let%expect_test "check kernelizing" =
       (loop-block (frame-shape 10)
        (map () (iota iota.64)
         (#1
-         (kernel (blocks 80) (threads 128)
+         (kernel (blocks 320) (threads 32)
           (loop-kernel (frame-shape 1000000)
            (map () (iota (iota.66 : iota.64)) iota.66)
            (body-matcher reduce-arg.74) (map-result ())
@@ -78,7 +78,7 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (kernel (blocks 80) (threads 128)
+     (kernel (blocks 320) (threads 32)
       (map-kernel (frame-shape 1000000) () (iota iota.64)
        (body-matcher map-result.69) (map-result (map-result.69))
        (#1
@@ -97,7 +97,7 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (kernel (blocks 40) (threads 128)
+     (kernel (blocks 157) (threads 32)
       (map-kernel (frame-shape 5000) () (iota iota.64)
        (body-matcher map-result.69) (map-result (map-result.69))
        (#1
@@ -120,7 +120,7 @@ let%expect_test "check kernelizing" =
       (loop-block (frame-shape 5000)
        (map () (iota iota.64)
         (#1
-         (kernel (blocks 47) (threads 128)
+         (kernel (blocks 188) (threads 32)
           (loop-kernel (frame-shape 6000)
            (map () (iota (iota.66 : iota.64)) iota.66)
            (body-matcher reduce-arg.74) (map-result ())
@@ -139,7 +139,7 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (kernel (blocks 47) (threads 128)
+     (kernel (blocks 188) (threads 32)
       (map-kernel (frame-shape 6000) () (iota iota.64)
        (body-matcher map-result.69) (map-result (map-result.69))
        (#1
@@ -153,7 +153,7 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (kernel (blocks 47) (threads 128)
+     (kernel (blocks 188) (threads 32)
       (map-kernel (frame-shape 10) () (iota iota.51) (body-matcher map-result.58)
        (map-result (map-result.58))
        (#0

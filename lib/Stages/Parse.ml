@@ -1116,6 +1116,7 @@ module Unit = Make (struct
     let make ~start:_ ~finish:_ = ()
     let merge () () = ()
     let between () () = ()
+    let show () = ""
   end)
 
 module Stage (SB : Source.BuilderT) = struct

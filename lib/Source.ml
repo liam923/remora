@@ -29,6 +29,7 @@ module type BuilderT = sig
   val make : start:Lexing.position -> finish:Lexing.position -> source
   val merge : source -> source -> source
   val between : source -> source -> source
+  val show : source -> string
 end
 
 module Builder = struct
@@ -40,6 +41,13 @@ module Builder = struct
   let between { start = _; finish = start } { start = finish; finish = _ } =
     { start; finish }
   ;;
+
+  let show { start; finish } =
+    let showPos (pos : Lexing.position) =
+      [%string "%{pos.pos_lnum#Int}:%{(pos.pos_cnum - pos.pos_bol)#Int}"]
+    in
+    [%string "%{showPos start} - %{showPos finish}"]
+  ;;
 end
 
 module UnitBuilder = struct
@@ -48,4 +56,5 @@ module UnitBuilder = struct
   let make ~start:_ ~finish:_ = ()
   let merge () () = ()
   let between () () = ()
+  let show () = ""
 end

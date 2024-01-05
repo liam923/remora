@@ -1,0 +1,6 @@
+(library
+ (name remora_test_integration)
+ (inline_tests)
+ (libraries base core_unix.sys_unix remora)
+ (preprocess
+  (pps ppx_jane)))

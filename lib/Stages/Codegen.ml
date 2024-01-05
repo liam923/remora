@@ -10,7 +10,7 @@ static void HandleError(cudaError_t err,
                         const char *file,
                         int line) {
   if (err != cudaSuccess) {
-    printf("%s in %s at line %d\n", cudaGetErrorString(err),
+    printf("%s in %s at line %d\12", cudaGetErrorString(err),
             file, line);
     exit(EXIT_FAILURE);
   }
@@ -122,7 +122,7 @@ T at(T* elements, std::vector<int64_t> shape, std::vector<int64_t> index) {
 template<typename T>
 void printArray(T* elements, int64_t* dims, int64_t dimCount) {
   if (dimCount == 0) {
-    std::cout << elements[0] << "\n";
+    std::cout << elements[0] << "\12";
     return;
   }
 
@@ -139,7 +139,7 @@ void printArray(T* elements, int64_t* dims, int64_t dimCount) {
     long i = (long)indexes.size() - 1;
     while (true) {
       if (i < 0) {
-        std::cout << "\n";
+        std::cout << "\12";
         return;
       }
 
@@ -149,10 +149,10 @@ void printArray(T* elements, int64_t* dims, int64_t dimCount) {
         indexes[i] = 0;
         i--;
       } else {
-        std::cout << ", ";
+        std::cout << ",";
         if (i == indexes.size() - 1) std::cout << " ";
         else {
-          std::cout << "\n";
+          std::cout << "\12";
           for (long j = 0; j <= i; j++) {
             std::cout << " ";
           }
