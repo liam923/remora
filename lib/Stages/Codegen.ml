@@ -149,7 +149,6 @@ void printArray(T* elements, int64_t* dims, int64_t dimCount) {
         indexes[i] = 0;
         i--;
       } else {
-        std::cout << ",";
         if (i == indexes.size() - 1) std::cout << " ";
         else {
           std::cout << "\12";

@@ -61,10 +61,24 @@ let compileAndRun program =
 
 let%expect_test "basic" =
   compileAndRun "[1 2 3 4 5]";
-  [%expect {| [1, 2, 3, 4, 5] |}]
+  [%expect {| [1 2 3 4 5] |}]
 ;;
 
 let%expect_test "simple reduction" =
   compileAndRun "(reduce{int | 99999999 []} + (+ 1 iota{ | [100000000]}))";
   [%expect {| 5000050000 |}]
+;;
+
+let%expect_test "simple boxes" =
+  compileAndRun
+    {|
+    (define words
+      (boxes (len) [char len] [2]
+        ((3) "hey" )
+        ((2) "hi" )))
+
+    (unbox words (word len)
+      (= 3 (length{char | len []} word)))
+    |};
+  [%expect {| [1 0] |}]
 ;;
