@@ -242,6 +242,7 @@ module Expr = struct
   let type' : type l. l t -> Type.t = function
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (FloatLiteral _) -> Literal FloatLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
     | ScalarPrimitive scalarPrimitive -> scalarPrimitive.type'
@@ -321,18 +322,11 @@ module Expr = struct
         ]
 
     and sexp_of_literal = [%sexp_of: Nested.Expr.literal]
+    and sexp_of_scalarOp = [%sexp_of: Nested.Expr.scalarOp]
 
     and sexp_of_scalarPrimitive : type a. (a -> Sexp.t) -> a scalarPrimitive -> Sexp.t =
       fun sexp_of_a { op; args; type' = _ } ->
-      let opString =
-        match op with
-        | Add -> "+"
-        | Sub -> "-"
-        | Mul -> "*"
-        | Div -> "/"
-        | Equal -> "="
-      in
-      Sexp.List (Sexp.Atom opString :: List.map args ~f:(sexp_of_t sexp_of_a))
+      Sexp.List (sexp_of_scalarOp op :: List.map args ~f:(sexp_of_t sexp_of_a))
 
     and sexp_of_tupleDeref : type a. (a -> Sexp.t) -> a tupleDeref -> Sexp.t =
       fun sexp_of_a { tuple; index; type' = _ } ->

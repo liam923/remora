@@ -74,6 +74,7 @@ module Type = struct
 
   and literal =
     | IntLiteral
+    | FloatLiteral
     | CharacterLiteral
     | BooleanLiteral
 
@@ -124,6 +125,15 @@ module Expr = struct
     | Sub
     | Mul
     | Div
+    | Mod
+    | AddF
+    | SubF
+    | MulF
+    | DivF
+    | IntToFloat
+    | FloatToInt
+    | IntToBool
+    | BoolToInt
     | Equal
     | Reduce of
         { associative : bool
@@ -234,6 +244,7 @@ module Expr = struct
 
   and literal =
     | IntLiteral of int
+    | FloatLiteral of float
     | CharacterLiteral of char
     | BooleanLiteral of bool
 
@@ -268,6 +279,7 @@ module Expr = struct
     | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (FloatLiteral _) -> Literal FloatLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
   ;;
@@ -412,6 +424,7 @@ end = struct
 
       and literal =
         | IntLiteral
+        | FloatLiteral
         | CharacterLiteral
         | BooleanLiteral
 
@@ -482,6 +495,7 @@ end = struct
                arrayFrom env depth body)
           }
       | Type.Literal IntLiteral -> Literal IntLiteral
+      | Type.Literal FloatLiteral -> Literal FloatLiteral
       | Type.Literal CharacterLiteral -> Literal CharacterLiteral
       | Type.Literal BooleanLiteral -> Literal BooleanLiteral
 
@@ -520,8 +534,11 @@ module Substitute = struct
                     Option.value prevCount ~default:0 + count))
             in
             { const = combinedConsts; refs = combinedRefs }
-          | Some (Shape _) -> acc
-          | None -> acc)
+          | Some (Shape _) -> raise @@ Unreachable.Error "tried to sub shape for dim"
+          | None ->
+            { const = acc.const
+            ; refs = Map.set acc.refs ~key:idBeingSubbed ~data:subMultiplier
+            })
     ;;
 
     let subIndicesIntoShape indices shape =
@@ -531,7 +548,7 @@ module Substitute = struct
         | ShapeRef id as ref ->
           (match Map.find indices id with
            | Some (Shape shape) -> shape
-           | Some (Dimension _) -> [ ref ]
+           | Some (Dimension _) -> raise @@ Unreachable.Error "tried to sub dim for shape"
            | None -> [ ref ]))
     ;;
 
@@ -565,6 +582,7 @@ module Substitute = struct
       | Pi pi -> Pi (subIndicesIntoPi indices pi)
       | Sigma sigma -> Sigma (subIndicesIntoSigma indices sigma)
       | Literal IntLiteral -> Literal IntLiteral
+      | Literal FloatLiteral -> Literal FloatLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
       | Literal BooleanLiteral -> Literal BooleanLiteral
 
@@ -620,6 +638,7 @@ module Substitute = struct
       | Pi pi -> Pi (subTypesIntoPi types pi)
       | Sigma sigma -> Sigma (subTypesIntoSigma types sigma)
       | Literal IntLiteral -> Literal IntLiteral
+      | Literal FloatLiteral -> Literal FloatLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
       | Literal BooleanLiteral -> Literal BooleanLiteral
 

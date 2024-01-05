@@ -132,6 +132,7 @@ end = struct
       let paramsString = parameters |> showList showParam in
       [%string "(Σ (%{paramsString}) %{showArray body})"]
     | Literal IntLiteral -> "int"
+    | Literal FloatLiteral -> "float"
     | Literal CharacterLiteral -> "char"
     | Literal BooleanLiteral -> "bool"
 
@@ -613,6 +614,7 @@ module TypeCheck = struct
     | ReifyDimension _ -> ok ()
     | ReifyShape _ -> ok ()
     | IntLiteral _ -> ok ()
+    | FloatLiteral _ -> ok ()
     | CharacterLiteral _ -> ok ()
     | BooleanLiteral _ -> ok ()
   ;;
@@ -678,6 +680,7 @@ module TypeCheck = struct
         in
         findInType extendedEnv (Array body)
       | Atom (Literal IntLiteral) -> []
+      | Atom (Literal FloatLiteral) -> []
       | Atom (Literal CharacterLiteral) -> []
       | Atom (Literal BooleanLiteral) -> []
     in
@@ -1436,6 +1439,7 @@ module TypeCheck = struct
            ; type' = T.arrayType bodyTyped
            })
     | U.IntLiteral i -> CheckerState.return (T.Atom (Literal (IntLiteral i)))
+    | U.FloatLiteral f -> CheckerState.return (T.Atom (Literal (FloatLiteral f)))
     | U.CharacterLiteral c -> CheckerState.return (T.Atom (Literal (CharacterLiteral c)))
     | U.BooleanLiteral b -> CheckerState.return (T.Atom (Literal (BooleanLiteral b)))
 

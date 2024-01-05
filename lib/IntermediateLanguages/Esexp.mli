@@ -18,6 +18,7 @@ type 's t =
       }
   | String of string * 's
   | Integer of int * 's
+  | Float of float * 's
   | Symbol of string * 's
 [@@deriving sexp_of]
 

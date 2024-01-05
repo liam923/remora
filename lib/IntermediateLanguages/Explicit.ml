@@ -143,6 +143,7 @@ module Expr = struct
     | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (FloatLiteral _) -> Literal FloatLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
   ;;

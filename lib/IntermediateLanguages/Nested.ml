@@ -269,6 +269,7 @@ module Expr = struct
   let type' : t -> Type.t = function
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (FloatLiteral _) -> Literal FloatLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
     | ScalarPrimitive scalarPrimitive -> scalarPrimitive.type'
@@ -341,19 +342,30 @@ module Expr = struct
     and sexp_of_literal (lit : Nucleus.Expr.literal) =
       match lit with
       | IntLiteral i -> Sexp.Atom (Int.to_string i)
+      | FloatLiteral f -> Sexp.Atom (Float.to_string f)
       | CharacterLiteral c -> Sexp.Atom [%string "'%{Char.to_string c}'"]
       | BooleanLiteral b -> Sexp.Atom (if b then "true" else "false")
 
+    and sexp_of_scalarOp (op : scalarOp) =
+      Sexp.Atom
+        (match op with
+         | Add -> "+"
+         | Sub -> "-"
+         | Mul -> "*"
+         | Div -> "/"
+         | Mod -> "%"
+         | AddF -> "+."
+         | SubF -> "-."
+         | MulF -> "*."
+         | DivF -> "/."
+         | IntToBool -> "int->bool"
+         | BoolToInt -> "bool->int"
+         | IntToFloat -> "int->float"
+         | FloatToInt -> "float->int"
+         | Equal -> "=")
+
     and sexp_of_scalarPrimitive { op; args; type' = _ } =
-      let opString =
-        match op with
-        | Add -> "+"
-        | Sub -> "-"
-        | Mul -> "*"
-        | Div -> "/"
-        | Equal -> "="
-      in
-      Sexp.List (Sexp.Atom opString :: List.map args ~f:sexp_of_t)
+      Sexp.List (sexp_of_scalarOp op :: List.map args ~f:sexp_of_t)
 
     and sexp_of_tupleDeref { tuple; index; type' = _ } =
       Sexp.List [ Sexp.Atom [%string "#%{index#Int}"]; sexp_of_t tuple ]

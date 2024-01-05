@@ -332,6 +332,7 @@ let genType ?(wrapInPtr = false) type' : (C.type', _) GenState.u =
       | None ->
         (match type' with
          | Literal IntLiteral -> return C.Int64
+         | Literal FloatLiteral -> return C.Float64
          | Literal CharacterLiteral -> return C.Char
          | Literal BooleanLiteral -> return C.Bool
          | Ptr elementType ->
@@ -655,9 +656,7 @@ let genCopyExprToMem =
              ~fieldName:boxValueFieldName
              ~valueIsPtr:memNeedsPtrDeref
            := FieldDeref { value = expr; fieldName = boxValueFieldName })
-    | Atom (Literal IntLiteral)
-    | Atom (Literal BooleanLiteral)
-    | Atom (Literal CharacterLiteral) ->
+    | Atom (Literal (IntLiteral | FloatLiteral | BooleanLiteral | CharacterLiteral)) ->
       let mem = if memNeedsPtrDeref then C.PtrDeref mem else mem in
       GenState.writeStatement @@ C.Assign { lhs = mem; rhs = expr }
   in
@@ -1148,6 +1147,7 @@ and genExpr
     let%bind body = genExpr ~hostOrDevice ~store:false body in
     return @@ C.StructConstructor { type' = boxType; args = body :: indices }
   | _, Literal (IntLiteral i) -> return @@ C.Literal (Int64Literal i)
+  | _, Literal (FloatLiteral f) -> return @@ C.Literal (Float64Literal f)
   | _, Literal (CharacterLiteral c) -> return @@ C.Literal (CharLiteral c)
   | _, Literal (BooleanLiteral b) -> return @@ C.Literal (BoolLiteral b)
   | _, ScalarPrimitive { op; args; type' = _ } ->
@@ -1162,11 +1162,27 @@ and genExpr
       in
       storeIfRequested ~name:"binopResult" @@ C.Binop { op = binop; arg1; arg2 }
     in
+    let genCast type' =
+      let%bind args =
+        args |> List.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all
+      in
+      let arg =
+        match args with
+        | [ arg ] -> arg
+        | _ -> raise @@ Unreachable.Error "expected one arg for cast"
+      in
+      storeIfRequested ~name:"castResult" @@ C.Cast { type'; value = arg }
+    in
     (match op with
-     | Add -> genBinop "+"
-     | Sub -> genBinop "-"
-     | Mul -> genBinop "*"
-     | Div -> genBinop "/"
+     | Add | AddF -> genBinop "+"
+     | Sub | SubF -> genBinop "-"
+     | Mul | MulF -> genBinop "*"
+     | Div | DivF -> genBinop "/"
+     | Mod -> genBinop "%"
+     | IntToBool -> genCast Bool
+     | BoolToInt -> genCast Int64
+     | IntToFloat -> genCast Float64
+     | FloatToInt -> genCast Int64
      | Equal -> genBinop "==")
   | _, TupleDeref { tuple; index; type' = _ } ->
     let%map tuple = genExpr ~hostOrDevice ~store tuple in
@@ -2156,9 +2172,8 @@ and genExpr
         let%bind destType = genType ~wrapInPtr:false type' in
         return @@ C.StructConstructor { type' = destType; args = elements }
       | Atom (Sigma _)
-      | Atom (Literal IntLiteral)
-      | Atom (Literal BooleanLiteral)
-      | Atom (Literal CharacterLiteral) -> return @@ C.PtrDeref mem
+      | Atom (Literal (IntLiteral | FloatLiteral | BooleanLiteral | CharacterLiteral)) ->
+        return @@ C.PtrDeref mem
     in
     let%bind mem = genMem ~store:true addr in
     genGetmem mem type'
@@ -2284,7 +2299,7 @@ and genMapBodyOnDevice
 let genPrint type' value =
   let open GenState.Let_syntax in
   match type' with
-  | Type.Atom (Literal (IntLiteral | CharacterLiteral | BooleanLiteral)) ->
+  | Type.Atom (Literal (IntLiteral | FloatLiteral | CharacterLiteral | BooleanLiteral)) ->
     GenState.writeStatement
     @@ C.Eval C.Syntax.(refStr "std::cout" << value << charLit '\n')
   | Type.Atom (Sigma _) -> raise Unimplemented.default

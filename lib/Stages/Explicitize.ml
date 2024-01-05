@@ -41,7 +41,16 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Sub -> [ "-arg1"; "-arg2" ]
           | Mul -> [ "*arg1"; "*arg2" ]
           | Div -> [ "/arg1"; "/arg2" ]
+          | Mod -> [ "%arg1"; "%arg2" ]
+          | AddF -> [ "+arg1"; "+arg2" ]
+          | SubF -> [ "-arg1"; "-arg2" ]
+          | MulF -> [ "*arg1"; "*arg2" ]
+          | DivF -> [ "/arg1"; "/arg2" ]
           | Equal -> [ "=arg1"; "=arg2" ]
+          | IntToBool -> [ "intToBoolArg" ]
+          | BoolToInt -> [ "boolToIntArg" ]
+          | IntToFloat -> [ "intToFloatArg" ]
+          | FloatToInt -> [ "floatToIntArg" ]
           | Reduce { associative = _; explicitZero = true; character = _ } ->
             [ "reduce-f-arg"; "reduce-zero-arg"; "reduce-array-arg" ]
           | Reduce { associative = _; explicitZero = false; character = _ } ->

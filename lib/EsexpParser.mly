@@ -1,6 +1,7 @@
 %parameter <SourceBuilder : Source.BuilderT>
 
 %token <int> INT
+%token <float> FLOAT
 %token <string> STRING
 %token <string> SYMBOL
 %token LEFT_PAREN
@@ -22,8 +23,9 @@ esexp:
   | left = tokenSource(LEFT_SQUARE); elements = esexp*; right = tokenSource(RIGHT_SQUARE) { Esexp.SquareList {elements; braceSources=(left, right)}  }
   | base = esexp; left = tokenSource(LEFT_CURLY); leftElements = esexp*;
     bar = tokenSource(BAR); rightElements = esexp*; right = tokenSource(RIGHT_CURLY)      { Esexp.WithCurlies { base; leftElements; rightElements; curlySources=(left, right); splitSource=bar } }
-  | s = STRING                                                                           { Esexp.String  (s,        SourceBuilder.make ~start:$startpos ~finish:$endpos) }
-  | i = INT                                                                              { Esexp.Integer (i,        SourceBuilder.make ~start:$startpos ~finish:$endpos) }
-  | s = SYMBOL                                                                           { Esexp.Symbol  (s,        SourceBuilder.make ~start:$startpos ~finish:$endpos) } ;
+  | s = STRING                                                                            { Esexp.String  (s, SourceBuilder.make ~start:$startpos ~finish:$endpos) }
+  | i = INT                                                                               { Esexp.Integer (i, SourceBuilder.make ~start:$startpos ~finish:$endpos) }
+  | f = FLOAT                                                                             { Esexp.Float   (f, SourceBuilder.make ~start:$startpos ~finish:$endpos) }
+  | s = SYMBOL                                                                            { Esexp.Symbol  (s, SourceBuilder.make ~start:$startpos ~finish:$endpos) } ;
     
 tokenSource(TOKEN) : TOKEN { SourceBuilder.make ~start:$startpos ~finish:$endpos }

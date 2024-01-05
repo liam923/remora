@@ -25,6 +25,7 @@ module Type = struct
 
   and literal =
     | IntLiteral
+    | FloatLiteral
     | CharacterLiteral
     | BooleanLiteral
 
@@ -108,6 +109,15 @@ module Expr = struct
     | Sub
     | Mul
     | Div
+    | Mod
+    | AddF
+    | SubF
+    | MulF
+    | DivF
+    | IntToBool
+    | BoolToInt
+    | IntToFloat
+    | FloatToInt
     | Equal
 
   and atomicPrimitive =
@@ -196,6 +206,7 @@ module Expr = struct
 
   and literal =
     | IntLiteral of int
+    | FloatLiteral of float
     | CharacterLiteral of char
     | BooleanLiteral of bool
 
@@ -224,6 +235,7 @@ module Expr = struct
   let atomType : atom -> Type.atom = function
     | Box box -> Sigma box.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
+    | Literal (FloatLiteral _) -> Literal FloatLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
     | Literal (BooleanLiteral _) -> Literal BooleanLiteral
     | ArrayAsAtom arrayAtomic -> arrayAtomic.type'

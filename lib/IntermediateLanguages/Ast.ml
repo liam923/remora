@@ -171,6 +171,7 @@ module Expr = struct
     | ReifyShape of 's reifyShape
     | ReifyDimension of 's reifyDimension
     | IntLiteral of int
+    | FloatLiteral of float
     | CharacterLiteral of char
     | BooleanLiteral of bool
 

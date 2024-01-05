@@ -22,6 +22,7 @@ module Base : S = struct
     let%bind kinds =
       makeSubEnv
         [ "int", return (Type.Atom (Literal IntLiteral))
+        ; "float", return (Type.Atom (Literal FloatLiteral))
         ; "char", return (Type.Atom (Literal CharacterLiteral))
         ; "bool", return (Type.Atom (Literal BooleanLiteral))
         ]
@@ -73,11 +74,74 @@ module Stdlib : S = struct
             ; type' = "(-> (int int) int)"
             }
       }
+    ; { name = "%"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Mod; type' })
+            ; type' = "(-> (int int) int)"
+            }
+      }
+    ; { name = "+."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func AddF; type' })
+            ; type' = "(-> (float float) float)"
+            }
+      }
+    ; { name = "-."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func SubF; type' })
+            ; type' = "(-> (float float) float)"
+            }
+      }
+    ; { name = "*."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func MulF; type' })
+            ; type' = "(-> (float float) float)"
+            }
+      }
+    ; { name = "/."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func DivF; type' })
+            ; type' = "(-> (float float) float)"
+            }
+      }
     ; { name = "="
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Equal; type' })
             ; type' = "(-> (int int) bool)"
+            }
+      }
+    ; { name = "int->float"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func IntToFloat; type' })
+            ; type' = "(-> (int) float)"
+            }
+      }
+    ; { name = "float->int"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func FloatToInt; type' })
+            ; type' = "(-> (float) int)"
+            }
+      }
+    ; { name = "int->bool"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func IntToBool; type' })
+            ; type' = "(-> (int) bool)"
+            }
+      }
+    ; { name = "bool->int"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func BoolToInt; type' })
+            ; type' = "(-> (bool) int)"
             }
       }
     ; { name = "length"

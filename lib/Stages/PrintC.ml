@@ -131,6 +131,7 @@ let rec showExpr = function
   | Arr elements ->
     let elementsStr = elements |> List.map ~f:showExpr |> String.concat ~sep:", " in
     [%string "{%{elementsStr}}"]
+  | Cast { type'; value } -> [%string "(%{showType type'}) %{showExpr value}"]
 ;;
 
 let rec printStatement = function

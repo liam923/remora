@@ -315,6 +315,7 @@ module Make (SB : Source.BuilderT) = struct
       MOk { elem = Expr.BooleanLiteral false; source }
     | Symbol (id, source) -> MOk { elem = Expr.Ref id; source }
     | Integer (i, source) -> MOk { elem = Expr.IntLiteral i; source }
+    | Float (f, source) -> MOk { elem = Expr.FloatLiteral f; source }
     | String (str, source) ->
       (match String.to_list str with
        | [] ->

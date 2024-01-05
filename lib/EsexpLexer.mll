@@ -7,6 +7,8 @@ module Make (SourceBuilder : Source.BuilderT) = struct
 }
 
 let int = '-'? ['0'-'9'] ['0'-'9']*
+let floatLead = '-'? ['0'-'9'] ['0'-'9']* '.' ['0'-'9']*
+let floatTrail = '-'? ['0'-'9']* '.' ['0'-'9'] ['0'-'9']*
 
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
@@ -18,6 +20,7 @@ rule read =
   | white    { read lexbuf }
   | newline  { new_line lexbuf; read lexbuf }
   | int      { P.INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | (floatLead | floatTrail)    { P.FLOAT (float_of_string (Lexing.lexeme lexbuf)) }
   | '"'      { read_string (Buffer.create 17) lexbuf }
   | '('      { LEFT_PAREN }
   | ')'      { RIGHT_PAREN }

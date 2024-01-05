@@ -18,6 +18,7 @@ type 's t =
       }
   | String of string * 's
   | Integer of int * 's
+  | Float of float * 's
   | Symbol of string * 's
 [@@deriving sexp_of]
 
@@ -34,5 +35,6 @@ let source (type s) (module SB : Source.BuilderT with type source = s) : s t -> 
       } -> SB.merge left right
   | String (_, source) -> source
   | Integer (_, source) -> source
+  | Float (_, source) -> source
   | Symbol (_, source) -> source
 ;;

@@ -26,7 +26,7 @@ let wrapCommandInSsh ~sshConfig command =
   match sshConfig with
   | None -> command
   | Some { proxies; remote; credentialsFiles } ->
-    let proxiesArgs = proxies |> List.map ~f:(fun proxy -> [%string "-J %{proxy}"]) in
+    let proxiesArgs = proxies |> List.map ~f:(fun proxy -> [%string "-J  %{proxy}"]) in
     let remoteArg = [ remote ] in
     let credsArgs = List.map credentialsFiles ~f:(fun f -> [%string "-i %{f}"]) in
     String.concat
@@ -81,4 +81,16 @@ let%expect_test "simple boxes" =
       (= 3 (length{char | len []} word)))
     |};
   [%expect {| [1 0] |}]
+;;
+
+let%expect_test "simple boxes" =
+  compileAndRun
+    {|
+    (define (mean{ | l-1} [arr [float (+ l-1 1)]])
+      (/. (reduce{float | l-1 []} +. arr)
+          (int->float (reify-dimension (+ l-1 1)))))
+
+    (mean{ | 999} (int->float (+ 1 iota{ | [1000]})))
+    |};
+  [%expect {| 500.5 |}]
 ;;

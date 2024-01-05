@@ -76,7 +76,8 @@ let rec nonComputational : Expr.t -> bool = function
   | IndexLet _ -> false
   | ReifyIndex _ -> false
   | Box _ -> false
-  | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) -> true
+  | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
+    true
   | Values values -> List.for_all values.elements ~f:nonComputational
   | TupleDeref { tuple; index = _; type' = _ } -> nonComputational tuple
   | Let _ -> false
@@ -188,9 +189,8 @@ let getCounts =
         ; mapResultsCounts
         ; consumerCounts
         ]
-    | Literal (IntLiteral _) -> Counts.empty
-    | Literal (CharacterLiteral _) -> Counts.empty
-    | Literal (BooleanLiteral _) -> Counts.empty
+    | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
+      Counts.empty
     | Box { indices; body; bodyType = _; type' = _ } ->
       let indexCounts = List.map indices ~f:(getCountsIndex inLoop)
       and bodyCounts = getCountsExpr inLoop body in
@@ -323,7 +323,8 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
     let%map arrayArg = subExpr subKey subValue arrayArg
     and indexArg = subExpr subKey subValue indexArg in
     SubArray { arrayArg; indexArg; type' }
-  | Literal (IntLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit -> return lit
+  | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit
+    -> return lit
   | Box { indices; body; bodyType; type' } ->
     let%map body = subExpr subKey subValue body in
     Box { indices; body; bodyType; type' }

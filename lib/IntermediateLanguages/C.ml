@@ -109,6 +109,10 @@ and expr =
       ; args : expr list
       }
   | Arr of expr list
+  | Cast of
+      { type' : type'
+      ; value : expr
+      }
 
 and statement =
   | Return of expr

@@ -134,6 +134,7 @@ let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
     { element = Sigma (inlineSigmaTypeWithStack appStack sigma); shape = [] }
   | Literal CharacterLiteral -> { element = Literal CharacterLiteral; shape = [] }
   | Literal IntLiteral -> { element = Literal IntLiteral; shape = [] }
+  | Literal FloatLiteral -> { element = Literal FloatLiteral; shape = [] }
   | Literal BooleanLiteral -> { element = Literal BooleanLiteral; shape = [] }
   | Func _ -> { element = Tuple []; shape = [] }
   | Forall { parameters; body } ->
@@ -213,6 +214,7 @@ let assertValueRestriction value =
       | Pi _ -> true
       | Sigma sigma -> isPolymorphicArray sigma.body
       | Literal IntLiteral -> false
+      | Literal FloatLiteral -> false
       | Literal CharacterLiteral -> false
       | Literal BooleanLiteral -> false
     in
@@ -237,9 +239,8 @@ let assertValueRestriction value =
       | TypeLambda _ -> true
       | IndexLambda _ -> true
       | Box box -> isValueArray box.body
-      | Literal (IntLiteral _) -> true
-      | Literal (CharacterLiteral _) -> true
-      | Literal (BooleanLiteral _) -> true
+      | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
+        true
     in
     isValueArray
   in
@@ -471,14 +472,20 @@ and inlineAtom subs indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
           in
           Set.diff variablesUsed variablesDeclared
         | E.TypeLambda { params = _; body; type' = _ } -> arrayCaptures body
-        | E.IndexLambda { params = _; body; type' = _ } -> arrayCaptures body
+        | E.IndexLambda { params; body; type' = _ } ->
+          let variablesUsed = arrayCaptures body in
+          let variablesDeclared =
+            params
+            |> List.map ~f:(fun param -> param.binding)
+            |> Set.of_list (module Identifier)
+          in
+          Set.diff variablesUsed variablesDeclared
         | E.Box { indices; body; bodyType = _; type' = _ } ->
           let indexCaptures = List.map indices ~f:indexCaptures
           and bodyCaptures = arrayCaptures body in
           Set.union_list (module Identifier) (bodyCaptures :: indexCaptures)
-        | E.Literal (IntLiteral _) -> Set.empty (module Identifier)
-        | E.Literal (CharacterLiteral _) -> Set.empty (module Identifier)
-        | E.Literal (BooleanLiteral _) -> Set.empty (module Identifier)
+        | E.Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _)
+          -> Set.empty (module Identifier)
       in
       atomCaptures (E.TermLambda lambda)
     in
@@ -541,6 +548,8 @@ and inlineAtom subs indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
   | Literal (CharacterLiteral c) ->
     return (scalar (I.Literal (CharacterLiteral c)), FunctionSet.Empty)
   | Literal (IntLiteral i) -> return (scalar (I.Literal (IntLiteral i)), FunctionSet.Empty)
+  | Literal (FloatLiteral f) ->
+    return (scalar (I.Literal (FloatLiteral f)), FunctionSet.Empty)
   | Literal (BooleanLiteral b) ->
     return (scalar (I.Literal (BooleanLiteral b)), FunctionSet.Empty)
 
@@ -605,8 +614,8 @@ and inlineTermApplication subs indexEnv appStack termApplication =
     in
     inlineArray subs indexEnv appStack body
   | Primitive primitive ->
-    let scalarBinop op =
-      assert (List.length args = 2);
+    let scalarOp ~args:numArgs op =
+      assert (List.length args = numArgs);
       let%map args, _ =
         args
         |> List.map ~f:(fun arg -> inlineArray subs indexEnv [] (Ref arg))
@@ -623,11 +632,20 @@ and inlineTermApplication subs indexEnv appStack termApplication =
       , FunctionSet.Empty )
     in
     (match primitive.func with
-     | Add -> scalarBinop Add
-     | Sub -> scalarBinop Sub
-     | Mul -> scalarBinop Mul
-     | Div -> scalarBinop Div
-     | Equal -> scalarBinop Equal
+     | Add -> scalarOp ~args:2 Add
+     | Sub -> scalarOp ~args:2 Sub
+     | Mul -> scalarOp ~args:2 Mul
+     | Div -> scalarOp ~args:2 Div
+     | Mod -> scalarOp ~args:2 Mod
+     | AddF -> scalarOp ~args:2 AddF
+     | SubF -> scalarOp ~args:2 SubF
+     | MulF -> scalarOp ~args:2 MulF
+     | DivF -> scalarOp ~args:2 DivF
+     | Equal -> scalarOp ~args:2 Equal
+     | IntToBool -> scalarOp ~args:1 IntToBool
+     | BoolToInt -> scalarOp ~args:1 BoolToInt
+     | IntToFloat -> scalarOp ~args:1 IntToFloat
+     | FloatToInt -> scalarOp ~args:1 FloatToInt
      | Append ->
        assert (List.length args = 2);
        (match primitive.appStack with
