@@ -1,7 +1,7 @@
 open! Base
-(* open Remora *)
+open Remora
 
-(* let () =
+let () =
   let args = Sys.get_argv () in
   let channel =
     match Array.to_list args with
@@ -22,26 +22,4 @@ open! Base
           [%string "Error (%{showPos start} - %{showPos finish}): %{error}"]
       | None -> Stdio.prerr_endline [%string "Error: %{error}"]);
     Stdlib.exit 1
-;; *)
-
-type foo =
-  { hello : string
-  ; world : string
-  }
-[@@deriving sexp]
-
-let () =
-  { hello = "hello"; world = "world" }
-  |> [%sexp_of: foo]
-  |> Sexp.to_string_hum
-  |> Stdio.print_endline
-;;
-
-let () =
-  "((hello hello) (world world))"
-  |> Parsexp.Single.parse_string_exn
-  |> foo_of_sexp
-  |> [%sexp_of: foo]
-  |> Sexp.to_string_hum
-  |> Stdio.print_endline
 ;;

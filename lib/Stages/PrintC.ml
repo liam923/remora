@@ -188,6 +188,19 @@ let rec printStatement = function
     let%bind () = printLine [%string "}"] in
     return ()
   | SyncThreads -> printLine "__syncthreads();"
+  | Block block ->
+    let%bind () = printLine "{" in
+    let%bind () = indent @@ printBlock block in
+    let%bind () = printLine "}" in
+    return ()
+  | Comment comment ->
+    if String.contains comment '\n'
+    then (
+      let%bind () = printLine "/*" in
+      let%bind () = printLine comment in
+      let%bind () = printLine "*/" in
+      return ())
+    else printLine [%string "// %{comment}"]
 
 and printBlock block = block |> List.map ~f:printStatement |> Buffer.all_unit
 

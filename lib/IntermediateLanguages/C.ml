@@ -144,6 +144,8 @@ and statement =
       ; body : block
       }
   | SyncThreads
+  | Block of block
+  | Comment of string
 
 and varUpdate =
   | IncrementOne
