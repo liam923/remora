@@ -83,7 +83,7 @@ let%expect_test "simple boxes" =
   [%expect {| [1 0] |}]
 ;;
 
-let%expect_test "simple boxes" =
+let%expect_test "mean" =
   compileAndRun
     {|
     (define (mean{ | l-1} [arr [float (+ l-1 1)]])
