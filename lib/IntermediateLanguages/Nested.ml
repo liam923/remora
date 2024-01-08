@@ -62,12 +62,11 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.t
     }
-  [@@deriving equal]
 
-  type reduceCharacter = Nucleus.Expr.reduceCharacter [@@deriving equal]
-  type foldCharacter = Nucleus.Expr.foldCharacter [@@deriving equal]
+  and reduceCharacter = Nucleus.Expr.reduceCharacter
+  and foldCharacter = Nucleus.Expr.foldCharacter
 
-  type frame =
+  and frame =
     { dimension : int
     ; elements : t list
     ; type' : Type.t

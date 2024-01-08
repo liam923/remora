@@ -78,11 +78,8 @@ let%expect_test "check fusing" =
            (reduce
             (fused-reduce-arg1.161 fused-reduce-arg2.162
              (reduce-arg.108 reduce-arg.121))
-            (values
-             (+ (#0 (unzip fused-reduce-arg1.161))
-              (#0 (unzip fused-reduce-arg2.162)))
-             (+ (#1 (unzip fused-reduce-arg1.161))
-              (#1 (unzip fused-reduce-arg2.162))))))))))
+            (values (+ (#0 fused-reduce-arg1.161) (#0 fused-reduce-arg2.162))
+             (+ (#1 fused-reduce-arg1.161) (#1 fused-reduce-arg2.162)))))))))
       (+ (#0 consumer-result.186) (#1 consumer-result.186)))) |}];
   fuseAndPrint
     {|
@@ -120,11 +117,9 @@ let%expect_test "check fusing" =
             (fused-reduce-arg1.219 fused-reduce-arg2.220
              (reduce-arg.131 reduce-arg.149))
             (let
-             ((+arg1.242 (#1 (unzip fused-reduce-arg1.219)))
-              (+arg2.244 (#1 (unzip fused-reduce-arg2.220))))
-             (values
-              (+ (#0 (unzip fused-reduce-arg1.219))
-               (#0 (unzip fused-reduce-arg2.220)))
+             ((+arg1.242 (#1 fused-reduce-arg1.219))
+              (+arg2.244 (#1 fused-reduce-arg2.220)))
+             (values (+ (#0 fused-reduce-arg1.219) (#0 fused-reduce-arg2.220))
               (#0
                (#0
                 (loop-block (frame-shape 3)

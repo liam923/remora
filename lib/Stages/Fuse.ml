@@ -619,18 +619,14 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
      | Reduce archer ->
        let%map firstBinding = FuseState.createId "fused-reduce-arg1"
        and secondBinding = FuseState.createId "fused-reduce-arg2" in
-       let getElementType = function
-         | Type.Array { element; size = _ } -> element
-         | _ -> raise (Unreachable.Error "expected Array type")
-       in
-       let argElementType =
+       let argType =
          Type.Tuple
-           [ getElementType (Expr.productionTupleType target.arg.production)
-           ; getElementType (Expr.productionTupleType archer.arg.production)
+           [ Expr.productionTupleType target.arg.production
+           ; Expr.productionTupleType archer.arg.production
            ]
        in
-       let firstBindingRef = Expr.Ref { id = firstBinding; type' = argElementType }
-       and secondBindingRef = Expr.Ref { id = secondBinding; type' = argElementType } in
+       let firstBindingRef = Expr.Ref { id = firstBinding; type' = argType }
+       and secondBindingRef = Expr.Ref { id = secondBinding; type' = argType } in
        { mergedOp =
            Some
              (Reduce
@@ -640,8 +636,7 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
                     ; production =
                         ProductionTuple
                           { elements = [ target.arg.production; archer.arg.production ]
-                          ; type' =
-                              Array { element = argElementType; size = Add target.d }
+                          ; type' = argType
                           }
                     }
                 ; zero =

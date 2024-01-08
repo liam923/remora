@@ -2,13 +2,12 @@ open! Base
 open Acorn
 
 let prelude =
-  {|#include <cstdio>
+  {|
+#include <cstdio>
 #include <algorithm>
 #include <iostream>
 
-static void HandleError(cudaError_t err,
-                        const char *file,
-                        int line) {
+static void HandleError(cudaError_t err, const char *file, int line) {
   if (err != cudaSuccess) {
     printf("%s in %s at line %d\12", cudaGetErrorString(err),
             file, line);
@@ -31,7 +30,7 @@ __host__ T *mallocDevice(int64_t count) {
 
 template<typename T>
 __device__ T *mallocDeviceOnDevice(int64_t count) {
-  return malloc(count * sizeof(T));
+  return (T *) malloc(count * sizeof(T));
 };
 
 template<typename T>
@@ -920,8 +919,7 @@ let rec genValueOfProductionTuple : Expr.productionTuple -> (C.expr, _) GenState
   let open GenState.Let_syntax in
   function
   | ProductionTuple { elements; type' } ->
-    let elementType = guillotineType type' in
-    let%bind cType = genType elementType in
+    let%bind cType = genType type' in
     let%bind args = elements |> List.map ~f:genValueOfProductionTuple |> GenState.all in
     return @@ C.StructConstructor { type' = cType; args }
   | ProductionTupleAtom production ->
@@ -1991,10 +1989,17 @@ and genExpr
                          in
                          GenState.writeStatement @@ C.Syntax.(blockSum := res))
                    in
+                   let%bind cReduceResultMemInterimDeviceDerefer =
+                     genArrayDeref
+                       ~arrayType:(Type.array ~element:reduceType ~size:(Add d))
+                       ~isMem:true
+                       cReduceResultMemInterimDevice
+                   in
                    let%bind () =
-                     GenState.writeStatement
-                     @@ C.Syntax.(
-                          arrayDeref cReduceResultMemInterimDevice blockIndex := blockSum)
+                     genCopyExprToMem
+                       ~mem:(cReduceResultMemInterimDeviceDerefer blockIndex)
+                       ~expr:blockSum
+                       ~type':reduceType
                    in
                    return ())
                 ~elseBranch:(return ())

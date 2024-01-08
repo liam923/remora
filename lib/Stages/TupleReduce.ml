@@ -683,10 +683,10 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
         let%bind caches = ReduceTupleState.getCaches () in
         let bindings =
           (zeroArg.zeroBinding, Expr.type' zeroArg.zeroValue)
-          :: List.map arrayArgs ~f:(fun { binding; production } ->
+          :: List.map arrayArgs ~f:(fun { binding; production = _ } ->
             let argType =
-              match production.type' with
-              | Array { element; size = _ } -> element
+              match raise Unimplemented.default (* production.type' *) with
+              | Type.Array { element; size = _ } -> element
               | _ -> raise @@ Unreachable.Error "expected array type"
             in
             binding, argType)

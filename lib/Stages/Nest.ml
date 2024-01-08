@@ -189,7 +189,9 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       ; secondBinding = arg.secondBinding
       ; production =
           ProductionTupleAtom
-            { productionId = productionBinding; type' = Nested.Expr.type' argValue }
+            { productionId = productionBinding
+            ; type' = elementOfArrayType (Add d) @@ Nested.Expr.type' argValue
+            }
       }
     in
     let%bind zero =
@@ -235,7 +237,9 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
         , value
         , { binding
           ; production =
-              { productionId = productionBinding; type' = Nested.Expr.type' value }
+              { productionId = productionBinding
+              ; type' = elementOfArrayType (Add d) @@ Nested.Expr.type' value
+              }
           } ))
       |> NestState.all
     and body = nestArray body in
@@ -273,9 +277,13 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     let consumer =
       Scatter
         { valuesArg =
-            { productionId = valuesBinding; type' = Nested.Expr.type' valuesArg }
+            { productionId = valuesBinding
+            ; type' = elementOfArrayType (Add dIn) @@ Nested.Expr.type' valuesArg
+            }
         ; indicesArg =
-            { productionId = indicesBinding; type' = Nested.Expr.type' indicesArg }
+            { productionId = indicesBinding
+            ; type' = elementOfArrayType (Add dIn) @@ Nested.Expr.type' indicesArg
+            }
         ; dIn
         ; dOut
         ; type'
