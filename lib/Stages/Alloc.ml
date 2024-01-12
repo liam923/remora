@@ -191,7 +191,11 @@ module AllocAcc = struct
           }
         , Acorn.Expr.
             { memBinding = alloc.binding
-            ; mem = Ref { id = binding; type' = alloc.type' }
+            ; mem =
+                Ref
+                  { id = binding
+                  ; type' = Acorn.Type.array ~element:alloc.type' ~size:multiplier
+                  }
             } ))
       |> all
       >>| List.unzip
