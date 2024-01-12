@@ -5,6 +5,7 @@ type t =
   ; maxRegistersPerBlock : int
   ; maxThreadsPerMultiprocessor : int
   ; multiprocessors : int
+  ; globalMemoryBytes : int
   }
 
 let maxThreads device = device.maxThreadsPerMultiprocessor * device.multiprocessors
@@ -14,5 +15,6 @@ let grid_m10_8q =
   ; maxRegistersPerBlock = 65536
   ; maxThreadsPerMultiprocessor = 2048
   ; multiprocessors = 5
+  ; globalMemoryBytes = 8589934592
   }
 ;;

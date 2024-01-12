@@ -1,6 +1,6 @@
 open! Base
 
-val codegen : Acorn.withCaptures -> (CompilerState.state, C.t, _) State.t
+val codegen : DeviceInfo.t -> Acorn.withCaptures -> (CompilerState.state, C.t, _) State.t
 
 module Stage (SB : Source.BuilderT) :
   CompilerPipeline.Stage

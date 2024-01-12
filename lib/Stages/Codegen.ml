@@ -2330,19 +2330,35 @@ let genPrint type' value =
   | Type.Tuple _ -> raise Unimplemented.default
 ;;
 
-let genMainBlock (main : withCaptures) =
+let genMainBlock (deviceInfo : DeviceInfo.t) (main : withCaptures) =
   let open GenState.Let_syntax in
   GenState.block
   @@
+  let%bind () =
+    (* reserve heap space *)
+    GenState.writeStatement
+    @@ C.Eval
+         C.Syntax.(
+           callBuiltin
+             "HANDLE_ERROR"
+             [ callBuiltin
+                 "cudaDeviceSetLimit"
+                 [ refStr "cudaLimitMallocHeapSize"
+                 ; intLit deviceInfo.globalMemoryBytes / intLit 10
+                 ]
+             ])
+  in
   let%bind cVal = genExpr ~hostOrDevice:Host ~store:true main in
   let%bind () = genPrint (Expr.type' main) cVal in
   return ()
 ;;
 
-let codegen (prog : withCaptures) : (CompilerState.state, C.t, _) State.t =
+let codegen (deviceInfo : DeviceInfo.t) (prog : withCaptures)
+  : (CompilerState.state, C.t, _) State.t
+  =
   let builder =
     let open CBuilder.Let_syntax in
-    let%map _, block = GenState.run (genMainBlock prog) GenState.emptyState in
+    let%map _, block = GenState.run (genMainBlock deviceInfo prog) GenState.emptyState in
     Some block
   in
   CBuilder.build ~prelude builder
@@ -2357,6 +2373,7 @@ module Stage (SB : Source.BuilderT) = struct
   let name = "Code Generation"
 
   let run input =
-    CompilerPipeline.S.make ~f:(fun inState -> State.run (codegen input) inState)
+    CompilerPipeline.S.make ~f:(fun (inState : state) ->
+      State.run (codegen inState.deviceInfo input) inState)
   ;;
 end
