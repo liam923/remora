@@ -50,9 +50,8 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.array
     }
-  [@@deriving sexp, equal]
 
-  type atomicArray =
+  and atomicArray =
     { element : atom
     ; type' : Type.array
     }
@@ -230,7 +229,7 @@ module Expr = struct
   and t =
     | Array of array
     | Atom of atom
-  [@@deriving sexp, equal]
+  [@@deriving sexp, equal, compare]
 
   let atomType : atom -> Type.atom = function
     | Box box -> Sigma box.type'

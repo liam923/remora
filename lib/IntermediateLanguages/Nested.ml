@@ -263,7 +263,7 @@ module Expr = struct
     | Append of append
     | Zip of zip
     | Unzip of unzip
-  [@@deriving equal]
+  [@@deriving equal, compare]
 
   let type' : t -> Type.t = function
     | Box box -> Sigma box.type'

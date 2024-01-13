@@ -2,7 +2,7 @@ open! Base
 
 (* The Explicit language represents a Remora program where maps have been made explicit *)
 
-type 't param = 't Typed.param [@@deriving sexp, eq]
+type 't param = 't Typed.param [@@deriving sexp, eq, compare]
 
 module Index = Typed.Index
 module Type = Typed.Type
@@ -12,9 +12,8 @@ module Expr = struct
     { id : Identifier.t
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
-  [@@deriving sexp, eq]
 
-  type scalar =
+  and scalar =
     { element : atom
     ; type' : Type.arr [@sexp_drop_if fun _ -> true]
     }
@@ -135,7 +134,7 @@ module Expr = struct
   and t =
     | Array of array
     | Atom of atom
-  [@@deriving sexp, eq]
+  [@@deriving sexp, eq, compare]
 
   let atomType : atom -> Type.atom = function
     | TermLambda termLambda -> Func termLambda.type'

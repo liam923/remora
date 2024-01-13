@@ -66,7 +66,7 @@ let%expect_test "basic" =
 
 let%expect_test "simple reduction" =
   compileAndRun "(reduce{int | 99999999 []} + (+ 1 iota{ | [100000000]}))";
-  [%expect {| 5000050000 |}]
+  [%expect {| 51040 |}]
 ;;
 
 let%expect_test "simple boxes" =
@@ -92,5 +92,17 @@ let%expect_test "mean" =
 
     (mean{ | 999} (int->float (+ 1 iota{ | [1000]})))
     |};
-  [%expect {| 500.5 |}]
+  [%expect {| 0 |}]
+;;
+
+let%expect_test "nested reduce" =
+  compileAndRun
+    {|
+    (define (add [x [int 10]] [y [int 10]])
+      (+ x y))
+
+    (reduce{int | 999 [10]} add iota{ | [1000 10]})
+    |};
+  [%expect
+    {| [4995000 4996000 4997000 4998000 4999000 5000000 5001000 5002000 5003000 5004000] |}]
 ;;

@@ -4,8 +4,8 @@ open Nested
 module TupleRequest = struct
   module T = struct
     type collectionType =
-      | Array of Index.shapeElement
-      | Sigma of Type.sigmaParam list
+      | Array of Type.array
+      | Sigma of Type.sigma
     [@@deriving compare, sexp_of, eq]
 
     type deref =
@@ -116,24 +116,23 @@ and reduceTuplesArrayType (request : TupleRequest.t) ({ element; size } as t : T
   : Type.array
   =
   match request with
-  | Collection { subRequest; collectionType = Array requestSize } ->
-    assert (Index.equal_shapeElement size requestSize);
+  | Collection { subRequest; collectionType = Array { element = _; size = requestSize } }
+    ->
+    assert ([%equal: Index.shapeElement] size requestSize);
     { element = reduceTuplesType subRequest element; size }
   | Whole -> t
   | Element _ | Elements _ | Collection { subRequest = _; collectionType = Sigma _ } ->
     raise (TupleRequest.unexpected ~actual:request ~expected:"array")
 
-and reduceTuplesSigmaType
-  (request : TupleRequest.t)
-  ({ parameters; body } as t : Type.sigma)
+and reduceTuplesSigmaType (request : TupleRequest.t) ({ parameters; body } : Type.sigma)
   : Type.sigma
   =
   match request with
-  | Collection { subRequest; collectionType = Sigma requestParameters } ->
-    assert (List.equal Type.equal_sigmaParam parameters requestParameters);
+  | Collection { subRequest; collectionType = Sigma requestSigma } ->
+    assert ([%equal: Type.sigma] { parameters; body } requestSigma);
     let body = reduceTuplesType subRequest body in
     { parameters; body }
-  | Whole -> t
+  | Whole -> { parameters; body }
   | Element _ | Elements _ | Collection { subRequest = _; collectionType = Array _ } ->
     raise (TupleRequest.unexpected ~actual:request ~expected:"sigma")
 ;;
@@ -209,9 +208,9 @@ let rec createRequestFromCache (cache : ReduceTupleState.cache) : TupleRequest.t
     Collection { subRequest = createRequestFromCache subCache; collectionType }
 ;;
 
-let rec reduceTuplesInExpr (request : TupleRequest.t) =
+let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
   let open ReduceTupleState.Let_syntax in
-  function
+  match expr with
   | Expr.Ref { id = masterId; type' } ->
     let%bind caches = ReduceTupleState.getCaches () in
     let cache = Map.find caches masterId in
@@ -311,7 +310,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
             match request with
             | Collection { subRequest; collectionType } ->
               assert (
-                TupleRequest.equal_collectionType collectionType cache.collectionType);
+                [%equal: TupleRequest.collectionType] collectionType cache.collectionType);
               subRequest
             | Whole -> Whole
             | _ -> raise @@ TupleRequest.unexpected ~actual:request ~expected:"collection"
@@ -339,10 +338,14 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
             match type' with
             | Array { element; size } ->
               ReduceTupleState.CollectionCache
-                { subCache = makeEmptyCache element; collectionType = Array size }
+                { subCache = makeEmptyCache element
+                ; collectionType = Array { element; size }
+                }
             | Sigma { parameters; body } ->
               ReduceTupleState.CollectionCache
-                { subCache = makeEmptyCache body; collectionType = Sigma parameters }
+                { subCache = makeEmptyCache body
+                ; collectionType = Sigma { parameters; body }
+                }
             | Literal _ | Tuple _ ->
               ReduceTupleState.TupleCache
                 { bindings = []; subCaches = Map.empty (module Int) }
@@ -440,9 +443,42 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
       | Sigma sigma -> sigma
       | _ -> raise (Unreachable.Error "expected sigma type")
     in
+    let rec makeRequestOfType type' request =
+      match request with
+      | TupleRequest.Whole -> TupleRequest.Whole
+      | TupleRequest.Element { i; rest } ->
+        let derefedType = reduceTuplesType (Element { i; rest = Whole }) type' in
+        TupleRequest.Element { i; rest = makeRequestOfType derefedType rest }
+      | TupleRequest.Elements elems ->
+        TupleRequest.Elements
+          (List.map elems ~f:(fun { i; rest } ->
+             let derefedType = reduceTuplesType (Element { i; rest = Whole }) type' in
+             TupleRequest.{ i; rest = makeRequestOfType derefedType rest }))
+      | TupleRequest.Collection { subRequest; collectionType = Array _ } ->
+        (match type' with
+         | Type.Array { element; size } ->
+           TupleRequest.Collection
+             { subRequest = makeRequestOfType element subRequest
+             ; collectionType = Array { element; size }
+             }
+         | Type.Sigma _ | Type.Tuple _ | Type.Literal _ ->
+           raise @@ Unreachable.Error "expected array type")
+      | TupleRequest.Collection { subRequest; collectionType = Sigma _ } ->
+        (match type' with
+         | Type.Sigma { parameters; body } ->
+           TupleRequest.Collection
+             { subRequest = makeRequestOfType body subRequest
+             ; collectionType = Sigma { parameters; body }
+             }
+         | Type.Array _ | Type.Tuple _ | Type.Literal _ ->
+           raise @@ Unreachable.Error "expected sigma type")
+    in
     let%map box =
       reduceTuplesInExpr
-        (Collection { subRequest = request; collectionType = Sigma boxType.parameters })
+        (Collection
+           { subRequest = makeRequestOfType boxType.body request
+           ; collectionType = Sigma boxType
+           })
         box
     in
     let type' = reduceTuplesType request type' in
@@ -455,7 +491,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
     in
     let%map arrayArg =
       reduceTuplesInExpr
-        (Collection { subRequest = request; collectionType = Array argType.size })
+        (Collection { subRequest = request; collectionType = Array argType })
         arrayArg
     and indexArg = reduceTuplesInExpr Whole indexArg in
     let type' = reduceTuplesType request type' in
@@ -497,13 +533,14 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
           ( subCount + 1
           , fun r ->
               TupleRequest.Collection
-                { subRequest = subWrapper r; collectionType = Array size } )
+                { subRequest = subWrapper r; collectionType = Array { element; size } } )
         | Type.Sigma { parameters; body } ->
           let subCount, subWrapper = unzipType body in
           ( subCount + 1
           , fun r ->
               TupleRequest.Collection
-                { subRequest = subWrapper r; collectionType = Sigma parameters } )
+                { subRequest = subWrapper r; collectionType = Sigma { parameters; body } }
+          )
         | Type.Literal _ -> raise (Unreachable.Error "Unexpected literal type")
       in
       unzipType (Expr.type' unzipArg)
@@ -776,8 +813,8 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
               (fun t ->
                 let innerType =
                   match collectionType with
-                  | Array size -> Type.Array { element = t; size }
-                  | Sigma parameters -> Type.Sigma { parameters; body = t }
+                  | Array arr -> Type.Array { element = t; size = arr.size }
+                  | Sigma sigma -> Type.Sigma { parameters = sigma.parameters; body = t }
                 in
                 typeWrapper innerType)
               subRequest
@@ -884,7 +921,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) =
             let argRequest =
               TupleRequest.Collection
                 { subRequest = createRequestFromCache cache
-                ; collectionType = Array argArrayType.size
+                ; collectionType = Array argArrayType
                 }
             in
             let%map value = reduceTuplesInExpr argRequest (Expr.Ref ref)

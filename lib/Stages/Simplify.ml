@@ -360,9 +360,8 @@ let rec optimize : Expr.t -> Expr.t =
     Frame { elements; dimension; type' }
   | BoxValue { box; type' } ->
     let box = optimize box in
-    (match box with
-     | Box { indices = _; body; bodyType = _; type' = _ } -> body
-     | _ -> BoxValue { box; type' })
+    (* TODO: if box is just a box, immediately unbox *)
+    BoxValue { box; type' }
   | IndexLet { indexArgs; body; type' } ->
     (* TODO: remove unused bindings and inline ones known statically *)
     let indexArgs =
