@@ -106,3 +106,18 @@ let%expect_test "nested reduce" =
   [%expect
     {| [4995000 4996000 4997000 4998000 4999000 5000000 5001000 5002000 5003000 5004000] |}]
 ;;
+
+let%expect_test "lift" =
+  compileAndRun
+    {|
+    (define count (reduce{int | 2 []} + [1 2 3]))
+
+    (define res
+      (lift [d-1 count]
+        (replicate{int | [(+ d-1 1)] []} 5)))
+
+    (unbox res (arr d-1)
+      (reduce{int | d-1 []} + arr))
+    |};
+  [%expect {| 35 |}]
+;;
