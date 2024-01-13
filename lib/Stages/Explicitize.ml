@@ -130,10 +130,28 @@ let rec explicitizeArray paramNamesEnv array
                               ; type' =
                                   (match E.arrayType boxBindingRef with
                                    | Arr
-                                       { element =
-                                           Sigma { parameters = _; body = Arr body }
+                                       { element = Sigma { parameters; body = Arr body }
                                        ; shape = _
-                                       } -> body
+                                       } ->
+                                     let subs =
+                                       List.zip_exn indexBindings parameters
+                                       |> List.fold
+                                            ~init:(Map.empty (module Identifier))
+                                            ~f:(fun acc ((indexBinding, sort), param) ->
+                                              Map.set
+                                                acc
+                                                ~key:param.binding
+                                                ~data:
+                                                  (match sort with
+                                                   | Shape ->
+                                                     Typed.Index.Shape
+                                                       [ ShapeRef indexBinding ]
+                                                   | Dim ->
+                                                     Typed.Index.(
+                                                       Dimension
+                                                         (dimensionRef indexBinding))))
+                                     in
+                                     Typed.Substitute.Type.subIndicesIntoArr subs body
                                    | _ -> raise Unreachable.default)
                               }
                         }
