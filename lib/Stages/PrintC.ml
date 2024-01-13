@@ -99,7 +99,7 @@ let rec showExpr = function
       else String.concat [ to_string_octal (i / 8); Int.to_string (i % 8) ]
     in
     [%string "'\\%{Char.to_int c |> to_string_octal}'"]
-  | Literal (Int64Literal i) -> Int.to_string i
+  | Literal (Int64Literal i) -> [%string "INT64_C(%{i#Int})"]
   | Literal (Float64Literal f) -> Float.to_string f
   | Literal (BoolLiteral true) -> "true"
   | Literal (BoolLiteral false) -> "false"
