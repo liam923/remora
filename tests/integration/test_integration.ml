@@ -51,7 +51,7 @@ let compileAndRun program =
   in
   [ "cd $(mktemp -d)"
   ; [%string "echo \"%{escapeForBash cCode}\" > prog.cu"]
-  ; "nvcc -std=c++17 -w -o prog prog.cu"
+  ; "nvcc -std=c++17 -arch=native -w -o prog prog.cu"
   ; "./prog"
   ]
   |> String.concat ~sep:" ; "
@@ -66,7 +66,7 @@ let%expect_test "basic" =
 
 let%expect_test "simple reduction" =
   compileAndRun "(reduce{int | 99999999 []} + (+ 1 iota{ | [100000000]}))";
-  [%expect {| 51040 |}]
+  [%expect {| 5000000050000000 |}]
 ;;
 
 let%expect_test "simple boxes" =
@@ -92,7 +92,7 @@ let%expect_test "mean" =
 
     (mean{ | 999} (int->float (+ 1 iota{ | [1000]})))
     |};
-  [%expect {| 0 |}]
+  [%expect {| 500.5 |}]
 ;;
 
 let%expect_test "nested reduce" =
