@@ -131,6 +131,12 @@ module Expr = struct
     | Or
     | Not
     | If
+    | LibFun of
+        { name : string
+        ; libName : string
+        ; argTypes : Type.t list
+        ; retType : Type.t
+        }
 
   and atomicPrimitive =
     { op : scalarOp

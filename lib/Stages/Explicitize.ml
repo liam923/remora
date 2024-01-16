@@ -64,7 +64,9 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Index -> [ "index-array"; "index-index" ]
           | Scatter -> [ "scatter-values"; "scatter-indices" ]
           | Replicate -> [ "replicate-value" ]
-          | If -> [ "if-cond"; "then-branch"; "else-branch" ])
+          | If -> [ "if-cond"; "then-branch"; "else-branch" ]
+          | LibFun { name; libName = _; argTypes; retType = _ } ->
+            List.init (List.length argTypes) ~f:(fun i -> [%string "%{name}-arg%{i#Int}"]))
      | Val _ -> None)
 
 and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function

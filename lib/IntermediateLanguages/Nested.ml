@@ -374,7 +374,8 @@ module Expr = struct
          | GtF -> ">."
          | GtEqF -> ">=."
          | LtF -> "<."
-         | LtEqF -> "<=.")
+         | LtEqF -> "<=."
+         | LibFun { name; libName = _; argTypes = _; retType = _ } -> name)
 
     and sexp_of_scalarPrimitive { op; args; type' = _ } =
       Sexp.List (sexp_of_scalarOp op :: List.map args ~f:sexp_of_t)

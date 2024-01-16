@@ -558,6 +558,26 @@ let rec optimize : Expr.t -> Expr.t =
        (* DISCARD!!! *)
        Literal (BooleanLiteral true)
      | Not, [ Literal (BooleanLiteral b) ] -> Literal (BooleanLiteral (not b))
+     | Equal, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (BooleanLiteral (a = b))
+     | Ne, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (BooleanLiteral (a <> b))
+     | Lt, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (BooleanLiteral (a < b))
+     | LtEq, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (BooleanLiteral (a <= b))
+     | Gt, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (BooleanLiteral (a > b))
+     | GtEq, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
+       Literal (BooleanLiteral (a >= b))
+     | LtF, [ Literal (FloatLiteral a); Literal (FloatLiteral b) ] ->
+       Literal (BooleanLiteral Float.(a < b))
+     | LtEqF, [ Literal (FloatLiteral a); Literal (FloatLiteral b) ] ->
+       Literal (BooleanLiteral Float.(a <= b))
+     | GtF, [ Literal (FloatLiteral a); Literal (FloatLiteral b) ] ->
+       Literal (BooleanLiteral Float.(a > b))
+     | GtEqF, [ Literal (FloatLiteral a); Literal (FloatLiteral b) ] ->
+       Literal (BooleanLiteral Float.(a >= b))
      | _ -> ScalarPrimitive { op; args; type' })
   | Values { elements; type' } ->
     let elements = List.map elements ~f:optimize in

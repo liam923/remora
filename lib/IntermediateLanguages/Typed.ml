@@ -158,6 +158,12 @@ module Expr = struct
     | Scatter
     | Replicate
     | If
+    | LibFun of
+        { name : string
+        ; libName : string
+        ; argTypes : Type.array list
+        ; retType : Type.array
+        }
   [@@deriving compare, sexp, equal]
 
   type primitiveValName = Iota [@@deriving compare, sexp, equal]

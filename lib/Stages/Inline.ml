@@ -655,6 +655,16 @@ and inlineTermApplication subs indexEnv appStack termApplication =
      | Or -> scalarOp ~args:2 Or
      | Not -> scalarOp ~args:1 Not
      | If -> scalarOp ~args:3 If
+     | LibFun { name; libName; argTypes; retType } ->
+       scalarOp ~args:(List.length argTypes)
+       @@ LibFun
+            { name
+            ; libName
+            ; argTypes =
+                List.map argTypes ~f:(fun argType ->
+                  Nucleus.Type.Array (inlineArrayTypeWithStack [] argType))
+            ; retType = Nucleus.Type.Array (inlineArrayTypeWithStack appStack retType)
+            }
      | IntToBool -> scalarOp ~args:1 IntToBool
      | BoolToInt -> scalarOp ~args:1 BoolToInt
      | IntToFloat -> scalarOp ~args:1 IntToFloat

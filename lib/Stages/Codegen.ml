@@ -1197,6 +1197,12 @@ and genExpr
        in
        let%bind arg = genExpr ~hostOrDevice ~store:false arg in
        storeIfRequested ~name:"castResult" @@ C.Syntax.(not arg)
+     | LibFun { name; libName; argTypes = _; retType = _ } ->
+       let%bind args =
+         args |> List.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all
+       in
+       storeIfRequested ~name:[%string "%{name}Result"]
+       @@ C.Syntax.callBuiltin libName args
      | If ->
        let cond, then', else' =
          match args with
