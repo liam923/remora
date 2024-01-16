@@ -642,6 +642,19 @@ and inlineTermApplication subs indexEnv appStack termApplication =
      | MulF -> scalarOp ~args:2 MulF
      | DivF -> scalarOp ~args:2 DivF
      | Equal -> scalarOp ~args:2 Equal
+     | Ne -> scalarOp ~args:2 Ne
+     | Gt -> scalarOp ~args:2 Gt
+     | GtEq -> scalarOp ~args:2 GtEq
+     | Lt -> scalarOp ~args:2 Lt
+     | LtEq -> scalarOp ~args:2 LtEq
+     | GtF -> scalarOp ~args:2 GtF
+     | GtEqF -> scalarOp ~args:2 GtEqF
+     | LtF -> scalarOp ~args:2 LtF
+     | LtEqF -> scalarOp ~args:2 LtEqF
+     | And -> scalarOp ~args:2 And
+     | Or -> scalarOp ~args:2 Or
+     | Not -> scalarOp ~args:1 Not
+     | If -> scalarOp ~args:3 If
      | IntToBool -> scalarOp ~args:1 IntToBool
      | BoolToInt -> scalarOp ~args:1 BoolToInt
      | IntToFloat -> scalarOp ~args:1 IntToFloat

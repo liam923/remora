@@ -125,6 +125,7 @@ let rec showExpr = function
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
     [%string "%{showName kernel}<<<%{blocks#Int}, %{threads#Int}>>>(%{argsStr})"]
   | Binop { op; arg1; arg2 } -> [%string "(%{showExpr arg1} %{op} %{showExpr arg2})"]
+  | PrefixOp { op; arg } -> [%string "(%{op}%{showExpr arg})"]
   | StructConstructor { type'; args } ->
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
     [%string "(%{showType type'} {%{argsStr}})"]

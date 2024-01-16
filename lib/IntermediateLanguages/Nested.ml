@@ -357,11 +357,24 @@ module Expr = struct
          | SubF -> "-."
          | MulF -> "*."
          | DivF -> "/."
+         | And -> "and"
+         | Or -> "or"
+         | Not -> "not"
+         | If -> "if"
          | IntToBool -> "int->bool"
          | BoolToInt -> "bool->int"
          | IntToFloat -> "int->float"
          | FloatToInt -> "float->int"
-         | Equal -> "=")
+         | Equal -> "="
+         | Ne -> "!="
+         | Gt -> ">"
+         | GtEq -> ">="
+         | Lt -> "<"
+         | LtEq -> "<="
+         | GtF -> ">."
+         | GtEqF -> ">=."
+         | LtF -> "<."
+         | LtEqF -> "<=.")
 
     and sexp_of_scalarPrimitive { op; args; type' = _ } =
       Sexp.List (sexp_of_scalarOp op :: List.map args ~f:sexp_of_t)

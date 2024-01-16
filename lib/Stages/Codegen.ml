@@ -1148,7 +1148,7 @@ and genExpr
   | _, Literal (FloatLiteral f) -> return @@ C.Literal (Float64Literal f)
   | _, Literal (CharacterLiteral c) -> return @@ C.Literal (CharLiteral c)
   | _, Literal (BooleanLiteral b) -> return @@ C.Literal (BoolLiteral b)
-  | _, ScalarPrimitive { op; args; type' = _ } ->
+  | _, ScalarPrimitive { op; args; type' } ->
     let genBinop binop =
       let%bind args =
         args |> List.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all
@@ -1177,11 +1177,49 @@ and genExpr
      | Mul | MulF -> genBinop "*"
      | Div | DivF -> genBinop "/"
      | Mod -> genBinop "%"
+     | And -> genBinop "&&"
+     | Or -> genBinop "||"
      | IntToBool -> genCast Bool
      | BoolToInt -> genCast Int64
      | IntToFloat -> genCast Float64
      | FloatToInt -> genCast Int64
-     | Equal -> genBinop "==")
+     | Equal -> genBinop "=="
+     | Ne -> genBinop "!="
+     | Gt | GtF -> genBinop ">"
+     | GtEq | GtEqF -> genBinop ">="
+     | Lt | LtF -> genBinop "<"
+     | LtEq | LtEqF -> genBinop "<="
+     | Not ->
+       let arg =
+         match args with
+         | [ arg ] -> arg
+         | _ -> raise @@ Unreachable.Error "expected one args for not"
+       in
+       let%bind arg = genExpr ~hostOrDevice ~store:false arg in
+       storeIfRequested ~name:"castResult" @@ C.Syntax.(not arg)
+     | If ->
+       let cond, then', else' =
+         match args with
+         | [ cond; then'; else' ] -> cond, then', else'
+         | _ -> raise @@ Unreachable.Error "expected three args for if"
+       in
+       let%bind cType = genType type' in
+       let%bind res =
+         GenState.createVar "ifResult"
+         @@ fun name -> C.Define { name; type' = Some cType; value = None }
+       in
+       let%bind cond = genExpr ~hostOrDevice ~store:false cond in
+       let%bind () =
+         GenState.writeIte
+           ~cond
+           ~thenBranch:
+             (let%bind then' = genExpr ~hostOrDevice ~store:false then' in
+              GenState.writeStatement @@ C.Syntax.(res := then'))
+           ~elseBranch:
+             (let%bind else' = genExpr ~hostOrDevice ~store:false else' in
+              GenState.writeStatement @@ C.Syntax.(res := else'))
+       in
+       return res)
   | _, TupleDeref { tuple; index; type' = _ } ->
     let%map tuple = genExpr ~hostOrDevice ~store tuple in
     C.FieldDeref { value = tuple; fieldName = tupleFieldName index }

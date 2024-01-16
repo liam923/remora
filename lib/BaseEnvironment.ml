@@ -116,6 +116,90 @@ module Stdlib : S = struct
             ; type' = "(-> (int int) bool)"
             }
       }
+    ; { name = "!="
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Ne; type' })
+            ; type' = "(-> (int int) bool)"
+            }
+      }
+    ; { name = ">"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Gt; type' })
+            ; type' = "(-> (int int) bool)"
+            }
+      }
+    ; { name = ">="
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func GtEq; type' })
+            ; type' = "(-> (int int) bool)"
+            }
+      }
+    ; { name = "<"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Lt; type' })
+            ; type' = "(-> (int int) bool)"
+            }
+      }
+    ; { name = "<="
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func LtEq; type' })
+            ; type' = "(-> (int int) bool)"
+            }
+      }
+    ; { name = ">."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func GtF; type' })
+            ; type' = "(-> (float float) bool)"
+            }
+      }
+    ; { name = ">=."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func GtEqF; type' })
+            ; type' = "(-> (float float) bool)"
+            }
+      }
+    ; { name = "<."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func LtF; type' })
+            ; type' = "(-> (float float) bool)"
+            }
+      }
+    ; { name = "<=."
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func LtEqF; type' })
+            ; type' = "(-> (float float) bool)"
+            }
+      }
+    ; { name = "and"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func And; type' })
+            ; type' = "(-> (bool bool) bool)"
+            }
+      }
+    ; { name = "or"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Or; type' })
+            ; type' = "(-> (bool bool) bool)"
+            }
+      }
+    ; { name = "not"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func Not; type' })
+            ; type' = "(-> (bool) bool)"
+            }
+      }
     ; { name = "int->float"
       ; value =
           Intrinsic
@@ -142,6 +226,13 @@ module Stdlib : S = struct
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func BoolToInt; type' })
             ; type' = "(-> (bool) int)"
+            }
+      }
+    ; { name = "if"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func If; type' })
+            ; type' = "(Forall (@t) (-> (bool @t @t) @t))"
             }
       }
     ; { name = "length"

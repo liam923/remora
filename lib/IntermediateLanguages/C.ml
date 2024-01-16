@@ -104,6 +104,10 @@ and expr =
       ; arg1 : expr
       ; arg2 : expr
       }
+  | PrefixOp of
+      { op : string
+      ; arg : expr
+      }
   | StructConstructor of
       { type' : type'
       ; args : expr list
@@ -186,6 +190,7 @@ module Syntax = struct
   let ( << ) arg1 arg2 = Binop { op = "<<"; arg1; arg2 }
   let ( == ) arg1 arg2 = Binop { op = "=="; arg1; arg2 }
   let ( && ) arg1 arg2 = Binop { op = "&&"; arg1; arg2 }
+  let not arg = PrefixOp { op = "!"; arg }
   let intLit i = Literal (Int64Literal i)
   let charLit c = Literal (CharLiteral c)
   let refStr str = VarRef (StrName str)

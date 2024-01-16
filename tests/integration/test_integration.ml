@@ -161,3 +161,14 @@ let%expect_test "reverse" =
      [s u p]
      [h e y]] |}]
 ;;
+
+let%expect_test "sum evens" =
+  compileAndRun
+    {|
+    (define values (+ 1 iota{ | [1000]}))
+    (define even-values (if{int | } (= (% values 2) 0) values 0))
+    (reduce{int | 999 []} + even-values)
+    |};
+  [%expect {|
+    250500 |}]
+;;

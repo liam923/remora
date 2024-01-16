@@ -130,11 +130,23 @@ module Expr = struct
     | SubF
     | MulF
     | DivF
+    | And
+    | Or
+    | Not
     | IntToFloat
     | FloatToInt
     | IntToBool
     | BoolToInt
     | Equal
+    | Ne
+    | Gt
+    | GtEq
+    | Lt
+    | LtEq
+    | GtF
+    | GtEqF
+    | LtF
+    | LtEqF
     | Reduce of
         { associative : bool
         ; explicitZero : bool
@@ -145,6 +157,7 @@ module Expr = struct
     | Index
     | Scatter
     | Replicate
+    | If
   [@@deriving compare, sexp, equal]
 
   type primitiveValName = Iota [@@deriving compare, sexp, equal]

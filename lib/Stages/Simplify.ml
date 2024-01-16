@@ -543,6 +543,21 @@ let rec optimize : Expr.t -> Expr.t =
      | Div, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
        Literal (IntLiteral (a / b))
      | Div, [ value; Literal (IntLiteral 1) ] -> value
+     | If, [ Literal (BooleanLiteral true); then'; _ ] -> then'
+     | If, [ Literal (BooleanLiteral false); _; else' ] -> else'
+     | And, [ Literal (BooleanLiteral true); value ]
+     | And, [ value; Literal (BooleanLiteral true) ] -> value
+     | And, [ Literal (BooleanLiteral false); _ ]
+     | And, [ _; Literal (BooleanLiteral false) ] ->
+       (* DISCARD!!! *)
+       Literal (BooleanLiteral false)
+     | Or, [ Literal (BooleanLiteral false); value ]
+     | Or, [ value; Literal (BooleanLiteral false) ] -> value
+     | Or, [ Literal (BooleanLiteral true); _ ] | Or, [ _; Literal (BooleanLiteral true) ]
+       ->
+       (* DISCARD!!! *)
+       Literal (BooleanLiteral true)
+     | Not, [ Literal (BooleanLiteral b) ] -> Literal (BooleanLiteral (not b))
      | _ -> ScalarPrimitive { op; args; type' })
   | Values { elements; type' } ->
     let elements = List.map elements ~f:optimize in

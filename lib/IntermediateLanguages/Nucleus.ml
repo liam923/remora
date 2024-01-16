@@ -118,6 +118,19 @@ module Expr = struct
     | IntToFloat
     | FloatToInt
     | Equal
+    | Ne
+    | Gt
+    | GtEq
+    | Lt
+    | LtEq
+    | GtF
+    | GtEqF
+    | LtF
+    | LtEqF
+    | And
+    | Or
+    | Not
+    | If
 
   and atomicPrimitive =
     { op : scalarOp

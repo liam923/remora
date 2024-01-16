@@ -37,16 +37,20 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
      | Func func ->
        Some
          (match func with
-          | Add -> [ "+arg1"; "+arg2" ]
-          | Sub -> [ "-arg1"; "-arg2" ]
-          | Mul -> [ "*arg1"; "*arg2" ]
-          | Div -> [ "/arg1"; "/arg2" ]
+          | Add | AddF -> [ "+arg1"; "+arg2" ]
+          | Sub | SubF -> [ "-arg1"; "-arg2" ]
+          | Mul | MulF -> [ "*arg1"; "*arg2" ]
+          | Div | DivF -> [ "/arg1"; "/arg2" ]
           | Mod -> [ "%arg1"; "%arg2" ]
-          | AddF -> [ "+arg1"; "+arg2" ]
-          | SubF -> [ "-arg1"; "-arg2" ]
-          | MulF -> [ "*arg1"; "*arg2" ]
-          | DivF -> [ "/arg1"; "/arg2" ]
           | Equal -> [ "=arg1"; "=arg2" ]
+          | Ne -> [ "!=arg1"; "!=arg2" ]
+          | Gt | GtF -> [ ">arg1"; ">arg2" ]
+          | GtEq | GtEqF -> [ ">=arg1"; ">=arg2" ]
+          | Lt | LtF -> [ "<arg1"; "<arg2" ]
+          | LtEq | LtEqF -> [ "<=arg1"; "<=arg2" ]
+          | And -> [ "and-arg1"; "and-arg2" ]
+          | Or -> [ "or-arg1"; "or-arg2" ]
+          | Not -> [ "not-arg" ]
           | IntToBool -> [ "intToBoolArg" ]
           | BoolToInt -> [ "boolToIntArg" ]
           | IntToFloat -> [ "intToFloatArg" ]
@@ -59,7 +63,8 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Append -> [ "append-arg1"; "append-arg2" ]
           | Index -> [ "index-array"; "index-index" ]
           | Scatter -> [ "scatter-values"; "scatter-indices" ]
-          | Replicate -> [ "replicate-value" ])
+          | Replicate -> [ "replicate-value" ]
+          | If -> [ "if-cond"; "then-branch"; "else-branch" ])
      | Val _ -> None)
 
 and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function
