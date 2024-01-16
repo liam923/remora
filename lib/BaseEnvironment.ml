@@ -355,6 +355,17 @@ module Stdlib : S = struct
                   |}
             }
       }
+    ; { name = "reverse"
+      ; value =
+          Expression
+            {|
+            (i-fn (l @cell-shape)
+              (t-fn (t)
+                (fn ([arr [t l @cell-shape]])
+                  (define indices (- (- (reify-dimension l) 1) iota{ | [l]}))
+                  (scatter{t | l l @cell-shape} arr indices))))
+            |}
+      }
     ]
   ;;
 

@@ -149,3 +149,15 @@ let%expect_test "matrix multiplication" =
      [173243335000 173277334000 173311333000 173345332000 173379331000]
      [193233335000 193271334000 193309333000 193347332000 193385331000]] |}]
 ;;
+
+let%expect_test "reverse" =
+  compileAndRun {|
+    (reverse{char | 5 [3]} ["hey" "sup" "who" "why" "moo"])
+    |};
+  [%expect {|
+    [[m o o]
+     [w h y]
+     [w h o]
+     [s u p]
+     [h e y]] |}]
+;;
