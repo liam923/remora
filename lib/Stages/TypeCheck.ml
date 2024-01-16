@@ -39,6 +39,7 @@ type error =
   | ExpectedFuncType of { actual : Typed.Type.t }
   | ExpectedValue
   | ExpectedForall of { actual : Typed.Type.t }
+  | ExpectedPi of { actual : Typed.Type.t }
   | WrongNumberOfArguments of int expectedActual
   | WrongNumberOfUnboxParameters of int expectedActual
   | LetTypeDisagreement of Typed.Type.t expectedActual
@@ -183,6 +184,8 @@ let errorMessage = function
   | ExpectedValue -> "Expected a value"
   | ExpectedForall { actual } ->
     [%string "Expected an expression with a Forall type, got `%{Show.type' actual}`"]
+  | ExpectedPi { actual } ->
+    [%string "Expected an expression with a Pi type, got `%{Show.type' actual}`"]
   | WrongNumberOfArguments { expected; actual } ->
     [%string "Expected %{expected#Int} arguements, got %{actual#Int}"]
   | WrongNumberOfUnboxParameters { expected; actual } ->
@@ -242,6 +245,7 @@ let errorType = function
   | ExpectedFuncType _
   | ExpectedValue
   | ExpectedForall _
+  | ExpectedPi _
   | WrongNumberOfArguments _
   | WrongNumberOfUnboxParameters _
   | LetTypeDisagreement _
@@ -1000,9 +1004,7 @@ module TypeCheck = struct
         | Typed.Type.Pi pi -> ok pi
         | _ as t ->
           CheckerState.err
-            { source = iFunc.source
-            ; elem = ExpectedForall { actual = Typed.Type.Atom t }
-            }
+            { source = iFunc.source; elem = ExpectedPi { actual = Typed.Type.Atom t } }
       in
       let%bind bodyType = checkForArrType iFunc.source iFuncPi.body in
       let%bind zippedArgs =

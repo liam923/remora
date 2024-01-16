@@ -871,22 +871,6 @@ module Make (SB : Source.BuilderT) = struct
               ~after:splitSource
           in
           let wrapBody body =
-            (* If there are elements on the right half, parse them as index
-               variables and wrap an i-fn around the body *)
-            let body =
-              match indexBindings with
-              | { elem = []; source = _ } -> body
-              | { elem = params; source = paramsSource } ->
-                let params =
-                  Source.
-                    { elem =
-                        List.map params ~f:(fun (binding, bound, source) ->
-                          Source.{ elem = { binding; bound }; source })
-                    ; source = paramsSource
-                    }
-                in
-                Source.{ elem = Expr.IndexLambda { params; body }; source = letSource }
-            in
             (* If there are elements on the left half, parse them as types and
                wrap a t-fn around the expression *)
             let body =
@@ -902,6 +886,22 @@ module Make (SB : Source.BuilderT) = struct
                     }
                 in
                 Source.{ elem = Expr.TypeLambda { params; body }; source = letSource }
+            in
+            (* If there are elements on the right half, parse them as index
+               variables and wrap an i-fn around the body *)
+            let body =
+              match indexBindings with
+              | { elem = []; source = _ } -> body
+              | { elem = params; source = paramsSource } ->
+                let params =
+                  Source.
+                    { elem =
+                        List.map params ~f:(fun (binding, bound, source) ->
+                          Source.{ elem = { binding; bound }; source })
+                    ; source = paramsSource
+                    }
+                in
+                Source.{ elem = Expr.IndexLambda { params; body }; source = letSource }
             in
             body
           in

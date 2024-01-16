@@ -374,11 +374,11 @@ let%expect_test "parse expression" =
     (Let
      ((param ((binding foo) (bound ())))
       (value
-       (TypeLambda
-        ((params (((binding @t) (bound Array)) ((binding t) (bound Atom))))
+       (IndexLambda
+        ((params (((binding @i) (bound Shape)) ((binding i) (bound Dim))))
          (body
-          (IndexLambda
-           ((params (((binding @i) (bound Shape)) ((binding i) (bound Dim))))
+          (TypeLambda
+           ((params (((binding @t) (bound Array)) ((binding t) (bound Atom))))
             (body
              (TermLambda
               ((params
