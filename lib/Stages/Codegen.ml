@@ -2154,7 +2154,7 @@ and genExpr
         ; blocks = _
         ; threads = _
         } ) -> raise Unimplemented.default
-  | _, SubArray { arrayArg; indexArg = _; type' } ->
+  | _, SubArray { arrayArg; indexArg = _; type'=_ } ->
     let%bind array = genExpr ~hostOrDevice ~store:true arrayArg in
     let rec genSubArray (array : C.expr) (type' : Type.t) =
       match type' with
@@ -2172,7 +2172,7 @@ and genExpr
         return @@ C.StructConstructor { type'; args = elements }
       | Atom _ -> (* This case should only be hit when indexArg is [] *) return array
     in
-    genSubArray array type'
+    genSubArray array (Expr.type' arrayArg)
   | Host, IfParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' } ->
     let rec genParallelism (parallelism : Expr.parallelism) =
       match parallelism with
