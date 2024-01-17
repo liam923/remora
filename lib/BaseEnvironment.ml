@@ -372,6 +372,57 @@ module Stdlib : S = struct
                 |}
             }
       }
+    ; { name = "open-scan"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = false
+                             ; character = OpenScan
+                             })
+                    ; type'
+                    })
+            ; type' =
+                {|
+                (Pi (d-1 @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                         [t (+ d-1 1) @cell-shape])
+                        [t (+ d-1 2) @cell-shape])))
+                |}
+            }
+      }
+    ; { name = "open-scan-zero"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = true
+                             ; character = OpenScan
+                             })
+                    ; type'
+                    })
+            ; type' =
+                {|
+                (Pi (d @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                         [t @cell-shape]
+                         [t d @cell-shape])
+                        [t (+ d 1) @cell-shape])))
+                |}
+            }
+      }
     ; { name = "fold"
       ; value =
           Intrinsic
@@ -450,6 +501,20 @@ module Stdlib : S = struct
                           [t [@s @cell-shape]])))
                   |}
             }
+      }
+    ; { name = "filter"
+      ; value =
+          Expression
+            {|
+            (i-fn (l @cell-shape)
+              (t-fn (t)
+                (fn ([arr [t l @cell-shape]] [flags [bool l]])
+                  (define locs-raw (scan-zero{int | l []} + 0 (bool->int flags)))
+                  (define locs (if{int | } flags locs-raw (replicate{int | [l] []} -1)))
+                  (define result-size (index{int | [l] [] 1} locs-raw [(reify-dimension l)]))
+                  (lift [d result-size]
+                    (scatter{t | l d @cell-shape} arr locs)))))
+            |}
       }
     ; { name = "reverse"
       ; value =
