@@ -115,6 +115,363 @@ let typeAsTuple (type' : Acorn.Type.t) : Acorn.Type.tuple =
   | _ -> raise @@ Unimplemented.Error "expected tuple type"
 ;;
 
+module MemSourceState = struct
+  include State
+
+  type 'a u = (Set.M(Identifier).t Map.M(Identifier).t, 'a, unit) State.t
+
+  let withEnvExtensions extensions prog =
+    let open Let_syntax in
+    let%bind () =
+      modify ~f:(fun init ->
+        List.fold extensions ~init ~f:(fun env (key, data) -> Map.set env ~key ~data))
+    in
+    let%bind res = prog in
+    let%bind () =
+      modify ~f:(fun init ->
+        List.fold extensions ~init ~f:(fun env (key, _) -> Map.remove env key))
+    in
+    return res
+  ;;
+
+  let writeToMem ~valueSources ~memSources =
+    modify ~f:(fun env ->
+      (* For every mem source appearing as a source in the env, all value sources must
+         be added to that entry *)
+      let partiallyExtendedEnv =
+        Map.map env ~f:(fun sourceEntries ->
+          if Set.is_empty (Set.inter sourceEntries memSources)
+          then sourceEntries
+          else Set.union sourceEntries valueSources)
+      in
+      (* For each mem source, its sources must be appended with the value sources *)
+      Set.fold memSources ~init:partiallyExtendedEnv ~f:(fun env addrSource ->
+        Map.update env addrSource ~f:(fun addrSourceEntries ->
+          Set.union
+            (Option.value addrSourceEntries ~default:(Set.empty (module Identifier)))
+            valueSources)))
+  ;;
+end
+
+let rec getPossibleMemSourcesInMem (mem : Acorn.Mem.t)
+  : Set.M(Identifier).t MemSourceState.u
+  =
+  let open State.Let_syntax in
+  match mem with
+  | Ref { id; type' = _ } ->
+    let%bind env = State.get () in
+    return
+    @@ Set.union
+         (Map.find env id |> Option.value ~default:(Set.empty (module Identifier)))
+         (Set.singleton (module Identifier) id)
+  | TupleDeref { tuple; index = _; type' = _ } -> getPossibleMemSourcesInMem tuple
+  | Values { elements; type' = _ } ->
+    elements
+    |> List.map ~f:getPossibleMemSourcesInMem
+    |> State.all
+    >>| Set.union_list (module Identifier)
+  | Index { mem; offset = _; type' = _ } -> getPossibleMemSourcesInMem mem
+;;
+
+let rec getPossibleMemSources
+  : type l. (l, 'd) Acorn.Expr.t -> Set.M(Identifier).t MemSourceState.u
+  =
+  let open State.Let_syntax in
+  fun (expr : (_, _) Acorn.Expr.t) ->
+    let getPossibleMemSourcesInLoopBlock
+      : type m lInner p.
+        (l, lInner, p, _, m) Acorn.Expr.loopBlock -> Set.M(Identifier).t MemSourceState.u
+      =
+      fun Acorn.Expr.
+            { frameShape = _
+            ; mapArgs
+            ; mapMemArgs
+            ; mapIotas = _
+            ; mapBody
+            ; mapBodyMatcher = _
+            ; mapResults = _
+            ; mapResultMemInterim
+            ; mapResultMemFinal
+            ; consumer
+            ; type' = _
+            } ->
+      let mapArgExtensions =
+        List.map mapArgs ~f:(fun { binding; ref } ->
+          binding, Set.singleton (module Identifier) ref.id)
+      in
+      let%bind mapMemArgExtensions =
+        mapMemArgs
+        |> List.map ~f:(fun { memBinding; mem } ->
+          let%bind sources = getPossibleMemSourcesInMem mem in
+          return (memBinding, sources))
+        |> MemSourceState.all
+      in
+      let mapEnvExtensions = mapArgExtensions @ mapMemArgExtensions in
+      let%bind mapSources =
+        MemSourceState.withEnvExtensions mapEnvExtensions @@ getPossibleMemSources mapBody
+      in
+      let%bind consumerSources =
+        let iterUntilStable inputs ~f =
+          (* Repeated run f, feeding its input into itself, until the input doesn't change.
+             The env will not change from the runs besides the final one *)
+          MemSourceState.make ~f:(fun env ->
+            let rec iter inputs =
+              let outEnv, outputs = MemSourceState.run (f inputs) env in
+              if [%equal: Set.M(Identifier).t] inputs outputs
+              then outEnv, outputs
+              else iter outputs
+            in
+            iter inputs)
+        in
+        let getPossibleMemSourcesInReduce
+          Acorn.Expr.{ arg; zero; body; d = _; character = _; type' = _ }
+          =
+          let%bind zeroSources =
+            Option.value_map
+              zero
+              ~f:getPossibleMemSources
+              ~default:(return @@ Set.empty (module Identifier))
+          in
+          let initialSources = Set.union zeroSources mapSources in
+          iterUntilStable initialSources ~f:(fun sources ->
+            let envExtensions =
+              [ arg.firstBinding, sources; arg.secondBinding, sources ]
+            in
+            MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body)
+        in
+        match consumer with
+        | Nothing -> return @@ Set.empty (module Identifier)
+        | Just
+            (ReducePar
+              { reduce; interimResultMemInterim; interimResultMemFinal; outerBody }) ->
+          let%bind innerSources = getPossibleMemSourcesInReduce reduce in
+          let%bind interimResultMemInterimSources =
+            getPossibleMemSourcesInMem interimResultMemInterim
+          in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~valueSources:innerSources
+              ~memSources:interimResultMemInterimSources
+          in
+          let%bind interimResultMemInterimSources =
+            getPossibleMemSourcesInMem interimResultMemInterim
+          in
+          let%bind outerSources =
+            iterUntilStable interimResultMemInterimSources ~f:(fun sources ->
+              let envExtensions =
+                [ reduce.arg.firstBinding, sources; reduce.arg.secondBinding, sources ]
+              in
+              MemSourceState.withEnvExtensions envExtensions
+              @@ getPossibleMemSources outerBody)
+          in
+          let%bind interimResultMemInterimSources =
+            getPossibleMemSourcesInMem interimResultMemInterim
+          in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~valueSources:outerSources
+              ~memSources:interimResultMemInterimSources
+          in
+          let%bind interimResultMemInterimSources =
+            getPossibleMemSourcesInMem interimResultMemInterim
+          in
+          let%bind interimResultMemFinalSources =
+            getPossibleMemSourcesInMem interimResultMemFinal
+          in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~valueSources:interimResultMemInterimSources
+              ~memSources:interimResultMemFinalSources
+          in
+          getPossibleMemSourcesInMem interimResultMemFinal
+        | Just (ReduceSeq reduce) -> getPossibleMemSourcesInReduce reduce
+        | Just
+            (Fold
+              { zeroArg; arrayArgs; mappedMemArgs; body; d = _; character = _; type' = _ })
+          ->
+          let%bind zeroSources = getPossibleMemSources zeroArg.zeroValue in
+          let arrayArgsExtensions =
+            List.map arrayArgs ~f:(fun { binding; production = _ } -> binding, mapSources)
+          in
+          let%bind mappedMemArgsExtensions =
+            mappedMemArgs
+            |> List.map ~f:(fun { memBinding; mem } ->
+              let%bind sources = getPossibleMemSourcesInMem mem in
+              return (memBinding, sources))
+            |> MemSourceState.all
+          in
+          let nonZeroExtensions = arrayArgsExtensions @ mappedMemArgsExtensions in
+          iterUntilStable zeroSources ~f:(fun zeroSources ->
+            let envExtensions = (zeroArg.zeroBinding, zeroSources) :: nonZeroExtensions in
+            MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body)
+        | Just
+            (Scatter
+              { valuesArg = _
+              ; indicesArg = _
+              ; dIn = _
+              ; dOut = _
+              ; memInterim
+              ; memFinal
+              ; type' = _
+              }) ->
+          let%bind memInterimSources = getPossibleMemSourcesInMem memInterim in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~memSources:memInterimSources
+              ~valueSources:mapSources
+          in
+          let%bind memInterimSources = getPossibleMemSourcesInMem memInterim in
+          let%bind memFinalSources = getPossibleMemSourcesInMem memFinal in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~memSources:memFinalSources
+              ~valueSources:memInterimSources
+          in
+          getPossibleMemSourcesInMem memFinal
+      in
+      let%bind mapResultMemInterimSources =
+        getPossibleMemSourcesInMem mapResultMemInterim
+      in
+      let%bind () =
+        MemSourceState.writeToMem
+          ~memSources:mapResultMemInterimSources
+          ~valueSources:mapSources
+      in
+      let%bind mapResultMemInterimSources =
+        getPossibleMemSourcesInMem mapResultMemInterim
+      in
+      let%bind mapResultMemFinalSources = getPossibleMemSourcesInMem mapResultMemFinal in
+      let%bind () =
+        MemSourceState.writeToMem
+          ~memSources:mapResultMemFinalSources
+          ~valueSources:mapResultMemInterimSources
+      in
+      let%bind mapResultMemFinalSources = getPossibleMemSourcesInMem mapResultMemFinal in
+      return @@ Set.union mapResultMemFinalSources consumerSources
+    in
+    match expr with
+    | Ref { id; type' = _ } ->
+      let%bind env = State.get () in
+      return
+      @@ Set.union
+           (Map.find env id |> Option.value ~default:(Set.empty (module Identifier)))
+           (Set.singleton (module Identifier) id)
+    | Box { indices = _; body; type' = _ } -> getPossibleMemSources body
+    | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
+      return @@ Set.empty (module Identifier)
+    | ScalarPrimitive { op = _; args; type' = _ } ->
+      args
+      |> List.map ~f:getPossibleMemSources
+      |> State.all
+      >>| Set.union_list (module Identifier)
+    | TupleDeref { tuple; index = _; type' = _ } -> getPossibleMemSources tuple
+    | Values { elements; type' = _ } ->
+      elements
+      |> List.map ~f:getPossibleMemSources
+      |> State.all
+      >>| Set.union_list (module Identifier)
+    | BoxValue { box; type' = _ } -> getPossibleMemSources box
+    | IndexLet { indexArgs = _; body; type' = _ } -> getPossibleMemSources body
+    | Let { args; body } ->
+      let%bind envExtensions =
+        args
+        |> List.map ~f:(fun { binding; value } ->
+          let%bind valueSources = getPossibleMemSources value in
+          return (binding, valueSources))
+        |> MemSourceState.all
+      in
+      MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body
+    | MallocLet { memArgs; body } ->
+      let envExtensions =
+        List.map memArgs ~f:(fun { memBinding; memType = _; memLoc = _ } ->
+          memBinding, Set.singleton (module Identifier) memBinding)
+      in
+      MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body
+    | ReifyDimensionIndex { dim = _ } -> return @@ Set.empty (module Identifier)
+    | LoopBlock loopBlock -> getPossibleMemSourcesInLoopBlock loopBlock
+    | LoopKernel { kernel; captures = _; blocks = _; threads = _ } ->
+      getPossibleMemSourcesInLoopBlock kernel
+    | SubArray { arrayArg; indexArg = _; type' = _ } -> getPossibleMemSources arrayArg
+    | IfParallelismHitsCutoff { cutoff = _; then'; else'; parallelism = _; type' = _ } ->
+      let%bind thenSources = getPossibleMemSources then' in
+      let%bind elseSources = getPossibleMemSources else' in
+      return @@ Set.union thenSources elseSources
+    | Eseq { statement; expr; type' = _ } ->
+      let%bind () = updateMemSourceEnvFromStatement statement in
+      getPossibleMemSources expr
+    | Getmem { addr; type' = _ } -> getPossibleMemSourcesInMem addr
+
+and updateMemSourceEnvFromStatement
+  : type l. (l, 'd) Acorn.Expr.statement -> unit MemSourceState.u
+  =
+  let open MemSourceState.Let_syntax in
+  fun (stmnt : (_, _) Acorn.Expr.statement) ->
+    match stmnt with
+    | MapKernel
+        { kernel = { map; mapResultMemInterim; mapResultMemFinal }
+        ; captures = _
+        ; blocks = _
+        ; threads = _
+        } ->
+      let%bind () = updateMemSourceEnvFromMapInKernel map in
+      let%bind mapResultMemInterimSources =
+        getPossibleMemSourcesInMem mapResultMemInterim
+      in
+      let%bind mapResultMemFinalSources = getPossibleMemSourcesInMem mapResultMemFinal in
+      MemSourceState.writeToMem
+        ~valueSources:mapResultMemInterimSources
+        ~memSources:mapResultMemFinalSources
+    | Putmem { expr; addr; type' = _ } ->
+      let%bind exprSources = getPossibleMemSources expr in
+      let%bind addrSources = getPossibleMemSourcesInMem addr in
+      MemSourceState.writeToMem ~memSources:addrSources ~valueSources:exprSources
+    | ComputeForSideEffects expr -> getPossibleMemSources expr >>| fun _ -> ()
+    | Statements statements ->
+      statements |> List.map ~f:updateMemSourceEnvFromStatement |> MemSourceState.all_unit
+    | SLet { args; body } ->
+      let%bind envExtensions =
+        args
+        |> List.map ~f:(fun { binding; value } ->
+          let%bind valueSources = getPossibleMemSources value in
+          return (binding, valueSources))
+        |> MemSourceState.all
+      in
+      MemSourceState.withEnvExtensions envExtensions
+      @@ updateMemSourceEnvFromStatement body
+    | SMallocLet { memArgs; body } ->
+      let envExtensions =
+        List.map memArgs ~f:(fun { memBinding; memType = _; memLoc = _ } ->
+          memBinding, Set.singleton (module Identifier) memBinding)
+      in
+      MemSourceState.withEnvExtensions envExtensions
+      @@ updateMemSourceEnvFromStatement body
+    | ReifyShapeIndex { shape = _; mem = _ } -> return ()
+
+and updateMemSourceEnvFromMapInKernel
+  Acorn.Expr.{ frameShape = _; mapArgs; mapMemArgs; mapIotas = _; mapBody; type' = _ }
+  =
+  let open MemSourceState.Let_syntax in
+  let mapArgExtensions =
+    List.map mapArgs ~f:(fun { binding; ref } ->
+      binding, Set.singleton (module Identifier) ref.id)
+  in
+  let%bind mapMemArgExtensions =
+    mapMemArgs
+    |> List.map ~f:(fun { memBinding; mem } ->
+      let%bind sources = getPossibleMemSourcesInMem mem in
+      return (memBinding, sources))
+    |> MemSourceState.all
+  in
+  let mapEnvExtensions = mapArgExtensions @ mapMemArgExtensions in
+  MemSourceState.withEnvExtensions mapEnvExtensions
+  @@ updateMemSourceEnvFromMapBody mapBody
+
+and updateMemSourceEnvFromMapBody = function
+  | Acorn.Expr.MapBodyStatement statement -> updateMemSourceEnvFromStatement statement
+  | Acorn.Expr.MapBodySubMaps maps ->
+    maps |> List.map ~f:updateMemSourceEnvFromMapInKernel |> MemSourceState.all_unit
+;;
+
 module AllocAcc = struct
   type allocation =
     { binding : Identifier.t
@@ -146,8 +503,6 @@ module AllocAcc = struct
       ;;
     end)
 
-  let returnF = CompilerState.map ~f:(fun v -> v, [])
-
   let createId name =
     let open CompilerState.Let_syntax in
     let%map id = CompilerState.createId name in
@@ -172,16 +527,21 @@ module AllocAcc = struct
     | None -> return (None, [])
   ;;
 
-  let multiplyAllocations
-    :  multiplier:Acorn.Index.shapeElement -> ('a, 'e) t
-    -> ('a * Acorn.Expr.memArg list, 'e) t
+  (* Multiply each allocation by the multiplier if it appears in the list of used allocations *)
+  let multiplyUsedAllocations
+    :  multiplier:Acorn.Index.shapeElement -> used:('a -> Set.M(Identifier).t)
+    -> ('a, 'e) t -> ('a * Acorn.Expr.memArg list, 'e) t
     =
-    fun ~multiplier prog ->
+    fun ~multiplier ~used:getUsed prog ->
     let open CompilerState in
     let open Let_syntax in
-    let%bind result, acc = prog in
-    let%map allocs, memArgs =
-      acc
+    let%bind result, rawAllocs = prog in
+    let used = getUsed result in
+    let rawUsedAllocs, unusedAllocs =
+      List.partition_tf rawAllocs ~f:(fun alloc -> Set.mem used alloc.binding)
+    in
+    let%map usedAllocs, memArgs =
+      rawUsedAllocs
       |> List.map ~f:(fun alloc ->
         let%map binding = createId (Identifier.name alloc.binding) in
         ( { binding
@@ -200,7 +560,21 @@ module AllocAcc = struct
       |> all
       >>| List.unzip
     in
-    (result, memArgs), allocs
+    (result, memArgs), usedAllocs @ unusedAllocs
+  ;;
+
+  let multiplyUsedAllocationsInExpr
+    : type l.
+      multiplier:Acorn.Index.shapeElement
+      -> ((l, _) Acorn.Expr.t, 'e) t
+      -> ((l, _) Acorn.Expr.t * Acorn.Expr.memArg list, 'e) t
+    =
+    fun ~multiplier prog ->
+    multiplyUsedAllocations
+      ~multiplier
+      ~used:(fun expr ->
+        MemSourceState.runA (getPossibleMemSources expr) (Map.empty (module Identifier)))
+      prog
   ;;
 
   let allocationToMallocMemArg { binding; mallocLoc; uses = _; type' }
@@ -256,6 +630,28 @@ let declareAllAllocs prog =
         { memArgs = List.map allocs ~f:AllocAcc.allocationToMallocMemArg; body = result }
   in
   return result
+;;
+
+let declareAllUsedAllocs prog =
+  let open CompilerState in
+  let open Let_syntax in
+  let%bind expr, allAllocs = prog in
+  let used =
+    MemSourceState.runA (getPossibleMemSources expr) (Map.empty (module Identifier))
+  in
+  let usedAllocs, unusedAllocs =
+    List.partition_tf allAllocs ~f:(fun alloc -> Set.mem used AllocAcc.(alloc.binding))
+  in
+  let expr =
+    match usedAllocs with
+    | [] -> expr
+    | _ :: _ ->
+      Acorn.Expr.MallocLet
+        { memArgs = List.map usedAllocs ~f:AllocAcc.allocationToMallocMemArg
+        ; body = expr
+        }
+  in
+  return (expr, unusedAllocs)
 ;;
 
 type targetAddr =
@@ -466,7 +862,7 @@ let rec allocRequest
       allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:mapBodyTargetAddr mapBody
       >>| getExpr
       |> avoidCaptures ~capturesToAvoid:bindingsForMapBody
-      |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
+      |> multiplyUsedAllocationsInExpr ~multiplier:(convertShapeElement frameShape)
     in
     let mapMemArgs =
       List.map mapTargetAddrMemArgs ~f:(fun { memBinding; mem } ->
@@ -483,8 +879,7 @@ let rec allocRequest
       and body =
         allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:None body
         >>| getExpr
-        |> declareAllAllocs
-        |> AllocAcc.returnF
+        |> declareAllUsedAllocs
       in
       let%map character =
         match character with
@@ -529,8 +924,7 @@ let rec allocRequest
         let%bind outerBody =
           allocRequest ~mallocLoc ~writeToAddr:None outerBody
           >>| getExpr
-          |> declareAllAllocs
-          |> AllocAcc.returnF
+          |> declareAllUsedAllocs
         in
         let interimResultMemType =
           Type.array
@@ -561,7 +955,7 @@ let rec allocRequest
                     (module Identifier)
                     ([ zeroArg.zeroBinding ]
                      @ List.map arrayArgs ~f:(fun arg -> arg.binding)))
-          |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
+          |> multiplyUsedAllocationsInExpr ~multiplier:(convertShapeElement frameShape)
         in
         let%map character =
           match character with
@@ -895,7 +1289,15 @@ let rec allocRequest
       in
       let%map mapBody, mapBodyMemArgs =
         allocMapBody ~writeToAddr:mapBodyTargetAddr mapBody
-        |> multiplyAllocations ~multiplier:(convertShapeElement frameShape)
+        |> multiplyUsedAllocations
+             ~multiplier:(convertShapeElement frameShape)
+             ~used:(fun mapBody ->
+               let open MemSourceState.Let_syntax in
+               let getUsesInBody =
+                 let%bind () = updateMemSourceEnvFromMapBody mapBody in
+                 getPossibleMemSourcesInMem mapResultMemInterim
+               in
+               MemSourceState.runA getUsesInBody (Map.empty (module Identifier)))
       in
       let mapMemArgs =
         List.map mapTargetAddrMemArgs ~f:(fun { memBinding; mem } ->
