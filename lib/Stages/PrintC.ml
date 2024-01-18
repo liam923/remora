@@ -174,6 +174,11 @@ let rec printStatement = function
     return ()
   | Eval expr -> printLine [%string "%{showExpr expr};"]
   | StrStatement statement -> printLine statement
+  | WhileLoop { cond; body } ->
+    let%bind () = printLine [%string "while (%{showExpr cond}) {"] in
+    let%bind () = indent @@ printBlock body in
+    let%bind () = printLine "}" in
+    return ()
   | ForLoop { loopVar; loopVarType; initialValue; cond; loopVarUpdate; body } ->
     let loopVarUpdateStr =
       match loopVarUpdate with

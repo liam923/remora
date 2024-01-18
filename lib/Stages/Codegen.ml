@@ -2154,25 +2154,105 @@ and genExpr
         ; blocks = _
         ; threads = _
         } ) -> raise Unimplemented.default
-  | _, SubArray { arrayArg; indexArg = _; type'=_ } ->
-    let%bind array = genExpr ~hostOrDevice ~store:true arrayArg in
-    let rec genSubArray (array : C.expr) (type' : Type.t) =
-      match type' with
-      | Array _ -> raise Unimplemented.default
-      | Tuple elements ->
-        let%bind type' = genType ~wrapInPtr:true type' in
+  | _, SubArray { arrayArg; indexArg; type' = outType } ->
+    let%bind cArrayArg = genExpr ~hostOrDevice ~store:true arrayArg in
+    let%bind cIndexArg = genExpr ~hostOrDevice ~store:true indexArg in
+    let indexArgLen =
+      match Expr.type' indexArg with
+      | Array { element = Literal IntLiteral; shape = [ Add l ] } -> l
+      | _ -> raise @@ Unreachable.Error "expected a 1-d array of integers"
+    in
+    let%bind cIndexArgLen = GenState.createVarAuto "indexArgLen" @@ genDim indexArgLen in
+    let rec genSubArray (cArrayArg : C.expr) (inType : Type.t) (outType : Type.t) =
+      match inType with
+      | Array { element = _; shape } ->
+        let shape = NeList.to_list shape in
+        (* shape and indexArg need to be iterated together, but shape is a list of shape
+           elements. While individual elements are reified, the whole thing is not. This
+           is the reason for the below odd iteration structure *)
+        let%bind offset = GenState.createVarAuto "offset" @@ C.Syntax.intLit 0 in
+        (* indexIndex is the index in indexArg that we are currently on *)
+        let%bind indexIndex = GenState.createVarAuto "indexIndex" @@ C.Syntax.intLit 0 in
+        let%bind () =
+          GenState.writeForLoop
+            ~loopVar:"elementIndex"
+            ~loopVarType:Int64
+            ~initialValue:(C.Syntax.intLit 0)
+            ~cond:(fun elementIndex ->
+              C.Syntax.(elementIndex < intLit (List.length shape)))
+            ~loopVarUpdate:IncrementOne
+            ~body:(fun elementIndex ->
+              List.foldi shape ~init:(return ()) ~f:(fun i acc shapeElement ->
+                GenState.writeIte
+                  ~cond:C.Syntax.(intLit i == elementIndex)
+                  ~thenBranch:
+                    (let writeUpdate currentDimSize =
+                       let%bind () =
+                         GenState.writeStatement
+                         @@ C.Syntax.(offset := offset * currentDimSize)
+                       in
+                       let%bind () =
+                         GenState.writeIte
+                           ~cond:C.Syntax.(indexIndex < cIndexArgLen)
+                           ~thenBranch:
+                             (let%bind () =
+                                GenState.writeStatement
+                                  C.Syntax.(
+                                    offset := offset + arrayDeref cIndexArg indexIndex)
+                              in
+                              let%bind () =
+                                GenState.writeStatement
+                                  C.Syntax.(indexIndex := indexIndex + intLit 1)
+                              in
+                              return ())
+                           ~elseBranch:(return ())
+                       in
+                       return ()
+                     in
+                     match shapeElement with
+                     | Add d -> writeUpdate (genDim d)
+                     | ShapeRef shapeRef ->
+                       let dims = C.Syntax.(refId shapeRef %-> sliceDimsFieldName) in
+                       let dimCount =
+                         C.Syntax.(refId shapeRef %-> sliceDimCountFieldName)
+                       in
+                       let%bind () =
+                         GenState.writeForLoop
+                           ~loopVar:"i"
+                           ~loopVarType:Int64
+                           ~initialValue:(C.Syntax.intLit 0)
+                           ~cond:(fun i -> C.Syntax.(i < dimCount))
+                           ~loopVarUpdate:IncrementOne
+                           ~body:(fun i -> writeUpdate C.Syntax.(arrayDeref dims i))
+                       in
+                       return ())
+                  ~elseBranch:acc))
+        in
+        (match outType with
+         | Atom _ -> return C.Syntax.(arrayDeref cArrayArg offset)
+         | Array _ -> return C.Syntax.(cArrayArg + offset)
+         | Tuple _ -> raise Unreachable.default)
+      | Tuple inElements ->
+        let outElements =
+          match outType with
+          | Tuple outElements -> outElements
+          | _ -> raise Unreachable.default
+        in
+        let%bind type' = genType ~wrapInPtr:true outType in
         let%bind elements =
-          elements
-          |> List.mapi ~f:(fun i elementType ->
+          List.zip_exn inElements outElements
+          |> List.mapi ~f:(fun i (elementType, outElementType) ->
             genSubArray
-              (C.FieldDeref { value = array; fieldName = tupleFieldName i })
-              elementType)
+              (C.FieldDeref { value = cArrayArg; fieldName = tupleFieldName i })
+              elementType
+              outElementType)
           |> GenState.all
         in
         return @@ C.StructConstructor { type'; args = elements }
-      | Atom _ -> (* This case should only be hit when indexArg is [] *) return array
+      | Atom _ -> (* This case should only be hit when indexArg is [] *) return cArrayArg
     in
-    genSubArray array (Expr.type' arrayArg)
+    let%bind subarray = genSubArray cArrayArg (Expr.type' arrayArg) outType in
+    storeIfRequested ~name:"subarray" subarray
   | Host, IfParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' } ->
     let rec genParallelism (parallelism : Expr.parallelism) =
       match parallelism with

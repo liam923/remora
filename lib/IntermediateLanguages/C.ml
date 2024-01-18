@@ -141,6 +141,10 @@ and statement =
       ; thenBranch : block
       ; elseBranch : block
       }
+  | WhileLoop of
+      { cond : expr
+      ; body : block
+      }
   | Eval of expr
   | StrStatement of string
   | ForLoop of
@@ -190,6 +194,7 @@ module Syntax = struct
   let ( << ) arg1 arg2 = Binop { op = "<<"; arg1; arg2 }
   let ( == ) arg1 arg2 = Binop { op = "=="; arg1; arg2 }
   let ( && ) arg1 arg2 = Binop { op = "&&"; arg1; arg2 }
+  let pp arg = PrefixOp { op = "++"; arg }
   let not arg = PrefixOp { op = "!"; arg }
   let intLit i = Literal (Int64Literal i)
   let charLit c = Literal (CharLiteral c)
