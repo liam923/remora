@@ -329,6 +329,11 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
     let mapMemArgCaptures =
       Captures.getList mapMemArgs ~f:(fun arg -> Captures.getInMem arg.mem)
     in
+    let mapIotaCaptures =
+      Captures.getList mapIotas ~f:(fun iota ->
+        Captures.getOpt iota.nestIn ~f:(fun id ->
+          Captures.of_ref { id; type' = Atom (Literal IntLiteral) }))
+    in
     let mapBodyCaptures = Captures.(getInExpr mapBody - mapBodyBindings) in
     let consumerCaptures, consumer =
       match consumer with
@@ -380,7 +385,11 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
           }
       ; captures =
           Captures.(
-            mapArgCaptures + mapMemArgCaptures + mapBodyCaptures + consumerCaptures)
+            mapArgCaptures
+            + mapMemArgCaptures
+            + mapIotaCaptures
+            + mapBodyCaptures
+            + consumerCaptures)
       ; blocks
       ; threads
       }
@@ -438,6 +447,11 @@ and annotateStatement
       let mapMemArgCaptures =
         Captures.getList mapMemArgs ~f:(fun arg -> Captures.getInMem arg.mem)
       in
+      let mapIotaCaptures =
+        Captures.getList mapIotas ~f:(fun iota ->
+          Captures.getOpt iota.nestIn ~f:(fun id ->
+            Captures.of_ref { id; type' = Atom (Literal IntLiteral) }))
+      in
       let bodyCaptures, mapBody =
         match mapBody with
         | MapBodyStatement statement ->
@@ -450,7 +464,11 @@ and annotateStatement
           Captures.merge_list captures, Expr.MapBodySubMaps subMaps
       in
       let captures =
-        Captures.(mapArgCaptures + mapMemArgCaptures + (bodyCaptures - mapBodyBindings))
+        Captures.(
+          mapArgCaptures
+          + mapMemArgCaptures
+          + mapIotaCaptures
+          + (bodyCaptures - mapBodyBindings))
       in
       captures, { frameShape; mapArgs; mapIotas; mapMemArgs; mapBody; type' }
     in
