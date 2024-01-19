@@ -68,7 +68,7 @@ module ParallelismShape = struct
     in
     let pars = flatten pars in
     let maxKnown =
-      pars |> List.map ~f:known |> List.filter_opt |> List.min_elt ~compare:Int.compare
+      pars |> List.map ~f:known |> List.filter_opt |> List.max_elt ~compare:Int.compare
     in
     let pars =
       match maxKnown with
@@ -110,6 +110,7 @@ type compilationOptions =
   ; flattenedMapBody : Corn.Expr.mapBody
   ; flattenedMapBodyParShape : ParallelismShape.t
   }
+[@@deriving sexp_of]
 
 let compilationOptions ~hostExpr ~deviceExpr ~hostParShape =
   { hostExpr
@@ -478,20 +479,23 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
               }
           , sequentialBlockParShape )
     in
-    compilationOptions
-      ~hostExpr
-      ~deviceExpr:
-        (LoopBlock
-           { frameShape
-           ; mapArgs
-           ; mapIotas
-           ; mapBody = mapBodyOpts.deviceExpr
-           ; mapBodyMatcher
-           ; mapResults
-           ; consumer = Just consumerAsDeviceExpr
-           ; type'
-           })
-      ~hostParShape
+    let opts =
+      compilationOptions
+        ~hostExpr
+        ~deviceExpr:
+          (LoopBlock
+             { frameShape
+             ; mapArgs
+             ; mapIotas
+             ; mapBody = mapBodyOpts.deviceExpr
+             ; mapBodyMatcher
+             ; mapResults
+             ; consumer = Just consumerAsDeviceExpr
+             ; type'
+             })
+        ~hostParShape
+    in
+    opts
   | Box { indices; body; bodyType; type' } ->
     let%map bodyOpts = getOpts body in
     compilationOptions
