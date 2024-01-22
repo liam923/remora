@@ -372,31 +372,6 @@ module Stdlib : S = struct
                 |}
             }
       }
-    ; { name = "open-scan"
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true
-                             ; explicitZero = false
-                             ; character = OpenScan
-                             })
-                    ; type'
-                    })
-            ; type' =
-                {|
-                (Pi (d-1 @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t (+ d-1 1) @cell-shape])
-                        [t (+ d-1 2) @cell-shape])))
-                |}
-            }
-      }
     ; { name = "open-scan-zero"
       ; value =
           Intrinsic

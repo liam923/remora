@@ -1409,22 +1409,22 @@ and genExpr
             let%bind body = genExpr ~hostOrDevice ~store:false body in
             GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
           in
-          match zero with
-          | Some _ ->
-            (* If there is an initial zero, perform the reduce step every iteration *)
-            doReduceStep
-          | None ->
-            (* If there is no initial zero, on the first iteration,
-               just assign the step var to the acc var *)
-            let%bind () =
+          let%bind () =
+            match zero with
+            | Some _ ->
+              (* If there is an initial zero, perform the reduce step every iteration *)
+              doReduceStep
+            | None ->
+              (* If there is no initial zero, on the first iteration,
+                 just assign the step var to the acc var *)
               GenState.writeIte
                 ~cond:C.Syntax.(VarRef loopVar == intLit 0)
                 ~thenBranch:
                   (GenState.writeStatement
                      (C.Assign { lhs = VarRef accVar; rhs = VarRef stepVar }))
                 ~elseBranch:doReduceStep
-            in
-            characterInLoop
+          in
+          characterInLoop
         in
         return @@ (inLoop, characterResult)
       | Just
