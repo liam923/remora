@@ -483,19 +483,45 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
     in
     let type' = reduceTuplesType request type' in
     Expr.BoxValue { box; type' }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
-    let argType =
-      match Expr.type' arrayArg with
-      | Array array -> array
-      | _ -> raise (Unreachable.Error "expected array type")
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
+    let rec stripShapeFromRequest ~shape request =
+      match shape with
+      | [] -> request
+      | shapeHead :: restShape ->
+        (match request with
+         | TupleRequest.Collection
+             { subRequest; collectionType = Array { element = _; size } } ->
+           assert ([%equal: Index.shapeElement] shapeHead size);
+           stripShapeFromRequest ~shape:restShape subRequest
+         | TupleRequest.Whole -> TupleRequest.Whole
+         | TupleRequest.Element _ | TupleRequest.Elements _
+         | TupleRequest.Collection { subRequest = _; collectionType = Sigma _ } ->
+           raise (Unreachable.Error "expected array type"))
     in
-    let%map arrayArg =
-      reduceTuplesInExpr
-        (Collection { subRequest = request; collectionType = Array argType })
-        arrayArg
+    let rec addShapeToRequest ~shape type' request =
+      match shape with
+      | [] -> request
+      | shapeHead :: restShape ->
+        let elementType =
+          match type' with
+          | Type.Array { element; size } ->
+            assert ([%equal: Index.shapeElement] shapeHead size);
+            element
+          | _ -> raise (Unreachable.Error "expected array type")
+        in
+        TupleRequest.Collection
+          { subRequest = addShapeToRequest ~shape:restShape elementType request
+          ; collectionType = Array { element = elementType; size = shapeHead }
+          }
+    in
+    let cellRequest = stripShapeFromRequest ~shape:resultShape request in
+    let arrayArgRequest =
+      addShapeToRequest ~shape:originalShape (Expr.type' arrayArg) cellRequest
+    in
+    let%map arrayArg = reduceTuplesInExpr arrayArgRequest arrayArg
     and indexArg = reduceTuplesInExpr Whole indexArg in
     let type' = reduceTuplesType request type' in
-    Expr.ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+    Expr.ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
   | Zip { zipArg; nestCount; type' } ->
     let rec interchangeCollections nestCount wrapper request =
       if nestCount = 0

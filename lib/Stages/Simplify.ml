@@ -83,7 +83,8 @@ let rec nonComputational : Expr.t -> bool = function
   | Let _ -> false
   | LoopBlock _ -> false
   | ScalarPrimitive _ -> false
-  | ContiguousSubArray { arrayArg; indexArg; resultShape = _; type' = _ } ->
+  | ContiguousSubArray
+      { arrayArg; indexArg; originalShape = _; resultShape = _; type' = _ } ->
     nonComputational arrayArg && nonComputational indexArg
   | Append _ -> false
   | Zip _ -> true
@@ -200,10 +201,11 @@ let getCounts =
     | Values { elements; type' = _ } ->
       elements |> List.map ~f:(getCountsExpr inLoop) |> Counts.merge
     | TupleDeref { tuple; index = _; type' = _ } -> getCountsExpr inLoop tuple
-    | ContiguousSubArray { arrayArg; indexArg; resultShape; type' = _ } ->
+    | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' = _ } ->
       Counts.merge
         [ getCountsExpr inLoop arrayArg
         ; getCountsExpr inLoop indexArg
+        ; getCountsIndex inLoop (Shape originalShape)
         ; getCountsIndex inLoop (Shape resultShape)
         ]
     | Append { args; type' = _ } ->
@@ -323,10 +325,10 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
   | Append { args; type' } ->
     let%map args = args |> List.map ~f:(subExpr subKey subValue) |> Option.all in
     Append { args; type' }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let%map arrayArg = subExpr subKey subValue arrayArg
     and indexArg = subExpr subKey subValue indexArg in
-    ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+    ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
   | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit
     -> return lit
   | Box { indices; body; bodyType; type' } ->
@@ -518,10 +520,10 @@ let rec optimize : Expr.t -> Expr.t =
       ; consumer
       ; type'
       }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let arrayArg = optimize arrayArg
     and indexArg = optimize indexArg in
-    ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+    ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
   | Box { indices; body; bodyType; type' } ->
     let body = optimize body in
     Expr.Box { indices; body; bodyType; type' }
@@ -767,10 +769,10 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
         ; type'
         }
     , mapBodyHoistings @ consumerHoistings )
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let arrayArg, arrayHoistings = hoistDeclarations arrayArg
     and indexArg, indexHoistings = hoistDeclarations indexArg in
-    ( ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+    ( ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
     , arrayHoistings @ indexHoistings )
   | Box { indices; body; bodyType; type' } ->
     let body, hoistings = hoistDeclarations body in
@@ -1033,17 +1035,10 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
           ; type'
           }
       , mapBodyHoistings @ consumerHoistings )
-    (*
-       | ArrayPrimitive (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' }) ->
-        let%map valuesArg, valuesHoistings = hoistExpressions loopBarrier valuesArg
-        and indicesArg, indicesHoistings = hoistExpressions loopBarrier indicesArg in
-        ( Expr.ArrayPrimitive
-            (Scatter { valuesArg; indicesArg; dIn; dOut; cellShape; type' })
-        , valuesHoistings @ indicesHoistings ) *)
-    | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+    | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
       let%map arrayArg, arrayHoistings = hoistExpressions loopBarrier arrayArg
       and indexArg, indexHoistings = hoistExpressions loopBarrier indexArg in
-      ( Expr.ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+      ( Expr.ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
       , arrayHoistings @ indexHoistings )
     | Box { indices; body; bodyType; type' } ->
       let%map body, hoistings = hoistExpressions loopBarrier body in

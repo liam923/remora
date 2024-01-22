@@ -391,7 +391,8 @@ let rec getPossibleMemSources
     | LoopBlock loopBlock -> getPossibleMemSourcesInLoopBlock loopBlock
     | LoopKernel { kernel; captures = _; blocks = _; threads = _ } ->
       getPossibleMemSourcesInLoopBlock kernel
-    | ContiguousSubArray { arrayArg; indexArg = _; resultShape = _; type' = _ } ->
+    | ContiguousSubArray
+        { arrayArg; indexArg = _; originalShape = _; resultShape = _; type' = _ } ->
       getPossibleMemSources arrayArg
     | IfParallelismHitsCutoff { cutoff = _; then'; else'; parallelism = _; type' = _ } ->
       let%bind thenSources = getPossibleMemSources then' in
@@ -1411,13 +1412,14 @@ let rec allocRequest
     { expr = TupleDeref { tuple = tuple.expr; index; type' = canonicalizeType type' }
     ; statement = tuple.statement
     }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let%bind arrayArg = allocExpr ~writeToAddr:None arrayArg
     and indexArg = allocExpr ~writeToAddr:None indexArg in
     unwrittenExprToAllocResult
     @@ ContiguousSubArray
          { arrayArg
          ; indexArg
+         ; originalShape = convertShape originalShape
          ; resultShape = convertShape resultShape
          ; type' = canonicalizeType type'
          }

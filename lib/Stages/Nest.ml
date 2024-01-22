@@ -321,18 +321,12 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     Append { args = [ arg1; arg2 ]; type' }
   | ArrayPrimitive
       (ContiguousSubArray
-        { arrayArg
-        ; indexArg
-        ; originalShape = _
-        ; resultShape
-        ; cellShape = _
-        ; l = _
-        ; type'
-        }) ->
+        { arrayArg; indexArg; originalShape; resultShape; cellShape = _; l = _; type' })
+    ->
     let%map arrayArg = nestArray arrayArg
     and indexArg = nestArray indexArg in
     let type' = nestTypeArray type' in
-    ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+    ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
 
 and makeMap frameShape args =
   let open NestState.Let_syntax in

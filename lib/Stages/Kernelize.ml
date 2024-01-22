@@ -575,7 +575,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     ; flattenedMapBody
     ; flattenedMapBodyParShape
     }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let%map arrayArgOpts = getOpts arrayArg
     and indexArgOpts = getOpts indexArg in
     compilationOptions
@@ -583,6 +583,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
         (ContiguousSubArray
            { arrayArg = arrayArgOpts.hostExpr
            ; indexArg = indexArgOpts.hostExpr
+           ; originalShape
            ; resultShape
            ; type'
            })
@@ -590,6 +591,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
         (ContiguousSubArray
            { arrayArg = arrayArgOpts.deviceExpr
            ; indexArg = indexArgOpts.deviceExpr
+           ; originalShape
            ; resultShape
            ; type'
            })

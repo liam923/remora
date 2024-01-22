@@ -407,51 +407,32 @@ module Stdlib : S = struct
       }
     ; { name = "scan"
       ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true
-                             ; explicitZero = false
-                             ; character = Scan
-                             })
-                    ; type'
-                    })
-            ; type' =
-                {|
-                (Pi (d-1 @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t (+ d-1 1) @cell-shape])
-                        [t (+ d-1 1) @cell-shape])))
-                |}
-            }
+          Expression
+            {|
+            (i-fn (d-1 @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [arr [t (+ d-1 1) @cell-shape]])
+                  (open-scan-zero{t | d-1 @cell-shape}
+                    op
+                    (head{t | d-1 @cell-shape} arr)
+                    (tail{t | d-1 @cell-shape} arr)))))
+            |}
       }
     ; { name = "scan-zero"
       ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true; explicitZero = true; character = Scan })
-                    ; type'
-                    })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t @cell-shape]
-                         [t d @cell-shape])
-                        [t d @cell-shape])))
-                |}
-            }
+          Expression
+            {|
+            (i-fn (d @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [zero [t @cell-shape]]
+                     [arr [t d @cell-shape]])
+                  (tail{t | d @cell-shape} (open-scan-zero{t | d @cell-shape}
+                                              op
+                                              zero
+                                              arr)))))
+            |}
       }
     ; { name = "fold"
       ; value =

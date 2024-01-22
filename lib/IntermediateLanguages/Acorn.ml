@@ -452,6 +452,7 @@ module Expr = struct
   and ('l, 'c) contiguousSubArray =
     { arrayArg : ('l, 'c) t
     ; indexArg : ('l, 'c) t
+    ; originalShape : Index.shape
     ; resultShape : Index.shape
     ; type' : Type.t
     }
@@ -927,11 +928,14 @@ module Expr = struct
     and sexp_of_contiguousSubArray
       : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) contiguousSubArray -> Sexp.t
       =
-      fun sexp_of_a sexp_of_c { arrayArg; indexArg; resultShape; type' = _ } ->
+      fun sexp_of_a
+          sexp_of_c
+          { arrayArg; indexArg; originalShape; resultShape; type' = _ } ->
       Sexp.List
         [ Sexp.Atom "index"
         ; sexp_of_t sexp_of_a sexp_of_c arrayArg
         ; sexp_of_t sexp_of_a sexp_of_c indexArg
+        ; [%sexp_of: Index.shape] originalShape
         ; [%sexp_of: Index.shape] resultShape
         ]
 

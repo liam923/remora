@@ -211,12 +211,13 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     Set.union
       (args |> List.map ~f:getUsesInExpr |> Set.union_list (module Identifier))
       (getUsesInType type')
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     Set.union_list
       (module Identifier)
       [ getUsesInExpr arrayArg
       ; getUsesInExpr indexArg
       ; getUsesInType type'
+      ; getUsesInIndex (Shape originalShape)
       ; getUsesInIndex (Shape resultShape)
       ]
   | Append { args; type' } ->
@@ -557,18 +558,21 @@ let rec liftFrom
       liftFromList args ~f:(liftFrom target targetConsumer capturables mapRefs)
     in
     extraction, ScalarPrimitive { op; args; type' }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let%bind extraction, arrayArg =
       liftFrom target targetConsumer capturables mapRefs arrayArg
     in
     (match extraction with
      | Some _ as extraction ->
-       return (extraction, ContiguousSubArray { arrayArg; indexArg; resultShape; type' })
+       return
+         ( extraction
+         , ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } )
      | None ->
        let%map extraction, indexArg =
          liftFrom target targetConsumer capturables mapRefs indexArg
        in
-       extraction, ContiguousSubArray { arrayArg; indexArg; resultShape; type' })
+       ( extraction
+       , ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ))
   | Append { args; type' } ->
     let%map extraction, args =
       liftFromList args ~f:(liftFrom target targetConsumer capturables mapRefs)
@@ -1201,10 +1205,10 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
   | ScalarPrimitive { op; args; type' } ->
     let%map args = args |> List.map ~f:(fuseLoops scope) |> FuseState.all in
     ScalarPrimitive { op; args; type' }
-  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' } ->
     let%map arrayArg = fuseLoops scope arrayArg
     and indexArg = fuseLoops scope indexArg in
-    ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
+    ContiguousSubArray { arrayArg; indexArg; originalShape; resultShape; type' }
   | Append { args; type' } ->
     let%map args = args |> List.map ~f:(fuseLoops scope) |> FuseState.all in
     Append { args; type' }
