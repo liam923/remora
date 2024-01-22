@@ -61,7 +61,8 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
             [ "reduce-f-arg"; "reduce-array-arg" ]
           | Fold _ -> [ "fold-f-arg"; "fold-zero-arg"; "fold-array-arg" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
-          | Index -> [ "index-array"; "index-index" ]
+          | ContiguousSubArray ->
+            [ "contiguous-subarray-array"; "contiguous-subarray-index" ]
           | Scatter -> [ "scatter-values"; "scatter-indices" ]
           | Replicate -> [ "replicate-value" ]
           | If -> [ "if-cond"; "then-branch"; "else-branch" ]

@@ -176,9 +176,10 @@ module Expr = struct
 
   and literal = Nested.Expr.literal
 
-  and 'l subArray =
+  and 'l contiguousSubArray =
     { arrayArg : 'l t
     ; indexArg : 'l t
+    ; resultShape : Index.shape
     ; type' : Type.t
     }
 
@@ -233,7 +234,7 @@ module Expr = struct
     | Values : 'l values -> 'l t
     | ScalarPrimitive : 'l scalarPrimitive -> 'l t
     | TupleDeref : 'l tupleDeref -> 'l t
-    | SubArray : 'l subArray -> 'l t
+    | ContiguousSubArray : 'l contiguousSubArray -> 'l t
     | Append : 'l append -> 'l t
     | Zip : 'l zip -> 'l t
     | Unzip : 'l unzip -> 'l t
@@ -257,7 +258,7 @@ module Expr = struct
     | LoopBlock loopBlock -> Tuple loopBlock.type'
     | LoopKernel loopKernel -> Tuple loopKernel.kernel.type'
     | MapKernel mapKernel -> mapKernel.kernel.type'
-    | SubArray subArray -> subArray.type'
+    | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
     | Append append -> append.type'
     | Zip zip -> zip.type'
     | Unzip unzip -> Tuple unzip.type'
@@ -562,10 +563,16 @@ module Expr = struct
         ; sexp_of_k kernel
         ]
 
-    and sexp_of_subArray : type a. (a -> Sexp.t) -> a subArray -> Sexp.t =
-      fun sexp_of_a { arrayArg; indexArg; type' = _ } ->
+    and sexp_of_contiguousSubArray
+      : type a. (a -> Sexp.t) -> a contiguousSubArray -> Sexp.t
+      =
+      fun sexp_of_a { arrayArg; indexArg; resultShape; type' = _ } ->
       Sexp.List
-        [ Sexp.Atom "index"; sexp_of_t sexp_of_a arrayArg; sexp_of_t sexp_of_a indexArg ]
+        [ Sexp.Atom "contiguous-subarray"
+        ; sexp_of_t sexp_of_a arrayArg
+        ; sexp_of_t sexp_of_a indexArg
+        ; [%sexp_of: Index.shape] resultShape
+        ]
 
     and sexp_of_append : type a. (a -> Sexp.t) -> a append -> Sexp.t =
       fun sexp_of_a { args; type' = _ } ->
@@ -634,7 +641,8 @@ module Expr = struct
              (sexp_of_consumerOp sexp_of_host sexp_of_device sexp_of_parallel))
           loopKernel
       | MapKernel mapKernel -> sexp_of_kernel sexp_of_mapKernel mapKernel
-      | SubArray subArray -> sexp_of_subArray sexp_of_a subArray
+      | ContiguousSubArray contiguousSubArray ->
+        sexp_of_contiguousSubArray sexp_of_a contiguousSubArray
       | Append append -> sexp_of_append sexp_of_a append
       | Zip zip -> sexp_of_zip sexp_of_a zip
       | Unzip unzip -> sexp_of_unzip sexp_of_a unzip

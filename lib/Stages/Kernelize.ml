@@ -575,17 +575,22 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     ; flattenedMapBody
     ; flattenedMapBodyParShape
     }
-  | SubArray { arrayArg; indexArg; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
     let%map arrayArgOpts = getOpts arrayArg
     and indexArgOpts = getOpts indexArg in
     compilationOptions
       ~hostExpr:
-        (SubArray
-           { arrayArg = arrayArgOpts.hostExpr; indexArg = indexArgOpts.hostExpr; type' })
+        (ContiguousSubArray
+           { arrayArg = arrayArgOpts.hostExpr
+           ; indexArg = indexArgOpts.hostExpr
+           ; resultShape
+           ; type'
+           })
       ~deviceExpr:
-        (SubArray
+        (ContiguousSubArray
            { arrayArg = arrayArgOpts.deviceExpr
            ; indexArg = indexArgOpts.deviceExpr
+           ; resultShape
            ; type'
            })
       ~hostParShape:

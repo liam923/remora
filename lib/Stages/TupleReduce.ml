@@ -483,7 +483,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
     in
     let type' = reduceTuplesType request type' in
     Expr.BoxValue { box; type' }
-  | SubArray { arrayArg; indexArg; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
     let argType =
       match Expr.type' arrayArg with
       | Array array -> array
@@ -495,7 +495,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
         arrayArg
     and indexArg = reduceTuplesInExpr Whole indexArg in
     let type' = reduceTuplesType request type' in
-    Expr.SubArray { arrayArg; indexArg; type' }
+    Expr.ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
   | Zip { zipArg; nestCount; type' } ->
     let rec interchangeCollections nestCount wrapper request =
       if nestCount = 0

@@ -449,9 +449,10 @@ module Expr = struct
 
   and literal = Nested.Expr.literal
 
-  and ('l, 'c) subArray =
+  and ('l, 'c) contiguousSubArray =
     { arrayArg : ('l, 'c) t
     ; indexArg : ('l, 'c) t
+    ; resultShape : Index.shape
     ; type' : Type.t
     }
 
@@ -511,7 +512,7 @@ module Expr = struct
     | Values : ('l, 'c) values -> ('l, 'c) t
     | ScalarPrimitive : ('l, 'c) scalarPrimitive -> ('l, 'c) t
     | TupleDeref : ('l, 'c) tupleDeref -> ('l, 'c) t
-    | SubArray : ('l, 'c) subArray -> ('l, 'c) t
+    | ContiguousSubArray : ('l, 'c) contiguousSubArray -> ('l, 'c) t
     | IfParallelismHitsCutoff : 'c ifParallelismHitsCutoff -> (host, 'c) t
     | Eseq : ('l, 'c) eseq -> ('l, 'c) t
     | Getmem : getmem -> (_, _) t
@@ -553,7 +554,7 @@ module Expr = struct
     | ReifyDimensionIndex _ -> Atom (Literal IntLiteral)
     | LoopBlock loopBlock -> Tuple loopBlock.type'
     | LoopKernel loopKernel -> Tuple loopKernel.kernel.type'
-    | SubArray subArray -> subArray.type'
+    | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
     | IfParallelismHitsCutoff ifParallelismHitsCutoff -> ifParallelismHitsCutoff.type'
     | Eseq eseq -> eseq.type'
     | Getmem getmem -> getmem.type'
@@ -923,14 +924,15 @@ module Expr = struct
         ; Sexp.List [ Sexp.Atom "map-result-mem-final"; Mem.sexp_of_t mapResultMemFinal ]
         ]
 
-    and sexp_of_subArray
-      : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) subArray -> Sexp.t
+    and sexp_of_contiguousSubArray
+      : type a c. (a -> Sexp.t) -> (c -> Sexp.t) -> (a, c) contiguousSubArray -> Sexp.t
       =
-      fun sexp_of_a sexp_of_c { arrayArg; indexArg; type' = _ } ->
+      fun sexp_of_a sexp_of_c { arrayArg; indexArg; resultShape; type' = _ } ->
       Sexp.List
         [ Sexp.Atom "index"
         ; sexp_of_t sexp_of_a sexp_of_c arrayArg
         ; sexp_of_t sexp_of_a sexp_of_c indexArg
+        ; [%sexp_of: Index.shape] resultShape
         ]
 
     and sexp_of_parallelism = function
@@ -1036,7 +1038,8 @@ module Expr = struct
              (sexp_of_consumerOp sexp_of_host sexp_of_device sexp_of_parallel sexp_of_c))
           sexp_of_c
           loopKernel
-      | SubArray subArray -> sexp_of_subArray sexp_of_a sexp_of_c subArray
+      | ContiguousSubArray contiguousSubArray ->
+        sexp_of_contiguousSubArray sexp_of_a sexp_of_c contiguousSubArray
       | IfParallelismHitsCutoff ifParallelismHitsCutoff ->
         sexp_of_ifParallelismHitsCutoff sexp_of_c ifParallelismHitsCutoff
       | Eseq eseq -> sexp_of_eseq sexp_of_a sexp_of_c eseq

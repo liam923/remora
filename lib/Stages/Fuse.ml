@@ -211,10 +211,14 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     Set.union
       (args |> List.map ~f:getUsesInExpr |> Set.union_list (module Identifier))
       (getUsesInType type')
-  | SubArray { arrayArg; indexArg; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
     Set.union_list
       (module Identifier)
-      [ getUsesInExpr arrayArg; getUsesInExpr indexArg; getUsesInType type' ]
+      [ getUsesInExpr arrayArg
+      ; getUsesInExpr indexArg
+      ; getUsesInType type'
+      ; getUsesInIndex (Shape resultShape)
+      ]
   | Append { args; type' } ->
     Set.union
       (args |> List.map ~f:getUsesInExpr |> Set.union_list (module Identifier))
@@ -267,7 +271,7 @@ let rec getMapValue mapRefs =
      | Some (Tuple mapValues) -> List.nth mapValues index |> Option.bind ~f:(fun v -> v)
      | Some (Value derefs) -> Some (Value (index :: derefs))
      | None -> None)
-  | ScalarPrimitive _ | SubArray _ | Append _ | Zip _ | Unzip _ -> None
+  | ScalarPrimitive _ | ContiguousSubArray _ | Append _ | Zip _ | Unzip _ -> None
 ;;
 
 type consumerExtraction =
@@ -553,17 +557,18 @@ let rec liftFrom
       liftFromList args ~f:(liftFrom target targetConsumer capturables mapRefs)
     in
     extraction, ScalarPrimitive { op; args; type' }
-  | SubArray { arrayArg; indexArg; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
     let%bind extraction, arrayArg =
       liftFrom target targetConsumer capturables mapRefs arrayArg
     in
     (match extraction with
-     | Some _ as extraction -> return (extraction, SubArray { arrayArg; indexArg; type' })
+     | Some _ as extraction ->
+       return (extraction, ContiguousSubArray { arrayArg; indexArg; resultShape; type' })
      | None ->
        let%map extraction, indexArg =
          liftFrom target targetConsumer capturables mapRefs indexArg
        in
-       extraction, SubArray { arrayArg; indexArg; type' })
+       extraction, ContiguousSubArray { arrayArg; indexArg; resultShape; type' })
   | Append { args; type' } ->
     let%map extraction, args =
       liftFromList args ~f:(liftFrom target targetConsumer capturables mapRefs)
@@ -899,7 +904,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
           | Box _
           | Literal _
           | ScalarPrimitive _
-          | SubArray _
+          | ContiguousSubArray _
           | Append _
           | Zip _
           | Unzip _ -> []
@@ -1196,10 +1201,10 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
   | ScalarPrimitive { op; args; type' } ->
     let%map args = args |> List.map ~f:(fuseLoops scope) |> FuseState.all in
     ScalarPrimitive { op; args; type' }
-  | SubArray { arrayArg; indexArg; type' } ->
+  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
     let%map arrayArg = fuseLoops scope arrayArg
     and indexArg = fuseLoops scope indexArg in
-    SubArray { arrayArg; indexArg; type' }
+    ContiguousSubArray { arrayArg; indexArg; resultShape; type' }
   | Append { args; type' } ->
     let%map args = args |> List.map ~f:(fuseLoops scope) |> FuseState.all in
     Append { args; type' }

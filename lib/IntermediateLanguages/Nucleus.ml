@@ -194,10 +194,11 @@ module Expr = struct
         ; cellShape : Index.shape
         ; type' : Type.array
         }
-    | Index of
+    | ContiguousSubArray of
         { arrayArg : array
         ; indexArg : array
-        ; s : Index.shape
+        ; originalShape : Index.shape
+        ; resultShape : Index.shape
         ; cellShape : Index.shape
         ; l : Index.dimension
         ; type' : Type.array
@@ -275,7 +276,7 @@ module Expr = struct
        | Reduce reduce -> reduce.type'
        | Fold fold -> fold.type'
        | Append append -> append.type'
-       | Index index -> index.type'
+       | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
        | Scatter scatter -> scatter.type')
   ;;
 end

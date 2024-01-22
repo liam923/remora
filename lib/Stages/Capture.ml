@@ -206,8 +206,8 @@ module Captures = struct
     | Values { elements; type' = _ } -> getList elements ~f:getInExpr
     | ScalarPrimitive { op = _; args; type' = _ } -> getList args ~f:getInExpr
     | TupleDeref { tuple; index = _; type' = _ } -> getInExpr tuple
-    | SubArray { arrayArg; indexArg; type' } ->
-      getInExpr arrayArg + getInExpr indexArg + getInType type'
+    | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+      getInExpr arrayArg + getInExpr indexArg + getInShape resultShape + getInType type'
     | Eseq { statement; expr; type' = _ } -> getInStatement statement + getInExpr expr
     | ReifyDimensionIndex { dim } -> getInDim dim
     | Literal _ -> empty
@@ -407,8 +407,13 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
     ScalarPrimitive { op; args = List.map args ~f:annotateExpr; type' }
   | TupleDeref { tuple; index; type' } ->
     TupleDeref { tuple = annotateExpr tuple; index; type' }
-  | SubArray { arrayArg; indexArg; type' } ->
-    SubArray { arrayArg = annotateExpr arrayArg; indexArg = annotateExpr indexArg; type' }
+  | ContiguousSubArray { arrayArg; indexArg; resultShape; type' } ->
+    ContiguousSubArray
+      { arrayArg = annotateExpr arrayArg
+      ; indexArg = annotateExpr indexArg
+      ; resultShape
+      ; type'
+      }
   | IfParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' } ->
     IfParallelismHitsCutoff
       { parallelism

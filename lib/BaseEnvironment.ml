@@ -248,6 +248,61 @@ module Stdlib : S = struct
               (reify-dimension d))))
             |}
       }
+    ; { name = "contiguous-subarray"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' -> Expr.Primitive { name = Func ContiguousSubArray; type' })
+            ; type' =
+                {|
+                (Pi (@original-shape @result-shape @cell-shape l)
+                  (Forall (t)
+                    (-> ([t @original-shape @cell-shape]
+                          [int l])
+                        [t @result-shape @cell-shape])))
+                |}
+            }
+      }
+    ; { name = "index"
+      ; value =
+          Expression
+            {|
+            (i-fn (@s @cell-shape l)
+              (t-fn (t)
+                (fn ([arr [t @s @cell-shape]] [index [int l]])
+                  (contiguous-subarray{t | @s [] @cell-shape l} arr index))))
+            |}
+      }
+    ; { name = "head"
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @cell-shape)
+              (t-fn (t)
+                (fn ([arr [t (+ d-1 1) @cell-shape]])
+                  (contiguous-subarray{t | [(+ d-1 1)] [] @cell-shape 1} arr [0]))))
+            |}
+      }
+    ; { name = "tail"
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @cell-shape)
+              (t-fn (t)
+                (fn ([arr [t (+ d-1 1) @cell-shape]])
+                  (contiguous-subarray{t | [(+ d-1 1)] [d-1] @cell-shape 1} arr [1]))))
+            |}
+      }
+    ; { name = "subvector"
+      ; value =
+          Expression
+            {|
+            (i-fn (d-in d-out @cell-shape)
+              (t-fn (t)
+                (fn ([arr [t d-in @cell-shape]] [i int])
+                  (contiguous-subarray{t | [d-in] [d-out] @cell-shape 1} arr [i]))))
+            |}
+      }
     ; { name = "reduce"
       ; value =
           Intrinsic
@@ -324,6 +379,32 @@ module Stdlib : S = struct
                   |}
             }
       }
+    ; { name = "open-scan-zero"
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name =
+                        Func
+                          (Reduce
+                             { associative = true
+                             ; explicitZero = true
+                             ; character = OpenScan
+                             })
+                    ; type'
+                    })
+            ; type' =
+                {|
+                (Pi (d @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                          [t @cell-shape]
+                          [t d @cell-shape])
+                        [t (+ d 1) @cell-shape])))
+                |}
+            }
+      }
     ; { name = "scan"
       ; value =
           Intrinsic
@@ -372,32 +453,6 @@ module Stdlib : S = struct
                 |}
             }
       }
-    ; { name = "open-scan-zero"
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true
-                             ; explicitZero = true
-                             ; character = OpenScan
-                             })
-                    ; type'
-                    })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t @cell-shape]
-                         [t d @cell-shape])
-                        [t (+ d 1) @cell-shape])))
-                |}
-            }
-      }
     ; { name = "fold"
       ; value =
           Intrinsic
@@ -434,20 +489,6 @@ module Stdlib : S = struct
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Val Iota; type' })
             ; type' = {| (Pi (@s) [int @s]) |}
-            }
-      }
-    ; { name = "index"
-      ; value =
-          Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { name = Func Index; type' })
-            ; type' =
-                {|
-                (Pi (@s @cell-shape l)
-                  (Forall (t)
-                    (-> ([t @s @cell-shape]
-                         [int l])
-                        [t @cell-shape])))
-                |}
             }
       }
     ; { name = "scatter"

@@ -931,17 +931,21 @@ and inlineTermApplication subs indexEnv appStack termApplication =
                   [ "reduce expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
-     | Index ->
+     | ContiguousSubArray ->
        assert (List.length args = 2);
        (match primitive.appStack with
-        | [ IndexApp [ Shape s; Shape cellShape; Dimension l ]; TypeApp [ Atom _ ] ] ->
+        | [ IndexApp
+              [ Shape originalShape; Shape resultShape; Shape cellShape; Dimension l ]
+          ; TypeApp [ Atom _ ]
+          ] ->
           let%map arrayArg, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 0))
           and indexArg, _ = inlineArray subs indexEnv [] (Ref (List.nth_exn args 1)) in
           ( I.ArrayPrimitive
-              (Index
+              (ContiguousSubArray
                  { arrayArg
                  ; indexArg
-                 ; s
+                 ; originalShape
+                 ; resultShape
                  ; cellShape
                  ; l
                  ; type' = inlineArrayTypeWithStack appStack (Arr type')

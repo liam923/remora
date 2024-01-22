@@ -220,9 +220,10 @@ module Expr = struct
 
   and literal = Nucleus.Expr.literal
 
-  and subArray =
+  and contiguousSubArray =
     { arrayArg : t
     ; indexArg : t
+    ; resultShape : Index.shape
     ; type' : Type.t
     }
 
@@ -259,7 +260,7 @@ module Expr = struct
     | Values of values
     | ScalarPrimitive of scalarPrimitive
     | TupleDeref of tupleDeref
-    | SubArray of subArray
+    | ContiguousSubArray of contiguousSubArray
     | Append of append
     | Zip of zip
     | Unzip of unzip
@@ -281,7 +282,7 @@ module Expr = struct
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
     | LoopBlock loopBlock -> Tuple loopBlock.type'
-    | SubArray subArray -> subArray.type'
+    | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
     | Append append -> append.type'
     | Zip zip -> zip.type'
     | Unzip unzip -> Tuple unzip.type'
@@ -526,8 +527,13 @@ module Expr = struct
             ]
         ]
 
-    and sexp_of_subArray { arrayArg; indexArg; type' = _ } =
-      Sexp.List [ Sexp.Atom "index"; sexp_of_t arrayArg; sexp_of_t indexArg ]
+    and sexp_of_contiguousSubArray { arrayArg; indexArg; resultShape; type' = _ } =
+      Sexp.List
+        [ Sexp.Atom "contiguous-subarray"
+        ; sexp_of_t arrayArg
+        ; sexp_of_t indexArg
+        ; [%sexp_of: Index.shape] resultShape
+        ]
 
     and sexp_of_append ({ args; type' = _ } : append) =
       Sexp.List (Sexp.Atom "++" :: List.map args ~f:sexp_of_t)
@@ -555,7 +561,8 @@ module Expr = struct
       | Let let' -> sexp_of_let let'
       | ReifyIndex reifyIndex -> sexp_of_reifyIndex reifyIndex
       | LoopBlock loopBlock -> sexp_of_loopBlock loopBlock
-      | SubArray subArray -> sexp_of_subArray subArray
+      | ContiguousSubArray contiguousSubArray ->
+        sexp_of_contiguousSubArray contiguousSubArray
       | Append append -> sexp_of_append append
       | Zip zip -> sexp_of_zip zip
       | Unzip unzip -> sexp_of_unzip unzip

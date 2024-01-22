@@ -2154,7 +2154,7 @@ and genExpr
         ; blocks = _
         ; threads = _
         } ) -> raise Unimplemented.default
-  | _, SubArray { arrayArg; indexArg; type' = outType } ->
+  | _, ContiguousSubArray { arrayArg; indexArg; resultShape = _; type' = outType } ->
     let%bind cArrayArg = genExpr ~hostOrDevice ~store:true arrayArg in
     let%bind cIndexArg = genExpr ~hostOrDevice ~store:true indexArg in
     let indexArgLen =

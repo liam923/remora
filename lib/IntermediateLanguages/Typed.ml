@@ -154,7 +154,7 @@ module Expr = struct
         }
     | Fold of { character : foldCharacter }
     | Append
-    | Index
+    | ContiguousSubArray
     | Scatter
     | Replicate
     | If
