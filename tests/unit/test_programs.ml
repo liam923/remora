@@ -70,32 +70,32 @@ let%expect_test "simple addition" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 64))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 62)))
+       (((binding ((name f) (id 94))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 92)))
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 63)))
+        ((binding ((name +arg2) (id 93)))
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 64))))))
-         (args (((id ((name +arg1) (id 62)))) ((id ((name +arg2) (id 63))))))
+        ((func (Ref ((id ((name f) (id 94))))))
+         (args (((id ((name +arg1) (id 92)))) ((id ((name +arg2) (id 93))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 65)))
+       (((binding ((name f) (id 95)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 66)))
+        ((binding ((name +arg1) (id 96)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 67)))
+        ((binding ((name +arg2) (id 97)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 2)))
@@ -109,22 +109,22 @@ let%expect_test "simple addition" =
              ((ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg1) (id 66)))
+                  ((id ((name +arg1) (id 96)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))
               (ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg2) (id 67)))
+                  ((id ((name +arg2) (id 97)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))))
             (type' (Literal IntLiteral)))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
-    (let ((f.68 (values)) (+arg1.69 1) (+arg2.70 2))
-     (let ((f.65 f.68) (+arg1.66 +arg1.69) (+arg2.67 +arg2.70))
-      (+ +arg1.66 +arg2.67)))
+    (let ((f.98 (values)) (+arg1.99 1) (+arg2.100 2))
+     (let ((f.95 f.98) (+arg1.96 +arg1.99) (+arg2.97 +arg2.100))
+      (+ +arg1.96 +arg2.97)))
     Result of stage Fuse and Simplify:
     3
     Result of stage Kernelize:
@@ -144,71 +144,71 @@ let%expect_test "simple function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name add) (id 62)))
+     ((binding ((name add) (id 92)))
       (value
        (Scalar
         ((element
           (TermLambda
            ((params
-             (((binding ((name x) (id 63)))
+             (((binding ((name x) (id 93)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-              ((binding ((name y) (id 64)))
+              ((binding ((name y) (id 94)))
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (body
              (TermApplication
               ((func (Primitive ((name (Func Add)))))
                (args
-                ((Ref ((id ((name x) (id 63))))) (Ref ((id ((name y) (id 64))))))))))))))))
+                ((Ref ((id ((name x) (id 93))))) (Ref ((id ((name y) (id 94))))))))))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name add) (id 62))))))
+        ((func (Ref ((id ((name add) (id 92))))))
          (args
           ((Scalar ((element (Literal (IntLiteral 5)))))
            (Scalar ((element (Literal (IntLiteral 10))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name add) (id 62)))
+       (((binding ((name add) (id 92)))
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name x) (id 63)))
+                (((binding ((name x) (id 93)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name y) (id 64)))
+                 ((binding ((name y) (id 94)))
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 67)))
+                   (((binding ((name f) (id 97)))
                      (value (Primitive ((name (Func Add))))))
-                    ((binding ((name +arg1) (id 65)))
-                     (value (Ref ((id ((name x) (id 63)))))))
-                    ((binding ((name +arg2) (id 66)))
-                     (value (Ref ((id ((name y) (id 64)))))))))
+                    ((binding ((name +arg1) (id 95)))
+                     (value (Ref ((id ((name x) (id 93)))))))
+                    ((binding ((name +arg2) (id 96)))
+                     (value (Ref ((id ((name y) (id 94)))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 67))))))
+                    ((func (Ref ((id ((name f) (id 97))))))
                      (args
-                      (((id ((name +arg1) (id 65))))
-                       ((id ((name +arg2) (id 66))))))
+                      (((id ((name +arg1) (id 95))))
+                       ((id ((name +arg2) (id 96))))))
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 70)))
-            (value (Ref ((id ((name add) (id 62)))))))
-           ((binding ((name x) (id 68)))
+          (((binding ((name f) (id 100)))
+            (value (Ref ((id ((name add) (id 92)))))))
+           ((binding ((name x) (id 98)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))
-           ((binding ((name y) (id 69)))
+           ((binding ((name y) (id 99)))
             (value (Scalar ((element (Literal (IntLiteral 10)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 70))))))
-            (args (((id ((name x) (id 68)))) ((id ((name y) (id 69))))))
+           ((func (Ref ((id ((name f) (id 100))))))
+            (args (((id ((name x) (id 98)))) ((id ((name y) (id 99))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -217,7 +217,7 @@ let%expect_test "simple function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name add) (id 72)))
+       (((binding ((name add) (id 102)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -226,17 +226,17 @@ let%expect_test "simple function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 73)))
+          (((binding ((name f) (id 103)))
             (value
              (Ref
-              ((id ((name add) (id 72)))
+              ((id ((name add) (id 102)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name x) (id 75)))
+           ((binding ((name x) (id 105)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name y) (id 77)))
+           ((binding ((name y) (id 107)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 10)))
@@ -245,20 +245,20 @@ let%expect_test "simple function definition and call" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name f) (id 74)))
+             (((binding ((name f) (id 104)))
                (value
                 (AtomAsArray
                  ((element (Values ((elements ()) (type' ()))))
                   (type' ((element (Tuple ())) (shape ())))))))
-              ((binding ((name +arg1) (id 76)))
+              ((binding ((name +arg1) (id 106)))
                (value
                 (Ref
-                 ((id ((name x) (id 75)))
+                 ((id ((name x) (id 105)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name +arg2) (id 78)))
+              ((binding ((name +arg2) (id 108)))
                (value
                 (Ref
-                 ((id ((name y) (id 77)))
+                 ((id ((name y) (id 107)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (AtomAsArray
@@ -269,13 +269,13 @@ let%expect_test "simple function definition and call" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 76)))
+                        ((id ((name +arg1) (id 106)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 78)))
+                        ((id ((name +arg2) (id 108)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -284,13 +284,13 @@ let%expect_test "simple function definition and call" =
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
-    (let ((add.79 (values)))
-     (let ((add.72 add.79))
-      (let ((f.80 add.72) (x.81 5) (y.82 10))
-       (let ((f.73 f.80) (x.75 x.81) (y.77 y.82))
-        (let ((f.83 (values)) (+arg1.84 x.75) (+arg2.85 y.77))
-         (let ((f.74 f.83) (+arg1.76 +arg1.84) (+arg2.78 +arg2.85))
-          (+ +arg1.76 +arg2.78)))))))
+    (let ((add.109 (values)))
+     (let ((add.102 add.109))
+      (let ((f.110 add.102) (x.111 5) (y.112 10))
+       (let ((f.103 f.110) (x.105 x.111) (y.107 y.112))
+        (let ((f.113 (values)) (+arg1.114 x.105) (+arg2.115 y.107))
+         (let ((f.104 f.113) (+arg1.106 +arg1.114) (+arg2.108 +arg2.115))
+          (+ +arg1.106 +arg2.108)))))))
     Result of stage Fuse and Simplify:
     15
     Result of stage Kernelize:
@@ -310,58 +310,58 @@ let%expect_test "polymorphic function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name id) (id 62)))
+     ((binding ((name id) (id 92)))
       (value
        (Scalar
         ((element
           (TypeLambda
-           ((params (((binding ((name @t) (id 63))) (bound Array))))
+           ((params (((binding ((name @t) (id 93))) (bound Array))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name e) (id 64)))
-                     (bound (ArrayRef ((name @t) (id 63)))))))
-                  (body (Ref ((id ((name e) (id 64))))))))))))))))))
+                   (((binding ((name e) (id 94)))
+                     (bound (ArrayRef ((name @t) (id 93)))))))
+                  (body (Ref ((id ((name e) (id 94))))))))))))))))))
       (body
        (TermApplication
         ((func
           (TypeApplication
-           ((tFunc (Ref ((id ((name id) (id 62))))))
+           ((tFunc (Ref ((id ((name id) (id 92))))))
             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
          (args ((Scalar ((element (Literal (IntLiteral 5))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name id) (id 62)))
+       (((binding ((name id) (id 92)))
          (value
           (Scalar
            ((element
              (TypeLambda
-              ((params (((binding ((name @t) (id 63))) (bound Array))))
+              ((params (((binding ((name @t) (id 93))) (bound Array))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name e) (id 64)))
-                        (bound (ArrayRef ((name @t) (id 63)))))))
-                     (body (Ref ((id ((name e) (id 64)))))))))))))))))))))
+                      (((binding ((name e) (id 94)))
+                        (bound (ArrayRef ((name @t) (id 93)))))))
+                     (body (Ref ((id ((name e) (id 94)))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 66)))
+          (((binding ((name f) (id 96)))
             (value
              (TypeApplication
-              ((tFunc (Ref ((id ((name id) (id 62))))))
+              ((tFunc (Ref ((id ((name id) (id 92))))))
                (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-           ((binding ((name e) (id 65)))
+           ((binding ((name e) (id 95)))
             (value (Scalar ((element (Literal (IntLiteral 5)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 66))))))
-            (args (((id ((name e) (id 65))))))
+           ((func (Ref ((id ((name f) (id 96))))))
+            (args (((id ((name e) (id 95))))))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -370,7 +370,7 @@ let%expect_test "polymorphic function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 68)))
+       (((binding ((name id) (id 98)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -379,26 +379,26 @@ let%expect_test "polymorphic function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 69)))
+          (((binding ((name f) (id 99)))
             (value
              (Ref
-              ((id ((name id) (id 68)))
+              ((id ((name id) (id 98)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name e) (id 70)))
+           ((binding ((name e) (id 100)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name e) (id 70)))
+           ((id ((name e) (id 100)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
-    (let ((id.71 (values)))
-     (let ((id.68 id.71))
-      (let ((f.72 id.68) (e.73 5)) (let ((f.69 f.72) (e.70 e.73)) e.70))))
+    (let ((id.101 (values)))
+     (let ((id.98 id.101))
+      (let ((f.102 id.98) (e.103 5)) (let ((f.99 f.102) (e.100 e.103)) e.100))))
     Result of stage Fuse and Simplify:
     5
     Result of stage Kernelize:
@@ -440,15 +440,15 @@ let%expect_test "function call with implicit map" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 64))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 62)))
+       (((binding ((name f) (id 94))) (value (Primitive ((name (Func Add))))))
+        ((binding ((name +arg1) (id 92)))
          (value
           (Frame
            ((dimensions (2))
             (elements
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))))))))
-        ((binding ((name +arg2) (id 63)))
+        ((binding ((name +arg2) (id 93)))
          (value
           (Frame
            ((dimensions (2))
@@ -468,20 +468,20 @@ let%expect_test "function call with implicit map" =
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 65)))
-            (value (Ref ((id ((name +arg1) (id 62)))))))
-           ((binding ((name +arg2) (id 66)))
-            (value (Ref ((id ((name +arg2) (id 63)))))))))
+          (((binding ((name +arg1) (id 95)))
+            (value (Ref ((id ((name +arg1) (id 92)))))))
+           ((binding ((name +arg2) (id 96)))
+            (value (Ref ((id ((name +arg2) (id 93)))))))))
          (body
           (Map
            ((args
-             (((binding ((name +arg2) (id 67)))
-               (value (Ref ((id ((name +arg2) (id 66)))))))))
+             (((binding ((name +arg2) (id 97)))
+               (value (Ref ((id ((name +arg2) (id 96)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 64))))))
+              ((func (Ref ((id ((name f) (id 94))))))
                (args
-                (((id ((name +arg1) (id 65)))) ((id ((name +arg2) (id 67))))))
+                (((id ((name +arg1) (id 95)))) ((id ((name +arg2) (id 97))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 3) (refs ())))))
             (type'
@@ -502,12 +502,12 @@ let%expect_test "function call with implicit map" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 68)))
+       (((binding ((name f) (id 98)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 69)))
+        ((binding ((name +arg1) (id 99)))
          (value
           (Frame
            ((dimensions (2))
@@ -521,7 +521,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 71)))
+        ((binding ((name +arg2) (id 101)))
          (value
           (Frame
            ((dimensions (2))
@@ -563,17 +563,17 @@ let%expect_test "function call with implicit map" =
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 70)))
+          (((binding ((name +arg1) (id 100)))
             (value
              (Ref
-              ((id ((name +arg1) (id 69)))
+              ((id ((name +arg1) (id 99)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))
-           ((binding ((name +arg2) (id 72)))
+           ((binding ((name +arg2) (id 102)))
             (value
              (Ref
-              ((id ((name +arg2) (id 71)))
+              ((id ((name +arg2) (id 101)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape
@@ -582,10 +582,10 @@ let%expect_test "function call with implicit map" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 73)))
+             (((binding ((name +arg2) (id 103)))
                (value
                 (Ref
-                 ((id ((name +arg2) (id 72)))
+                 ((id ((name +arg2) (id 102)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -598,13 +598,13 @@ let%expect_test "function call with implicit map" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 70)))
+                        ((id ((name +arg1) (id 100)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 73)))
+                        ((id ((name +arg2) (id 103)))
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -620,211 +620,215 @@ let%expect_test "function call with implicit map" =
         (shape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))))))
     Result of stage Nest:
     (let
-     ((f.74 (values)) (+arg1.75 (frame 1 2))
-      (+arg2.76 (frame (frame 3 4 5) (frame 6 7 8))))
-     (let ((f.68 f.74) (+arg1.69 +arg1.75) (+arg2.71 +arg2.76))
-      (let ((+arg1.77 +arg1.69) (+arg2.78 +arg2.71))
+     ((f.104 (values)) (+arg1.105 (frame 1 2))
+      (+arg2.106 (frame (frame 3 4 5) (frame 6 7 8))))
+     (let ((f.98 f.104) (+arg1.99 +arg1.105) (+arg2.101 +arg2.106))
+      (let ((+arg1.107 +arg1.99) (+arg2.108 +arg2.101))
        (#0
         (#0
          (loop-block (frame-shape 2)
-          (map ((+arg1.80 +arg1.77) (+arg2.81 +arg2.78))
-           (let ((+arg1.70 +arg1.80) (+arg2.72 +arg2.81))
-            (let ((+arg2.82 +arg2.72))
+          (map ((+arg1.110 +arg1.107) (+arg2.111 +arg2.108))
+           (let ((+arg1.100 +arg1.110) (+arg2.102 +arg2.111))
+            (let ((+arg2.112 +arg2.102))
              (#0
               (#0
                (loop-block (frame-shape 3)
-                (map ((+arg2.84 +arg2.82))
-                 (let ((+arg2.73 +arg2.84)) (+ +arg1.70 +arg2.73)))
-                (body-matcher map-result.83) (map-result (map-result.83))
+                (map ((+arg2.114 +arg2.112))
+                 (let ((+arg2.103 +arg2.114)) (+ +arg1.100 +arg2.103)))
+                (body-matcher map-result.113) (map-result (map-result.113))
                 (consumer (values))))))))
-          (body-matcher map-result.79) (map-result (map-result.79))
+          (body-matcher map-result.109) (map-result (map-result.109))
           (consumer (values))))))))
     Result of stage Fuse and Simplify:
-    (let ((+arg1.77 (frame 1 2)) (+arg2.78 (frame (frame 3 4 5) (frame 6 7 8))))
+    (let
+     ((+arg1.107 (frame 1 2)) (+arg2.108 (frame (frame 3 4 5) (frame 6 7 8))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((+arg1.80 +arg1.77) (+arg2.81 +arg2.78))
-         (let ((+arg2.82 +arg2.81))
+        (map ((+arg1.110 +arg1.107) (+arg2.111 +arg2.108))
+         (let ((+arg2.112 +arg2.111))
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg2.84 +arg2.82)) (+ +arg1.80 +arg2.84))
-             (body-matcher map-result.83) (map-result (map-result.83))
+             (map ((+arg2.114 +arg2.112)) (+ +arg1.110 +arg2.114))
+             (body-matcher map-result.113) (map-result (map-result.113))
              (consumer (values)))))))
-        (body-matcher map-result.79) (map-result (map-result.79))
+        (body-matcher map-result.109) (map-result (map-result.109))
         (consumer (values))))))
     Result of stage Kernelize:
-    (let ((+arg1.77 (frame 1 2)) (+arg2.78 (frame (frame 3 4 5) (frame 6 7 8))))
+    (let
+     ((+arg1.107 (frame 1 2)) (+arg2.108 (frame (frame 3 4 5) (frame 6 7 8))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((+arg1.80 +arg1.77) (+arg2.81 +arg2.78))
-         (let ((+arg2.82 +arg2.81))
+        (map ((+arg1.110 +arg1.107) (+arg2.111 +arg2.108))
+         (let ((+arg2.112 +arg2.111))
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg2.84 +arg2.82)) (+ +arg1.80 +arg2.84))
-             (body-matcher map-result.83) (map-result (map-result.83))
+             (map ((+arg2.114 +arg2.112)) (+ +arg1.110 +arg2.114))
+             (body-matcher map-result.113) (map-result (map-result.113))
              (consumer (values)))))))
-        (body-matcher map-result.79) (map-result (map-result.79))
+        (body-matcher map-result.109) (map-result (map-result.109))
         (consumer (values))))))
     Result of stage Alloc:
     (malloc-let
-     ((map-mem.106 (Array ((element (Literal IntLiteral)) (shape (shape 2 3))))
+     ((map-mem.136 (Array ((element (Literal IntLiteral)) (shape (shape 2 3))))
        host)
-      (frame-array.99
+      (frame-array.129
        (Array ((element (Literal IntLiteral)) (shape (shape 2 3)))) host)
-      (frame-array.96 (Array ((element (Literal IntLiteral)) (shape (shape 2))))
+      (frame-array.126 (Array ((element (Literal IntLiteral)) (shape (shape 2))))
        host))
      (let
-      ((+arg1.77
+      ((+arg1.107
         (begin
          (begin-do
           (putmem 1
-           (index (mem frame-array.96) (offset 0)
+           (index (mem frame-array.126) (offset 0)
             (type' (Atom (Literal IntLiteral)))))
           (putmem 2
-           (index (mem frame-array.96) (offset 1)
+           (index (mem frame-array.126) (offset 1)
             (type' (Atom (Literal IntLiteral))))))
-         (getmem frame-array.96)))
-       (+arg2.78
+         (getmem frame-array.126)))
+       (+arg2.108
         (begin
          (begin-do
           (begin-do
            (putmem 3
             (index
              (mem
-              (index (mem frame-array.99) (offset 0)
+              (index (mem frame-array.129) (offset 0)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 0) (type' (Atom (Literal IntLiteral)))))
            (putmem 4
             (index
              (mem
-              (index (mem frame-array.99) (offset 0)
+              (index (mem frame-array.129) (offset 0)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 1) (type' (Atom (Literal IntLiteral)))))
            (putmem 5
             (index
              (mem
-              (index (mem frame-array.99) (offset 0)
+              (index (mem frame-array.129) (offset 0)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 2) (type' (Atom (Literal IntLiteral))))))
           (begin-do
            (putmem 6
             (index
              (mem
-              (index (mem frame-array.99) (offset 1)
+              (index (mem frame-array.129) (offset 1)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 0) (type' (Atom (Literal IntLiteral)))))
            (putmem 7
             (index
              (mem
-              (index (mem frame-array.99) (offset 1)
+              (index (mem frame-array.129) (offset 1)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 1) (type' (Atom (Literal IntLiteral)))))
            (putmem 8
             (index
              (mem
-              (index (mem frame-array.99) (offset 1)
+              (index (mem frame-array.129) (offset 1)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 2) (type' (Atom (Literal IntLiteral)))))))
-         (getmem frame-array.99))))
+         (getmem frame-array.129))))
       (#0
        (#0
         (loop (frame-shape 2)
-         (map ((+arg1.80 +arg1.77) (+arg2.81 +arg2.78) (map-mem.107 map-mem.106))
-          (let ((+arg2.82 +arg2.81))
+         (map
+          ((+arg1.110 +arg1.107) (+arg2.111 +arg2.108) (map-mem.137 map-mem.136))
+          (let ((+arg2.112 +arg2.111))
            (#0
             (#0
              (loop (frame-shape 3)
-              (map ((+arg2.84 +arg2.82) (map-mem.108 map-mem.107))
-               (let ((expr-result.109 (+ +arg1.80 +arg2.84)))
-                (begin (putmem expr-result.109 map-mem.108) expr-result.109)))
-              (body-matcher map-result.83) (map-result (map-result.83))
-              (map-result-mem-interim (values map-mem.107))
-              (map-result-mem-final (values map-mem.107)) (consumer (values)))))))
-         (body-matcher map-result.79) (map-result (map-result.79))
-         (map-result-mem-interim (values map-mem.106))
-         (map-result-mem-final (values map-mem.106)) (consumer (values)))))))
+              (map ((+arg2.114 +arg2.112) (map-mem.138 map-mem.137))
+               (let ((expr-result.139 (+ +arg1.110 +arg2.114)))
+                (begin (putmem expr-result.139 map-mem.138) expr-result.139)))
+              (body-matcher map-result.113) (map-result (map-result.113))
+              (map-result-mem-interim (values map-mem.137))
+              (map-result-mem-final (values map-mem.137)) (consumer (values)))))))
+         (body-matcher map-result.109) (map-result (map-result.109))
+         (map-result-mem-interim (values map-mem.136))
+         (map-result-mem-final (values map-mem.136)) (consumer (values)))))))
     Result of stage Capture:
     (malloc-let
-     ((map-mem.106 (Array ((element (Literal IntLiteral)) (shape (shape 2 3))))
+     ((map-mem.136 (Array ((element (Literal IntLiteral)) (shape (shape 2 3))))
        host)
-      (frame-array.99
+      (frame-array.129
        (Array ((element (Literal IntLiteral)) (shape (shape 2 3)))) host)
-      (frame-array.96 (Array ((element (Literal IntLiteral)) (shape (shape 2))))
+      (frame-array.126 (Array ((element (Literal IntLiteral)) (shape (shape 2))))
        host))
      (let
-      ((+arg1.77
+      ((+arg1.107
         (begin
          (begin-do
           (putmem 1
-           (index (mem frame-array.96) (offset 0)
+           (index (mem frame-array.126) (offset 0)
             (type' (Atom (Literal IntLiteral)))))
           (putmem 2
-           (index (mem frame-array.96) (offset 1)
+           (index (mem frame-array.126) (offset 1)
             (type' (Atom (Literal IntLiteral))))))
-         (getmem frame-array.96)))
-       (+arg2.78
+         (getmem frame-array.126)))
+       (+arg2.108
         (begin
          (begin-do
           (begin-do
            (putmem 3
             (index
              (mem
-              (index (mem frame-array.99) (offset 0)
+              (index (mem frame-array.129) (offset 0)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 0) (type' (Atom (Literal IntLiteral)))))
            (putmem 4
             (index
              (mem
-              (index (mem frame-array.99) (offset 0)
+              (index (mem frame-array.129) (offset 0)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 1) (type' (Atom (Literal IntLiteral)))))
            (putmem 5
             (index
              (mem
-              (index (mem frame-array.99) (offset 0)
+              (index (mem frame-array.129) (offset 0)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 2) (type' (Atom (Literal IntLiteral))))))
           (begin-do
            (putmem 6
             (index
              (mem
-              (index (mem frame-array.99) (offset 1)
+              (index (mem frame-array.129) (offset 1)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 0) (type' (Atom (Literal IntLiteral)))))
            (putmem 7
             (index
              (mem
-              (index (mem frame-array.99) (offset 1)
+              (index (mem frame-array.129) (offset 1)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 1) (type' (Atom (Literal IntLiteral)))))
            (putmem 8
             (index
              (mem
-              (index (mem frame-array.99) (offset 1)
+              (index (mem frame-array.129) (offset 1)
                (type' (Array ((element (Literal IntLiteral)) (shape (shape 3)))))))
              (offset 2) (type' (Atom (Literal IntLiteral)))))))
-         (getmem frame-array.99))))
+         (getmem frame-array.129))))
       (#0
        (#0
         (loop (frame-shape 2)
-         (map ((+arg1.80 +arg1.77) (+arg2.81 +arg2.78) (map-mem.107 map-mem.106))
-          (let ((+arg2.82 +arg2.81))
+         (map
+          ((+arg1.110 +arg1.107) (+arg2.111 +arg2.108) (map-mem.137 map-mem.136))
+          (let ((+arg2.112 +arg2.111))
            (#0
             (#0
              (loop (frame-shape 3)
-              (map ((+arg2.84 +arg2.82) (map-mem.108 map-mem.107))
-               (let ((expr-result.109 (+ +arg1.80 +arg2.84)))
-                (begin (putmem expr-result.109 map-mem.108) expr-result.109)))
-              (body-matcher map-result.83) (map-result (map-result.83))
-              (map-result-mem-interim (values map-mem.107))
-              (map-result-mem-final (values map-mem.107)) (consumer (values)))))))
-         (body-matcher map-result.79) (map-result (map-result.79))
-         (map-result-mem-interim (values map-mem.106))
-         (map-result-mem-final (values map-mem.106)) (consumer (values))))))) |}]
+              (map ((+arg2.114 +arg2.112) (map-mem.138 map-mem.137))
+               (let ((expr-result.139 (+ +arg1.110 +arg2.114)))
+                (begin (putmem expr-result.139 map-mem.138) expr-result.139)))
+              (body-matcher map-result.113) (map-result (map-result.113))
+              (map-result-mem-interim (values map-mem.137))
+              (map-result-mem-final (values map-mem.137)) (consumer (values)))))))
+         (body-matcher map-result.109) (map-result (map-result.109))
+         (map-result-mem-interim (values map-mem.136))
+         (map-result-mem-final (values map-mem.136)) (consumer (values))))))) |}]
 ;;
 
 let%expect_test "box and unbox" =
@@ -842,7 +846,7 @@ let%expect_test "box and unbox" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name words) (id 62)))
+     ((binding ((name words) (id 92)))
       (value
        (Frame
         ((dimensions (2))
@@ -861,7 +865,7 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 63)) 1)))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 93)) 1)))))))))))))))
            (Scalar
             ((element
               (Box
@@ -875,12 +879,12 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))))))))))
       (body
        (Unbox
-        ((indexBindings ((((name len) (id 64)) Dim)))
-         (valueBinding ((name word) (id 65)))
-         (box (Ref ((id ((name words) (id 62))))))
+        ((indexBindings ((((name len) (id 94)) Dim)))
+         (valueBinding ((name word) (id 95)))
+         (box (Ref ((id ((name words) (id 92))))))
          (body
           (TermApplication
            ((func (Primitive ((name (Func Equal)))))
@@ -928,14 +932,14 @@ let%expect_test "box and unbox" =
                                              ((const 0)
                                               (refs ((((name d) (id 1)) 1)))))))))))))))))))))))))))
                       (args
-                       ((Dimension ((const 0) (refs ((((name len) (id 64)) 1)))))
+                       ((Dimension ((const 0) (refs ((((name len) (id 94)) 1)))))
                         (Shape ()))))))
                    (args ((Atom (Literal CharacterLiteral)))))))
-                (args ((Ref ((id ((name word) (id 65)))))))))))))))))))
+                (args ((Ref ((id ((name word) (id 95)))))))))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name words) (id 62)))
+       (((binding ((name words) (id 92)))
          (value
           (Frame
            ((dimensions (2))
@@ -955,7 +959,7 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 63)) 1)))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 93)) 1)))))))))))))))
               (Scalar
                ((element
                  (Box
@@ -970,36 +974,36 @@ let%expect_test "box and unbox" =
                     (Arr
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 63)) 1)))))))))))))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 93)) 1)))))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name box) (id 71)))
-            (value (Ref ((id ((name words) (id 62)))))))))
+          (((binding ((name box) (id 101)))
+            (value (Ref ((id ((name words) (id 92)))))))))
          (body
           (IndexLet
            ((indexArgs
-             (((indexBinding ((name len) (id 64)))
+             (((indexBinding ((name len) (id 94)))
                (indexValue
-                (FromBox (box (Ref ((id ((name box) (id 71)))))) (i 0)))
+                (FromBox (box (Ref ((id ((name box) (id 101)))))) (i 0)))
                (sort Dim))))
             (body
              (Map
               ((args
-                (((binding ((name word) (id 65)))
-                  (value (BoxValue ((box (Ref ((id ((name box) (id 71))))))))))))
+                (((binding ((name word) (id 95)))
+                  (value (BoxValue ((box (Ref ((id ((name box) (id 101))))))))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 70)))
+                   (((binding ((name f) (id 100)))
                      (value (Primitive ((name (Func Equal))))))
-                    ((binding ((name =arg1) (id 66)))
+                    ((binding ((name =arg1) (id 96)))
                      (value (Scalar ((element (Literal (IntLiteral 3)))))))
-                    ((binding ((name =arg2) (id 69)))
+                    ((binding ((name =arg2) (id 99)))
                      (value
                       (Map
                        ((args
-                         (((binding ((name f) (id 68)))
+                         (((binding ((name f) (id 98)))
                            (value
                             (TypeApplication
                              ((tFunc
@@ -1050,24 +1054,24 @@ let%expect_test "box and unbox" =
                                                           ((((name d) (id 1)) 1)))))))))))))))))))))))))))
                                  (args
                                   ((Dimension
-                                    ((const 0) (refs ((((name len) (id 64)) 1)))))
+                                    ((const 0) (refs ((((name len) (id 94)) 1)))))
                                    (Shape ()))))))
                               (args ((Atom (Literal CharacterLiteral))))))))
-                          ((binding ((name arr) (id 67)))
-                           (value (Ref ((id ((name word) (id 65)))))))))
+                          ((binding ((name arr) (id 97)))
+                           (value (Ref ((id ((name word) (id 95)))))))))
                         (body
                          (TermApplication
-                          ((func (Ref ((id ((name f) (id 68))))))
-                           (args (((id ((name arr) (id 67))))))
+                          ((func (Ref ((id ((name f) (id 98))))))
+                           (args (((id ((name arr) (id 97))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 70))))))
+                    ((func (Ref ((id ((name f) (id 100))))))
                      (args
-                      (((id ((name =arg1) (id 66))))
-                       ((id ((name =arg2) (id 69))))))
+                      (((id ((name =arg1) (id 96))))
+                       ((id ((name =arg2) (id 99))))))
                      (type' ((element (Literal BooleanLiteral)) (shape ()))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
@@ -1087,7 +1091,7 @@ let%expect_test "box and unbox" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name words) (id 77)))
+       (((binding ((name words) (id 107)))
          (value
           (Frame
            ((dimensions (2))
@@ -1118,21 +1122,21 @@ let%expect_test "box and unbox" =
                    (bodyType
                     ((element (Literal CharacterLiteral))
                      (shape
-                      ((Add ((const 0) (refs ((((name len) (id 63)) 1)))))))))
+                      ((Add ((const 0) (refs ((((name len) (id 93)) 1)))))))))
                    (type'
-                    ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))))
                 (type'
                  ((element
                    (Sigma
-                    ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))
                   (shape ())))))
               (AtomAsArray
                ((element
@@ -1156,65 +1160,65 @@ let%expect_test "box and unbox" =
                    (bodyType
                     ((element (Literal CharacterLiteral))
                      (shape
-                      ((Add ((const 0) (refs ((((name len) (id 63)) 1)))))))))
+                      ((Add ((const 0) (refs ((((name len) (id 93)) 1)))))))))
                    (type'
-                    ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))))
                 (type'
                  ((element
                    (Sigma
-                    ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+                    ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))
+                        ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))
                   (shape ())))))))
             (type'
              ((element
                (Sigma
-                ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+                ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                  (body
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))
               (shape ((Add ((const 2) (refs ())))))))))))))
       (body
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name box) (id 78)))
+          (((binding ((name box) (id 108)))
             (value
              (Ref
-              ((id ((name words) (id 77)))
+              ((id ((name words) (id 107)))
                (type'
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+                   ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                     (body
                      ((element (Literal CharacterLiteral))
                       (shape
-                       ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))
+                       ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))
                  (shape ((Add ((const 2) (refs ())))))))))))))
          (body
           (IndexLet
            ((indexArgs
-             (((indexBinding ((name len) (id 64)))
+             (((indexBinding ((name len) (id 94)))
                (indexValue
                 (FromBox
                  (box
                   (Ref
-                   ((id ((name box) (id 78)))
+                   ((id ((name box) (id 108)))
                     (type'
                      ((element
                        (Sigma
                         ((parameters
-                          (((binding ((name len) (id 63))) (bound Dim))))
+                          (((binding ((name len) (id 93))) (bound Dim))))
                          (body
                           ((element (Literal CharacterLiteral))
                            (shape
-                            ((Add ((const 0) (refs ((((name len) (id 63)) 1))))))))))))
+                            ((Add ((const 0) (refs ((((name len) (id 93)) 1))))))))))))
                       (shape ()))))))
                  (i 0)))
                (sort Dim))))
@@ -1225,22 +1229,22 @@ let%expect_test "box and unbox" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 72)))
+                   (((binding ((name f) (id 102)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name =arg1) (id 73)))
+                    ((binding ((name =arg1) (id 103)))
                      (value
                       (AtomAsArray
                        ((element (Literal (IntLiteral 3)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name =arg2) (id 76)))
+                    ((binding ((name =arg2) (id 106)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 75)))
+                         (((binding ((name f) (id 105)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
@@ -1249,7 +1253,7 @@ let%expect_test "box and unbox" =
                          (ReifyIndex
                           ((index
                             (Dimension
-                             ((const 0) (refs ((((name len) (id 64)) 1))))))
+                             ((const 0) (refs ((((name len) (id 94)) 1))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
@@ -1261,14 +1265,14 @@ let%expect_test "box and unbox" =
                          ((ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name =arg1) (id 73)))
+                              ((id ((name =arg1) (id 103)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))
                           (ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name =arg2) (id 76)))
+                              ((id ((name =arg2) (id 106)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))))
@@ -1284,66 +1288,66 @@ let%expect_test "box and unbox" =
        ((element (Literal BooleanLiteral)) (shape ((Add ((const 2) (refs ())))))))))
     Result of stage Nest:
     (let
-     ((words.79 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
-     (let ((words.77 words.79))
-      (let ((box.80 words.77))
+     ((words.109 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     (let ((words.107 words.109))
+      (let ((box.110 words.107))
        (#0
         (#0
          (loop-block (frame-shape 2)
-          (map ((box.82 box.80))
-           (let ((box.78 box.82))
-            (index-let ((len.64 box-index-0 box.78))
+          (map ((box.112 box.110))
+           (let ((box.108 box.112))
+            (index-let ((len.94 box-index-0 box.108))
              (let ()
               (let ()
                (let
-                ((f.83 (values)) (=arg1.84 3)
-                 (=arg2.86
-                  (let ((f.85 (values)))
-                   (let ((f.75 f.85)) (reify-index len.64)))))
-                (let ((f.72 f.83) (=arg1.73 =arg1.84) (=arg2.76 =arg2.86))
-                 (= =arg1.73 =arg2.76))))))))
-          (body-matcher map-result.81) (map-result (map-result.81))
+                ((f.113 (values)) (=arg1.114 3)
+                 (=arg2.116
+                  (let ((f.115 (values)))
+                   (let ((f.105 f.115)) (reify-index len.94)))))
+                (let ((f.102 f.113) (=arg1.103 =arg1.114) (=arg2.106 =arg2.116))
+                 (= =arg1.103 =arg2.106))))))))
+          (body-matcher map-result.111) (map-result (map-result.111))
           (consumer (values))))))))
     Result of stage Fuse and Simplify:
     (let
-     ((box.80 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     ((box.110 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((box.82 box.80))
-         (index-let ((len.64 box-index-0 box.82)) (= 3 (reify-index len.64))))
-        (body-matcher map-result.81) (map-result (map-result.81))
+        (map ((box.112 box.110))
+         (index-let ((len.94 box-index-0 box.112)) (= 3 (reify-index len.94))))
+        (body-matcher map-result.111) (map-result (map-result.111))
         (consumer (values))))))
     Result of stage Kernelize:
     (let
-     ((box.80 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
+     ((box.110 (frame (box (3) (frame 'h' 'e' 'y')) (box (2) (frame 'h' 'i')))))
      (#0
       (#0
        (loop-block (frame-shape 2)
-        (map ((box.82 box.80))
-         (index-let ((len.64 box-index-0 box.82)) (= 3 (reify-index len.64))))
-        (body-matcher map-result.81) (map-result (map-result.81))
+        (map ((box.112 box.110))
+         (index-let ((len.94 box-index-0 box.112)) (= 3 (reify-index len.94))))
+        (body-matcher map-result.111) (map-result (map-result.111))
         (consumer (values))))))
     Result of stage Alloc:
     (malloc-let
-     ((map-mem.98 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
+     ((map-mem.128 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
        host)
-      (frame-array.94
+      (frame-array.124
        (Array ((element (Literal CharacterLiteral)) (shape (shape 2)))) host)
-      (frame-array.89
+      (frame-array.119
        (Array ((element (Literal CharacterLiteral)) (shape (shape 3)))) host)
-      (frame-array.88
+      (frame-array.118
        (Array
         ((element
           (Sigma
-           ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+           ((parameters (((binding ((name len) (id 93))) (bound Dim))))
             (body
              (Array
-              ((element (Literal CharacterLiteral)) (shape (shape len.63))))))))
+              ((element (Literal CharacterLiteral)) (shape (shape len.93))))))))
          (shape (shape 2))))
        host))
      (let
-      ((box.80
+      ((box.110
         (begin
          (begin-do
           (putmem
@@ -1351,73 +1355,73 @@ let%expect_test "box and unbox" =
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.89) (offset 0)
+               (index (mem frame-array.119) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'e'
-               (index (mem frame-array.89) (offset 1)
+               (index (mem frame-array.119) (offset 1)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'y'
-               (index (mem frame-array.89) (offset 2)
+               (index (mem frame-array.119) (offset 2)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.89)))
-           (index (mem frame-array.88) (offset 0)
+             (getmem frame-array.119)))
+           (index (mem frame-array.118) (offset 0)
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+               ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                 (body
                  (Array
-                  ((element (Literal CharacterLiteral)) (shape (shape len.63)))))))))))
+                  ((element (Literal CharacterLiteral)) (shape (shape len.93)))))))))))
           (putmem
            (box (((expr (reify-dimension-index 2)) (index 2)))
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.94) (offset 0)
+               (index (mem frame-array.124) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'i'
-               (index (mem frame-array.94) (offset 1)
+               (index (mem frame-array.124) (offset 1)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.94)))
-           (index (mem frame-array.88) (offset 1)
+             (getmem frame-array.124)))
+           (index (mem frame-array.118) (offset 1)
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+               ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                 (body
                  (Array
-                  ((element (Literal CharacterLiteral)) (shape (shape len.63))))))))))))
-         (getmem frame-array.88))))
+                  ((element (Literal CharacterLiteral)) (shape (shape len.93))))))))))))
+         (getmem frame-array.118))))
       (#0
        (#0
         (loop (frame-shape 2)
-         (map ((box.82 box.80) (map-mem.99 map-mem.98))
-          (index-let ((len.64 box-index-0 box.82))
-           (let ((expr-result.100 (= 3 (reify-dimension-index len.64))))
-            (begin (putmem expr-result.100 map-mem.99) expr-result.100))))
-         (body-matcher map-result.81) (map-result (map-result.81))
-         (map-result-mem-interim (values map-mem.98))
-         (map-result-mem-final (values map-mem.98)) (consumer (values)))))))
+         (map ((box.112 box.110) (map-mem.129 map-mem.128))
+          (index-let ((len.94 box-index-0 box.112))
+           (let ((expr-result.130 (= 3 (reify-dimension-index len.94))))
+            (begin (putmem expr-result.130 map-mem.129) expr-result.130))))
+         (body-matcher map-result.111) (map-result (map-result.111))
+         (map-result-mem-interim (values map-mem.128))
+         (map-result-mem-final (values map-mem.128)) (consumer (values)))))))
     Result of stage Capture:
     (malloc-let
-     ((map-mem.98 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
+     ((map-mem.128 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
        host)
-      (frame-array.94
+      (frame-array.124
        (Array ((element (Literal CharacterLiteral)) (shape (shape 2)))) host)
-      (frame-array.89
+      (frame-array.119
        (Array ((element (Literal CharacterLiteral)) (shape (shape 3)))) host)
-      (frame-array.88
+      (frame-array.118
        (Array
         ((element
           (Sigma
-           ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+           ((parameters (((binding ((name len) (id 93))) (bound Dim))))
             (body
              (Array
-              ((element (Literal CharacterLiteral)) (shape (shape len.63))))))))
+              ((element (Literal CharacterLiteral)) (shape (shape len.93))))))))
          (shape (shape 2))))
        host))
      (let
-      ((box.80
+      ((box.110
         (begin
          (begin-do
           (putmem
@@ -1425,53 +1429,53 @@ let%expect_test "box and unbox" =
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.89) (offset 0)
+               (index (mem frame-array.119) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'e'
-               (index (mem frame-array.89) (offset 1)
+               (index (mem frame-array.119) (offset 1)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'y'
-               (index (mem frame-array.89) (offset 2)
+               (index (mem frame-array.119) (offset 2)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.89)))
-           (index (mem frame-array.88) (offset 0)
+             (getmem frame-array.119)))
+           (index (mem frame-array.118) (offset 0)
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+               ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                 (body
                  (Array
-                  ((element (Literal CharacterLiteral)) (shape (shape len.63)))))))))))
+                  ((element (Literal CharacterLiteral)) (shape (shape len.93)))))))))))
           (putmem
            (box (((expr (reify-dimension-index 2)) (index 2)))
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.94) (offset 0)
+               (index (mem frame-array.124) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'i'
-               (index (mem frame-array.94) (offset 1)
+               (index (mem frame-array.124) (offset 1)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.94)))
-           (index (mem frame-array.88) (offset 1)
+             (getmem frame-array.124)))
+           (index (mem frame-array.118) (offset 1)
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 63))) (bound Dim))))
+               ((parameters (((binding ((name len) (id 93))) (bound Dim))))
                 (body
                  (Array
-                  ((element (Literal CharacterLiteral)) (shape (shape len.63))))))))))))
-         (getmem frame-array.88))))
+                  ((element (Literal CharacterLiteral)) (shape (shape len.93))))))))))))
+         (getmem frame-array.118))))
       (#0
        (#0
         (loop (frame-shape 2)
-         (map ((box.82 box.80) (map-mem.99 map-mem.98))
-          (index-let ((len.64 box-index-0 box.82))
-           (let ((expr-result.100 (= 3 (reify-dimension-index len.64))))
-            (begin (putmem expr-result.100 map-mem.99) expr-result.100))))
-         (body-matcher map-result.81) (map-result (map-result.81))
-         (map-result-mem-interim (values map-mem.98))
-         (map-result-mem-final (values map-mem.98)) (consumer (values))))))) |}]
+         (map ((box.112 box.110) (map-mem.129 map-mem.128))
+          (index-let ((len.94 box-index-0 box.112))
+           (let ((expr-result.130 (= 3 (reify-dimension-index len.94))))
+            (begin (putmem expr-result.130 map-mem.129) expr-result.130))))
+         (body-matcher map-result.111) (map-result (map-result.111))
+         (map-result-mem-interim (values map-mem.128))
+         (map-result-mem-final (values map-mem.128)) (consumer (values))))))) |}]
 ;;
 
 let%expect_test "sum rows" =
@@ -1485,23 +1489,23 @@ let%expect_test "sum rows" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name sum-row) (id 62)))
+     ((binding ((name sum-row) (id 92)))
       (value
        (Scalar
         ((element
           (IndexLambda
-           ((params (((binding ((name d-1) (id 63))) (bound Dim))))
+           ((params (((binding ((name d-1) (id 93))) (bound Dim))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name row) (id 64)))
+                   (((binding ((name row) (id 94)))
                      (bound
                       (Arr
                        ((element (Literal IntLiteral))
                         (shape
-                         ((Add ((const 1) (refs ((((name d-1) (id 63)) 1)))))))))))))
+                         ((Add ((const 1) (refs ((((name d-1) (id 93)) 1)))))))))))))
                   (body
                    (TermApplication
                     ((func
@@ -1509,24 +1513,377 @@ let%expect_test "sum rows" =
                        ((tFunc
                          (IndexApplication
                           ((iFunc
-                            (Primitive
-                             ((name
-                               (Func
-                                (Reduce (associative true) (explicitZero false)
-                                 (character Reduce)))))))
+                            (Scalar
+                             ((element
+                               (IndexLambda
+                                ((params
+                                  (((binding ((name d-1) (id 33))) (bound Dim))
+                                   ((binding ((name @cell-shape) (id 34)))
+                                    (bound Shape))))
+                                 (body
+                                  (Scalar
+                                   ((element
+                                     (TypeLambda
+                                      ((params
+                                        (((binding ((name t) (id 35)))
+                                          (bound Atom))))
+                                       (body
+                                        (Scalar
+                                         ((element
+                                           (TermLambda
+                                            ((params
+                                              (((binding ((name op) (id 36)))
+                                                (bound
+                                                 (Arr
+                                                  ((element
+                                                    (Func
+                                                     ((parameters
+                                                       ((Arr
+                                                         ((element
+                                                           (AtomRef
+                                                            ((name t) (id 35))))
+                                                          (shape
+                                                           ((ShapeRef
+                                                             ((name @cell-shape)
+                                                              (id 34)))))))
+                                                        (Arr
+                                                         ((element
+                                                           (AtomRef
+                                                            ((name t) (id 35))))
+                                                          (shape
+                                                           ((ShapeRef
+                                                             ((name @cell-shape)
+                                                              (id 34)))))))))
+                                                      (return
+                                                       (Arr
+                                                        ((element
+                                                          (AtomRef
+                                                           ((name t) (id 35))))
+                                                         (shape
+                                                          ((ShapeRef
+                                                            ((name @cell-shape)
+                                                             (id 34)))))))))))
+                                                   (shape ())))))
+                                               ((binding ((name arr) (id 37)))
+                                                (bound
+                                                 (Arr
+                                                  ((element
+                                                    (AtomRef ((name t) (id 35))))
+                                                   (shape
+                                                    ((Add
+                                                      ((const 1)
+                                                       (refs
+                                                        ((((name d-1) (id 33)) 1)))))
+                                                     (ShapeRef
+                                                      ((name @cell-shape)
+                                                       (id 34)))))))))))
+                                             (body
+                                              (TermApplication
+                                               ((func
+                                                 (TypeApplication
+                                                  ((tFunc
+                                                    (IndexApplication
+                                                     ((iFunc
+                                                       (Primitive
+                                                        ((name
+                                                          (Func
+                                                           (Reduce
+                                                            (associative true)
+                                                            (explicitZero true)
+                                                            (character Reduce)))))))
+                                                      (args
+                                                       ((Dimension
+                                                         ((const 0)
+                                                          (refs
+                                                           ((((name d-1) (id 33))
+                                                             1)))))
+                                                        (Shape
+                                                         ((ShapeRef
+                                                           ((name @cell-shape)
+                                                            (id 34))))))))))
+                                                   (args
+                                                    ((Atom
+                                                      (AtomRef
+                                                       ((name t) (id 35)))))))))
+                                                (args
+                                                 ((Ref
+                                                   ((id ((name op) (id 36)))))
+                                                  (TermApplication
+                                                   ((func
+                                                     (TypeApplication
+                                                      ((tFunc
+                                                        (IndexApplication
+                                                         ((iFunc
+                                                           (Scalar
+                                                            ((element
+                                                              (IndexLambda
+                                                               ((params
+                                                                 (((binding
+                                                                    ((name d-1)
+                                                                     (id 16)))
+                                                                   (bound Dim))
+                                                                  ((binding
+                                                                    ((name
+                                                                      @cell-shape)
+                                                                     (id 17)))
+                                                                   (bound Shape))))
+                                                                (body
+                                                                 (Scalar
+                                                                  ((element
+                                                                    (TypeLambda
+                                                                     ((params
+                                                                       (((binding
+                                                                        ((name t)
+                                                                        (id 18)))
+                                                                        (bound
+                                                                        Atom))))
+                                                                      (body
+                                                                       (Scalar
+                                                                        ((element
+                                                                        (TermLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 19)))
+                                                                        (bound
+                                                                        (Arr
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 18))))
+                                                                        (shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 16))
+                                                                        1)))))
+                                                                        (ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17)))))))))))
+                                                                        (body
+                                                                        (TermApplication
+                                                                        ((func
+                                                                        (TypeApplication
+                                                                        ((tFunc
+                                                                        (IndexApplication
+                                                                        ((iFunc
+                                                                        (Primitive
+                                                                        ((name
+                                                                        (Func
+                                                                        ContiguousSubArray)))))
+                                                                        (args
+                                                                        ((Shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 16))
+                                                                        1)))))))
+                                                                        (Shape
+                                                                        ())
+                                                                        (Shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17)))))
+                                                                        (Dimension
+                                                                        ((const
+                                                                        1)
+                                                                        (refs ()))))))))
+                                                                        (args
+                                                                        ((Atom
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 18)))))))))
+                                                                        (args
+                                                                        ((Ref
+                                                                        ((id
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 19)))))
+                                                                        (Frame
+                                                                        ((dimensions
+                                                                        (1))
+                                                                        (elements
+                                                                        ((Scalar
+                                                                        ((element
+                                                                        (Literal
+                                                                        (IntLiteral
+                                                                        0))))))))))))))))))))))))))))))))
+                                                          (args
+                                                           ((Dimension
+                                                             ((const 0)
+                                                              (refs
+                                                               ((((name d-1)
+                                                                  (id 33))
+                                                                 1)))))
+                                                            (Shape
+                                                             ((ShapeRef
+                                                               ((name
+                                                                 @cell-shape)
+                                                                (id 34))))))))))
+                                                       (args
+                                                        ((Atom
+                                                          (AtomRef
+                                                           ((name t) (id 35)))))))))
+                                                    (args
+                                                     ((Ref
+                                                       ((id ((name arr) (id 37)))))))))
+                                                  (TermApplication
+                                                   ((func
+                                                     (TypeApplication
+                                                      ((tFunc
+                                                        (IndexApplication
+                                                         ((iFunc
+                                                           (Scalar
+                                                            ((element
+                                                              (IndexLambda
+                                                               ((params
+                                                                 (((binding
+                                                                    ((name d-1)
+                                                                     (id 20)))
+                                                                   (bound Dim))
+                                                                  ((binding
+                                                                    ((name
+                                                                      @cell-shape)
+                                                                     (id 21)))
+                                                                   (bound Shape))))
+                                                                (body
+                                                                 (Scalar
+                                                                  ((element
+                                                                    (TypeLambda
+                                                                     ((params
+                                                                       (((binding
+                                                                        ((name t)
+                                                                        (id 22)))
+                                                                        (bound
+                                                                        Atom))))
+                                                                      (body
+                                                                       (Scalar
+                                                                        ((element
+                                                                        (TermLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 23)))
+                                                                        (bound
+                                                                        (Arr
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 22))))
+                                                                        (shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))
+                                                                        (ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21)))))))))))
+                                                                        (body
+                                                                        (TermApplication
+                                                                        ((func
+                                                                        (TypeApplication
+                                                                        ((tFunc
+                                                                        (IndexApplication
+                                                                        ((iFunc
+                                                                        (Primitive
+                                                                        ((name
+                                                                        (Func
+                                                                        ContiguousSubArray)))))
+                                                                        (args
+                                                                        ((Shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))))
+                                                                        (Shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        0)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))))
+                                                                        (Shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21)))))
+                                                                        (Dimension
+                                                                        ((const
+                                                                        1)
+                                                                        (refs ()))))))))
+                                                                        (args
+                                                                        ((Atom
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 22)))))))))
+                                                                        (args
+                                                                        ((Ref
+                                                                        ((id
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 23)))))
+                                                                        (Frame
+                                                                        ((dimensions
+                                                                        (1))
+                                                                        (elements
+                                                                        ((Scalar
+                                                                        ((element
+                                                                        (Literal
+                                                                        (IntLiteral
+                                                                        1))))))))))))))))))))))))))))))))
+                                                          (args
+                                                           ((Dimension
+                                                             ((const 0)
+                                                              (refs
+                                                               ((((name d-1)
+                                                                  (id 33))
+                                                                 1)))))
+                                                            (Shape
+                                                             ((ShapeRef
+                                                               ((name
+                                                                 @cell-shape)
+                                                                (id 34))))))))))
+                                                       (args
+                                                        ((Atom
+                                                          (AtomRef
+                                                           ((name t) (id 35)))))))))
+                                                    (args
+                                                     ((Ref
+                                                       ((id ((name arr) (id 37))))))))))))))))))))))))))))))))
                            (args
                             ((Dimension
-                              ((const 0) (refs ((((name d-1) (id 63)) 1)))))
+                              ((const 0) (refs ((((name d-1) (id 93)) 1)))))
                              (Shape ()))))))
                         (args ((Atom (Literal IntLiteral)))))))
                      (args
                       ((Primitive ((name (Func Add))))
-                       (Ref ((id ((name row) (id 64))))))))))))))))))))))
+                       (Ref ((id ((name row) (id 94))))))))))))))))))))))
       (body
        (TermApplication
         ((func
           (IndexApplication
-           ((iFunc (Ref ((id ((name sum-row) (id 62))))))
+           ((iFunc (Ref ((id ((name sum-row) (id 92))))))
             (args ((Dimension ((const 9) (refs ()))))))))
          (args
           ((IndexApplication
@@ -1537,64 +1894,716 @@ let%expect_test "sum rows" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name sum-row) (id 62)))
+       (((binding ((name sum-row) (id 92)))
          (value
           (Scalar
            ((element
              (IndexLambda
-              ((params (((binding ((name d-1) (id 63))) (bound Dim))))
+              ((params (((binding ((name d-1) (id 93))) (bound Dim))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name row) (id 64)))
+                      (((binding ((name row) (id 94)))
                         (bound
                          (Arr
                           ((element (Literal IntLiteral))
                            (shape
-                            ((Add ((const 1) (refs ((((name d-1) (id 63)) 1)))))))))))))
+                            ((Add ((const 1) (refs ((((name d-1) (id 93)) 1)))))))))))))
                      (body
                       (Map
                        ((args
-                         (((binding ((name f) (id 67)))
+                         (((binding ((name f) (id 111)))
                            (value
                             (TypeApplication
                              ((tFunc
                                (IndexApplication
                                 ((iFunc
-                                  (Primitive
-                                   ((name
-                                     (Func
-                                      (Reduce (associative true)
-                                       (explicitZero false) (character Reduce)))))))
+                                  (Scalar
+                                   ((element
+                                     (IndexLambda
+                                      ((params
+                                        (((binding ((name d-1) (id 33)))
+                                          (bound Dim))
+                                         ((binding ((name @cell-shape) (id 34)))
+                                          (bound Shape))))
+                                       (body
+                                        (Scalar
+                                         ((element
+                                           (TypeLambda
+                                            ((params
+                                              (((binding ((name t) (id 35)))
+                                                (bound Atom))))
+                                             (body
+                                              (Scalar
+                                               ((element
+                                                 (TermLambda
+                                                  ((params
+                                                    (((binding
+                                                       ((name op) (id 36)))
+                                                      (bound
+                                                       (Arr
+                                                        ((element
+                                                          (Func
+                                                           ((parameters
+                                                             ((Arr
+                                                               ((element
+                                                                 (AtomRef
+                                                                  ((name t)
+                                                                   (id 35))))
+                                                                (shape
+                                                                 ((ShapeRef
+                                                                   ((name
+                                                                     @cell-shape)
+                                                                    (id 34)))))))
+                                                              (Arr
+                                                               ((element
+                                                                 (AtomRef
+                                                                  ((name t)
+                                                                   (id 35))))
+                                                                (shape
+                                                                 ((ShapeRef
+                                                                   ((name
+                                                                     @cell-shape)
+                                                                    (id 34)))))))))
+                                                            (return
+                                                             (Arr
+                                                              ((element
+                                                                (AtomRef
+                                                                 ((name t)
+                                                                  (id 35))))
+                                                               (shape
+                                                                ((ShapeRef
+                                                                  ((name
+                                                                    @cell-shape)
+                                                                   (id 34)))))))))))
+                                                         (shape ())))))
+                                                     ((binding
+                                                       ((name arr) (id 37)))
+                                                      (bound
+                                                       (Arr
+                                                        ((element
+                                                          (AtomRef
+                                                           ((name t) (id 35))))
+                                                         (shape
+                                                          ((Add
+                                                            ((const 1)
+                                                             (refs
+                                                              ((((name d-1)
+                                                                 (id 33))
+                                                                1)))))
+                                                           (ShapeRef
+                                                            ((name @cell-shape)
+                                                             (id 34)))))))))))
+                                                   (body
+                                                    (Map
+                                                     ((args
+                                                       (((binding
+                                                          ((name f) (id 110)))
+                                                         (value
+                                                          (TypeApplication
+                                                           ((tFunc
+                                                             (IndexApplication
+                                                              ((iFunc
+                                                                (Primitive
+                                                                 ((name
+                                                                   (Func
+                                                                    (Reduce
+                                                                     (associative
+                                                                      true)
+                                                                     (explicitZero
+                                                                      true)
+                                                                     (character
+                                                                      Reduce)))))))
+                                                               (args
+                                                                ((Dimension
+                                                                  ((const 0)
+                                                                   (refs
+                                                                    ((((name d-1)
+                                                                       (id 33))
+                                                                      1)))))
+                                                                 (Shape
+                                                                  ((ShapeRef
+                                                                    ((name
+                                                                      @cell-shape)
+                                                                     (id 34))))))))))
+                                                            (args
+                                                             ((Atom
+                                                               (AtomRef
+                                                                ((name t)
+                                                                 (id 35))))))))))
+                                                        ((binding
+                                                          ((name reduce-f-arg)
+                                                           (id 97)))
+                                                         (value
+                                                          (Ref
+                                                           ((id
+                                                             ((name op) (id 36)))))))
+                                                        ((binding
+                                                          ((name reduce-zero-arg)
+                                                           (id 103)))
+                                                         (value
+                                                          (Map
+                                                           ((args
+                                                             (((binding
+                                                                ((name f)
+                                                                 (id 102)))
+                                                               (value
+                                                                (TypeApplication
+                                                                 ((tFunc
+                                                                   (IndexApplication
+                                                                    ((iFunc
+                                                                      (Scalar
+                                                                       ((element
+                                                                        (IndexLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name
+                                                                        d-1)
+                                                                        (id 16)))
+                                                                        (bound
+                                                                        Dim))
+                                                                        ((binding
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17)))
+                                                                        (bound
+                                                                        Shape))))
+                                                                        (body
+                                                                        (Scalar
+                                                                        ((element
+                                                                        (TypeLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name t)
+                                                                        (id 18)))
+                                                                        (bound
+                                                                        Atom))))
+                                                                        (body
+                                                                        (Scalar
+                                                                        ((element
+                                                                        (TermLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 19)))
+                                                                        (bound
+                                                                        (Arr
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 18))))
+                                                                        (shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 16))
+                                                                        1)))))
+                                                                        (ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17)))))))))))
+                                                                        (body
+                                                                        (Map
+                                                                        ((args
+                                                                        (((binding
+                                                                        ((name f)
+                                                                        (id 101)))
+                                                                        (value
+                                                                        (TypeApplication
+                                                                        ((tFunc
+                                                                        (IndexApplication
+                                                                        ((iFunc
+                                                                        (Primitive
+                                                                        ((name
+                                                                        (Func
+                                                                        ContiguousSubArray)))))
+                                                                        (args
+                                                                        ((Shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 16))
+                                                                        1)))))))
+                                                                        (Shape
+                                                                        ())
+                                                                        (Shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17)))))
+                                                                        (Dimension
+                                                                        ((const
+                                                                        1)
+                                                                        (refs ()))))))))
+                                                                        (args
+                                                                        ((Atom
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 18))))))))))
+                                                                        ((binding
+                                                                        ((name
+                                                                        contiguous-subarray-array)
+                                                                        (id 99)))
+                                                                        (value
+                                                                        (Ref
+                                                                        ((id
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 19)))))))
+                                                                        ((binding
+                                                                        ((name
+                                                                        contiguous-subarray-index)
+                                                                        (id 100)))
+                                                                        (value
+                                                                        (Frame
+                                                                        ((dimensions
+                                                                        (1))
+                                                                        (elements
+                                                                        ((Scalar
+                                                                        ((element
+                                                                        (Literal
+                                                                        (IntLiteral
+                                                                        0)))))))))))))
+                                                                        (body
+                                                                        (TermApplication
+                                                                        ((func
+                                                                        (Ref
+                                                                        ((id
+                                                                        ((name f)
+                                                                        (id 101))))))
+                                                                        (args
+                                                                        (((id
+                                                                        ((name
+                                                                        contiguous-subarray-array)
+                                                                        (id 99))))
+                                                                        ((id
+                                                                        ((name
+                                                                        contiguous-subarray-index)
+                                                                        (id 100))))))
+                                                                        (type'
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 18))))
+                                                                        (shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17))))))))))
+                                                                        (frameShape
+                                                                        ())
+                                                                        (type'
+                                                                        (Arr
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 18))))
+                                                                        (shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 17)))))))))))))))))))))))))))))
+                                                                     (args
+                                                                      ((Dimension
+                                                                        ((const
+                                                                        0)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 33))
+                                                                        1)))))
+                                                                       (Shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 34))))))))))
+                                                                  (args
+                                                                   ((Atom
+                                                                     (AtomRef
+                                                                      ((name t)
+                                                                       (id 35))))))))))
+                                                              ((binding
+                                                                ((name arr)
+                                                                 (id 98)))
+                                                               (value
+                                                                (Ref
+                                                                 ((id
+                                                                   ((name arr)
+                                                                    (id 37)))))))))
+                                                            (body
+                                                             (TermApplication
+                                                              ((func
+                                                                (Ref
+                                                                 ((id
+                                                                   ((name f)
+                                                                    (id 102))))))
+                                                               (args
+                                                                (((id
+                                                                   ((name arr)
+                                                                    (id 98))))))
+                                                               (type'
+                                                                ((element
+                                                                  (AtomRef
+                                                                   ((name t)
+                                                                    (id 35))))
+                                                                 (shape
+                                                                  ((ShapeRef
+                                                                    ((name
+                                                                      @cell-shape)
+                                                                     (id 34))))))))))
+                                                            (frameShape ())
+                                                            (type'
+                                                             (Arr
+                                                              ((element
+                                                                (AtomRef
+                                                                 ((name t)
+                                                                  (id 35))))
+                                                               (shape
+                                                                ((ShapeRef
+                                                                  ((name
+                                                                    @cell-shape)
+                                                                   (id 34))))))))))))
+                                                        ((binding
+                                                          ((name
+                                                            reduce-array-arg)
+                                                           (id 109)))
+                                                         (value
+                                                          (Map
+                                                           ((args
+                                                             (((binding
+                                                                ((name f)
+                                                                 (id 108)))
+                                                               (value
+                                                                (TypeApplication
+                                                                 ((tFunc
+                                                                   (IndexApplication
+                                                                    ((iFunc
+                                                                      (Scalar
+                                                                       ((element
+                                                                        (IndexLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name
+                                                                        d-1)
+                                                                        (id 20)))
+                                                                        (bound
+                                                                        Dim))
+                                                                        ((binding
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21)))
+                                                                        (bound
+                                                                        Shape))))
+                                                                        (body
+                                                                        (Scalar
+                                                                        ((element
+                                                                        (TypeLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name t)
+                                                                        (id 22)))
+                                                                        (bound
+                                                                        Atom))))
+                                                                        (body
+                                                                        (Scalar
+                                                                        ((element
+                                                                        (TermLambda
+                                                                        ((params
+                                                                        (((binding
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 23)))
+                                                                        (bound
+                                                                        (Arr
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 22))))
+                                                                        (shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))
+                                                                        (ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21)))))))))))
+                                                                        (body
+                                                                        (Map
+                                                                        ((args
+                                                                        (((binding
+                                                                        ((name f)
+                                                                        (id 107)))
+                                                                        (value
+                                                                        (TypeApplication
+                                                                        ((tFunc
+                                                                        (IndexApplication
+                                                                        ((iFunc
+                                                                        (Primitive
+                                                                        ((name
+                                                                        (Func
+                                                                        ContiguousSubArray)))))
+                                                                        (args
+                                                                        ((Shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        1)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))))
+                                                                        (Shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        0)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))))
+                                                                        (Shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21)))))
+                                                                        (Dimension
+                                                                        ((const
+                                                                        1)
+                                                                        (refs ()))))))))
+                                                                        (args
+                                                                        ((Atom
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 22))))))))))
+                                                                        ((binding
+                                                                        ((name
+                                                                        contiguous-subarray-array)
+                                                                        (id 105)))
+                                                                        (value
+                                                                        (Ref
+                                                                        ((id
+                                                                        ((name
+                                                                        arr)
+                                                                        (id 23)))))))
+                                                                        ((binding
+                                                                        ((name
+                                                                        contiguous-subarray-index)
+                                                                        (id 106)))
+                                                                        (value
+                                                                        (Frame
+                                                                        ((dimensions
+                                                                        (1))
+                                                                        (elements
+                                                                        ((Scalar
+                                                                        ((element
+                                                                        (Literal
+                                                                        (IntLiteral
+                                                                        1)))))))))))))
+                                                                        (body
+                                                                        (TermApplication
+                                                                        ((func
+                                                                        (Ref
+                                                                        ((id
+                                                                        ((name f)
+                                                                        (id 107))))))
+                                                                        (args
+                                                                        (((id
+                                                                        ((name
+                                                                        contiguous-subarray-array)
+                                                                        (id 105))))
+                                                                        ((id
+                                                                        ((name
+                                                                        contiguous-subarray-index)
+                                                                        (id 106))))))
+                                                                        (type'
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 22))))
+                                                                        (shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        0)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))
+                                                                        (ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21))))))))))
+                                                                        (frameShape
+                                                                        ())
+                                                                        (type'
+                                                                        (Arr
+                                                                        ((element
+                                                                        (AtomRef
+                                                                        ((name t)
+                                                                        (id 22))))
+                                                                        (shape
+                                                                        ((Add
+                                                                        ((const
+                                                                        0)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 20))
+                                                                        1)))))
+                                                                        (ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 21)))))))))))))))))))))))))))))
+                                                                     (args
+                                                                      ((Dimension
+                                                                        ((const
+                                                                        0)
+                                                                        (refs
+                                                                        ((((name
+                                                                        d-1)
+                                                                        (id 33))
+                                                                        1)))))
+                                                                       (Shape
+                                                                        ((ShapeRef
+                                                                        ((name
+                                                                        @cell-shape)
+                                                                        (id 34))))))))))
+                                                                  (args
+                                                                   ((Atom
+                                                                     (AtomRef
+                                                                      ((name t)
+                                                                       (id 35))))))))))
+                                                              ((binding
+                                                                ((name arr)
+                                                                 (id 104)))
+                                                               (value
+                                                                (Ref
+                                                                 ((id
+                                                                   ((name arr)
+                                                                    (id 37)))))))))
+                                                            (body
+                                                             (TermApplication
+                                                              ((func
+                                                                (Ref
+                                                                 ((id
+                                                                   ((name f)
+                                                                    (id 108))))))
+                                                               (args
+                                                                (((id
+                                                                   ((name arr)
+                                                                    (id 104))))))
+                                                               (type'
+                                                                ((element
+                                                                  (AtomRef
+                                                                   ((name t)
+                                                                    (id 35))))
+                                                                 (shape
+                                                                  ((Add
+                                                                    ((const 0)
+                                                                     (refs
+                                                                      ((((name
+                                                                        d-1)
+                                                                        (id 33))
+                                                                        1)))))
+                                                                   (ShapeRef
+                                                                    ((name
+                                                                      @cell-shape)
+                                                                     (id 34))))))))))
+                                                            (frameShape ())
+                                                            (type'
+                                                             (Arr
+                                                              ((element
+                                                                (AtomRef
+                                                                 ((name t)
+                                                                  (id 35))))
+                                                               (shape
+                                                                ((Add
+                                                                  ((const 0)
+                                                                   (refs
+                                                                    ((((name d-1)
+                                                                       (id 33))
+                                                                      1)))))
+                                                                 (ShapeRef
+                                                                  ((name
+                                                                    @cell-shape)
+                                                                   (id 34))))))))))))))
+                                                      (body
+                                                       (TermApplication
+                                                        ((func
+                                                          (Ref
+                                                           ((id
+                                                             ((name f) (id 110))))))
+                                                         (args
+                                                          (((id
+                                                             ((name reduce-f-arg)
+                                                              (id 97))))
+                                                           ((id
+                                                             ((name
+                                                               reduce-zero-arg)
+                                                              (id 103))))
+                                                           ((id
+                                                             ((name
+                                                               reduce-array-arg)
+                                                              (id 109))))))
+                                                         (type'
+                                                          ((element
+                                                            (AtomRef
+                                                             ((name t) (id 35))))
+                                                           (shape
+                                                            ((ShapeRef
+                                                              ((name @cell-shape)
+                                                               (id 34))))))))))
+                                                      (frameShape ())
+                                                      (type'
+                                                       (Arr
+                                                        ((element
+                                                          (AtomRef
+                                                           ((name t) (id 35))))
+                                                         (shape
+                                                          ((ShapeRef
+                                                            ((name @cell-shape)
+                                                             (id 34)))))))))))))))))))))))))))))
                                  (args
                                   ((Dimension
-                                    ((const 0) (refs ((((name d-1) (id 63)) 1)))))
+                                    ((const 0) (refs ((((name d-1) (id 93)) 1)))))
                                    (Shape ()))))))
                               (args ((Atom (Literal IntLiteral))))))))
-                          ((binding ((name reduce-f-arg) (id 65)))
+                          ((binding ((name op) (id 95)))
                            (value (Primitive ((name (Func Add))))))
-                          ((binding ((name reduce-array-arg) (id 66)))
-                           (value (Ref ((id ((name row) (id 64)))))))))
+                          ((binding ((name arr) (id 96)))
+                           (value (Ref ((id ((name row) (id 94)))))))))
                         (body
                          (TermApplication
-                          ((func (Ref ((id ((name f) (id 67))))))
+                          ((func (Ref ((id ((name f) (id 111))))))
                            (args
-                            (((id ((name reduce-f-arg) (id 65))))
-                             ((id ((name reduce-array-arg) (id 66))))))
+                            (((id ((name op) (id 95))))
+                             ((id ((name arr) (id 96))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 69)))
+          (((binding ((name f) (id 113)))
             (value
              (IndexApplication
-              ((iFunc (Ref ((id ((name sum-row) (id 62))))))
+              ((iFunc (Ref ((id ((name sum-row) (id 92))))))
                (args ((Dimension ((const 9) (refs ())))))))))
-           ((binding ((name row) (id 68)))
+           ((binding ((name row) (id 112)))
             (value
              (IndexApplication
               ((iFunc (Primitive ((name (Val Iota)))))
@@ -1605,12 +2614,12 @@ let%expect_test "sum rows" =
          (body
           (Map
            ((args
-             (((binding ((name row) (id 70)))
-               (value (Ref ((id ((name row) (id 68)))))))))
+             (((binding ((name row) (id 114)))
+               (value (Ref ((id ((name row) (id 112)))))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 69))))))
-               (args (((id ((name row) (id 70))))))
+              ((func (Ref ((id ((name f) (id 113))))))
+               (args (((id ((name row) (id 114))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (frameShape ((Add ((const 1000000) (refs ())))))
             (type'
@@ -1631,7 +2640,7 @@ let%expect_test "sum rows" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name sum-row) (id 72)))
+       (((binding ((name sum-row) (id 116)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -1640,21 +2649,21 @@ let%expect_test "sum rows" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 73)))
+          (((binding ((name f) (id 117)))
             (value
              (Ref
-              ((id ((name sum-row) (id 72)))
+              ((id ((name sum-row) (id 116)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name row) (id 79)))
+           ((binding ((name row) (id 129)))
             (value
              (ArrayPrimitive
               (Map
                (frameShape
                 ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ())))))
-               (args ()) (iotaVar (((name iota) (id 78))))
+               (args ()) (iotaVar (((name iota) (id 128))))
                (body
                 (Ref
-                 ((id ((name iota) (id 78)))
+                 ((id ((name iota) (id 128)))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
                 ((element (Literal IntLiteral))
@@ -1665,10 +2674,10 @@ let%expect_test "sum rows" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 1000000) (refs ())))))
             (args
-             (((binding ((name row) (id 80)))
+             (((binding ((name row) (id 130)))
                (value
                 (Ref
-                 ((id ((name row) (id 79)))
+                 ((id ((name row) (id 129)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape
@@ -1678,60 +2687,220 @@ let%expect_test "sum rows" =
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 74)))
+                (((binding ((name f) (id 119)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name reduce-f-arg) (id 75)))
+                 ((binding ((name op) (id 121)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name reduce-array-arg) (id 81)))
+                 ((binding ((name arr) (id 131)))
                   (value
                    (Ref
-                    ((id ((name row) (id 80)))
+                    ((id ((name row) (id 130)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 10) (refs ())))))))))))))
                (body
                 (ArrayPrimitive
-                 (Reduce
-                  (arg
-                   ((firstBinding ((name reduce-arg1) (id 82)))
-                    (secondBinding ((name reduce-arg2) (id 83)))
-                    (value
-                     (Ref
-                      ((id ((name reduce-array-arg) (id 81)))
-                       (type'
-                        ((element (Literal IntLiteral))
-                         (shape ((Add ((const 10) (refs ()))))))))))))
-                  (zero ())
-                  (body
-                   (AtomAsArray
-                    ((element
-                      (AtomicPrimitive
-                       ((op Add)
+                 (Map (frameShape ())
+                  (args
+                   (((binding ((name f) (id 120)))
+                     (value
+                      (AtomAsArray
+                       ((element (Values ((elements ()) (type' ()))))
+                        (type' ((element (Tuple ())) (shape ())))))))
+                    ((binding ((name reduce-f-arg) (id 122)))
+                     (value
+                      (Ref
+                       ((id ((name op) (id 121)))
+                        (type' ((element (Tuple ())) (shape ())))))))
+                    ((binding ((name reduce-zero-arg) (id 144)))
+                     (value
+                      (ArrayPrimitive
+                       (Map (frameShape ())
                         (args
-                         ((ArrayAsAtom
-                           ((array
-                             (Ref
-                              ((id ((name reduce-arg1) (id 82)))
-                               (type'
-                                ((element (Literal IntLiteral)) (shape ()))))))
-                            (type' (Literal IntLiteral))))
-                          (ArrayAsAtom
-                           ((array
-                             (Ref
-                              ((id ((name reduce-arg2) (id 83)))
-                               (type'
-                                ((element (Literal IntLiteral)) (shape ()))))))
-                            (type' (Literal IntLiteral))))))
-                        (type' (Literal IntLiteral)))))
+                         (((binding ((name f) (id 139)))
+                           (value
+                            (AtomAsArray
+                             ((element (Values ((elements ()) (type' ()))))
+                              (type' ((element (Tuple ())) (shape ())))))))
+                          ((binding ((name arr) (id 141)))
+                           (value
+                            (Ref
+                             ((id ((name arr) (id 131)))
+                              (type'
+                               ((element (Literal IntLiteral))
+                                (shape ((Add ((const 10) (refs ())))))))))))))
+                        (body
+                         (ArrayPrimitive
+                          (Map (frameShape ())
+                           (args
+                            (((binding ((name f) (id 140)))
+                              (value
+                               (AtomAsArray
+                                ((element (Values ((elements ()) (type' ()))))
+                                 (type' ((element (Tuple ())) (shape ())))))))
+                             ((binding
+                               ((name contiguous-subarray-array) (id 142)))
+                              (value
+                               (Ref
+                                ((id ((name arr) (id 141)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 10) (refs ())))))))))))
+                             ((binding
+                               ((name contiguous-subarray-index) (id 143)))
+                              (value
+                               (Frame
+                                ((dimensions (1))
+                                 (elements
+                                  ((AtomAsArray
+                                    ((element (Literal (IntLiteral 0)))
+                                     (type'
+                                      ((element (Literal IntLiteral)) (shape ())))))))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ())))))))))))))
+                           (body
+                            (ArrayPrimitive
+                             (ContiguousSubArray
+                              (arrayArg
+                               (Ref
+                                ((id ((name contiguous-subarray-array) (id 142)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 10) (refs ()))))))))))
+                              (indexArg
+                               (Ref
+                                ((id ((name contiguous-subarray-index) (id 143)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ()))))))))))
+                              (originalShape ((Add ((const 10) (refs ())))))
+                              (resultShape ()) (cellShape ())
+                              (l ((const 1) (refs ())))
+                              (type' ((element (Literal IntLiteral)) (shape ()))))))
+                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                        (type' ((element (Literal IntLiteral)) (shape ())))))))
+                    ((binding ((name reduce-array-arg) (id 135)))
+                     (value
+                      (ArrayPrimitive
+                       (Map (frameShape ())
+                        (args
+                         (((binding ((name f) (id 126)))
+                           (value
+                            (AtomAsArray
+                             ((element (Values ((elements ()) (type' ()))))
+                              (type' ((element (Tuple ())) (shape ())))))))
+                          ((binding ((name arr) (id 132)))
+                           (value
+                            (Ref
+                             ((id ((name arr) (id 131)))
+                              (type'
+                               ((element (Literal IntLiteral))
+                                (shape ((Add ((const 10) (refs ())))))))))))))
+                        (body
+                         (ArrayPrimitive
+                          (Map (frameShape ())
+                           (args
+                            (((binding ((name f) (id 127)))
+                              (value
+                               (AtomAsArray
+                                ((element (Values ((elements ()) (type' ()))))
+                                 (type' ((element (Tuple ())) (shape ())))))))
+                             ((binding
+                               ((name contiguous-subarray-array) (id 133)))
+                              (value
+                               (Ref
+                                ((id ((name arr) (id 132)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 10) (refs ())))))))))))
+                             ((binding
+                               ((name contiguous-subarray-index) (id 134)))
+                              (value
+                               (Frame
+                                ((dimensions (1))
+                                 (elements
+                                  ((AtomAsArray
+                                    ((element (Literal (IntLiteral 1)))
+                                     (type'
+                                      ((element (Literal IntLiteral)) (shape ())))))))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ())))))))))))))
+                           (body
+                            (ArrayPrimitive
+                             (ContiguousSubArray
+                              (arrayArg
+                               (Ref
+                                ((id ((name contiguous-subarray-array) (id 133)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 10) (refs ()))))))))))
+                              (indexArg
+                               (Ref
+                                ((id ((name contiguous-subarray-index) (id 134)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ()))))))))))
+                              (originalShape ((Add ((const 10) (refs ())))))
+                              (resultShape ((Add ((const 9) (refs ())))))
+                              (cellShape ()) (l ((const 1) (refs ())))
+                              (type'
+                               ((element (Literal IntLiteral))
+                                (shape ((Add ((const 9) (refs ()))))))))))
+                           (type'
+                            ((element (Literal IntLiteral))
+                             (shape ((Add ((const 9) (refs ()))))))))))
+                        (type'
+                         ((element (Literal IntLiteral))
+                          (shape ((Add ((const 9) (refs ())))))))))))))
+                  (body
+                   (ArrayPrimitive
+                    (Reduce
+                     (arg
+                      ((firstBinding ((name reduce-arg1) (id 136)))
+                       (secondBinding ((name reduce-arg2) (id 137)))
+                       (value
+                        (Ref
+                         ((id ((name reduce-array-arg) (id 135)))
+                          (type'
+                           ((element (Literal IntLiteral))
+                            (shape ((Add ((const 9) (refs ()))))))))))))
+                     (zero
+                      ((Ref
+                        ((id ((name reduce-zero-arg) (id 144)))
+                         (type' ((element (Literal IntLiteral)) (shape ())))))))
+                     (body
+                      (AtomAsArray
+                       ((element
+                         (AtomicPrimitive
+                          ((op Add)
+                           (args
+                            ((ArrayAsAtom
+                              ((array
+                                (Ref
+                                 ((id ((name reduce-arg1) (id 136)))
+                                  (type'
+                                   ((element (Literal IntLiteral)) (shape ()))))))
+                               (type' (Literal IntLiteral))))
+                             (ArrayAsAtom
+                              ((array
+                                (Ref
+                                 ((id ((name reduce-arg2) (id 137)))
+                                  (type'
+                                   ((element (Literal IntLiteral)) (shape ()))))))
+                               (type' (Literal IntLiteral))))))
+                           (type' (Literal IntLiteral)))))
+                        (type' ((element (Literal IntLiteral)) (shape ()))))))
+                     (d ((const 9) (refs ()))) (cellShape ()) (associative true)
+                     (character Reduce)
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
-                  (d ((const 10) (refs ()))) (cellShape ()) (associative true)
-                  (character Reduce)
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
@@ -1744,132 +2913,311 @@ let%expect_test "sum rows" =
        ((element (Literal IntLiteral))
         (shape ((Add ((const 1000000) (refs ())))))))))
     Result of stage Nest:
-    (let ((sum-row.84 (values)))
-     (let ((sum-row.72 sum-row.84))
+    (let ((sum-row.145 (values)))
+     (let ((sum-row.116 sum-row.145))
       (let
-       ((f.85 sum-row.72)
-        (row.90
+       ((f.146 sum-row.116)
+        (row.151
          (let ()
           (#0
            (#0
             (loop-block (frame-shape 1000000)
-             (map () (iota iota.87)
+             (map () (iota iota.148)
               (#0
                (#0
                 (loop-block (frame-shape 10)
-                 (map () (iota (iota.89 : iota.87))
-                  (let ((iota.78 iota.89)) iota.78))
-                 (body-matcher map-result.88) (map-result (map-result.88))
+                 (map () (iota (iota.150 : iota.148))
+                  (let ((iota.128 iota.150)) iota.128))
+                 (body-matcher map-result.149) (map-result (map-result.149))
                  (consumer (values))))))
-             (body-matcher map-result.86) (map-result (map-result.86))
+             (body-matcher map-result.147) (map-result (map-result.147))
              (consumer (values))))))))
-       (let ((f.73 f.85) (row.79 row.90))
-        (let ((row.91 row.79))
+       (let ((f.117 f.146) (row.129 row.151))
+        (let ((row.152 row.129))
          (#0
           (#0
            (loop-block (frame-shape 1000000)
-            (map ((row.93 row.91))
-             (let ((row.80 row.93))
-              (let
-               ((f.94 (values)) (reduce-f-arg.95 (values))
-                (reduce-array-arg.96 row.80))
-               (let
-                ((f.74 f.94) (reduce-f-arg.75 reduce-f-arg.95)
-                 (reduce-array-arg.81 reduce-array-arg.96))
-                (let ((reduce-arg.98 reduce-array-arg.81))
-                 (#1
-                  (loop-block (frame-shape 10)
-                   (map ((reduce-arg.99 reduce-arg.98)) (values reduce-arg.99))
-                   (body-matcher (reduce-arg.97)) (map-result ())
-                   (consumer
-                    (reduce (reduce-arg1.82 reduce-arg2.83 reduce-arg.97)
-                     (+ reduce-arg1.82 reduce-arg2.83))))))))))
-            (body-matcher map-result.92) (map-result (map-result.92))
+            (map ((row.154 row.152))
+             (let ((row.130 row.154))
+              (let ((f.155 (values)) (op.156 (values)) (arr.157 row.130))
+               (let ((f.119 f.155) (op.121 op.156) (arr.131 arr.157))
+                (let
+                 ((f.158 (values)) (reduce-f-arg.159 op.121)
+                  (reduce-zero-arg.165
+                   (let ((f.160 (values)) (arr.161 arr.131))
+                    (let ((f.139 f.160) (arr.141 arr.161))
+                     (let
+                      ((f.162 (values)) (contiguous-subarray-array.163 arr.141)
+                       (contiguous-subarray-index.164 (frame 0)))
+                      (let
+                       ((f.140 f.162)
+                        (contiguous-subarray-array.142
+                         contiguous-subarray-array.163)
+                        (contiguous-subarray-index.143
+                         contiguous-subarray-index.164))
+                       (contiguous-subarray contiguous-subarray-array.142
+                        contiguous-subarray-index.143 (shape 10) (shape)))))))
+                  (reduce-array-arg.171
+                   (let ((f.166 (values)) (arr.167 arr.131))
+                    (let ((f.126 f.166) (arr.132 arr.167))
+                     (let
+                      ((f.168 (values)) (contiguous-subarray-array.169 arr.132)
+                       (contiguous-subarray-index.170 (frame 1)))
+                      (let
+                       ((f.127 f.168)
+                        (contiguous-subarray-array.133
+                         contiguous-subarray-array.169)
+                        (contiguous-subarray-index.134
+                         contiguous-subarray-index.170))
+                       (contiguous-subarray contiguous-subarray-array.133
+                        contiguous-subarray-index.134 (shape 10) (shape 9))))))))
+                 (let
+                  ((f.120 f.158) (reduce-f-arg.122 reduce-f-arg.159)
+                   (reduce-zero-arg.144 reduce-zero-arg.165)
+                   (reduce-array-arg.135 reduce-array-arg.171))
+                  (let ((reduce-arg.173 reduce-array-arg.135))
+                   (#1
+                    (loop-block (frame-shape 9)
+                     (map ((reduce-arg.174 reduce-arg.173))
+                      (values reduce-arg.174))
+                     (body-matcher (reduce-arg.172)) (map-result ())
+                     (consumer
+                      (reduce-zero reduce-zero-arg.144
+                       (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
+                       (+ reduce-arg1.136 reduce-arg2.137))))))))))))
+            (body-matcher map-result.153) (map-result (map-result.153))
             (consumer (values))))))))))
     Result of stage Fuse and Simplify:
-    (#0
+    (let
+     ((contiguous-subarray-index.164 (frame 0))
+      (contiguous-subarray-index.170 (frame 1)))
      (#0
-      (loop-block (frame-shape 1000000)
-       (map () (iota iota.87)
-        (#1
-         (loop-block (frame-shape 10) (map () (iota (iota.89 : iota.87)) iota.89)
-          (body-matcher reduce-arg.97) (map-result ())
-          (consumer
-           (reduce (reduce-arg1.82 reduce-arg2.83 reduce-arg.97)
-            (+ reduce-arg1.82 reduce-arg2.83))))))
-       (body-matcher map-result.92) (map-result (map-result.92))
-       (consumer (values)))))
+      (#0
+       (loop-block (frame-shape 1000000)
+        (map () (iota iota.148)
+         (let
+          ((map-result.206
+            (#0
+             (loop-block (frame-shape 10)
+              (map () (iota (iota.150 : iota.148)) iota.150)
+              (body-matcher map-result.149) (map-result (map-result.149))
+              (consumer (values))))))
+          (let
+           ((reduce-arg.201
+             (contiguous-subarray (#0 map-result.206)
+              contiguous-subarray-index.170 (shape 10) (shape 9))))
+           (#1
+            (loop-block (frame-shape 9)
+             (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
+             (body-matcher reduce-arg.172) (map-result ())
+             (consumer
+              (reduce-zero
+               (contiguous-subarray (#0 map-result.206)
+                contiguous-subarray-index.164 (shape 10) (shape))
+               (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
+               (+ reduce-arg1.136 reduce-arg2.137))))))))
+        (body-matcher map-result.153) (map-result (map-result.153))
+        (consumer (values))))))
     Result of stage Kernelize:
-    (#0
-     (kernel (blocks 320) (threads 32)
-      (map-kernel (frame-shape 1000000) () (iota iota.87)
-       (body-matcher map-result.92) (map-result (map-result.92))
-       (#1
-        (loop-block (frame-shape 10) (map () (iota (iota.89 : iota.87)) iota.89)
-         (body-matcher reduce-arg.97) (map-result ())
-         (consumer
-          (reduce (reduce-arg1.82 reduce-arg2.83 reduce-arg.97)
-           (+ reduce-arg1.82 reduce-arg2.83))))))))
+    (let
+     ((contiguous-subarray-index.164 (frame 0))
+      (contiguous-subarray-index.170 (frame 1)))
+     (#0
+      (kernel (blocks 320) (threads 32)
+       (map-kernel (frame-shape 1000000) () (iota iota.148)
+        (body-matcher map-result.153) (map-result (map-result.153))
+        (let
+         ((map-result.206
+           (#0
+            (loop-block (frame-shape 10)
+             (map () (iota (iota.150 : iota.148)) iota.150)
+             (body-matcher map-result.149) (map-result (map-result.149))
+             (consumer (values))))))
+         (let
+          ((reduce-arg.201
+            (contiguous-subarray (#0 map-result.206)
+             contiguous-subarray-index.170 (shape 10) (shape 9))))
+          (#1
+           (loop-block (frame-shape 9)
+            (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
+            (body-matcher reduce-arg.172) (map-result ())
+            (consumer
+             (reduce-zero
+              (contiguous-subarray (#0 map-result.206)
+               contiguous-subarray-index.164 (shape 10) (shape))
+              (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
+              (+ reduce-arg1.136 reduce-arg2.137)))))))))))
     Result of stage Alloc:
     (malloc-let
-     ((map-mem.136 (Tuple ()) device)
-      (map-mem.134
+     ((map-mem.232 (Tuple ()) device)
+      (map-mem.228
+       (Tuple ((Array ((element (Literal IntLiteral)) (shape (shape 10))))))
+       device)
+      (map-mem.226
        (Tuple ((Array ((element (Literal IntLiteral)) (shape (shape 1000000))))))
        device)
-      (map-mem-result.0.133
-       (Array ((element (Literal IntLiteral)) (shape (shape 1000000)))) host))
-     (#0
-      (begin
-       (kernel (blocks 320) (threads 32)
-        ((map
-          (map-kernel (frame-shape 1000000) ((map-mem.135 map-mem.134))
-           (iota iota.87)
-           (putmem
-            (loop (frame-shape 10)
-             (map ((map-mem.137 map-mem.136)) (iota (iota.89 : iota.87)) iota.89)
-             (body-matcher reduce-arg.97) (map-result ())
-             (map-result-mem-interim map-mem.136)
-             (map-result-mem-final map-mem.136)
-             (consumer
-              (reduce (reduce-arg1.82 reduce-arg2.83 reduce-arg.97)
-               (+ reduce-arg1.82 reduce-arg2.83))))
-            (#0 map-mem.135))))
-         (map-result-mem-interim map-mem.134)
-         (map-result-mem-final (values map-mem-result.0.133))))
-       (getmem (values map-mem-result.0.133)))))
+      (map-mem-result.0.225
+       (Array ((element (Literal IntLiteral)) (shape (shape 1000000)))) host)
+      (frame-array.223 (Array ((element (Literal IntLiteral)) (shape (shape 1))))
+       host)
+      (frame-array.221 (Array ((element (Literal IntLiteral)) (shape (shape 1))))
+       host))
+     (let
+      ((contiguous-subarray-index.164
+        (begin
+         (begin-do
+          (putmem 0
+           (index (mem frame-array.221) (offset 0)
+            (type' (Atom (Literal IntLiteral))))))
+         (getmem frame-array.221)))
+       (contiguous-subarray-index.170
+        (begin
+         (begin-do
+          (putmem 1
+           (index (mem frame-array.223) (offset 0)
+            (type' (Atom (Literal IntLiteral))))))
+         (getmem frame-array.223))))
+      (#0
+       (begin
+        (kernel (blocks 320) (threads 32)
+         ((map
+           (map-kernel (frame-shape 1000000) ((map-mem.227 map-mem.226))
+            (iota iota.148)
+            (do-expr
+             (let
+              ((map-result.206
+                (#0
+                 (loop (frame-shape 10)
+                  (map ((map-mem.229 map-mem.228)) (iota (iota.150 : iota.148))
+                   (let ((expr-result.230 iota.150))
+                    (begin (putmem expr-result.230 (#0 map-mem.229))
+                     expr-result.230)))
+                  (body-matcher map-result.149) (map-result (map-result.149))
+                  (map-result-mem-interim map-mem.228)
+                  (map-result-mem-final map-mem.228) (consumer (values))))))
+              (let
+               ((reduce-arg.201
+                 (index
+                  (#0
+                   (let ((expr-result.231 map-result.206))
+                    (values (#0 expr-result.231))))
+                  contiguous-subarray-index.170 (shape 10) (shape 9))))
+               (#1
+                (let
+                 ((expr-result.235
+                   (loop (frame-shape 9)
+                    (map
+                     ((reduce-arg.174 reduce-arg.201) (map-mem.233 map-mem.232))
+                     reduce-arg.174)
+                    (body-matcher reduce-arg.172) (map-result ())
+                    (map-result-mem-interim map-mem.232)
+                    (map-result-mem-final map-mem.232)
+                    (consumer
+                     (reduce-zero
+                      (index
+                       (#0
+                        (let ((expr-result.234 map-result.206))
+                         (values (#0 expr-result.234))))
+                       contiguous-subarray-index.164 (shape 10) (shape))
+                      (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
+                      (+ reduce-arg1.136 reduce-arg2.137))))))
+                 (begin (putmem (#1 expr-result.235) (#0 map-mem.227))
+                  expr-result.235))))))))
+          (map-result-mem-interim map-mem.226)
+          (map-result-mem-final (values map-mem-result.0.225))))
+        (getmem (values map-mem-result.0.225))))))
     Result of stage Capture:
     (malloc-let
-     ((map-mem.136 (Tuple ()) device)
-      (map-mem.134
+     ((map-mem.232 (Tuple ()) device)
+      (map-mem.228
+       (Tuple ((Array ((element (Literal IntLiteral)) (shape (shape 10))))))
+       device)
+      (map-mem.226
        (Tuple ((Array ((element (Literal IntLiteral)) (shape (shape 1000000))))))
        device)
-      (map-mem-result.0.133
-       (Array ((element (Literal IntLiteral)) (shape (shape 1000000)))) host))
-     (#0
-      (begin
-       (kernel captures
-        ((expr-captures ())
-         (mem-captures
-          ((((name map-mem) (id 134))
-            (Tuple
-             ((Array ((element (Literal IntLiteral)) (shape (shape 1000000)))))))
-           (((name map-mem) (id 136)) (Tuple ()))))
-         (index-captures ()))
-        (blocks 320) (threads 32)
-        ((map
-          (map-kernel (frame-shape 1000000) ((map-mem.135 map-mem.134))
-           (iota iota.87)
-           (putmem
-            (loop (frame-shape 10)
-             (map ((map-mem.137 map-mem.136)) (iota (iota.89 : iota.87)) iota.89)
-             (body-matcher reduce-arg.97) (map-result ())
-             (map-result-mem-interim map-mem.136)
-             (map-result-mem-final map-mem.136)
-             (consumer
-              (reduce (reduce-arg1.82 reduce-arg2.83 reduce-arg.97)
-               (+ reduce-arg1.82 reduce-arg2.83))))
-            (#0 map-mem.135))))
-         (map-result-mem-interim map-mem.134)
-         (map-result-mem-final (values map-mem-result.0.133))))
-       (getmem (values map-mem-result.0.133))))) |}]
+      (map-mem-result.0.225
+       (Array ((element (Literal IntLiteral)) (shape (shape 1000000)))) host)
+      (frame-array.223 (Array ((element (Literal IntLiteral)) (shape (shape 1))))
+       host)
+      (frame-array.221 (Array ((element (Literal IntLiteral)) (shape (shape 1))))
+       host))
+     (let
+      ((contiguous-subarray-index.164
+        (begin
+         (begin-do
+          (putmem 0
+           (index (mem frame-array.221) (offset 0)
+            (type' (Atom (Literal IntLiteral))))))
+         (getmem frame-array.221)))
+       (contiguous-subarray-index.170
+        (begin
+         (begin-do
+          (putmem 1
+           (index (mem frame-array.223) (offset 0)
+            (type' (Atom (Literal IntLiteral))))))
+         (getmem frame-array.223))))
+      (#0
+       (begin
+        (kernel captures
+         ((expr-captures
+           ((((name contiguous-subarray-index) (id 164))
+             (Array ((element (Literal IntLiteral)) (shape (shape 1)))))
+            (((name contiguous-subarray-index) (id 170))
+             (Array ((element (Literal IntLiteral)) (shape (shape 1)))))))
+          (mem-captures
+           ((((name map-mem) (id 226))
+             (Tuple
+              ((Array ((element (Literal IntLiteral)) (shape (shape 1000000)))))))
+            (((name map-mem) (id 228))
+             (Tuple
+              ((Array ((element (Literal IntLiteral)) (shape (shape 10)))))))
+            (((name map-mem) (id 232)) (Tuple ()))))
+          (index-captures ()))
+         (blocks 320) (threads 32)
+         ((map
+           (map-kernel (frame-shape 1000000) ((map-mem.227 map-mem.226))
+            (iota iota.148)
+            (do-expr
+             (let
+              ((map-result.206
+                (#0
+                 (loop (frame-shape 10)
+                  (map ((map-mem.229 map-mem.228)) (iota (iota.150 : iota.148))
+                   (let ((expr-result.230 iota.150))
+                    (begin (putmem expr-result.230 (#0 map-mem.229))
+                     expr-result.230)))
+                  (body-matcher map-result.149) (map-result (map-result.149))
+                  (map-result-mem-interim map-mem.228)
+                  (map-result-mem-final map-mem.228) (consumer (values))))))
+              (let
+               ((reduce-arg.201
+                 (index
+                  (#0
+                   (let ((expr-result.231 map-result.206))
+                    (values (#0 expr-result.231))))
+                  contiguous-subarray-index.170 (shape 10) (shape 9))))
+               (#1
+                (let
+                 ((expr-result.235
+                   (loop (frame-shape 9)
+                    (map
+                     ((reduce-arg.174 reduce-arg.201) (map-mem.233 map-mem.232))
+                     reduce-arg.174)
+                    (body-matcher reduce-arg.172) (map-result ())
+                    (map-result-mem-interim map-mem.232)
+                    (map-result-mem-final map-mem.232)
+                    (consumer
+                     (reduce-zero
+                      (index
+                       (#0
+                        (let ((expr-result.234 map-result.206))
+                         (values (#0 expr-result.234))))
+                       contiguous-subarray-index.164 (shape 10) (shape))
+                      (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
+                      (+ reduce-arg1.136 reduce-arg2.137))))))
+                 (begin (putmem (#1 expr-result.235) (#0 map-mem.227))
+                  expr-result.235))))))))
+          (map-result-mem-interim map-mem.226)
+          (map-result-mem-final (values map-mem-result.0.225))))
+        (getmem (values map-mem-result.0.225)))))) |}]
 ;;
