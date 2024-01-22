@@ -227,7 +227,6 @@ module Expr = struct
   type 'l reduceCharacter =
     | Reduce
     | Scan of Mem.t
-    | OpenScan of Mem.t
 
   type 'l foldCharacter =
     | Fold
@@ -722,7 +721,6 @@ module Expr = struct
         match character with
         | Reduce -> "reduce"
         | Scan _ -> "scan"
-        | OpenScan _ -> "open-scan"
       in
       let zeroName =
         match zero with

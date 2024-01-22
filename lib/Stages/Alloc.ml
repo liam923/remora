@@ -887,17 +887,13 @@ let rec allocRequest
         match character with
         | Reduce -> return Expr.Reduce
         | Scan ->
-          let resultType = Type.array ~element:(Expr.type' body) ~size:(Add d) in
-          let%map mem = malloc ~mallocLoc resultType "scan-result" in
-          Expr.Scan mem
-        | OpenScan ->
           let resultType =
             Type.array
               ~element:(Expr.type' body)
               ~size:(Add { d with const = d.const + 1 })
           in
-          let%map mem = malloc ~mallocLoc resultType "open-scan-result" in
-          Expr.OpenScan mem
+          let%map mem = malloc ~mallocLoc resultType "scan-result" in
+          Expr.Scan mem
       in
       Expr.
         { arg =

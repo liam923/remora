@@ -1366,19 +1366,6 @@ and genExpr
             let%bind memDerefer =
               genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
             in
-            let inLoop =
-              genCopyExprToMem
-                ~mem:(memDerefer (VarRef loopVar))
-                ~expr:(VarRef accVar)
-                ~type':(Expr.type' body)
-            in
-            return (inLoop, cMem)
-          | OpenScan mem ->
-            (* Ignoring the case of open scan with no zero since it is non-sensical *)
-            let%bind cMem = genMem ~store:true mem in
-            let%bind memDerefer =
-              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
-            in
             let%bind () =
               genCopyExprToMem
                 ~mem:(memDerefer (Literal (Int64Literal 0)))
@@ -2141,7 +2128,7 @@ and genExpr
                         ; zero = _
                         ; body = _
                         ; d = _
-                        ; character = Scan _ | OpenScan _
+                        ; character = Scan _
                         ; type' = _
                         }
                     ; interimResultMemInterim = _

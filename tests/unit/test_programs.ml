@@ -1589,7 +1589,6 @@ let%expect_test "sum rows" =
                                                           (Func
                                                            (Reduce
                                                             (associative true)
-                                                            (explicitZero true)
                                                             (character Reduce)))))))
                                                       (args
                                                        ((Dimension
@@ -2011,8 +2010,6 @@ let%expect_test "sum rows" =
                                                                    (Func
                                                                     (Reduce
                                                                      (associative
-                                                                      true)
-                                                                     (explicitZero
                                                                       true)
                                                                      (character
                                                                       Reduce)))))))

@@ -693,28 +693,17 @@ and inlineTermApplication subs indexEnv appStack termApplication =
                   [ "append expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
-     | Reduce { associative; explicitZero; character } ->
+     | Reduce { associative; character } ->
        (match primitive.appStack with
         | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
-          (* If there is no explicit zero, the index argument for d is
-             actually d-1 *)
-          let d = if explicitZero then d else { const = d.const + 1; refs = d.refs } in
           (* Extract the arguments to the function. Note that the arguments
              differ depending on explicitZero *)
           let f, zero, arrayArg =
-            if explicitZero
-            then (
-              match args with
-              | [ f; zero; arrayArg ] -> f, Some zero, arrayArg
-              | _ ->
-                raise
-                  (Unreachable.Error "Reduce with explicit zero expected three arguments"))
-            else (
-              match args with
-              | [ f; arrayArg ] -> f, None, arrayArg
-              | _ ->
-                raise
-                  (Unreachable.Error "Reduce with explicit zero expected two arguments"))
+            match args with
+            | [ f; zero; arrayArg ] -> f, Some zero, arrayArg
+            | _ ->
+              raise
+                (Unreachable.Error "Reduce with explicit zero expected three arguments")
           in
           let%bind _, functions = inlineArray subs indexEnv [] (Ref f) in
           let%bind func =

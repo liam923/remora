@@ -111,7 +111,6 @@ module Expr = struct
   type reduceCharacter =
     | Reduce
     | Scan
-    | OpenScan
   [@@deriving compare, sexp, equal]
 
   type foldCharacter =
@@ -149,7 +148,6 @@ module Expr = struct
     | LtEqF
     | Reduce of
         { associative : bool
-        ; explicitZero : bool
         ; character : reduceCharacter
         }
     | Fold of { character : foldCharacter }

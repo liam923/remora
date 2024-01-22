@@ -2350,12 +2350,12 @@ let%expect_test "check inlining" =
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name reduce-f-arg) (id 113)))
+           ((binding ((name scan-f-arg) (id 113)))
             (value
              (Ref
               ((id ((name op) (id 112)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name reduce-zero-arg) (id 132)))
+           ((binding ((name scan-zero-arg) (id 132)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
@@ -2419,7 +2419,7 @@ let%expect_test "check inlining" =
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name reduce-array-arg) (id 123)))
+           ((binding ((name scan-array-arg) (id 123)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
@@ -2498,13 +2498,13 @@ let%expect_test "check inlining" =
               (secondBinding ((name reduce-arg2) (id 125)))
               (value
                (Ref
-                ((id ((name reduce-array-arg) (id 123)))
+                ((id ((name scan-array-arg) (id 123)))
                  (type'
                   ((element (Literal IntLiteral))
                    (shape ((Add ((const 2) (refs ()))))))))))))
             (zero
              ((Ref
-               ((id ((name reduce-zero-arg) (id 132)))
+               ((id ((name scan-zero-arg) (id 132)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (body
              (AtomAsArray
@@ -2527,7 +2527,7 @@ let%expect_test "check inlining" =
                   (type' (Literal IntLiteral)))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (d ((const 2) (refs ()))) (cellShape ()) (associative true)
-            (character OpenScan)
+            (character Scan)
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))

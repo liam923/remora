@@ -55,10 +55,10 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | BoolToInt -> [ "boolToIntArg" ]
           | IntToFloat -> [ "intToFloatArg" ]
           | FloatToInt -> [ "floatToIntArg" ]
-          | Reduce { associative = _; explicitZero = true; character = _ } ->
+          | Reduce { associative = _; character = Reduce } ->
             [ "reduce-f-arg"; "reduce-zero-arg"; "reduce-array-arg" ]
-          | Reduce { associative = _; explicitZero = false; character = _ } ->
-            [ "reduce-f-arg"; "reduce-array-arg" ]
+          | Reduce { associative = _; character = Scan } ->
+            [ "scan-f-arg"; "scan-zero-arg"; "scan-array-arg" ]
           | Fold _ -> [ "fold-f-arg"; "fold-zero-arg"; "fold-array-arg" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
           | ContiguousSubArray ->

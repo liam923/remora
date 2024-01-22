@@ -309,13 +309,7 @@ module Stdlib : S = struct
             { makeValue =
                 (fun type' ->
                   Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true
-                             ; explicitZero = true
-                             ; character = Reduce
-                             })
+                    { name = Func (Reduce { associative = true; character = Reduce })
                     ; type'
                     })
             ; type' =
@@ -349,13 +343,7 @@ module Stdlib : S = struct
             { makeValue =
                 (fun type' ->
                   Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = false
-                             ; explicitZero = true
-                             ; character = Reduce
-                             })
+                    { name = Func (Reduce { associative = false; character = Reduce })
                     ; type'
                     })
             ; type' =
@@ -389,13 +377,7 @@ module Stdlib : S = struct
             { makeValue =
                 (fun type' ->
                   Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true
-                             ; explicitZero = true
-                             ; character = OpenScan
-                             })
+                    { name = Func (Reduce { associative = true; character = Scan })
                     ; type'
                     })
             ; type' =

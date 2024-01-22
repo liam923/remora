@@ -383,7 +383,6 @@ module Expr = struct
         match character with
         | Reduce -> "reduce"
         | Scan -> "scan"
-        | OpenScan -> "open-scan"
       in
       let zeroName =
         match zero with
