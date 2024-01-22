@@ -303,31 +303,6 @@ module Stdlib : S = struct
                   (contiguous-subarray{t | [d-in] [d-out] @cell-shape 1} arr [i]))))
             |}
       }
-    ; { name = "reduce"
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive
-                    { name =
-                        Func
-                          (Reduce
-                             { associative = true
-                             ; explicitZero = false
-                             ; character = Reduce
-                             })
-                    ; type'
-                    })
-            ; type' =
-                {|
-                (Pi (d-1 @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t (+ d-1 1) @cell-shape])
-                        [t @cell-shape])))
-                |}
-            }
-      }
     ; { name = "reduce-zero"
       ; value =
           Intrinsic
@@ -354,7 +329,21 @@ module Stdlib : S = struct
                 |}
             }
       }
-    ; { name = "reduce-non-assoc"
+    ; { name = "reduce"
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [arr [t (+ d-1 1) @cell-shape]])
+                  (reduce-zero{t | d-1 @cell-shape}
+                    op
+                    (head{t | d-1 @cell-shape} arr)
+                    (tail{t | d-1 @cell-shape} arr)))))
+            |}
+      }
+    ; { name = "reduce-non-assoc-zero"
       ; value =
           Intrinsic
             { makeValue =
@@ -364,20 +353,35 @@ module Stdlib : S = struct
                         Func
                           (Reduce
                              { associative = false
-                             ; explicitZero = false
+                             ; explicitZero = true
                              ; character = Reduce
                              })
                     ; type'
                     })
             ; type' =
                 {|
-                  (Pi (d-1 @cell-shape)
-                    (Forall (t)
-                      (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                           [t (+ d-1 1) @cell-shape])
-                          [t @cell-shape])))
-                  |}
+                (Pi (d @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                         [t @cell-shape]
+                         [t d @cell-shape])
+                      [t @cell-shape])))
+                |}
             }
+      }
+    ; { name = "reduce-non-assoc"
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [arr [t (+ d-1 1) @cell-shape]])
+                  (reduce-non-assoc-zero{t | d-1 @cell-shape}
+                    op
+                    (head{t | d-1 @cell-shape} arr)
+                    (tail{t | d-1 @cell-shape} arr)))))
+            |}
       }
     ; { name = "open-scan-zero"
       ; value =

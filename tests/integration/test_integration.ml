@@ -69,6 +69,11 @@ let%expect_test "simple reduction" =
   [%expect {| 5000000050000000 |}]
 ;;
 
+let%expect_test "reduce zero" =
+  compileAndRun "(reduce-zero{int | 100000000 []} + 0 (+ 1 iota{ | [100000000]}))";
+  [%expect {| 5000000050000000 |}]
+;;
+
 let%expect_test "simple boxes" =
   compileAndRun
     {|
