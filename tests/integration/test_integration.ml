@@ -177,3 +177,22 @@ let%expect_test "sum evens" =
   [%expect {|
     250500 |}]
 ;;
+
+let%expect_test "covariance" =
+  compileAndRun
+    {|
+    (define (mean{ | l-1} [arr [float (+ l-1 1)]])
+      (/. (reduce{float | l-1 []} +. arr)
+          (int->float (reify-dimension (+ l-1 1)))))
+
+    (define (covariance{ | l-1} [xs [float (+ 1 l-1)]] [ys [float (+ 1 l-1)]])
+      (/. (reduce{float | l-1 []} +.
+                                  (*. (-. xs (mean{ | l-1} xs))
+                                      (-. ys (mean{ | l-1} ys))))
+          ; covariance divides by n-1 instead of n
+          (int->float (reify-dimension l-1))))
+
+    (covariance{ | 3} [1. 2. 3. 4.] [1. 2. 3. 5.])
+    |};
+  [%expect {| 2.16667 |}]
+;;

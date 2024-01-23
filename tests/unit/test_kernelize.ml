@@ -37,33 +37,33 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (kernel (blocks 320) (threads 32)
-       (map-kernel (frame-shape 1000000) () (iota iota.148)
-        (body-matcher map-result.153) (map-result (map-result.153))
+       (map-kernel (frame-shape 1000000) () (iota iota.196)
+        (body-matcher map-result.201) (map-result (map-result.201))
         (let
-         ((map-result.206
+         ((map-result.254
            (#0
             (loop-block (frame-shape 10)
-             (map () (iota (iota.150 : iota.148)) iota.150)
-             (body-matcher map-result.149) (map-result (map-result.149))
+             (map () (iota (iota.198 : iota.196)) iota.198)
+             (body-matcher map-result.197) (map-result (map-result.197))
              (consumer (values))))))
          (let
-          ((reduce-arg.201
-            (contiguous-subarray (#0 map-result.206)
-             contiguous-subarray-index.170 (shape 10) (shape 9))))
+          ((reduce-arg.249
+            (contiguous-subarray (#0 map-result.254)
+             contiguous-subarray-index.218 (shape 10) (shape 9))))
           (#1
            (loop-block (frame-shape 9)
-            (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-            (body-matcher reduce-arg.172) (map-result ())
+            (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+            (body-matcher reduce-arg.220) (map-result ())
             (consumer
              (reduce-zero
-              (contiguous-subarray (#0 map-result.206)
-               contiguous-subarray-index.164 (shape 10) (shape))
-              (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-              (+ reduce-arg1.136 reduce-arg2.137))))))))))) |}];
+              (contiguous-subarray (#0 map-result.254)
+               contiguous-subarray-index.212 (shape 10) (shape))
+              (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+              (+ reduce-arg1.180 reduce-arg2.181))))))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
@@ -73,35 +73,35 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (#0
        (loop-block (frame-shape 10)
-        (map () (iota iota.148)
+        (map () (iota iota.196)
          (let
-          ((map-result.206
+          ((map-result.254
             (kernel (blocks 320) (threads 32)
-             (map-kernel (frame-shape 1000000) () (iota (iota.150 : iota.148))
-              (body-matcher map-result.149) (map-result (map-result.149))
-              iota.150))))
+             (map-kernel (frame-shape 1000000) () (iota (iota.198 : iota.196))
+              (body-matcher map-result.197) (map-result (map-result.197))
+              iota.198))))
           (let
-           ((reduce-arg.201
-             (contiguous-subarray (#0 map-result.206)
-              contiguous-subarray-index.170 (shape 1000000) (shape 999999))))
+           ((reduce-arg.249
+             (contiguous-subarray (#0 map-result.254)
+              contiguous-subarray-index.218 (shape 1000000) (shape 999999))))
            (#1
             (kernel (blocks 320) (threads 32)
              (loop-kernel (frame-shape 999999)
-              (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-              (body-matcher reduce-arg.172) (map-result ())
+              (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+              (body-matcher reduce-arg.220) (map-result ())
               (consumer
                ((reduce-zero
-                 (contiguous-subarray (#0 map-result.206)
-                  contiguous-subarray-index.164 (shape 1000000) (shape))
-                 (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-                 (+ reduce-arg1.136 reduce-arg2.137))
-                (outer-body (+ reduce-arg1.136 reduce-arg2.137))))))))))
-        (body-matcher map-result.153) (map-result (map-result.153))
+                 (contiguous-subarray (#0 map-result.254)
+                  contiguous-subarray-index.212 (shape 1000000) (shape))
+                 (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+                 (+ reduce-arg1.180 reduce-arg2.181))
+                (outer-body (+ reduce-arg1.180 reduce-arg2.181))))))))))
+        (body-matcher map-result.201) (map-result (map-result.201))
         (consumer (values)))))) |}];
   kernelizeAndPrint
     {|
@@ -112,33 +112,33 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (kernel (blocks 320) (threads 32)
-       (map-kernel (frame-shape 1000000) () (iota iota.148)
-        (body-matcher map-result.153) (map-result (map-result.153))
+       (map-kernel (frame-shape 1000000) () (iota iota.196)
+        (body-matcher map-result.201) (map-result (map-result.201))
         (let
-         ((map-result.206
+         ((map-result.254
            (#0
             (loop-block (frame-shape 1000000)
-             (map () (iota (iota.150 : iota.148)) iota.150)
-             (body-matcher map-result.149) (map-result (map-result.149))
+             (map () (iota (iota.198 : iota.196)) iota.198)
+             (body-matcher map-result.197) (map-result (map-result.197))
              (consumer (values))))))
          (let
-          ((reduce-arg.201
-            (contiguous-subarray (#0 map-result.206)
-             contiguous-subarray-index.170 (shape 1000000) (shape 999999))))
+          ((reduce-arg.249
+            (contiguous-subarray (#0 map-result.254)
+             contiguous-subarray-index.218 (shape 1000000) (shape 999999))))
           (#1
            (loop-block (frame-shape 999999)
-            (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-            (body-matcher reduce-arg.172) (map-result ())
+            (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+            (body-matcher reduce-arg.220) (map-result ())
             (consumer
              (reduce-zero
-              (contiguous-subarray (#0 map-result.206)
-               contiguous-subarray-index.164 (shape 1000000) (shape))
-              (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-              (+ reduce-arg1.136 reduce-arg2.137))))))))))) |}];
+              (contiguous-subarray (#0 map-result.254)
+               contiguous-subarray-index.212 (shape 1000000) (shape))
+              (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+              (+ reduce-arg1.180 reduce-arg2.181))))))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
@@ -148,33 +148,33 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (kernel (blocks 157) (threads 32)
-       (map-kernel (frame-shape 5000) () (iota iota.148)
-        (body-matcher map-result.153) (map-result (map-result.153))
+       (map-kernel (frame-shape 5000) () (iota iota.196)
+        (body-matcher map-result.201) (map-result (map-result.201))
         (let
-         ((map-result.206
+         ((map-result.254
            (#0
             (loop-block (frame-shape 5000)
-             (map () (iota (iota.150 : iota.148)) iota.150)
-             (body-matcher map-result.149) (map-result (map-result.149))
+             (map () (iota (iota.198 : iota.196)) iota.198)
+             (body-matcher map-result.197) (map-result (map-result.197))
              (consumer (values))))))
          (let
-          ((reduce-arg.201
-            (contiguous-subarray (#0 map-result.206)
-             contiguous-subarray-index.170 (shape 5000) (shape 4999))))
+          ((reduce-arg.249
+            (contiguous-subarray (#0 map-result.254)
+             contiguous-subarray-index.218 (shape 5000) (shape 4999))))
           (#1
            (loop-block (frame-shape 4999)
-            (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-            (body-matcher reduce-arg.172) (map-result ())
+            (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+            (body-matcher reduce-arg.220) (map-result ())
             (consumer
              (reduce-zero
-              (contiguous-subarray (#0 map-result.206)
-               contiguous-subarray-index.164 (shape 5000) (shape))
-              (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-              (+ reduce-arg1.136 reduce-arg2.137))))))))))) |}];
+              (contiguous-subarray (#0 map-result.254)
+               contiguous-subarray-index.212 (shape 5000) (shape))
+              (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+              (+ reduce-arg1.180 reduce-arg2.181))))))))))) |}];
   kernelizeAndPrint
     {|
     (define (sum-row{ | d-1} [row [int (+ d-1 1)]])
@@ -184,35 +184,35 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (#0
        (loop-block (frame-shape 5000)
-        (map () (iota iota.148)
+        (map () (iota iota.196)
          (let
-          ((map-result.206
+          ((map-result.254
             (kernel (blocks 188) (threads 32)
-             (map-kernel (frame-shape 6000) () (iota (iota.150 : iota.148))
-              (body-matcher map-result.149) (map-result (map-result.149))
-              iota.150))))
+             (map-kernel (frame-shape 6000) () (iota (iota.198 : iota.196))
+              (body-matcher map-result.197) (map-result (map-result.197))
+              iota.198))))
           (let
-           ((reduce-arg.201
-             (contiguous-subarray (#0 map-result.206)
-              contiguous-subarray-index.170 (shape 6000) (shape 5999))))
+           ((reduce-arg.249
+             (contiguous-subarray (#0 map-result.254)
+              contiguous-subarray-index.218 (shape 6000) (shape 5999))))
            (#1
             (kernel (blocks 188) (threads 32)
              (loop-kernel (frame-shape 5999)
-              (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-              (body-matcher reduce-arg.172) (map-result ())
+              (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+              (body-matcher reduce-arg.220) (map-result ())
               (consumer
                ((reduce-zero
-                 (contiguous-subarray (#0 map-result.206)
-                  contiguous-subarray-index.164 (shape 6000) (shape))
-                 (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-                 (+ reduce-arg1.136 reduce-arg2.137))
-                (outer-body (+ reduce-arg1.136 reduce-arg2.137))))))))))
-        (body-matcher map-result.153) (map-result (map-result.153))
+                 (contiguous-subarray (#0 map-result.254)
+                  contiguous-subarray-index.212 (shape 6000) (shape))
+                 (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+                 (+ reduce-arg1.180 reduce-arg2.181))
+                (outer-body (+ reduce-arg1.180 reduce-arg2.181))))))))))
+        (body-matcher map-result.201) (map-result (map-result.201))
         (consumer (values)))))) |}];
   kernelizeAndPrint
     {|
@@ -223,33 +223,33 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (kernel (blocks 188) (threads 32)
-       (map-kernel (frame-shape 6000) () (iota iota.148)
-        (body-matcher map-result.153) (map-result (map-result.153))
+       (map-kernel (frame-shape 6000) () (iota iota.196)
+        (body-matcher map-result.201) (map-result (map-result.201))
         (let
-         ((map-result.206
+         ((map-result.254
            (#0
             (loop-block (frame-shape 5000)
-             (map () (iota (iota.150 : iota.148)) iota.150)
-             (body-matcher map-result.149) (map-result (map-result.149))
+             (map () (iota (iota.198 : iota.196)) iota.198)
+             (body-matcher map-result.197) (map-result (map-result.197))
              (consumer (values))))))
          (let
-          ((reduce-arg.201
-            (contiguous-subarray (#0 map-result.206)
-             contiguous-subarray-index.170 (shape 5000) (shape 4999))))
+          ((reduce-arg.249
+            (contiguous-subarray (#0 map-result.254)
+             contiguous-subarray-index.218 (shape 5000) (shape 4999))))
           (#1
            (loop-block (frame-shape 4999)
-            (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-            (body-matcher reduce-arg.172) (map-result ())
+            (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+            (body-matcher reduce-arg.220) (map-result ())
             (consumer
              (reduce-zero
-              (contiguous-subarray (#0 map-result.206)
-               contiguous-subarray-index.164 (shape 5000) (shape))
-              (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-              (+ reduce-arg1.136 reduce-arg2.137))))))))))) |}];
+              (contiguous-subarray (#0 map-result.254)
+               contiguous-subarray-index.212 (shape 5000) (shape))
+              (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+              (+ reduce-arg1.180 reduce-arg2.181))))))))))) |}];
   kernelizeAndPrint "(+ 1 iota{ | [10 20 30]})";
   [%expect
     {|
@@ -273,32 +273,32 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (let
-     ((contiguous-subarray-index.164 (frame 0))
-      (contiguous-subarray-index.170 (frame 1)))
+     ((contiguous-subarray-index.212 (frame 0))
+      (contiguous-subarray-index.218 (frame 1)))
      (#0
       (#0
        (loop-block (frame-shape 10)
-        (map () (iota iota.148)
+        (map () (iota iota.196)
          (let
-          ((map-result.206
+          ((map-result.254
             (kernel (blocks 320) (threads 32)
-             (map-kernel (frame-shape 1000000) () (iota (iota.150 : iota.148))
-              (body-matcher map-result.149) (map-result (map-result.149))
-              iota.150))))
+             (map-kernel (frame-shape 1000000) () (iota (iota.198 : iota.196))
+              (body-matcher map-result.197) (map-result (map-result.197))
+              iota.198))))
           (let
-           ((reduce-arg.201
-             (contiguous-subarray (#0 map-result.206)
-              contiguous-subarray-index.170 (shape 1000000) (shape 999999))))
+           ((reduce-arg.249
+             (contiguous-subarray (#0 map-result.254)
+              contiguous-subarray-index.218 (shape 1000000) (shape 999999))))
            (#1
             (loop-block (frame-shape 999999)
-             (map ((reduce-arg.174 reduce-arg.201)) reduce-arg.174)
-             (body-matcher reduce-arg.172) (map-result ())
+             (map ((reduce-arg.222 reduce-arg.249)) reduce-arg.222)
+             (body-matcher reduce-arg.220) (map-result ())
              (consumer
               (reduce-zero
-               (contiguous-subarray (#0 map-result.206)
-                contiguous-subarray-index.164 (shape 1000000) (shape))
-               (reduce-arg1.136 reduce-arg2.137 reduce-arg.172)
-               (+ reduce-arg1.136 reduce-arg2.137))))))))
-        (body-matcher map-result.153) (map-result (map-result.153))
+               (contiguous-subarray (#0 map-result.254)
+                contiguous-subarray-index.212 (shape 1000000) (shape))
+               (reduce-arg1.180 reduce-arg2.181 reduce-arg.220)
+               (+ reduce-arg1.180 reduce-arg2.181))))))))
+        (body-matcher map-result.201) (map-result (map-result.201))
         (consumer (values)))))) |}]
 ;;

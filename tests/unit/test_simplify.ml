@@ -70,18 +70,18 @@ let%expect_test "check simplifying" =
   |};
   [%expect
     {|
-    (let ((arr.135 (frame 1 2 3 4 5)))
+    (let ((arr.161 (frame 1 2 3 4 5)))
      (let
-      ((reduce-arg.151
-        (contiguous-subarray arr.135 (frame 1) (shape 5) (shape 4))))
+      ((reduce-arg.177
+        (contiguous-subarray arr.161 (frame 1) (shape 5) (shape 4))))
       (#1
        (loop-block (frame-shape 4)
-        (map ((reduce-arg.152 reduce-arg.151)) (values reduce-arg.152))
-        (body-matcher (reduce-arg.150)) (map-result ())
+        (map ((reduce-arg.178 reduce-arg.177)) (values reduce-arg.178))
+        (body-matcher (reduce-arg.176)) (map-result ())
         (consumer
-         (reduce-zero (contiguous-subarray arr.135 (frame 0) (shape 5) (shape))
-          (reduce-arg1.124 reduce-arg2.125 reduce-arg.150)
-          (+ reduce-arg1.124 reduce-arg2.125))))))) |}];
+         (reduce-zero (contiguous-subarray arr.161 (frame 0) (shape 5) (shape))
+          (reduce-arg1.146 reduce-arg2.147 reduce-arg.176)
+          (+ reduce-arg1.146 reduce-arg2.147))))))) |}];
   checkAndPrint
     {|
       (define (id{@t| } [x @t]) x)
@@ -91,8 +91,8 @@ let%expect_test "check simplifying" =
     {|
     (#0
      (#0
-      (loop-block (frame-shape 3) (map () 5) (body-matcher map-result.107)
-       (map-result (map-result.107)) (consumer (values))))) |}];
+      (loop-block (frame-shape 3) (map () 5) (body-matcher map-result.108)
+       (map-result (map-result.108)) (consumer (values))))) |}];
   checkAndPrint
     {|
       (define (id{@t| } [x @t]) x)
@@ -111,36 +111,36 @@ let%expect_test "check simplifying" =
     |};
   [%expect
     {|
-    (let ((x.133 (frame 5 6 7)) (+arg1.139 (frame 1 2 3)))
+    (let ((x.148 (frame 5 6 7)) (+arg1.154 (frame 1 2 3)))
      (let
-      ((y.142
+      ((y.157
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((+arg1.141 +arg1.139)) (+ +arg1.141 4))
-           (body-matcher map-result.140) (map-result (map-result.140))
+           (map ((+arg1.156 +arg1.154)) (+ +arg1.156 4))
+           (body-matcher map-result.155) (map-result (map-result.155))
            (consumer (values)))))))
-      (let ((+arg1.148 y.142) (+arg2.149 y.142))
+      (let ((+arg1.163 y.157) (+arg2.164 y.157))
        (let
-        ((+arg2.154
+        ((+arg2.169
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg1.151 +arg1.148) (+arg2.152 +arg2.149))
-              (+ +arg1.151 +arg2.152))
-             (body-matcher map-result.150) (map-result (map-result.150))
+             (map ((+arg1.166 +arg1.163) (+arg2.167 +arg2.164))
+              (+ +arg1.166 +arg2.167))
+             (body-matcher map-result.165) (map-result (map-result.165))
              (consumer (values)))))))
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((x.135 x.133))
+           (map ((x.150 x.148))
             (#0
              (#0
               (loop-block (frame-shape 3)
-               (map ((+arg2.156 +arg2.154)) (+ x.135 +arg2.156))
-               (body-matcher map-result.155) (map-result (map-result.155))
+               (map ((+arg2.171 +arg2.169)) (+ x.150 +arg2.171))
+               (body-matcher map-result.170) (map-result (map-result.170))
                (consumer (values))))))
-           (body-matcher map-result.134) (map-result (map-result.134))
+           (body-matcher map-result.149) (map-result (map-result.149))
            (consumer (values))))))))) |}];
   checkAndPrint
     {|
@@ -151,26 +151,26 @@ let%expect_test "check simplifying" =
     |};
   [%expect
     {|
-    (let ((x.123 (frame 5 6 7)) (+arg1.129 (frame 1 2 3)))
+    (let ((x.133 (frame 5 6 7)) (+arg1.139 (frame 1 2 3)))
      (let
-      ((+arg2.136
+      ((+arg2.146
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((+arg1.131 +arg1.129)) (+ +arg1.131 4))
-           (body-matcher map-result.130) (map-result (map-result.130))
+           (map ((+arg1.141 +arg1.139)) (+ +arg1.141 4))
+           (body-matcher map-result.140) (map-result (map-result.140))
            (consumer (values)))))))
       (#0
        (#0
         (loop-block (frame-shape 3)
-         (map ((x.125 x.123))
+         (map ((x.135 x.133))
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg2.138 +arg2.136)) (+ x.125 +arg2.138))
-             (body-matcher map-result.137) (map-result (map-result.137))
+             (map ((+arg2.148 +arg2.146)) (+ x.135 +arg2.148))
+             (body-matcher map-result.147) (map-result (map-result.147))
              (consumer (values))))))
-         (body-matcher map-result.124) (map-result (map-result.124))
+         (body-matcher map-result.134) (map-result (map-result.134))
          (consumer (values))))))) |}];
   checkAndPrint
     {|
@@ -181,30 +181,30 @@ let%expect_test "check simplifying" =
     |};
   [%expect
     {|
-    (let ((+arg1.134 (frame 1 2 3)))
+    (let ((+arg1.149 (frame 1 2 3)))
      (let
-      ((y.137
+      ((y.152
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((+arg1.136 +arg1.134)) (+ +arg1.136 4))
-           (body-matcher map-result.135) (map-result (map-result.135))
+           (map ((+arg1.151 +arg1.149)) (+ +arg1.151 4))
+           (body-matcher map-result.150) (map-result (map-result.150))
            (consumer (values)))))))
-      (let ((+arg1.143 y.137) (+arg2.144 y.137))
+      (let ((+arg1.158 y.152) (+arg2.159 y.152))
        (let
-        ((+arg2.149
+        ((+arg2.164
           (#0
            (#0
             (loop-block (frame-shape 3)
-             (map ((+arg1.146 +arg1.143) (+arg2.147 +arg2.144))
-              (+ +arg1.146 +arg2.147))
-             (body-matcher map-result.145) (map-result (map-result.145))
+             (map ((+arg1.161 +arg1.158) (+arg2.162 +arg2.159))
+              (+ +arg1.161 +arg2.162))
+             (body-matcher map-result.160) (map-result (map-result.160))
              (consumer (values)))))))
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((+arg2.151 +arg2.149)) (+ 5 +arg2.151))
-           (body-matcher map-result.150) (map-result (map-result.150))
+           (map ((+arg2.166 +arg2.164)) (+ 5 +arg2.166))
+           (body-matcher map-result.165) (map-result (map-result.165))
            (consumer (values))))))))) |}];
   checkAndPrint
     {|
@@ -215,36 +215,36 @@ let%expect_test "check simplifying" =
     |};
   [%expect
     {|
-    (let ((x.133 (frame 5 6 7)) (+arg1.139 (frame 1 2 3)))
+    (let ((x.148 (frame 5 6 7)) (+arg1.154 (frame 1 2 3)))
      (#0
       (#0
        (loop-block (frame-shape 3)
-        (map ((x.135 x.133))
+        (map ((x.150 x.148))
          (let
-          ((y.142
+          ((y.157
             (#0
              (#0
               (loop-block (frame-shape 3)
-               (map ((+arg1.141 +arg1.139)) (+ +arg1.141 x.135))
-               (body-matcher map-result.140) (map-result (map-result.140))
+               (map ((+arg1.156 +arg1.154)) (+ +arg1.156 x.150))
+               (body-matcher map-result.155) (map-result (map-result.155))
                (consumer (values)))))))
-          (let ((+arg1.148 y.142) (+arg2.149 y.142))
+          (let ((+arg1.163 y.157) (+arg2.164 y.157))
            (let
-            ((+arg2.154
+            ((+arg2.169
               (#0
                (#0
                 (loop-block (frame-shape 3)
-                 (map ((+arg1.151 +arg1.148) (+arg2.152 +arg2.149))
-                  (+ +arg1.151 +arg2.152))
-                 (body-matcher map-result.150) (map-result (map-result.150))
+                 (map ((+arg1.166 +arg1.163) (+arg2.167 +arg2.164))
+                  (+ +arg1.166 +arg2.167))
+                 (body-matcher map-result.165) (map-result (map-result.165))
                  (consumer (values)))))))
             (#0
              (#0
               (loop-block (frame-shape 3)
-               (map ((+arg2.156 +arg2.154)) (+ x.135 +arg2.156))
-               (body-matcher map-result.155) (map-result (map-result.155))
+               (map ((+arg2.171 +arg2.169)) (+ x.150 +arg2.171))
+               (body-matcher map-result.170) (map-result (map-result.170))
                (consumer (values)))))))))
-        (body-matcher map-result.134) (map-result (map-result.134))
+        (body-matcher map-result.149) (map-result (map-result.149))
         (consumer (values)))))) |}];
   checkAndPrint
     {|
@@ -255,11 +255,11 @@ let%expect_test "check simplifying" =
     |};
   [%expect
     {|
-    (let ((x.125 (frame 5 6 7)))
+    (let ((x.136 (frame 5 6 7)))
      (#0
       (#0
-       (loop-block (frame-shape 3) (map ((x.127 x.125)) (+ x.127 14))
-        (body-matcher map-result.126) (map-result (map-result.126))
+       (loop-block (frame-shape 3) (map ((x.138 x.136)) (+ x.138 14))
+        (body-matcher map-result.137) (map-result (map-result.137))
         (consumer (values)))))) |}];
   checkAndPrint {| [[1 2] [3 4] [5 6]] |};
   [%expect {|
@@ -369,32 +369,32 @@ let%expect_test "check simplifying" =
      (#0
       (#0
        (loop-block (frame-shape 1)
-        (map () (iota iota.108)
+        (map () (iota iota.113)
          (#0
           (#0
            (loop-block (frame-shape 2)
-            (map () (iota (iota.110 : iota.108))
+            (map () (iota (iota.115 : iota.113))
              (#0
               (#0
                (loop-block (frame-shape 3)
-                (map () (iota (iota.112 : iota.110))
+                (map () (iota (iota.117 : iota.115))
                  (#0
                   (#0
                    (loop-block (frame-shape 4)
-                    (map () (iota (iota.114 : iota.112))
+                    (map () (iota (iota.119 : iota.117))
                      (#0
                       (#0
                        (loop-block (frame-shape 5)
-                        (map () (iota (iota.116 : iota.114)) iota.116)
-                        (body-matcher map-result.115)
-                        (map-result (map-result.115)) (consumer (values))))))
-                    (body-matcher map-result.113) (map-result (map-result.113))
+                        (map () (iota (iota.121 : iota.119)) iota.121)
+                        (body-matcher map-result.120)
+                        (map-result (map-result.120)) (consumer (values))))))
+                    (body-matcher map-result.118) (map-result (map-result.118))
                     (consumer (values))))))
-                (body-matcher map-result.111) (map-result (map-result.111))
+                (body-matcher map-result.116) (map-result (map-result.116))
                 (consumer (values))))))
-            (body-matcher map-result.109) (map-result (map-result.109))
+            (body-matcher map-result.114) (map-result (map-result.114))
             (consumer (values))))))
-        (body-matcher map-result.107) (map-result (map-result.107))
+        (body-matcher map-result.112) (map-result (map-result.112))
         (consumer (values)))))
      (frame 0 1 0) (shape 1 2 3) (shape)) |}];
   checkAndPrint
@@ -409,14 +409,14 @@ let%expect_test "check simplifying" =
      (#0
       (loop-block (frame-shape 0)
        (map ()
-        (let ((+arg1.114 (frame 1 2 3)))
+        (let ((+arg1.119 (frame 1 2 3)))
          (#0
           (#0
            (loop-block (frame-shape 3)
-            (map ((+arg1.116 +arg1.114)) (+ +arg1.116 4))
-            (body-matcher map-result.115) (map-result (map-result.115))
+            (map ((+arg1.121 +arg1.119)) (+ +arg1.121 4))
+            (body-matcher map-result.120) (map-result (map-result.120))
             (consumer (values)))))))
-       (body-matcher map-result.110) (map-result (map-result.110))
+       (body-matcher map-result.115) (map-result (map-result.115))
        (consumer (values))))) |}];
   checkAndPrint {|
     (lift [i [1 2 3]]
@@ -458,31 +458,31 @@ let%expect_test "check simplifying" =
   [%expect
     {|
     (let
-     ((arr.146 (frame 1 2 3))
-      (+arg2.170
+     ((arr.172 (frame 1 2 3))
+      (+arg2.196
        (#0
         (#0
-         (loop-block (frame-shape 1001) (map () (iota iota.168) iota.168)
-          (body-matcher map-result.167) (map-result (map-result.167))
+         (loop-block (frame-shape 1001) (map () (iota iota.194) iota.194)
+          (body-matcher map-result.193) (map-result (map-result.193))
           (consumer (values)))))))
      (let
-      ((reduce-arg.162
-        (contiguous-subarray arr.146 (frame 1) (shape 3) (shape 2))))
+      ((reduce-arg.188
+        (contiguous-subarray arr.172 (frame 1) (shape 3) (shape 2))))
       (let
-       ((x.164
+       ((x.190
          (#1
           (loop-block (frame-shape 2)
-           (map ((reduce-arg.163 reduce-arg.162)) (values reduce-arg.163))
-           (body-matcher (reduce-arg.161)) (map-result ())
+           (map ((reduce-arg.189 reduce-arg.188)) (values reduce-arg.189))
+           (body-matcher (reduce-arg.187)) (map-result ())
            (consumer
             (reduce-zero
-             (contiguous-subarray arr.146 (frame 0) (shape 3) (shape))
-             (reduce-arg1.130 reduce-arg2.131 reduce-arg.161)
-             (+ reduce-arg1.130 reduce-arg2.131)))))))
+             (contiguous-subarray arr.172 (frame 0) (shape 3) (shape))
+             (reduce-arg1.152 reduce-arg2.153 reduce-arg.187)
+             (+ reduce-arg1.152 reduce-arg2.153)))))))
        (#0
         (#0
          (loop-block (frame-shape 1001)
-          (map ((+arg2.172 +arg2.170)) (+ x.164 +arg2.172))
-          (body-matcher map-result.171) (map-result (map-result.171))
+          (map ((+arg2.198 +arg2.196)) (+ x.190 +arg2.198))
+          (body-matcher map-result.197) (map-result (map-result.197))
           (consumer (values)))))))) |}]
 ;;

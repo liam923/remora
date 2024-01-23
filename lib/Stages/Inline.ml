@@ -255,6 +255,112 @@ let assertValueRestriction value =
   else InlineState.return ()
 ;;
 
+let rec genNewBindingsArray env (expr : Explicit.Expr.array) =
+  let open Explicit in
+  let open InlineState.Let_syntax in
+  match expr with
+  | Ref ref -> return @@ Expr.Ref (genNewBindingsForRef env ref)
+  | Scalar { element; type' } ->
+    let%bind element = genNewBindingsAtom env element in
+    return @@ Expr.Scalar { element; type' }
+  | Frame { elements; dimensions; type' } ->
+    let%bind elements =
+      elements |> List.map ~f:(genNewBindingsArray env) |> InlineState.all
+    in
+    return @@ Expr.Frame { elements; dimensions; type' }
+  | TermApplication { func; args; type' } ->
+    let%bind func = genNewBindingsArray env func in
+    let args = List.map ~f:(genNewBindingsForRef env) args in
+    return @@ Expr.TermApplication { func; args; type' }
+  | TypeApplication { tFunc; args; type' } ->
+    let%bind tFunc = genNewBindingsArray env tFunc in
+    return @@ Expr.TypeApplication { tFunc; args; type' }
+  | IndexApplication { iFunc; args; type' } ->
+    let%bind iFunc = genNewBindingsArray env iFunc in
+    return @@ Expr.IndexApplication { iFunc; args; type' }
+  | BoxValue { box; type' } ->
+    let%bind box = genNewBindingsArray env box in
+    return @@ Expr.BoxValue { box; type' }
+  | IndexLet { indexArgs; body; type' } ->
+    let%bind indexArgs =
+      indexArgs
+      |> List.map ~f:(fun { indexBinding; sort; indexValue } ->
+        let%bind indexValue =
+          match indexValue with
+          | Runtime v ->
+            let%bind v = genNewBindingsArray env v in
+            return @@ Expr.Runtime v
+          | FromBox { box; i } ->
+            let%bind box = genNewBindingsArray env box in
+            return @@ Expr.FromBox { box; i }
+        in
+        return @@ Expr.{ indexBinding; sort; indexValue })
+      |> InlineState.all
+    and body = genNewBindingsArray env body in
+    return @@ Expr.IndexLet { indexArgs; body; type' }
+  | ReifyIndex { index = _; type' = _ } as reifyIndex -> return reifyIndex
+  | Primitive _ as primitive -> return primitive
+  | Map { frameShape; args; body; type' } ->
+    let%bind oldAndNewArgs =
+      args
+      |> List.map ~f:(fun { binding = oldBinding; value } ->
+        let%bind newBinding = InlineState.createId @@ Identifier.name oldBinding
+        and value = genNewBindingsArray env value in
+        return @@ (oldBinding, Expr.{ binding = newBinding; value }))
+      |> InlineState.all
+    in
+    let extendedEnv =
+      List.fold oldAndNewArgs ~init:env ~f:(fun envSoFar (oldBinding, newArg) ->
+        Map.set envSoFar ~key:oldBinding ~data:newArg.binding)
+    in
+    let _, args = List.unzip oldAndNewArgs in
+    let%bind body = genNewBindingsArray extendedEnv body in
+    return @@ Expr.Map { frameShape; args; body; type' }
+
+and genNewBindingsAtom env (expr : Explicit.Expr.atom) =
+  let open Explicit in
+  let open InlineState.Let_syntax in
+  match expr with
+  | TermLambda lambda ->
+    let%bind lambda = genNewBindingsForLambda ~env lambda in
+    return @@ Expr.TermLambda lambda
+  | TypeLambda { params; body; type' } ->
+    let%bind body = genNewBindingsArray env body in
+    return @@ Expr.TypeLambda { params; body; type' }
+  | IndexLambda { params; body; type' } ->
+    let%bind body = genNewBindingsArray env body in
+    return @@ Expr.IndexLambda { params; body; type' }
+  | Box { indices; bodyType; body; type' } ->
+    let%bind body = genNewBindingsArray env body in
+    return @@ Expr.Box { indices; bodyType; body; type' }
+  | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit
+    -> return lit
+
+and genNewBindingsForRef env ({ id; type' } : Explicit.Expr.ref) =
+  Explicit.Expr.{ id = Map.find env id |> Option.value ~default:id; type' }
+
+and genNewBindingsForLambda
+  ?(env = Map.empty (module Identifier))
+  ({ params; body; type' } : Explicit.Expr.termLambda)
+  =
+  let open Explicit in
+  let open InlineState.Let_syntax in
+  let%bind oldAndNewParams =
+    params
+    |> List.map ~f:(fun { binding = oldBinding; bound } ->
+      let%bind newBinding = InlineState.createId @@ Identifier.name oldBinding in
+      return @@ (oldBinding, ({ binding = newBinding; bound } : Type.array param)))
+    |> InlineState.all
+  in
+  let extendedEnv =
+    List.fold oldAndNewParams ~init:env ~f:(fun envSoFar (oldBinding, newArg) ->
+      Map.set envSoFar ~key:oldBinding ~data:newArg.binding)
+  in
+  let _, params = List.unzip oldAndNewParams in
+  let%bind body = genNewBindingsArray extendedEnv body in
+  return @@ ({ params; body; type' } : Expr.termLambda)
+;;
+
 let scalar atom =
   Nucleus.Expr.(
     AtomAsArray { element = atom; type' = { element = atomType atom; shape = [] } })
@@ -576,7 +682,8 @@ and inlineTermApplication subs indexEnv appStack termApplication =
            ])
   in
   match func with
-  | Lambda { lambda = { params; body; type' = _ }; captures; id = _ } ->
+  | Lambda { lambda; captures; id = _ } ->
+    let%bind { params; body; type' = _ } = genNewBindingsForLambda lambda in
     (* Verify that all the variables captured by the function are declared.
        If not, throw an error (this should change in the future because it
        should be allowed) *)
@@ -600,7 +707,7 @@ and inlineTermApplication subs indexEnv appStack termApplication =
        replaced with the args. The args are already guaranteed to be variables
        bound to a map due to how the Explicitize stage works, so we don't
        need to create bindings. (If this wasn't the case, we'd need to
-       create bindings to guaranteed the params aren't computed twice.) *)
+       create bindings to guarantee the params aren't computed twice.) *)
     let subs =
       List.zip_exn params args
       |> List.fold ~init:subs ~f:(fun subs (param, arg) ->
