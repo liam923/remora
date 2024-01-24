@@ -65,12 +65,12 @@ let%expect_test "basic" =
 ;;
 
 let%expect_test "simple reduction" =
-  compileAndRun "(reduce{int | 99999999 []} + (+ 1 iota{ | [100000000]}))";
+  compileAndRun "(reduce{int | 99999999 [] []} + (+ 1 iota{ | [100000000]}))";
   [%expect {| 5000000050000000 |}]
 ;;
 
 let%expect_test "reduce zero" =
-  compileAndRun "(reduce-zero{int | 100000000 []} + 0 (+ 1 iota{ | [100000000]}))";
+  compileAndRun "(reduce-zero{int | 100000000 [] []} + 0 (+ 1 iota{ | [100000000]}))";
   [%expect {| 5000000050000000 |}]
 ;;
 
@@ -92,7 +92,7 @@ let%expect_test "mean" =
   compileAndRun
     {|
     (define (mean{ | l-1} [arr [float (+ l-1 1)]])
-      (/. (reduce{float | l-1 []} +. arr)
+      (/. (reduce{float | l-1 [] []} +. arr)
           (int->float (reify-dimension (+ l-1 1)))))
 
     (mean{ | 999} (int->float (+ 1 iota{ | [1000]})))
@@ -106,7 +106,7 @@ let%expect_test "nested reduce" =
     (define (add [x [int 10]] [y [int 10]])
       (+ x y))
 
-    (reduce{int | 999 [10]} add iota{ | [1000 10]})
+    (reduce{int | 999 [] [10]} add iota{ | [1000 10]})
     |};
   [%expect
     {| [4995000 4996000 4997000 4998000 4999000 5000000 5001000 5002000 5003000 5004000] |}]
@@ -115,14 +115,14 @@ let%expect_test "nested reduce" =
 let%expect_test "lift" =
   compileAndRun
     {|
-    (define count (reduce{int | 2 []} + [1 2 3]))
+    (define count (reduce{int | 2 [] []} + [1 2 3]))
 
     (define res
       (lift [d-1 count]
         (replicate{int | [(+ d-1 1)] []} 5)))
 
     (unbox res (arr d-1)
-      (reduce{int | d-1 []} + arr))
+      (reduce{int | d-1 [] []} + arr))
     |};
   [%expect {| 35 |}]
 ;;
@@ -134,7 +134,7 @@ let%expect_test "matrix multiplication" =
       (+ x y))
 
     (define (v*m{ | a b} [x [int a]] [y [int a b]])
-      (reduce-zero{int | a [b]} add{ | [b]} (replicate{int | [b] []} 0) (* x y)))
+      (reduce-zero{int | a [] [b]} add{ | [b]} (replicate{int | [b] []} 0) (* x y)))
 
     (define (m*m{ | a b c} [x [int a b]] [y [int b c]])
       (v*m{ | b c} x y))
@@ -172,7 +172,7 @@ let%expect_test "sum evens" =
     {|
     (define values (+ 1 iota{ | [1000]}))
     (define even-values (if{int | } (= (% values 2) 0) values 0))
-    (reduce{int | 999 []} + even-values)
+    (reduce{int | 999 [] []} + even-values)
     |};
   [%expect {|
     250500 |}]
@@ -182,11 +182,11 @@ let%expect_test "covariance" =
   compileAndRun
     {|
     (define (mean{ | l-1} [arr [float (+ l-1 1)]])
-      (/. (reduce{float | l-1 []} +. arr)
+      (/. (reduce{float | l-1 [] []} +. arr)
           (int->float (reify-dimension (+ l-1 1)))))
 
     (define (covariance{ | l-1} [xs [float (+ 1 l-1)]] [ys [float (+ 1 l-1)]])
-      (/. (reduce{float | l-1 []} +.
+      (/. (reduce{float | l-1 [] []} +.
                                   (*. (-. xs (mean{ | l-1} xs))
                                       (-. ys (mean{ | l-1} ys))))
           ; covariance divides by n-1 instead of n
