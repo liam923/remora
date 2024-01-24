@@ -64,7 +64,6 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | ContiguousSubArray ->
             [ "contiguous-subarray-array"; "contiguous-subarray-index" ]
           | Scatter -> [ "scatter-values"; "scatter-indices" ]
-          | Replicate -> [ "replicate-value" ]
           | If -> [ "if-cond"; "then-branch"; "else-branch" ]
           | LibFun { name; libName = _; argTypes; retType = _ } ->
             List.init (List.length argTypes) ~f:(fun i -> [%string "%{name}-arg%{i#Int}"]))

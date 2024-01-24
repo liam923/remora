@@ -1072,41 +1072,6 @@ and inlineTermApplication indexEnv appStack termApplication =
                (String.concat_lines
                   [ "scatter expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
-                  ])))
-     | Replicate ->
-       assert (List.length args = 1);
-       (match primitive.appStack with
-        | [ IndexApp [ Shape s; Shape cellShape ]; TypeApp [ Atom _ ] ] ->
-          let%map valueArg, functions =
-            inlineArray indexEnv [] (Ref (List.nth_exn args 0))
-          and valueBinding = InlineState.createId "replicated-value" in
-          let valueType = I.arrayType valueArg in
-          let resultType =
-            Nucleus.Type.{ element = valueType.element; shape = s @ cellShape }
-          in
-          ( I.ArrayPrimitive
-              (Map
-                 { args = [ { binding = valueBinding; value = valueArg } ]
-                 ; iotaVar = None
-                 ; frameShape = []
-                 ; body =
-                     ArrayPrimitive
-                       (Map
-                          { args = []
-                          ; iotaVar = None
-                          ; frameShape = s
-                          ; body = Ref { id = valueBinding; type' = valueType }
-                          ; type' = resultType
-                          })
-                 ; type' = resultType
-                 })
-          , functions )
-        | _ ->
-          raise
-            (Unreachable.Error
-               (String.concat_lines
-                  [ "replicate expected a stack of [IndexApp; TypeApp], got"
-                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ]))))
 
 (* Handle cases where there are values bound to variables and then used in some

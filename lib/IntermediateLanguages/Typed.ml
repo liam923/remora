@@ -154,7 +154,6 @@ module Expr = struct
     | Append
     | ContiguousSubArray
     | Scatter
-    | Replicate
     | If
     | LibFun of
         { name : string

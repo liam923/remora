@@ -248,6 +248,26 @@ module Stdlib : S = struct
               (reify-dimension d))))
             |}
       }
+    ; { name = "iota"
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Val Iota; type' })
+            ; type' = {| (Pi (@s) [int @s]) |}
+            }
+      }
+    ; { name = "replicate"
+      ; value =
+          Expression
+            {|
+            (i-fn (@s @cell-shape)
+              (t-fn (t)
+                (fn ([v [t @cell-shape]])
+                  (define (make [foo int] [v [t @cell-shape]])
+                    v)
+                  (make iota{ | [@s]} v)
+                )))
+            |}
+      }
     ; { name = "contiguous-subarray"
       ; value =
           Intrinsic
@@ -303,7 +323,7 @@ module Stdlib : S = struct
                   (contiguous-subarray{t | [d-in] [d-out] @cell-shape 1} arr [i]))))
             |}
       }
-    ; { name = "reduce-zero"
+    ; { name = "reduce-zero-no-padding"
       ; value =
           Intrinsic
             { makeValue =
@@ -323,52 +343,33 @@ module Stdlib : S = struct
                 |}
             }
       }
+    ; { name = "reduce-zero"
+      ; value =
+          Expression
+            {|
+            (i-fn (d @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                      [init [t @cell-shape]]
+                      [arr [t d @item-pad @cell-shape]])
+                  (define (up-ranked-f [a [t @item-pad @cell-shape]]
+                                        [b [t @item-pad @cell-shape]])
+                    (f a b))
+                  (reduce-zero-no-padding{t | d (++ @item-pad @cell-shape)} up-ranked-f (replicate{t | @item-pad @cell-shape} init) arr))))
+            |}
+      }
     ; { name = "reduce"
       ; value =
           Expression
             {|
-            (i-fn (d-1 @cell-shape)
+            (i-fn (d-1 @item-pad @cell-shape)
               (t-fn (t)
                 (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                     [arr [t (+ d-1 1) @cell-shape]])
-                  (reduce-zero{t | d-1 @cell-shape}
+                     [arr [t (+ d-1 1) @item-pad @cell-shape]])
+                  (reduce-zero{t | d-1 @item-pad @cell-shape}
                     op
-                    (head{t | d-1 @cell-shape} arr)
-                    (tail{t | d-1 @cell-shape} arr)))))
-            |}
-      }
-    ; { name = "reduce-non-assoc-zero"
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive
-                    { name = Func (Reduce { associative = false; character = Reduce })
-                    ; type'
-                    })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t @cell-shape]
-                         [t d @cell-shape])
-                      [t @cell-shape])))
-                |}
-            }
-      }
-    ; { name = "reduce-non-assoc"
-      ; value =
-          Expression
-            {|
-            (i-fn (d-1 @cell-shape)
-              (t-fn (t)
-                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                     [arr [t (+ d-1 1) @cell-shape]])
-                  (reduce-non-assoc-zero{t | d-1 @cell-shape}
-                    op
-                    (head{t | d-1 @cell-shape} arr)
-                    (tail{t | d-1 @cell-shape} arr)))))
+                    (head{t | d-1 (++ @item-pad @cell-shape)} arr)
+                    (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
             |}
       }
     ; { name = "open-scan-zero"
@@ -451,13 +452,6 @@ module Stdlib : S = struct
                 |}
             }
       }
-    ; { name = "iota"
-      ; value =
-          Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { name = Val Iota; type' })
-            ; type' = {| (Pi (@s) [int @s]) |}
-            }
-      }
     ; { name = "scatter"
       ; value =
           Intrinsic
@@ -469,19 +463,6 @@ module Stdlib : S = struct
                       (-> ([t d-in @cell-shape]
                            [int d-in])
                           [t [d-out @cell-shape]])))
-                  |}
-            }
-      }
-    ; { name = "replicate"
-      ; value =
-          Intrinsic
-            { makeValue = (fun type' -> Expr.Primitive { name = Func Replicate; type' })
-            ; type' =
-                {|
-                  (Pi (@s @cell-shape)
-                    (Forall (t)
-                      (-> ([t [@cell-shape]])
-                          [t [@s @cell-shape]])))
                   |}
             }
       }
