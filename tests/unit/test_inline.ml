@@ -806,7 +806,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 92))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 133)))
-         (value (Ref ((id ((name arr) (id 124)))))))))
+         (value (Ref ((id ((name arr) (id 105)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 128))))))
@@ -935,7 +935,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 92))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 140)))
-         (value (Ref ((id ((name arr) (id 124)))))))))
+         (value (Ref ((id ((name arr) (id 105)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 135))))))
@@ -1073,7 +1073,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 94))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 128)))
-         (value (Ref ((id ((name arr) (id 119)))))))))
+         (value (Ref ((id ((name arr) (id 100)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 123))))))
@@ -1202,7 +1202,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 94))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 135)))
-         (value (Ref ((id ((name arr) (id 119)))))))))
+         (value (Ref ((id ((name arr) (id 100)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 130))))))
@@ -1330,7 +1330,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 94))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 128)))
-         (value (Ref ((id ((name arr) (id 119)))))))))
+         (value (Ref ((id ((name arr) (id 100)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 123))))))
@@ -1459,7 +1459,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 94))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 135)))
-         (value (Ref ((id ((name arr) (id 119)))))))))
+         (value (Ref ((id ((name arr) (id 100)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 130))))))
@@ -1587,7 +1587,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 94))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 128)))
-         (value (Ref ((id ((name arr) (id 119)))))))))
+         (value (Ref ((id ((name arr) (id 100)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 123))))))
@@ -1716,7 +1716,7 @@ let%expect_test "check inlining" =
                 ((parameters (((binding ((name @t) (id 94))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
         ((binding ((name arr) (id 135)))
-         (value (Ref ((id ((name arr) (id 119)))))))))
+         (value (Ref ((id ((name arr) (id 100)))))))))
       (body
        (TermApplication
         ((func (Ref ((id ((name f) (id 130))))))
@@ -2680,7 +2680,7 @@ let%expect_test "check inlining" =
         (let [x 5]
           (fn () x)))
       (foo) |};
-  [%expect {| Error: Lambda captures variable x, which escapes its definition |}];
+  [%expect {| Error: Lambda captures variable x.93, which escapes its definition |}];
   checkAndPrint {|
     (lift [i [1 2 3]]
       (replicate{int | [i] []} 5))

@@ -373,5 +373,69 @@ module Substitute = struct
       ; type' = Type.subIndicesIntoFunc indices type'
       }
     ;;
+
+    let rec subRefsIntoArray refs =
+      let open Expr in
+      function
+      | Ref ref -> Ref (subRefsIntoRef refs ref)
+      | Scalar { element; type' } ->
+        Scalar { element = subRefsIntoAtom refs element; type' }
+      | Frame { elements; dimensions; type' } ->
+        Frame
+          { elements = List.map elements ~f:(subRefsIntoArray refs); dimensions; type' }
+      | TermApplication { func; args; type' } ->
+        TermApplication
+          { func = subRefsIntoArray refs func
+          ; args = List.map args ~f:(subRefsIntoRef refs)
+          ; type'
+          }
+      | TypeApplication { tFunc; args; type' } ->
+        TypeApplication { tFunc = subRefsIntoArray refs tFunc; args; type' }
+      | IndexApplication { iFunc; args; type' } ->
+        IndexApplication { iFunc = subRefsIntoArray refs iFunc; args; type' }
+      | BoxValue { box; type' } -> BoxValue { box = subRefsIntoArray refs box; type' }
+      | IndexLet { indexArgs; body; type' } ->
+        IndexLet
+          { indexArgs =
+              List.map indexArgs ~f:(fun { indexBinding; indexValue; sort } ->
+                { indexBinding
+                ; indexValue =
+                    (match indexValue with
+                     | Runtime v -> Runtime (subRefsIntoArray refs v)
+                     | FromBox { box; i } ->
+                       FromBox { box = subRefsIntoArray refs box; i })
+                ; sort
+                })
+          ; body = subRefsIntoArray refs body
+          ; type'
+          }
+      | ReifyIndex { index; type' } -> ReifyIndex { index; type' }
+      | Primitive { name; type' } -> Primitive { name; type' }
+      | Map { args; body; frameShape; type' } ->
+        Map
+          { args =
+              List.map args ~f:(fun { binding; value } ->
+                { binding; value = subRefsIntoArray refs value })
+          ; body = subRefsIntoArray refs body
+          ; frameShape
+          ; type'
+          }
+
+    and subRefsIntoAtom refs =
+      let open Expr in
+      function
+      | TermLambda { params; body; type' } ->
+        TermLambda { params; body = subRefsIntoArray refs body; type' }
+      | TypeLambda { params; body; type' } ->
+        TypeLambda { params; body = subRefsIntoArray refs body; type' }
+      | IndexLambda { params; body; type' } ->
+        IndexLambda { params; body = subRefsIntoArray refs body; type' }
+      | Box { indices; body; bodyType; type' } ->
+        Box { indices; body = subRefsIntoArray refs body; bodyType; type' }
+      | Literal _ as literal -> literal
+
+    and subRefsIntoRef refs { id; type' } =
+      { id = Map.find refs id |> Option.value ~default:id; type' }
+    ;;
   end
 end
