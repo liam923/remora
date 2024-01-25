@@ -47,11 +47,14 @@ module Stdlib : S = struct
 
   type entry =
     { name : string
+    ; userVisible : bool
+        (** if false, the value is only available in definitions of other environment entries and not in user programs *)
     ; value : entryValue
     }
 
   let entries : entry list =
     [ { name = "+"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Add; type' })
@@ -59,6 +62,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "-"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Sub; type' })
@@ -66,6 +70,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "*"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Mul; type' })
@@ -73,6 +78,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "/"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Div; type' })
@@ -80,6 +86,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "%"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Mod; type' })
@@ -87,6 +94,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "+."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func AddF; type' })
@@ -94,6 +102,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "-."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func SubF; type' })
@@ -101,6 +110,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "*."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func MulF; type' })
@@ -108,6 +118,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "/."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func DivF; type' })
@@ -115,6 +126,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "="
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Equal; type' })
@@ -122,6 +134,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "!="
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Ne; type' })
@@ -129,6 +142,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = ">"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Gt; type' })
@@ -136,6 +150,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = ">="
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func GtEq; type' })
@@ -143,6 +158,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "<"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Lt; type' })
@@ -150,6 +166,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "<="
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func LtEq; type' })
@@ -157,6 +174,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = ">."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func GtF; type' })
@@ -164,6 +182,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = ">=."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func GtEqF; type' })
@@ -171,6 +190,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "<."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func LtF; type' })
@@ -178,6 +198,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "<=."
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func LtEqF; type' })
@@ -185,6 +206,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "and"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func And; type' })
@@ -192,6 +214,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "or"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Or; type' })
@@ -199,6 +222,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "not"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Not; type' })
@@ -206,6 +230,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "int->float"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func IntToFloat; type' })
@@ -213,6 +238,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "float->int"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func FloatToInt; type' })
@@ -220,6 +246,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "int->bool"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func IntToBool; type' })
@@ -227,6 +254,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "bool->int"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func BoolToInt; type' })
@@ -234,6 +262,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "if"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func If; type' })
@@ -241,6 +270,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "length"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -249,6 +279,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "iota"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Val Iota; type' })
@@ -256,6 +287,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "replicate"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -269,6 +301,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "contiguous-subarray"
+      ; userVisible = false
       ; value =
           Intrinsic
             { makeValue =
@@ -284,6 +317,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "index"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -294,6 +328,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "head"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -304,6 +339,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "tail"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -314,6 +350,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "subvector"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -324,6 +361,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "reduce-zero-no-padding"
+      ; userVisible = false
       ; value =
           Intrinsic
             { makeValue =
@@ -341,6 +379,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "reduce-zero"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -356,6 +395,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "reduce"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -369,7 +409,8 @@ module Stdlib : S = struct
                     (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
             |}
       }
-    ; { name = "open-scan-zero"
+    ; { name = "open-scan-zero-no-padding"
+      ; userVisible = false
       ; value =
           Intrinsic
             { makeValue =
@@ -386,36 +427,55 @@ module Stdlib : S = struct
                 |}
             }
       }
-    ; { name = "scan"
+    ; { name = "open-scan-zero"
+      ; userVisible = true
       ; value =
           Expression
             {|
-            (i-fn (d-1 @cell-shape)
+            (i-fn (d @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                      [init [t @cell-shape]]
+                      [arr [t d @item-pad @cell-shape]])
+                  (define (up-ranked-f [a [t @item-pad @cell-shape]]
+                                        [b [t @item-pad @cell-shape]])
+                    (f a b))
+                  (open-scan-zero-no-padding{t | d (++ @item-pad @cell-shape)} up-ranked-f (replicate{t | @item-pad @cell-shape} init) arr))))
+            |}
+      }
+    ; { name = "scan"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @item-pad @cell-shape)
               (t-fn (t)
                 (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                     [arr [t (+ d-1 1) @cell-shape]])
-                  (open-scan-zero{t | d-1 @cell-shape}
+                     [arr [t (+ d-1 1) @item-pad @cell-shape]])
+                  (open-scan-zero{t | d-1 @item-pad @cell-shape}
                     op
-                    (head{t | d-1 @cell-shape} arr)
-                    (tail{t | d-1 @cell-shape} arr)))))
+                    (head{t | d-1 (++ @item-pad @cell-shape)} arr)
+                    (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
             |}
       }
     ; { name = "scan-zero"
+      ; userVisible = true
       ; value =
           Expression
             {|
-            (i-fn (d @cell-shape)
+            (i-fn (d @item-pad @cell-shape)
               (t-fn (t)
                 (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
                      [zero [t @cell-shape]]
-                     [arr [t d @cell-shape]])
-                  (tail{t | d @cell-shape} (open-scan-zero{t | d @cell-shape}
-                                              op
-                                              zero
-                                              arr)))))
+                     [arr [t d @item-pad @cell-shape]])
+                  (tail{t | d (++ @item-pad @cell-shape)} (open-scan-zero{t | d @item-pad @cell-shape}
+                                                            op
+                                                            zero
+                                                            arr)))))
             |}
       }
     ; { name = "fold"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue =
@@ -433,6 +493,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "append"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Append; type' })
@@ -447,6 +508,7 @@ module Stdlib : S = struct
             }
       }
     ; { name = "scatter"
+      ; userVisible = true
       ; value =
           Intrinsic
             { makeValue = (fun type' -> Expr.Primitive { name = Func Scatter; type' })
@@ -461,13 +523,14 @@ module Stdlib : S = struct
             }
       }
     ; { name = "filter"
+      ; userVisible = true
       ; value =
           Expression
             {|
             (i-fn (l @cell-shape)
               (t-fn (t)
                 (fn ([arr [t l @cell-shape]] [flags [bool l]])
-                  (define locs-raw (scan-zero{int | l []} + 0 (bool->int flags)))
+                  (define locs-raw (scan-zero{int | l [] []} + 0 (bool->int flags)))
                   (define locs (if{int | } flags locs-raw (replicate{int | [l] []} -1)))
                   (define result-size (index{int | [l] [] 1} locs-raw [(reify-dimension l)]))
                   (lift [d result-size]
@@ -475,6 +538,7 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "reverse"
+      ; userVisible = true
       ; value =
           Expression
             {|
@@ -486,39 +550,47 @@ module Stdlib : S = struct
             |}
       }
     ; { name = "sin"
+      ; userVisible = true
       ; value =
           LibraryFunction
             { libName = "std::sin"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "cos"
+      ; userVisible = true
       ; value =
           LibraryFunction
             { libName = "std::cos"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "tan"
+      ; userVisible = true
       ; value =
           LibraryFunction
             { libName = "std::tan"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "arcsin"
+      ; userVisible = true
       ; value =
           LibraryFunction
             { libName = "std::asin"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "arccos"
+      ; userVisible = true
       ; value =
           LibraryFunction
             { libName = "std::acos"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "arctan"
+      ; userVisible = true
       ; value =
           LibraryFunction
             { libName = "std::atan"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "abs"
+      ; userVisible = true
       ; value = Expression {| (fn ([x int]) (if{int | } (>= x 0) x (* x -1))) |}
       }
     ; { name = "abs."
+      ; userVisible = true
       ; value = Expression {| (fn ([x float]) (if{float | } (>=. x 0.) x (*. x -1.))) |}
       }
     ]
@@ -527,89 +599,101 @@ module Stdlib : S = struct
   let make () =
     let open CompilerState.Let_syntax in
     let%bind baseEnv = Base.make () in
-    let%map extendedEnv =
-      List.fold entries ~init:(return baseEnv) ~f:(fun env { name; value } ->
-        let%bind env = env in
-        let typesEnv = env.types in
-        let%map value =
-          match value with
-          | Expression expr ->
-            let%bind parsed =
-              CompilerState.return
-                (MResult.assertNoErrors
-                   (Parse.Default.ExprParser.parseString expr)
-                   ~f:(fun (err, _) ->
-                     [%string "Parsing error when making %{name} in stdlib: %{err}"]))
-            in
-            CompilerState.make ~f:(fun state ->
-              let check = TypeCheck.Type.checkAndExpectArray ~env parsed in
-              let result = CompilerState.run check state in
-              MResult.assertNoErrors result ~f:(fun err ->
-                let errMsg = TypeCheck.errorMessage err.elem in
-                [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
-          | Intrinsic { makeValue; type' } ->
-            let%bind parsed =
-              CompilerState.return
-                (MResult.assertNoErrors
-                   (Parse.Default.TypeParser.parseString type')
-                   ~f:(fun (err, _) ->
-                     [%string "Parsing error when making %{name} in stdlib: %{err}"]))
-            in
-            let%map type' =
+    let%bind extendedEnv =
+      List.fold
+        entries
+        ~init:(return baseEnv)
+        ~f:(fun env { name; userVisible = _; value } ->
+          let%bind env = env in
+          let typesEnv = env.types in
+          let%map value =
+            match value with
+            | Expression expr ->
+              let%bind parsed =
+                CompilerState.return
+                  (MResult.assertNoErrors
+                     (Parse.Default.ExprParser.parseString expr)
+                     ~f:(fun (err, _) ->
+                       [%string "Parsing error when making %{name} in stdlib: %{err}"]))
+              in
               CompilerState.make ~f:(fun state ->
-                let check = TypeCheck.Kind.checkAndExpectArray ~env parsed in
+                let check = TypeCheck.Type.checkAndExpectArray ~env parsed in
                 let result = CompilerState.run check state in
                 MResult.assertNoErrors result ~f:(fun err ->
                   let errMsg = TypeCheck.errorMessage err.elem in
                   [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
-            in
-            makeValue type'
-          | LibraryFunction { libName; argTypes; retType } ->
-            let%bind parsedArgTypes =
-              CompilerState.return
-                (argTypes
-                 |> List.map ~f:Parse.Default.TypeParser.parseString
-                 |> MResult.all
-                 |> MResult.assertNoErrors ~f:(fun (err, _) ->
-                   [%string "Parsing error when making %{name} in stdlib: %{err}"]))
-            and parsedRetType =
-              CompilerState.return
-                (MResult.assertNoErrors
-                   (Parse.Default.TypeParser.parseString retType)
-                   ~f:(fun (err, _) ->
+            | Intrinsic { makeValue; type' } ->
+              let%bind parsed =
+                CompilerState.return
+                  (MResult.assertNoErrors
+                     (Parse.Default.TypeParser.parseString type')
+                     ~f:(fun (err, _) ->
+                       [%string "Parsing error when making %{name} in stdlib: %{err}"]))
+              in
+              let%map type' =
+                CompilerState.make ~f:(fun state ->
+                  let check = TypeCheck.Kind.checkAndExpectArray ~env parsed in
+                  let result = CompilerState.run check state in
+                  MResult.assertNoErrors result ~f:(fun err ->
+                    let errMsg = TypeCheck.errorMessage err.elem in
+                    [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
+              in
+              makeValue type'
+            | LibraryFunction { libName; argTypes; retType } ->
+              let%bind parsedArgTypes =
+                CompilerState.return
+                  (argTypes
+                   |> List.map ~f:Parse.Default.TypeParser.parseString
+                   |> MResult.all
+                   |> MResult.assertNoErrors ~f:(fun (err, _) ->
                      [%string "Parsing error when making %{name} in stdlib: %{err}"]))
-            in
-            let%map argTypes =
-              CompilerState.make ~f:(fun state ->
-                let check =
-                  parsedArgTypes
-                  |> List.map ~f:(TypeCheck.Kind.checkAndExpectArray ~env)
-                  |> CompilerState.all
-                in
-                let result = CompilerState.run check state in
-                MResult.assertNoErrors result ~f:(fun err ->
-                  let errMsg = TypeCheck.errorMessage err.elem in
-                  [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
-            and retType =
-              CompilerState.make ~f:(fun state ->
-                let check = TypeCheck.Kind.checkAndExpectArray ~env parsedRetType in
-                let result = CompilerState.run check state in
-                MResult.assertNoErrors result ~f:(fun err ->
-                  let errMsg = TypeCheck.errorMessage err.elem in
-                  [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
-            in
-            Expr.Primitive
-              { name = Func (LibFun { name; libName; argTypes; retType })
-              ; type' =
-                  Arr
-                    { element = Func { parameters = argTypes; return = retType }
-                    ; shape = []
-                    }
-              }
-        in
-        let typesEnv = Map.set typesEnv ~key:name ~data:value in
-        { env with types = typesEnv })
+              and parsedRetType =
+                CompilerState.return
+                  (MResult.assertNoErrors
+                     (Parse.Default.TypeParser.parseString retType)
+                     ~f:(fun (err, _) ->
+                       [%string "Parsing error when making %{name} in stdlib: %{err}"]))
+              in
+              let%map argTypes =
+                CompilerState.make ~f:(fun state ->
+                  let check =
+                    parsedArgTypes
+                    |> List.map ~f:(TypeCheck.Kind.checkAndExpectArray ~env)
+                    |> CompilerState.all
+                  in
+                  let result = CompilerState.run check state in
+                  MResult.assertNoErrors result ~f:(fun err ->
+                    let errMsg = TypeCheck.errorMessage err.elem in
+                    [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
+              and retType =
+                CompilerState.make ~f:(fun state ->
+                  let check = TypeCheck.Kind.checkAndExpectArray ~env parsedRetType in
+                  let result = CompilerState.run check state in
+                  MResult.assertNoErrors result ~f:(fun err ->
+                    let errMsg = TypeCheck.errorMessage err.elem in
+                    [%string "Type error when making %{name} in stdlib: %{errMsg}"]))
+              in
+              Expr.Primitive
+                { name = Func (LibFun { name; libName; argTypes; retType })
+                ; type' =
+                    Arr
+                      { element = Func { parameters = argTypes; return = retType }
+                      ; shape = []
+                      }
+                }
+          in
+          let typesEnv = Map.set typesEnv ~key:name ~data:value in
+          { env with types = typesEnv })
     in
-    extendedEnv
+    let userEnv =
+      List.fold
+        entries
+        ~init:extendedEnv
+        ~f:(fun currEnv { name; userVisible; value = _ } ->
+          if userVisible
+          then currEnv
+          else { currEnv with types = Map.remove currEnv.types name })
+    in
+    return userEnv
   ;;
 end
