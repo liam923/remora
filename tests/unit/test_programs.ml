@@ -79,7 +79,7 @@ let%expect_test "simple addition" =
        (TermApplication
         ((func (Ref ((id ((name f) (id 125))))))
          (args (((id ((name +arg1) (id 123)))) ((id ((name +arg2) (id 124))))))
-         (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (ArrayPrimitive
@@ -194,7 +194,7 @@ let%expect_test "simple function definition and call" =
                      (args
                       (((id ((name +arg1) (id 126))))
                        ((id ((name +arg2) (id 127))))))
-                     (type' ((element (Literal IntLiteral)) (shape ()))))))
+                     (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
       (body
@@ -210,7 +210,7 @@ let%expect_test "simple function definition and call" =
           (TermApplication
            ((func (Ref ((id ((name f) (id 131))))))
             (args (((id ((name x) (id 129)))) ((id ((name y) (id 130))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
@@ -363,7 +363,7 @@ let%expect_test "polymorphic function definition and call" =
           (TermApplication
            ((func (Ref ((id ((name f) (id 127))))))
             (args (((id ((name e) (id 126))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
@@ -483,7 +483,7 @@ let%expect_test "function call with implicit map" =
               ((func (Ref ((id ((name f) (id 125))))))
                (args
                 (((id ((name +arg1) (id 126)))) ((id ((name +arg2) (id 128))))))
-               (type' ((element (Literal IntLiteral)) (shape ()))))))
+               (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (frameShape ((Add ((const 3) (refs ())))))
             (type'
              (Arr
@@ -1066,7 +1066,8 @@ let%expect_test "box and unbox" =
                          (TermApplication
                           ((func (Ref ((id ((name f) (id 129))))))
                            (args (((id ((name arr) (id 128))))))
-                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                           (type'
+                            (Arr ((element (Literal IntLiteral)) (shape ())))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
                   (body
@@ -1075,7 +1076,8 @@ let%expect_test "box and unbox" =
                      (args
                       (((id ((name =arg1) (id 127))))
                        ((id ((name =arg2) (id 130))))))
-                     (type' ((element (Literal BooleanLiteral)) (shape ()))))))
+                     (type'
+                      (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
                (frameShape ())
@@ -2620,6 +2622,7 @@ let%expect_test "sum rows" =
                                                                         arg1)
                                                                         (id 145))))))
                                                                         (type'
+                                                                        (Arr
                                                                         ((element
                                                                         (AtomRef
                                                                         ((name t)
@@ -2628,7 +2631,7 @@ let%expect_test "sum rows" =
                                                                         ((ShapeRef
                                                                         ((name
                                                                         @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        (id 56)))))))))))
                                                                         (frameShape
                                                                         ((ShapeRef
                                                                         ((name
@@ -2884,6 +2887,7 @@ let%expect_test "sum rows" =
                                                                         ((name v)
                                                                         (id 149))))))
                                                                         (type'
+                                                                        (Arr
                                                                         ((element
                                                                         (AtomRef
                                                                         ((name t)
@@ -2892,7 +2896,7 @@ let%expect_test "sum rows" =
                                                                         ((ShapeRef
                                                                         ((name
                                                                         @cell-shape)
-                                                                        (id 7))))))))))
+                                                                        (id 7)))))))))))
                                                                         (frameShape
                                                                         ((ShapeRef
                                                                         ((name
@@ -2984,6 +2988,7 @@ let%expect_test "sum rows" =
                                                                         ((name v)
                                                                         (id 147))))))
                                                                         (type'
+                                                                        (Arr
                                                                         ((element
                                                                         (AtomRef
                                                                         ((name t)
@@ -2996,7 +3001,7 @@ let%expect_test "sum rows" =
                                                                         (ShapeRef
                                                                         ((name
                                                                         @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        (id 56)))))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
@@ -3045,6 +3050,7 @@ let%expect_test "sum rows" =
                                                                         reduce-array-arg)
                                                                         (id 154))))))
                                                                         (type'
+                                                                        (Arr
                                                                         ((element
                                                                         (AtomRef
                                                                         ((name t)
@@ -3057,7 +3063,7 @@ let%expect_test "sum rows" =
                                                                         (ShapeRef
                                                                         ((name
                                                                         @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        (id 56)))))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
@@ -3269,6 +3275,7 @@ let%expect_test "sum rows" =
                                                                         contiguous-subarray-index)
                                                                         (id 131))))))
                                                                         (type'
+                                                                        (Arr
                                                                         ((element
                                                                         (AtomRef
                                                                         ((name t)
@@ -3277,7 +3284,7 @@ let%expect_test "sum rows" =
                                                                         ((ShapeRef
                                                                         ((name
                                                                         @cell-shape)
-                                                                        (id 25))))))))))
+                                                                        (id 25)))))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
@@ -3334,19 +3341,20 @@ let%expect_test "sum rows" =
                                                                    ((name arr)
                                                                     (id 129))))))
                                                                (type'
-                                                                ((element
-                                                                  (AtomRef
-                                                                   ((name t)
-                                                                    (id 67))))
-                                                                 (shape
-                                                                  ((ShapeRef
-                                                                    ((name
-                                                                      @item-pad)
-                                                                     (id 65)))
-                                                                   (ShapeRef
-                                                                    ((name
-                                                                      @cell-shape)
-                                                                     (id 66))))))))))
+                                                                (Arr
+                                                                 ((element
+                                                                   (AtomRef
+                                                                    ((name t)
+                                                                     (id 67))))
+                                                                  (shape
+                                                                   ((ShapeRef
+                                                                     ((name
+                                                                       @item-pad)
+                                                                      (id 65)))
+                                                                    (ShapeRef
+                                                                     ((name
+                                                                       @cell-shape)
+                                                                      (id 66)))))))))))
                                                             (frameShape ())
                                                             (type'
                                                              (Arr
@@ -3519,6 +3527,7 @@ let%expect_test "sum rows" =
                                                                         contiguous-subarray-index)
                                                                         (id 137))))))
                                                                         (type'
+                                                                        (Arr
                                                                         ((element
                                                                         (AtomRef
                                                                         ((name t)
@@ -3535,7 +3544,7 @@ let%expect_test "sum rows" =
                                                                         (ShapeRef
                                                                         ((name
                                                                         @cell-shape)
-                                                                        (id 29))))))))))
+                                                                        (id 29)))))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
@@ -3600,26 +3609,27 @@ let%expect_test "sum rows" =
                                                                    ((name arr)
                                                                     (id 135))))))
                                                                (type'
-                                                                ((element
-                                                                  (AtomRef
-                                                                   ((name t)
-                                                                    (id 67))))
-                                                                 (shape
-                                                                  ((Add
-                                                                    ((const 0)
-                                                                     (refs
-                                                                      ((((name
+                                                                (Arr
+                                                                 ((element
+                                                                   (AtomRef
+                                                                    ((name t)
+                                                                     (id 67))))
+                                                                  (shape
+                                                                   ((Add
+                                                                     ((const 0)
+                                                                      (refs
+                                                                       ((((name
                                                                         d-1)
                                                                         (id 64))
                                                                         1)))))
-                                                                   (ShapeRef
-                                                                    ((name
-                                                                      @item-pad)
-                                                                     (id 65)))
-                                                                   (ShapeRef
-                                                                    ((name
-                                                                      @cell-shape)
-                                                                     (id 66))))))))))
+                                                                    (ShapeRef
+                                                                     ((name
+                                                                       @item-pad)
+                                                                      (id 65)))
+                                                                    (ShapeRef
+                                                                     ((name
+                                                                       @cell-shape)
+                                                                      (id 66)))))))))))
                                                             (frameShape ())
                                                             (type'
                                                              (Arr
@@ -3671,19 +3681,20 @@ let%expect_test "sum rows" =
                                                                 ((name arr)
                                                                  (id 140))))))
                                                             (type'
-                                                             ((element
-                                                               (AtomRef
-                                                                ((name t)
-                                                                 (id 67))))
-                                                              (shape
-                                                               ((ShapeRef
-                                                                 ((name
-                                                                   @item-pad)
-                                                                  (id 65)))
-                                                                (ShapeRef
-                                                                 ((name
-                                                                   @cell-shape)
-                                                                  (id 66))))))))))
+                                                             (Arr
+                                                              ((element
+                                                                (AtomRef
+                                                                 ((name t)
+                                                                  (id 67))))
+                                                               (shape
+                                                                ((ShapeRef
+                                                                  ((name
+                                                                    @item-pad)
+                                                                   (id 65)))
+                                                                 (ShapeRef
+                                                                  ((name
+                                                                    @cell-shape)
+                                                                   (id 66)))))))))))
                                                          (frameShape
                                                           ((ShapeRef
                                                             ((name @item-pad)
@@ -3736,7 +3747,8 @@ let%expect_test "sum rows" =
                            (args
                             (((id ((name op) (id 126))))
                              ((id ((name arr) (id 127))))))
-                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                           (type'
+                            (Arr ((element (Literal IntLiteral)) (shape ())))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))))))))
       (body
@@ -3764,7 +3776,7 @@ let%expect_test "sum rows" =
              (TermApplication
               ((func (Ref ((id ((name f) (id 160))))))
                (args (((id ((name row) (id 161))))))
-               (type' ((element (Literal IntLiteral)) (shape ()))))))
+               (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (frameShape ((Add ((const 1000000) (refs ())))))
             (type'
              (Arr

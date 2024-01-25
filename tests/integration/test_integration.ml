@@ -70,7 +70,7 @@ let%expect_test "simple reduction" =
 ;;
 
 let%expect_test "reduce zero" =
-  compileAndRun "(reduce-zero{int | 100000000 [] []} + 0 (+ 1 iota{ | [100000000]}))";
+  compileAndRun "(reduce-init{int | 100000000 [] []} + 0 (+ 1 iota{ | [100000000]}))";
   [%expect {| 5000000050000000 |}]
 ;;
 
@@ -134,7 +134,7 @@ let%expect_test "matrix multiplication" =
       (+ x y))
 
     (define (v*m{ | a b} [x [int a]] [y [int a b]])
-      (reduce-zero{int | a [] [b]} add{ | [b]} (replicate{int | [b] []} 0) (* x y)))
+      (reduce-init{int | a [] [b]} add{ | [b]} (replicate{int | [b] []} 0) (* x y)))
 
     (define (m*m{ | a b c} [x [int a b]] [y [int b c]])
       (v*m{ | b c} x y))

@@ -27,7 +27,7 @@ let%expect_test "check explicitizing" =
        (TermApplication
         ((func (Ref ((id ((name f) (id 125))))))
          (args (((id ((name +arg1) (id 123)))) ((id ((name +arg2) (id 124))))))
-         (type' ((element (Literal IntLiteral)) (shape ()))))))
+         (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ())))))) |}];
   checkAndPrint {| (+ [1 2 3] 4) |};
   [%expect
@@ -55,7 +55,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 125))))))
             (args
              (((id ((name +arg1) (id 126)))) ((id ((name +arg2) (id 124))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
           (Arr
@@ -98,7 +98,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 125))))))
             (args
              (((id ((name +arg1) (id 126)))) ((id ((name +arg2) (id 127))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
           (Arr
@@ -145,7 +145,7 @@ let%expect_test "check explicitizing" =
               ((func (Ref ((id ((name f) (id 125))))))
                (args
                 (((id ((name +arg1) (id 128)))) ((id ((name +arg2) (id 126))))))
-               (type' ((element (Literal IntLiteral)) (shape ()))))))
+               (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (frameShape ((Add ((const 2) (refs ())))))
             (type'
              (Arr
@@ -187,7 +187,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 125))))))
             (args
              (((id ((name +arg1) (id 123)))) ((id ((name +arg2) (id 126))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
           (Arr
@@ -234,7 +234,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 125))))))
             (args
              (((id ((name +arg1) (id 123)))) ((id ((name +arg2) (id 126))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape
           ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
            (Add ((const 3) (refs ())))))
@@ -319,7 +319,7 @@ let%expect_test "check explicitizing" =
           (TermApplication
            ((func (Ref ((id ((name f) (id 128))))))
             (args (((id ((name a) (id 126)))) ((id ((name b) (id 127))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ())))))) |}];
@@ -389,7 +389,7 @@ let%expect_test "check explicitizing" =
              (TermApplication
               ((func (Ref ((id ((name f) (id 128))))))
                (args (((id ((name a) (id 129)))) ((id ((name b) (id 127))))))
-               (type' ((element (Literal IntLiteral)) (shape ()))))))
+               (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (frameShape ((Add ((const 2) (refs ())))))
             (type'
              (Arr
@@ -429,7 +429,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 126))))))
             (args
              (((id ((name +arg1) (id 123)))) ((id ((name +arg2) (id 124))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
           (Arr
@@ -472,7 +472,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 126))))))
             (args
              (((id ((name +arg1) (id 127)))) ((id ((name +arg2) (id 124))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
           (Arr
@@ -523,7 +523,7 @@ let%expect_test "check explicitizing" =
            ((func (Ref ((id ((name f) (id 126))))))
             (args
              (((id ((name +arg1) (id 127)))) ((id ((name +arg2) (id 128))))))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+            (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ((Add ((const 3) (refs ())))))
          (type'
           (Arr
@@ -679,13 +679,15 @@ let%expect_test "check explicitizing" =
                                                            ((id
                                                              ((name v) (id 126))))))
                                                          (type'
-                                                          ((element
-                                                            (AtomRef
-                                                             ((name t) (id 8))))
-                                                           (shape
-                                                            ((ShapeRef
-                                                              ((name @cell-shape)
-                                                               (id 7))))))))))
+                                                          (Arr
+                                                           ((element
+                                                             (AtomRef
+                                                              ((name t) (id 8))))
+                                                            (shape
+                                                             ((ShapeRef
+                                                               ((name
+                                                                 @cell-shape)
+                                                                (id 7)))))))))))
                                                       (frameShape
                                                        ((ShapeRef
                                                          ((name @s) (id 6)))))
@@ -734,9 +736,10 @@ let%expect_test "check explicitizing" =
                     ((func (Ref ((id ((name f) (id 129))))))
                      (args (((id ((name v) (id 124))))))
                      (type'
-                      ((element (Literal IntLiteral))
-                       (shape
-                        ((Add ((const 0) (refs ((((name i) (id 123)) 1))))))))))))
+                      (Arr
+                       ((element (Literal IntLiteral))
+                        (shape
+                         ((Add ((const 0) (refs ((((name i) (id 123)) 1)))))))))))))
                   (frameShape ())
                   (type'
                    (Arr

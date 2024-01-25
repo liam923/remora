@@ -695,7 +695,7 @@ let%expect_test "check inlining" =
     Error: Could not determine what function is being called in function call:
     ((func (Ref ((id ((name f) (id 126))))))
      (args (((id ((name +arg1) (id 123)))) ((id ((name +arg2) (id 124))))))
-     (type' ((element (Literal IntLiteral)) (shape ())))) |}];
+     (type' (Arr ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
       (define (id{@t| } [x @t]) x)
@@ -923,10 +923,11 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 204))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 26))))
-                                         (shape
-                                          ((ShapeRef
-                                            ((name @cell-shape) (id 25))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 26))))
+                                          (shape
+                                           ((ShapeRef
+                                             ((name @cell-shape) (id 25)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -946,11 +947,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 200))))))
          (args (((id ((name arr) (id 205))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 123))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ()))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 123))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ())))))))
       (frameShape ())
       (type'
        (Arr
@@ -1046,13 +1048,14 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 211))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 30))))
-                                         (shape
-                                          ((Add
-                                            ((const 0)
-                                             (refs ((((name d-1) (id 28)) 1)))))
-                                           (ShapeRef
-                                            ((name @cell-shape) (id 29))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 30))))
+                                          (shape
+                                           ((Add
+                                             ((const 0)
+                                              (refs ((((name d-1) (id 28)) 1)))))
+                                            (ShapeRef
+                                             ((name @cell-shape) (id 29)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1075,11 +1078,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 207))))))
          (args (((id ((name arr) (id 212))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 123))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ((Add ((const 1) (refs ()))))))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 123))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ((Add ((const 1) (refs ())))))))))))
       (frameShape ())
       (type'
        (Arr
@@ -1094,7 +1098,7 @@ let%expect_test "check inlining" =
     Error: Could not determine what function is being called in function call:
     ((func (Ref ((id ((name f) (id 239))))))
      (args (((id ((name arg0) (id 242)))) ((id ((name arg1) (id 243))))))
-     (type' ((element (Literal IntLiteral)) (shape ())))) |}];
+     (type' (Arr ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
     (define abc (t-fn (@t) 1))
@@ -1187,10 +1191,11 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 199))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 26))))
-                                         (shape
-                                          ((ShapeRef
-                                            ((name @cell-shape) (id 25))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 26))))
+                                          (shape
+                                           ((ShapeRef
+                                             ((name @cell-shape) (id 25)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1210,11 +1215,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 195))))))
          (args (((id ((name arr) (id 200))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 125))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ()))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 125))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ())))))))
       (frameShape ())
       (type'
        (Arr
@@ -1310,13 +1316,14 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 206))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 30))))
-                                         (shape
-                                          ((Add
-                                            ((const 0)
-                                             (refs ((((name d-1) (id 28)) 1)))))
-                                           (ShapeRef
-                                            ((name @cell-shape) (id 29))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 30))))
+                                          (shape
+                                           ((Add
+                                             ((const 0)
+                                              (refs ((((name d-1) (id 28)) 1)))))
+                                            (ShapeRef
+                                             ((name @cell-shape) (id 29)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1339,11 +1346,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 202))))))
          (args (((id ((name arr) (id 207))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 125))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ((Add ((const 2) (refs ()))))))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 125))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
       (type'
        (Arr
@@ -1444,10 +1452,11 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 199))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 26))))
-                                         (shape
-                                          ((ShapeRef
-                                            ((name @cell-shape) (id 25))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 26))))
+                                          (shape
+                                           ((ShapeRef
+                                             ((name @cell-shape) (id 25)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1467,11 +1476,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 195))))))
          (args (((id ((name arr) (id 200))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 125))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ()))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 125))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ())))))))
       (frameShape ())
       (type'
        (Arr
@@ -1567,13 +1577,14 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 206))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 30))))
-                                         (shape
-                                          ((Add
-                                            ((const 0)
-                                             (refs ((((name d-1) (id 28)) 1)))))
-                                           (ShapeRef
-                                            ((name @cell-shape) (id 29))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 30))))
+                                          (shape
+                                           ((Add
+                                             ((const 0)
+                                              (refs ((((name d-1) (id 28)) 1)))))
+                                            (ShapeRef
+                                             ((name @cell-shape) (id 29)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1596,11 +1607,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 202))))))
          (args (((id ((name arr) (id 207))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 125))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ((Add ((const 2) (refs ()))))))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 125))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
       (type'
        (Arr
@@ -1701,10 +1713,11 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 199))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 26))))
-                                         (shape
-                                          ((ShapeRef
-                                            ((name @cell-shape) (id 25))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 26))))
+                                          (shape
+                                           ((ShapeRef
+                                             ((name @cell-shape) (id 25)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1724,11 +1737,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 195))))))
          (args (((id ((name arr) (id 200))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 125))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ()))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 125))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ())))))))
       (frameShape ())
       (type'
        (Arr
@@ -1824,13 +1838,14 @@ let%expect_test "check inlining" =
                                            ((name contiguous-subarray-index)
                                             (id 206))))))
                                        (type'
-                                        ((element (AtomRef ((name t) (id 30))))
-                                         (shape
-                                          ((Add
-                                            ((const 0)
-                                             (refs ((((name d-1) (id 28)) 1)))))
-                                           (ShapeRef
-                                            ((name @cell-shape) (id 29))))))))))
+                                        (Arr
+                                         ((element (AtomRef ((name t) (id 30))))
+                                          (shape
+                                           ((Add
+                                             ((const 0)
+                                              (refs ((((name d-1) (id 28)) 1)))))
+                                            (ShapeRef
+                                             ((name @cell-shape) (id 29)))))))))))
                                     (frameShape ())
                                     (type'
                                      (Arr
@@ -1853,11 +1868,12 @@ let%expect_test "check inlining" =
         ((func (Ref ((id ((name f) (id 202))))))
          (args (((id ((name arr) (id 207))))))
          (type'
-          ((element
-            (Forall
-             ((parameters (((binding ((name @t) (id 125))) (bound Array))))
-              (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
-           (shape ((Add ((const 2) (refs ()))))))))))
+          (Arr
+           ((element
+             (Forall
+              ((parameters (((binding ((name @t) (id 125))) (bound Array))))
+               (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
+            (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
       (type'
        (Arr
