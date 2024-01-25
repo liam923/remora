@@ -731,7 +731,7 @@ and inlineTermApplication indexEnv appStack termApplication =
       in
       ( scalar
           (I.AtomicPrimitive
-             { op; args; type' = (inlineArrayTypeWithStack appStack (Arr type')).element })
+             { op; args; type' = (inlineArrayTypeWithStack appStack type').element })
       , FunctionSet.Empty )
     in
     (match primitive.func with
@@ -786,7 +786,7 @@ and inlineTermApplication indexEnv appStack termApplication =
                  ; d1
                  ; d2
                  ; cellShape
-                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 ; type' = inlineArrayTypeWithStack appStack type'
                  })
           , FunctionSet.Empty )
         | _ ->
@@ -832,7 +832,7 @@ and inlineTermApplication indexEnv appStack termApplication =
                   [ { id = fArg1; type' = Arr { element = t; shape = cellShape } }
                   ; { id = fArg2; type' = Arr { element = t; shape = cellShape } }
                   ]
-              ; type' = { element = t; shape = cellShape }
+              ; type' = Arr { element = t; shape = cellShape }
               }
           in
           let%bind () =
@@ -897,7 +897,7 @@ and inlineTermApplication indexEnv appStack termApplication =
             | _ -> raise (Unreachable.Error "bindings should have len 2")
           in
           let arg = I.{ firstBinding; secondBinding; value = arrayArgMono } in
-          let type' = inlineArrayTypeWithStack appStack (Arr type') in
+          let type' = inlineArrayTypeWithStack appStack type' in
           let%map zero, _ = inlineArray indexEnv [] (Ref zero) in
           ( I.ArrayPrimitive (Reduce { arg; body; zero; d; cellShape; character; type' })
           , functions )
@@ -909,111 +909,124 @@ and inlineTermApplication indexEnv appStack termApplication =
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
      | Fold { character } ->
-       (match primitive.appStack with
-        | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t; Array u ] ] ->
-          (* Extract the arguments to the function. Note that the arguments
-             differ depending on explicitZero *)
-          let f, zero, arrayArg =
-            match args with
-            | [ f; zero; arrayArg ] -> f, zero, arrayArg
-            | _ -> raise (Unreachable.Error "Fold expected three arguments")
-          in
-          let%bind _, functions = inlineArray indexEnv [] (Ref f) in
-          let%bind func =
-            match functions with
-            | Empty ->
-              raise
-                (Unreachable.Error "func of fold should've returned at least one function")
-            | One f -> return f
-            | Multiple ->
-              InlineState.err
+       let d, t, tCellShape, uArr =
+         match character, primitive.appStack with
+         | ( Fold
+           , [ IndexApp [ Dimension d; Shape tCellShape ]; TypeApp [ Atom t; Array u ] ] )
+           -> d, t, tCellShape, u
+         | ( Trace
+           , [ IndexApp [ Dimension d; Shape tCellShape; Shape uCellShape ]
+             ; TypeApp [ Atom t; Atom u ]
+             ] ) -> d, t, tCellShape, Arr { element = u; shape = uCellShape }
+         | _ ->
+           let name =
+             match character with
+             | Fold -> "fold"
+             | Trace -> "trace"
+           in
+           raise
+             (Unreachable.Error
                 (String.concat_lines
-                   [ "Could not determine what function is being passed to fold:"
-                   ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
-                   ])
-          in
-          let%bind fZeroArg = InlineState.createId "fold-zero-arg"
-          and fArrayArg = InlineState.createId "fold-array-arg" in
-          let body =
-            E.TermApplication
-              { func = Function.toExplicit func
-              ; args =
-                  [ { id = fZeroArg; type' = u }
-                  ; { id = fArrayArg; type' = Arr { element = t; shape = cellShape } }
-                  ]
-              ; type' = { element = t; shape = cellShape }
-              }
-          in
-          let%bind () =
-            (* Need to check the value restriction on the body.*)
-            match func with
-            | Lambda lambda ->
-              (* Special case - just need to check to see if the body of the
-                 lambda is a value. The term application around it isn't
-                 technically a value, but it involves no computation since it
-                 simply re-assigns variables *)
-              assertValueRestriction lambda.lambda.body
-            | Primitive _ -> assertValueRestriction body
-          in
-          let%bind body, bindings, functions =
-            inlineBodyWithBindings
-              indexEnv
-              appStack
-              body
-              [ fZeroArg, Ref zero; fArrayArg, Ref arrayArg ]
-          in
-          let zeroBindings, arrayBindings =
-            match bindings with
-            | [ zeroBindings; arrayBindings ] -> zeroBindings, arrayBindings
-            | [] | [ _ ] | _ :: _ :: _ :: _ ->
-              raise (Unreachable.Error "bindings should have len 2")
-          in
-          (* If the fold's type is not-polymorphic, then the app stack
-             has to be empty. Thus, there is a unique app stack. If it is
-             polymorphic, the body must be a value because of the value
-             restriction. In this case, there cannot be any type applications
-             in the body, so the only possible type stack origin is on the result
-             of the fold. Therefore, in both cases, the only app stack that
-             can be used is the one applied to the result of the fold. Thus,
-             the length has to be less than or equal to 1. This is important
-             because it ensures that the number of monomorphizations of the args
-             is contained.
-          *)
-          assert (Map.length zeroBindings <= 1);
-          let canonicalAppStack = CanonicalAppStack.from appStack in
-          let%map zeroArgBinding, zeroArgValue =
-            match Map.find zeroBindings canonicalAppStack with
-            | Some (binding, monoValue) -> return (binding, monoValue)
-            | None ->
-              let%map monoValue, _ = inlineArray indexEnv appStack (Ref zero)
-              and binding = InlineState.createId "fold-zero-arg" in
-              binding, monoValue
-          in
-          assert (Map.is_empty (Map.remove zeroBindings canonicalAppStack));
-          let arrayArgs =
-            arrayBindings
-            |> Map.data
-            |> List.map ~f:(fun (binding, value) : I.arg -> { binding; value })
-          in
-          let type' = inlineArrayTypeWithStack appStack (Arr type') in
-          ( I.ArrayPrimitive
-              (Fold
-                 { zeroArg = { binding = zeroArgBinding; value = zeroArgValue }
-                 ; arrayArgs
-                 ; body
-                 ; d
-                 ; cellShape
-                 ; character
-                 ; type'
-                 })
-          , functions )
-        | _ ->
-          raise
-            (Unreachable.Error
-               (String.concat_lines
-                  [ "reduce expected a stack of [IndexApp; TypeApp], got"
-                  ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
-                  ])))
+                   [ [%string "%{name} expected a stack of [IndexApp; TypeApp], got"]
+                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
+                   ]))
+       in
+       (* Extract the arguments to the function. Note that the arguments
+          differ depending on explicitZero *)
+       let f, zero, arrayArg =
+         match args with
+         | [ f; zero; arrayArg ] -> f, zero, arrayArg
+         | _ -> raise (Unreachable.Error "Fold expected three arguments")
+       in
+       let%bind _, functions = inlineArray indexEnv [] (Ref f) in
+       let%bind func =
+         match functions with
+         | Empty ->
+           raise
+             (Unreachable.Error "func of fold should've returned at least one function")
+         | One f -> return f
+         | Multiple ->
+           InlineState.err
+             (String.concat_lines
+                [ "Could not determine what function is being passed to fold:"
+                ; [%sexp_of: E.termApplication] termApplication |> Sexp.to_string_hum
+                ])
+       in
+       let%bind fZeroArg = InlineState.createId "fold-zero-arg"
+       and fArrayArg = InlineState.createId "fold-array-arg" in
+       let body =
+         E.TermApplication
+           { func = Function.toExplicit func
+           ; args =
+               [ { id = fZeroArg; type' = uArr }
+               ; { id = fArrayArg; type' = Arr { element = t; shape = tCellShape } }
+               ]
+           ; type' = uArr
+           }
+       in
+       let%bind () =
+         (* Need to check the value restriction on the body.*)
+         match func with
+         | Lambda lambda ->
+           (* Special case - just need to check to see if the body of the
+              lambda is a value. The term application around it isn't
+              technically a value, but it involves no computation since it
+              simply re-assigns variables *)
+           assertValueRestriction lambda.lambda.body
+         | Primitive _ -> assertValueRestriction body
+       in
+       let%bind body, bindings, functions =
+         inlineBodyWithBindings
+           indexEnv
+           appStack
+           body
+           [ fZeroArg, Ref zero; fArrayArg, Ref arrayArg ]
+       in
+       let zeroBindings, arrayBindings =
+         match bindings with
+         | [ zeroBindings; arrayBindings ] -> zeroBindings, arrayBindings
+         | [] | [ _ ] | _ :: _ :: _ :: _ ->
+           raise (Unreachable.Error "bindings should have len 2")
+       in
+       (* If the fold's type is not-polymorphic, then the app stack
+          has to be empty. Thus, there is a unique app stack. If it is
+          polymorphic, the body must be a value because of the value
+          restriction. In this case, there cannot be any type applications
+          in the body, so the only possible type stack origin is on the result
+          of the fold. Therefore, in both cases, the only app stack that
+          can be used is the one applied to the result of the fold. Thus,
+          the length has to be less than or equal to 1. This is important
+          because it ensures that the number of monomorphizations of the args
+          is contained.
+       *)
+       assert (Map.length zeroBindings <= 1);
+       let canonicalAppStack = CanonicalAppStack.from appStack in
+       let%map zeroArgBinding, zeroArgValue =
+         match Map.find zeroBindings canonicalAppStack with
+         | Some (binding, monoValue) -> return (binding, monoValue)
+         | None ->
+           let%map monoValue, _ = inlineArray indexEnv appStack (Ref zero)
+           and binding = InlineState.createId "fold-zero-arg" in
+           binding, monoValue
+       in
+       assert (Map.is_empty (Map.remove zeroBindings canonicalAppStack));
+       let arrayArgs =
+         arrayBindings
+         |> Map.data
+         |> List.map ~f:(fun (binding, value) : I.arg -> { binding; value })
+       in
+       let type' = inlineArrayTypeWithStack appStack type' in
+       ( I.ArrayPrimitive
+           (Fold
+              { zeroArg = { binding = zeroArgBinding; value = zeroArgValue }
+              ; arrayArgs
+              ; body
+              ; d
+              ; cellShape = tCellShape
+              ; character
+              ; type'
+              })
+       , functions )
      | ContiguousSubArray ->
        assert (List.length args = 2);
        (match primitive.appStack with
@@ -1031,7 +1044,7 @@ and inlineTermApplication indexEnv appStack termApplication =
                  ; resultShape
                  ; cellShape
                  ; l
-                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 ; type' = inlineArrayTypeWithStack appStack type'
                  })
           , FunctionSet.Empty )
         | _ ->
@@ -1056,7 +1069,7 @@ and inlineTermApplication indexEnv appStack termApplication =
                  ; dIn
                  ; dOut
                  ; cellShape
-                 ; type' = inlineArrayTypeWithStack appStack (Arr type')
+                 ; type' = inlineArrayTypeWithStack appStack type'
                  })
           , FunctionSet.Empty )
         | _ ->

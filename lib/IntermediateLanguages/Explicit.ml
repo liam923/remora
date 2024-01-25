@@ -27,7 +27,7 @@ module Expr = struct
   and termApplication =
     { func : array
     ; args : ref list
-    ; type' : Type.arr
+    ; type' : Type.array
     }
 
   and typeApplication =
@@ -151,7 +151,7 @@ module Expr = struct
     | Ref ref -> ref.type'
     | Scalar scalar -> Arr scalar.type'
     | Frame frame -> Arr frame.type'
-    | TermApplication termApplication -> Arr termApplication.type'
+    | TermApplication termApplication -> termApplication.type'
     | TypeApplication typeApplication -> Arr typeApplication.type'
     | IndexApplication indexApplication -> Arr indexApplication.type'
     | BoxValue boxValue -> Arr boxValue.type'
@@ -188,7 +188,7 @@ module Substitute = struct
         TermApplication
           { func = subTypesIntoArray types func
           ; args = List.map args ~f:(subTypesIntoRef types)
-          ; type' = Type.subTypesIntoArr types type'
+          ; type' = Type.subTypesIntoArray types type'
           }
       | TypeApplication { tFunc; args; type' } ->
         TypeApplication
@@ -288,7 +288,7 @@ module Substitute = struct
         TermApplication
           { func = subIndicesIntoArray indices func
           ; args = List.map args ~f:(subIndicesIntoRef indices)
-          ; type' = Type.subIndicesIntoArr indices type'
+          ; type' = Type.subIndicesIntoArray indices type'
           }
       | TypeApplication { tFunc; args; type' } ->
         TypeApplication

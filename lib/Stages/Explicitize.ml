@@ -314,7 +314,7 @@ and explicitizeTermApplication
          assert (List.length args = List.length funcType.parameters);
          let func = func.value in
          let args = List.map args ~f:(fun arg -> arg.value) in
-         return (E.TermApplication { func = Ref func; args; type' })
+         return (E.TermApplication { func = Ref func; args; type' = Arr type' })
        | [] -> raise Unreachable.default)
     | minFrameComponents :: restComponents ->
       (* minFrameArgs are the arguments whose frame is the shortest of all the arguments.
