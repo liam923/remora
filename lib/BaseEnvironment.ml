@@ -328,10 +328,7 @@ module Stdlib : S = struct
           Intrinsic
             { makeValue =
                 (fun type' ->
-                  Expr.Primitive
-                    { name = Func (Reduce { associative = true; character = Reduce })
-                    ; type'
-                    })
+                  Expr.Primitive { name = Func (Reduce { character = Reduce }); type' })
             ; type' =
                 {|
                 (Pi (d @cell-shape)
@@ -377,10 +374,7 @@ module Stdlib : S = struct
           Intrinsic
             { makeValue =
                 (fun type' ->
-                  Expr.Primitive
-                    { name = Func (Reduce { associative = true; character = Scan })
-                    ; type'
-                    })
+                  Expr.Primitive { name = Func (Reduce { character = Scan }); type' })
             ; type' =
                 {|
                 (Pi (d @cell-shape)

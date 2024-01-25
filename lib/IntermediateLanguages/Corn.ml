@@ -100,7 +100,7 @@ module Expr = struct
 
   and ('lOuter, 'lInner) reduce =
     { arg : reduceArg
-    ; zero : 'lOuter t option
+    ; zero : 'lOuter t
     ; body : 'lInner t
     ; d : Index.dimension
     ; character : reduceCharacter
@@ -384,22 +384,17 @@ module Expr = struct
         | Reduce -> "reduce"
         | Scan -> "scan"
       in
-      let zeroName =
-        match zero with
-        | Some _ -> "-zero"
-        | None -> ""
-      in
-      let opName = [%string "%{characterName}%{zeroName}"] in
+      let opName = [%string "%{characterName}-zero"] in
       Sexp.List
-        ([ Sexp.Atom opName ]
-         @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a) |> Option.to_list)
-         @ [ Sexp.List
-               [ Sexp.Atom (Identifier.show arg.firstBinding)
-               ; Sexp.Atom (Identifier.show arg.secondBinding)
-               ; sexp_of_productionTuple arg.production
-               ]
-           ; sexp_of_t sexp_of_b body
-           ])
+        [ Sexp.Atom opName
+        ; sexp_of_t sexp_of_a zero
+        ; Sexp.List
+            [ Sexp.Atom (Identifier.show arg.firstBinding)
+            ; Sexp.Atom (Identifier.show arg.secondBinding)
+            ; sexp_of_productionTuple arg.production
+            ]
+        ; sexp_of_t sexp_of_b body
+        ]
 
     and sexp_of_parReduce
       : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) parReduce -> Sexp.t
@@ -416,7 +411,6 @@ module Expr = struct
         match character with
         | Fold -> "fold"
         | Trace -> "trace"
-        | OpenTrace -> "open-trace"
       in
       Sexp.List
         [ Sexp.Atom opName

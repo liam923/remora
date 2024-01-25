@@ -116,7 +116,6 @@ module Expr = struct
   type foldCharacter =
     | Fold
     | Trace
-    | OpenTrace
   [@@deriving compare, sexp, equal]
 
   type primitiveFuncName =
@@ -146,10 +145,7 @@ module Expr = struct
     | GtEqF
     | LtF
     | LtEqF
-    | Reduce of
-        { associative : bool
-        ; character : reduceCharacter
-        }
+    | Reduce of { character : reduceCharacter }
     | Fold of { character : foldCharacter }
     | Append
     | ContiguousSubArray

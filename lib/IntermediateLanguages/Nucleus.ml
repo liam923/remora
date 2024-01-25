@@ -169,11 +169,10 @@ module Expr = struct
         }
     | Reduce of
         { arg : reduceArg
-        ; zero : array option
+        ; zero : array
         ; body : array
         ; d : Index.dimension
         ; cellShape : Index.shape
-        ; associative : bool
         ; character : reduceCharacter
         ; type' : Type.array
         }

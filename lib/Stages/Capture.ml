@@ -164,7 +164,7 @@ module Captures = struct
         match consumer with
         | Nothing -> empty
         | Just (ReduceSeq { arg; zero; body; d; character = _; type' = _ }) ->
-          let zeroCaptures = getOpt zero ~f:getInExpr in
+          let zeroCaptures = getInExpr zero in
           let argBindings =
             Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
           in
@@ -271,7 +271,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
         | ReduceSeq { arg; zero; body; d; character; type' } ->
           Expr.ReduceSeq
             { arg
-            ; zero = Option.map zero ~f:annotateExpr
+            ; zero = annotateExpr zero
             ; body = annotateExpr body
             ; d
             ; character
@@ -356,7 +356,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
             (Expr.ReducePar
                { reduce =
                    { arg
-                   ; zero = Option.map zero ~f:annotateExpr
+                   ; zero = annotateExpr zero
                    ; body = annotateExpr body
                    ; d
                    ; character

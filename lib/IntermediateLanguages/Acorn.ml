@@ -231,7 +231,6 @@ module Expr = struct
   type 'l foldCharacter =
     | Fold
     | Trace of Mem.t
-    | OpenTrace of Mem.t
 
   and ('l, 'c) boxValue =
     { box : ('l, 'c) t
@@ -369,7 +368,7 @@ module Expr = struct
 
   and ('lOuter, 'lInner, 'c) reduce =
     { arg : reduceArg
-    ; zero : ('lOuter, 'c) t option
+    ; zero : ('lOuter, 'c) t
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
     ; character : 'lOuter reduceCharacter
@@ -722,22 +721,17 @@ module Expr = struct
         | Reduce -> "reduce"
         | Scan _ -> "scan"
       in
-      let zeroName =
-        match zero with
-        | Some _ -> "-zero"
-        | None -> ""
-      in
-      let opName = [%string "%{characterName}%{zeroName}"] in
+      let opName = [%string "%{characterName}-zero"] in
       Sexp.List
-        ([ Sexp.Atom opName ]
-         @ (zero |> Option.map ~f:(sexp_of_t sexp_of_a sexp_of_c) |> Option.to_list)
-         @ [ Sexp.List
-               [ Sexp.Atom (Identifier.show arg.firstBinding)
-               ; Sexp.Atom (Identifier.show arg.secondBinding)
-               ; sexp_of_productionTuple arg.production
-               ]
-           ; sexp_of_t sexp_of_b sexp_of_c body
-           ])
+        [ Sexp.Atom opName
+        ; sexp_of_t sexp_of_a sexp_of_c zero
+        ; Sexp.List
+            [ Sexp.Atom (Identifier.show arg.firstBinding)
+            ; Sexp.Atom (Identifier.show arg.secondBinding)
+            ; sexp_of_productionTuple arg.production
+            ]
+        ; sexp_of_t sexp_of_b sexp_of_c body
+        ]
 
     and sexp_of_parReduce
       : type a b c.
@@ -770,7 +764,6 @@ module Expr = struct
         match character with
         | Fold -> "fold"
         | Trace _ -> "trace"
-        | OpenTrace _ -> "open-trace"
       in
       Sexp.List
         [ Sexp.Atom opName

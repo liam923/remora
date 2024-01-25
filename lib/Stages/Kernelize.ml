@@ -350,15 +350,13 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
     let%bind consumerAsHostExpr, consumerAsDeviceExpr, consumerAsHostParShape, parConsumer
       =
       match consumer with
-      | Reduce { arg; zero; body; d; associative; character; type' } ->
-        let%map zeroOpts = zero |> Option.map ~f:getOpts |> KernelizeState.all_opt
+      | Reduce { arg; zero; body; d; character; type' } ->
+        let%map zeroOpts = getOpts zero
         and bodyOpts = getOpts body in
-        let zeroOptsHostParShapeAsList =
-          zeroOpts |> Option.map ~f:hostParShape |> Option.to_list
-        in
+        let zeroOptsHostParShape = hostParShape zeroOpts in
         ( Expr.ReduceSeq
             { arg
-            ; zero = Option.map zeroOpts ~f:hostExpr
+            ; zero = hostExpr zeroOpts
             ; body = bodyOpts.hostExpr
             ; d
             ; character
@@ -366,31 +364,29 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
             }
         , Expr.ReduceSeq
             { arg
-            ; zero = Option.map zeroOpts ~f:deviceExpr
+            ; zero = deviceExpr zeroOpts
             ; body = bodyOpts.deviceExpr
             ; d
             ; character
             ; type'
             }
-        , ParallelismShape.max (bodyOpts.hostParShape :: zeroOptsHostParShapeAsList)
-        , if associative
-          then
-            Some
-              ( Expr.ReducePar
-                  { reduce =
-                      { arg
-                      ; zero = Option.map zeroOpts ~f:hostExpr
-                      ; body = bodyOpts.deviceExpr
-                      ; d
-                      ; character
-                      ; type'
-                      }
-                  ; outerBody = bodyOpts.hostExpr
-                  }
-              , ParallelismShape.max
-                  (ParallelismShape.singleDimensionParallelism (Add d)
-                   :: zeroOptsHostParShapeAsList) )
-          else None )
+        , ParallelismShape.max [ bodyOpts.hostParShape; zeroOptsHostParShape ]
+        , Some
+            ( Expr.ReducePar
+                { reduce =
+                    { arg
+                    ; zero = hostExpr zeroOpts
+                    ; body = bodyOpts.deviceExpr
+                    ; d
+                    ; character
+                    ; type'
+                    }
+                ; outerBody = bodyOpts.hostExpr
+                }
+            , ParallelismShape.max
+                [ ParallelismShape.singleDimensionParallelism (Add d)
+                ; zeroOptsHostParShape
+                ] ) )
       | Fold { zeroArg; arrayArgs; body; d; character; type' } ->
         let%map bodyOpts = getOpts body
         and zeroArgValueOpts = getOpts zeroArg.zeroValue in

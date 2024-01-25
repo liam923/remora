@@ -697,10 +697,8 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
     let%bind consumerUsages, consumer =
       match consumer, consumerRequest with
       | _, Elements [] | None, _ -> return (Set.empty (module Identifier), None)
-      | Some (Reduce { arg; zero; d; body; associative; character; type' }), _ ->
-        let%bind zero =
-          zero |> Option.map ~f:(reduceTuplesInExpr Whole) |> ReduceTupleState.all_opt
-        in
+      | Some (Reduce { arg; zero; d; body; character; type' }), _ ->
+        let%bind zero = reduceTuplesInExpr Whole zero in
         let rec getUsagesInProductionTuple = function
           | Expr.ProductionTuple t ->
             t.elements
@@ -731,14 +729,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
         in
         let reduce =
           Expr.Reduce
-            { arg
-            ; zero
-            ; body = Expr.let' ~args:unpackers ~body
-            ; d
-            ; associative
-            ; character
-            ; type'
-            }
+            { arg; zero; body = Expr.let' ~args:unpackers ~body; d; character; type' }
         in
         usages, Some reduce
       | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }), _ ->

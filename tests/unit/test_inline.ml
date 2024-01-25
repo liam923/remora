@@ -618,9 +618,9 @@ let%expect_test "check inlining" =
                            ((element (Literal IntLiteral))
                             (shape ((Add ((const 4) (refs ()))))))))))))
                      (zero
-                      ((Ref
-                        ((id ((name reduce-zero-arg) (id 270)))
-                         (type' ((element (Literal IntLiteral)) (shape ())))))))
+                      (Ref
+                       ((id ((name reduce-zero-arg) (id 270)))
+                        (type' ((element (Literal IntLiteral)) (shape ()))))))
                      (body
                       (ArrayPrimitive
                        (Map (frameShape ())
@@ -682,8 +682,7 @@ let%expect_test "check inlining" =
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))
-                     (d ((const 4) (refs ()))) (cellShape ()) (associative true)
-                     (character Reduce)
+                     (d ((const 4) (refs ()))) (cellShape ()) (character Reduce)
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
@@ -2153,9 +2152,9 @@ let%expect_test "check inlining" =
                            ((element (Literal IntLiteral))
                             (shape ((Add ((const 2) (refs ()))))))))))))
                      (zero
-                      ((Ref
-                        ((id ((name reduce-zero-arg) (id 270)))
-                         (type' ((element (Literal IntLiteral)) (shape ())))))))
+                      (Ref
+                       ((id ((name reduce-zero-arg) (id 270)))
+                        (type' ((element (Literal IntLiteral)) (shape ()))))))
                      (body
                       (ArrayPrimitive
                        (Map (frameShape ())
@@ -2217,8 +2216,7 @@ let%expect_test "check inlining" =
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))
-                     (d ((const 2) (refs ()))) (cellShape ()) (associative true)
-                     (character Reduce)
+                     (d ((const 2) (refs ()))) (cellShape ()) (character Reduce)
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
@@ -2770,9 +2768,9 @@ let%expect_test "check inlining" =
                   ((element (Literal IntLiteral))
                    (shape ((Add ((const 2) (refs ()))))))))))))
             (zero
-             ((Ref
-               ((id ((name scan-zero-arg) (id 165)))
-                (type' ((element (Literal IntLiteral)) (shape ())))))))
+             (Ref
+              ((id ((name scan-zero-arg) (id 165)))
+               (type' ((element (Literal IntLiteral)) (shape ()))))))
             (body
              (AtomAsArray
               ((element
@@ -2793,8 +2791,7 @@ let%expect_test "check inlining" =
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
-            (d ((const 2) (refs ()))) (cellShape ()) (associative true)
-            (character Scan)
+            (d ((const 2) (refs ()))) (cellShape ()) (character Scan)
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))

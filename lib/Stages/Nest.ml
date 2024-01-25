@@ -179,8 +179,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
     let letArgs, mapArgs = List.unzip letAndMapArgs in
     let%map body = decompose mapArgs None frameShape in
     Let { args = letArgs; body; type' = Nested.Expr.type' body }
-  | ArrayPrimitive
-      (Reduce { arg; zero; body; d; cellShape = _; associative; character; type' }) ->
+  | ArrayPrimitive (Reduce { arg; zero; body; d; cellShape = _; character; type' }) ->
     let type' = nestTypeArray type' in
     let%bind productionBinding = NestState.createId "reduce-arg"
     and argValue = nestArray arg.value in
@@ -194,12 +193,9 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
             }
       }
     in
-    let%bind zero =
-      match zero with
-      | Some zero -> nestArray zero |> NestState.map ~f:(fun z -> Some z)
-      | None -> return None
+    let%bind zero = nestArray zero
     and body = nestArray body in
-    let consumer = Reduce { arg; zero; body; d; associative; character; type' } in
+    let consumer = Reduce { arg; zero; body; d; character; type' } in
     let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap (Nested.Index.Add d) [ productionBinding, argValue ]
     in

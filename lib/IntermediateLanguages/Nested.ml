@@ -184,10 +184,9 @@ module Expr = struct
   and consumerOp =
     | Reduce of
         { arg : reduceArg
-        ; zero : t option
+        ; zero : t
         ; body : t
         ; d : Index.dimension
-        ; associative : bool
         ; character : reduceCharacter
         ; type' : Type.t
         }
@@ -426,35 +425,28 @@ module Expr = struct
       | ProductionTupleAtom p -> Sexp.Atom (Identifier.show p.productionId)
 
     and sexp_of_consumerOp = function
-      | Reduce { arg; zero; body; d = _; associative; character; type' = _ } ->
+      | Reduce { arg; zero; body; d = _; character; type' = _ } ->
         let characterName =
           match character with
           | Reduce -> "reduce"
           | Scan -> "scan"
         in
-        let zeroName =
-          match zero with
-          | Some _ -> "-zero"
-          | None -> ""
-        in
-        let assocName = if associative then "" else "-non-associative" in
-        let opName = [%string "%{characterName}%{zeroName}%{assocName}"] in
+        let opName = [%string "%{characterName}-zero"] in
         Sexp.List
-          ([ Sexp.Atom opName ]
-           @ (zero |> Option.map ~f:sexp_of_t |> Option.to_list)
-           @ [ Sexp.List
-                 [ Sexp.Atom (Identifier.show arg.firstBinding)
-                 ; Sexp.Atom (Identifier.show arg.secondBinding)
-                 ; sexp_of_productionTuple arg.production
-                 ]
-             ; sexp_of_t body
-             ])
+          [ Sexp.Atom opName
+          ; sexp_of_t zero
+          ; Sexp.List
+              [ Sexp.Atom (Identifier.show arg.firstBinding)
+              ; Sexp.Atom (Identifier.show arg.secondBinding)
+              ; sexp_of_productionTuple arg.production
+              ]
+          ; sexp_of_t body
+          ]
       | Fold { zeroArg; arrayArgs; body; d = _; character; type' = _ } ->
         let opName =
           match character with
           | Fold -> "fold"
           | Trace -> "trace"
-          | OpenTrace -> "open-trace"
         in
         Sexp.List
           [ Sexp.Atom opName

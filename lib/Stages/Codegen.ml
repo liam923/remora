@@ -1351,12 +1351,10 @@ and genExpr
         let accVar = C.Name.UniqueName arg.firstBinding in
         let stepVar = C.Name.UniqueName arg.secondBinding in
         let%bind accType = genType @@ Expr.type' body in
-        let%bind cZero =
-          zero |> Option.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all_opt
-        in
+        let%bind cZero = genExpr ~hostOrDevice ~store:false zero in
         let%bind () =
           GenState.writeStatement
-          @@ C.Define { name = accVar; type' = Some accType; value = cZero }
+          @@ C.Define { name = accVar; type' = None; value = Some cZero }
         in
         let%bind characterInLoop, characterResult =
           match character with
@@ -1392,24 +1390,9 @@ and genExpr
             GenState.writeStatement
             @@ C.Define { name = stepVar; type' = Some accType; value = Some stepValue }
           in
-          let doReduceStep =
-            let%bind body = genExpr ~hostOrDevice ~store:false body in
-            GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
-          in
+          let%bind body = genExpr ~hostOrDevice ~store:false body in
           let%bind () =
-            match zero with
-            | Some _ ->
-              (* If there is an initial zero, perform the reduce step every iteration *)
-              doReduceStep
-            | None ->
-              (* If there is no initial zero, on the first iteration,
-                 just assign the step var to the acc var *)
-              GenState.writeIte
-                ~cond:C.Syntax.(VarRef loopVar == intLit 0)
-                ~thenBranch:
-                  (GenState.writeStatement
-                     (C.Assign { lhs = VarRef accVar; rhs = VarRef stepVar }))
-                ~elseBranch:doReduceStep
+            GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
           in
           characterInLoop
         in
@@ -1438,18 +1421,6 @@ and genExpr
           match character with
           | Fold -> return @@ (return (), C.VarRef accVar)
           | Trace mem ->
-            let%bind cMem = genMem ~store:true mem in
-            let%bind memDerefer =
-              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
-            in
-            let inLoop =
-              genCopyExprToMem
-                ~mem:(memDerefer (VarRef loopVar))
-                ~expr:(VarRef accVar)
-                ~type':(Expr.type' body)
-            in
-            return (inLoop, cMem)
-          | OpenTrace mem ->
             let%bind cMem = genMem ~store:true mem in
             let%bind memDerefer =
               genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
@@ -2079,20 +2050,13 @@ and genExpr
         ~isMem:false
         reduceResultsFinal
     in
-    let%bind reduceResultInitial =
-      match zero with
-      | Some zero -> genExpr ~hostOrDevice:Host ~store:false zero
-      | None -> return @@ reduceResultsMemFinalDerefer C.Syntax.(intLit 0)
-    in
+    let%bind reduceResultInitial = genExpr ~hostOrDevice:Host ~store:false zero in
     let%bind reduceResult = GenState.createVarAuto "reduceResult" reduceResultInitial in
     let%bind () =
       GenState.writeForLoop
         ~loopVar:"i"
         ~loopVarType:Int64
-        ~initialValue:
-          (match zero with
-           | Some _ -> C.Syntax.(intLit 0)
-           | None -> C.Syntax.(intLit 1))
+        ~initialValue:C.Syntax.(intLit 0)
         ~cond:C.Syntax.(fun i -> i < callBuiltin "std::min" [ intLit blocks; dHost ])
         ~loopVarUpdate:IncrementOne
         ~body:(fun i ->

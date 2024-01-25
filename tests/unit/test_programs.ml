@@ -1779,8 +1779,6 @@ let%expect_test "sum rows" =
                                                                         ((name
                                                                         (Func
                                                                         (Reduce
-                                                                        (associative
-                                                                        true)
                                                                         (character
                                                                         Reduce)))))))
                                                                         (args
@@ -2683,8 +2681,6 @@ let%expect_test "sum rows" =
                                                                         ((name
                                                                         (Func
                                                                         (Reduce
-                                                                        (associative
-                                                                        true)
                                                                         (character
                                                                         Reduce)))))))
                                                                         (args
@@ -4125,10 +4121,10 @@ let%expect_test "sum rows" =
                                     ((element (Literal IntLiteral))
                                      (shape ((Add ((const 9) (refs ()))))))))))))
                               (zero
-                               ((Ref
-                                 ((id ((name reduce-zero-arg) (id 330)))
-                                  (type'
-                                   ((element (Literal IntLiteral)) (shape ())))))))
+                               (Ref
+                                ((id ((name reduce-zero-arg) (id 330)))
+                                 (type'
+                                  ((element (Literal IntLiteral)) (shape ()))))))
                               (body
                                (ArrayPrimitive
                                 (Map (frameShape ())
@@ -4201,7 +4197,7 @@ let%expect_test "sum rows" =
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ()))))))
                               (d ((const 9) (refs ()))) (cellShape ())
-                              (associative true) (character Reduce)
+                              (character Reduce)
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))

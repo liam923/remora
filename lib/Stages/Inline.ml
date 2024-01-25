@@ -796,14 +796,14 @@ and inlineTermApplication indexEnv appStack termApplication =
                   [ "append expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
-     | Reduce { associative; character } ->
+     | Reduce { character } ->
        (match primitive.appStack with
         | [ IndexApp [ Dimension d; Shape cellShape ]; TypeApp [ Atom t ] ] ->
           (* Extract the arguments to the function. Note that the arguments
              differ depending on explicitZero *)
           let f, zero, arrayArg =
             match args with
-            | [ f; zero; arrayArg ] -> f, Some zero, arrayArg
+            | [ f; zero; arrayArg ] -> f, zero, arrayArg
             | _ ->
               raise
                 (Unreachable.Error "Reduce with explicit zero expected three arguments")
@@ -898,15 +898,8 @@ and inlineTermApplication indexEnv appStack termApplication =
           in
           let arg = I.{ firstBinding; secondBinding; value = arrayArgMono } in
           let type' = inlineArrayTypeWithStack appStack (Arr type') in
-          let%map zero =
-            match zero with
-            | Some zero ->
-              let%map zero, _ = inlineArray indexEnv [] (Ref zero) in
-              Some zero
-            | None -> return None
-          in
-          ( I.ArrayPrimitive
-              (Reduce { arg; body; zero; d; cellShape; associative; character; type' })
+          let%map zero, _ = inlineArray indexEnv [] (Ref zero) in
+          ( I.ArrayPrimitive (Reduce { arg; body; zero; d; cellShape; character; type' })
           , functions )
         | _ ->
           raise

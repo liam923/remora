@@ -39,11 +39,7 @@ end
 
 module ConsumerCompatibility = struct
   type structure =
-    | Reduce of
-        { hasZero : bool
-        ; associative : bool
-        ; character : Expr.reduceCharacter
-        }
+    | Reduce of { character : Expr.reduceCharacter }
     | Fold of { character : Expr.foldCharacter }
   [@@deriving equal]
 
@@ -52,9 +48,8 @@ module ConsumerCompatibility = struct
     | SometimesCompatible of structure
 
   let of_op : Expr.consumerOp -> t = function
-    | Reduce { arg = _; zero; body = _; d = _; associative; character; type' = _ } ->
-      SometimesCompatible
-        (Reduce { hasZero = Option.is_some zero; associative; character })
+    | Reduce { arg = _; zero = _; body = _; d = _; character; type' = _ } ->
+      SometimesCompatible (Reduce { character })
     | Fold { zeroArg = _; arrayArgs = _; body = _; d = _; character; type' = _ } ->
       SometimesCompatible (Fold { character })
     | Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ } ->
@@ -154,15 +149,13 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     in
     let consumerUsages =
       match consumer with
-      | Some (Reduce { arg; zero; body; d; associative = _; character = _; type' }) ->
+      | Some (Reduce { arg; zero; body; d; character = _; type' }) ->
         let argBindings =
           Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
         in
         Set.union_list
           (module Identifier)
-          [ zero
-            |> Option.map ~f:getUsesInExpr
-            |> Option.value ~default:(Set.empty (module Identifier))
+          [ getUsesInExpr zero
           ; Set.diff (getUsesInExpr body) argBindings
           ; getUsesInIndex (Dimension d)
           ; getUsesInType type'
@@ -648,11 +641,7 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
                           ; type' = argType
                           }
                     }
-                ; zero =
-                    (match target.zero, archer.zero with
-                     | Some target, Some archer -> Some (Expr.values [ target; archer ])
-                     | None, None -> None
-                     | Some _, None | None, Some _ -> raise Unreachable.default)
+                ; zero = Expr.values [ target.zero; archer.zero ]
                 ; body =
                     Expr.let'
                       ~args:
@@ -673,9 +662,6 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
                 ; d =
                     (assert (Index.equal_dimension target.d archer.d);
                      target.d)
-                ; associative =
-                    (assert (Bool.equal target.associative archer.associative);
-                     target.associative)
                 ; character =
                     (assert (Expr.equal_reduceCharacter target.character archer.character);
                      target.character)
@@ -1158,19 +1144,14 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
     and consumer =
       match consumer with
       | None -> return None
-      | Some (Reduce { arg; zero; body; d; associative; character; type' }) ->
+      | Some (Reduce { arg; zero; body; d; character; type' }) ->
         let reduceBindings =
           [ arg.firstBinding; arg.secondBinding ] |> Set.of_list (module Identifier)
         in
         let reduceExtendedScope = Set.union scope reduceBindings in
-        let%map zero =
-          match zero with
-          | Some zero ->
-            let%map zero = fuseLoops scope zero in
-            Some zero
-          | None -> return None
+        let%map zero = fuseLoops scope zero
         and body = fuseLoops reduceExtendedScope body in
-        Some (Reduce { arg; zero; body; d; associative; character; type' })
+        Some (Reduce { arg; zero; body; d; character; type' })
       | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
         let foldBindings =
           zeroArg.zeroBinding :: List.map arrayArgs ~f:(fun arg -> arg.binding)

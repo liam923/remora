@@ -226,12 +226,7 @@ let rec getPossibleMemSources
         let getPossibleMemSourcesInReduce
           Acorn.Expr.{ arg; zero; body; d = _; character = _; type' = _ }
           =
-          let%bind zeroSources =
-            Option.value_map
-              zero
-              ~f:getPossibleMemSources
-              ~default:(return @@ Set.empty (module Identifier))
-          in
+          let%bind zeroSources = getPossibleMemSources zero in
           let initialSources = Set.union zeroSources mapSources in
           iterUntilStable initialSources ~f:(fun sources ->
             let envExtensions =
@@ -517,16 +512,6 @@ module AllocAcc = struct
     let acc = { binding; mallocLoc; uses = getUsesInType type'; type' } in
     let ref = Acorn.Mem.Ref { id = binding; type' } in
     ref, [ acc ]
-  ;;
-
-  let all_opt prog =
-    let open CompilerState in
-    let open Let_syntax in
-    match prog with
-    | Some prog ->
-      let%map result, acc = prog in
-      Some result, acc
-    | None -> return (None, [])
   ;;
 
   (* Multiply each allocation by the multiplier if it appears in the list of used allocations *)
@@ -873,11 +858,7 @@ let rec allocRequest
     in
     let processReduce Corn.Expr.{ arg; zero; body; d; character; type' = reduceType } =
       let d = convertDimension d in
-      let%bind zero =
-        zero
-        |> Option.map ~f:(fun zero ->
-          allocRequest ~mallocLoc ~writeToAddr:None zero >>| getExpr)
-        |> all_opt
+      let%bind zero = allocRequest ~mallocLoc ~writeToAddr:None zero >>| getExpr
       and body =
         allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:None body
         >>| getExpr
@@ -959,17 +940,13 @@ let rec allocRequest
           match character with
           | Fold -> return (Expr.Fold : l Expr.foldCharacter)
           | Trace ->
-            let resultType = Type.array ~element:(Expr.type' body) ~size:(Add d) in
-            let%map mem = malloc ~mallocLoc resultType "trace-result" in
-            Expr.Trace mem
-          | OpenTrace ->
             let resultType =
               Type.array
                 ~element:(Expr.type' body)
                 ~size:(Add { d with const = d.const + 1 })
             in
-            let%map mem = malloc ~mallocLoc resultType "open-trace-result" in
-            Expr.OpenTrace mem
+            let%map mem = malloc ~mallocLoc resultType "trace-result" in
+            Expr.Trace mem
         in
         ( Maybe.Just
             (Expr.Fold
