@@ -194,6 +194,7 @@ module Expr = struct
         { zeroArg : foldZeroArg
         ; arrayArgs : foldArrayArg list
         ; body : t
+        ; reverse : bool
         ; d : Index.dimension
         ; character : foldCharacter
         ; type' : Type.t
@@ -442,11 +443,13 @@ module Expr = struct
               ]
           ; sexp_of_t body
           ]
-      | Fold { zeroArg; arrayArgs; body; d = _; character; type' = _ } ->
+      | Fold { zeroArg; arrayArgs; body; reverse; d = _; character; type' = _ } ->
         let opName =
-          match character with
-          | Fold -> "fold"
-          | Trace -> "trace"
+          match reverse, character with
+          | false, Fold -> "fold"
+          | true, Fold -> "fold-right"
+          | false, Trace -> "trace"
+          | true, Trace -> "trace-right"
         in
         Sexp.List
           [ Sexp.Atom opName

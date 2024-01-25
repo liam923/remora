@@ -387,7 +387,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                 [ ParallelismShape.singleDimensionParallelism (Add d)
                 ; zeroOptsHostParShape
                 ] ) )
-      | Fold { zeroArg; arrayArgs; body; d; character; type' } ->
+      | Fold { zeroArg; arrayArgs; body; reverse; d; character; type' } ->
         let%map bodyOpts = getOpts body
         and zeroArgValueOpts = getOpts zeroArg.zeroValue in
         ( Expr.Fold
@@ -397,6 +397,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                 }
             ; arrayArgs
             ; body = bodyOpts.hostExpr
+            ; reverse
             ; d
             ; character
             ; type'
@@ -408,6 +409,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
                 }
             ; arrayArgs
             ; body = bodyOpts.deviceExpr
+            ; reverse
             ; d
             ; character
             ; type'

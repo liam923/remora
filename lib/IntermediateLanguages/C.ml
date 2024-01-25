@@ -161,6 +161,7 @@ and statement =
 
 and varUpdate =
   | IncrementOne
+  | DecrementOne
   | Increment of expr
 
 and block = statement list

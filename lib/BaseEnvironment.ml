@@ -545,7 +545,8 @@ module Stdlib : S = struct
           Intrinsic
             { makeValue =
                 (fun type' ->
-                  Expr.Primitive { name = Func (Fold { character = Fold }); type' })
+                  Expr.Primitive
+                    { name = Func (Fold { character = Fold; reverse = false }); type' })
             ; type' =
                 {|
                 (Pi (d @cell-shape)
@@ -557,13 +558,52 @@ module Stdlib : S = struct
                 |}
             }
       }
+    ; { name = "fold-right"
+      ; userVisible = true
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name = Func (Fold { character = Fold; reverse = true }); type' })
+            ; type' =
+                {|
+                (Pi (d @cell-shape)
+                  (Forall (t @u)
+                    (-> ((-> (@u [t @cell-shape]) @u)
+                          @u
+                          [t d @cell-shape])
+                        @u)))
+                |}
+            }
+      }
     ; { name = "trace"
       ; userVisible = true
       ; value =
           Intrinsic
             { makeValue =
                 (fun type' ->
-                  Expr.Primitive { name = Func (Fold { character = Trace }); type' })
+                  Expr.Primitive
+                    { name = Func (Fold { character = Trace; reverse = false }); type' })
+            ; type' =
+                {|
+                (Pi (d @t-cell-shape @u-cell-shape)
+                  (Forall (t u)
+                    (-> ((-> ([u @u-cell-shape] [t @t-cell-shape]) [u @u-cell-shape])
+                          [u @u-cell-shape]
+                          [t d @t-cell-shape])
+                        [u (+ d 1) @u-cell-shape])))
+                |}
+            }
+      }
+    ; { name = "trace-right"
+      ; userVisible = true
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive
+                    { name = Func (Fold { character = Trace; reverse = true }); type' })
             ; type' =
                 {|
                 (Pi (d @t-cell-shape @u-cell-shape)

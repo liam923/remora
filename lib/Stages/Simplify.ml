@@ -160,7 +160,9 @@ let getCounts =
           and zeroCounts = getCountsExpr inLoop zero
           and dCounts = getCountsIndex inLoop (Dimension d) in
           Counts.merge [ argCounts; bodyCounts; zeroCounts; dCounts ]
-        | Some (Fold { zeroArg; arrayArgs; body; d; character = _; type' = _ }) ->
+        | Some
+            (Fold { zeroArg; arrayArgs; body; reverse = _; d; character = _; type' = _ })
+          ->
           let zeroCounts = getCountsExpr inLoop zeroArg.zeroValue
           and arrayCounts =
             arrayArgs
@@ -285,7 +287,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
         and body = subExpr subKey subValue body
         and zero = subExpr subKey subValue zero in
         Some (Reduce { arg; body; zero; d; character; type' })
-      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let%map zeroArg =
           let%map zeroValue = subExpr subKey subValue zeroArg.zeroValue in
           { zeroBinding = zeroArg.zeroBinding; zeroValue }
@@ -296,7 +298,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
             { binding; production })
           |> Option.all
         and body = subExpr subKey subValue body in
-        Some (Fold { zeroArg; arrayArgs; body; d; character; type' })
+        Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' })
       | Some (Scatter { valuesArg; indicesArg; dIn; dOut; type' }) ->
         let%map valuesArg = subProduction valuesArg
         and indicesArg = subProduction indicesArg in
@@ -486,7 +488,7 @@ let rec optimize : Expr.t -> Expr.t =
         let body = optimize body
         and zero = optimize zero in
         Some (Reduce { arg; body; zero; d; character; type' })
-      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let body = optimize body
         and zeroArg = { zeroArg with zeroValue = optimize zeroArg.zeroValue } in
         (* Simplify the zero args, removing unused ones *)
@@ -496,7 +498,7 @@ let rec optimize : Expr.t -> Expr.t =
             (* DISCARD!!! *)
             (Counts.get bodyCounts arg.binding).count > 0)
         in
-        Some (Fold { zeroArg; arrayArgs; body; d; character; type' })
+        Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' })
       | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
         scatter -> scatter
     in
@@ -719,7 +721,7 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
         let zero, zeroHoistings = hoistDeclarations zero in
         ( Some (Expr.Reduce { arg; body; zero; d; character; type' })
         , bodyHoistings @ zeroHoistings )
-      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let bindings =
           if minDimensionSize d >= 1
           then
@@ -736,6 +738,7 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
                { zeroArg = { zeroBinding = zeroArg.zeroBinding; zeroValue = zeroArgValue }
                ; arrayArgs
                ; body
+               ; reverse
                ; d
                ; character
                ; type'
@@ -976,7 +979,7 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
           and zero, zeroHoistings = hoistExpressions loopBarrier zero in
           ( Some (Expr.Reduce { arg; zero; body; d; character; type' })
           , bodyHoistings @ zeroHoistings )
-        | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+        | Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
           let%bind zeroArgValue, zeroArgsHoistings =
             hoistExpressions loopBarrier zeroArg.zeroValue
           in
@@ -996,6 +999,7 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
                      { zeroBinding = zeroArg.zeroBinding; zeroValue = zeroArgValue }
                  ; arrayArgs
                  ; body
+                 ; reverse
                  ; d
                  ; character
                  ; type'

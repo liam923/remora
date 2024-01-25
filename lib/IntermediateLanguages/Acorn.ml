@@ -389,6 +389,7 @@ module Expr = struct
     { zeroArg : ('lOuter, 'c) foldZeroArg
     ; arrayArgs : foldArrayArg list
     ; mappedMemArgs : memArg list
+    ; reverse : bool
     ; body : ('lInner, 'c) t
     ; d : Index.dimension
     ; character : 'lOuter foldCharacter
@@ -759,11 +760,21 @@ module Expr = struct
       fun sexp_of_a
           sexp_of_b
           sexp_of_c
-          { zeroArg; arrayArgs; mappedMemArgs; body; d = _; character; type' = _ } ->
+          { zeroArg
+          ; arrayArgs
+          ; mappedMemArgs
+          ; reverse
+          ; body
+          ; d = _
+          ; character
+          ; type' = _
+          } ->
       let opName =
-        match character with
-        | Fold -> "fold"
-        | Trace _ -> "trace"
+        match reverse, character with
+        | false, Fold -> "fold"
+        | true, Fold -> "fold-right"
+        | false, Trace _ -> "trace"
+        | true, Trace _ -> "trace-right"
       in
       Sexp.List
         [ Sexp.Atom opName

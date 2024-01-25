@@ -59,10 +59,14 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
             [ "reduce-f-arg"; "reduce-zero-arg"; "reduce-array-arg" ]
           | Reduce { character = Scan } ->
             [ "scan-f-arg"; "scan-zero-arg"; "scan-array-arg" ]
-          | Fold { character = Fold } ->
+          | Fold { character = Fold; reverse = false } ->
             [ "fold-f-arg"; "fold-zero-arg"; "fold-array-arg" ]
-          | Fold { character = Trace } ->
+          | Fold { character = Fold; reverse = true } ->
+            [ "fold-right-f-arg"; "fold-right-zero-arg"; "fold-right-array-arg" ]
+          | Fold { character = Trace; reverse = false } ->
             [ "trace-f-arg"; "trace-zero-arg"; "trace-array-arg" ]
+          | Fold { character = Trace; reverse = true } ->
+            [ "trace-right-f-arg"; "trace-right-zero-arg"; "trace-right-array-arg" ]
           | Append -> [ "append-arg1"; "append-arg2" ]
           | ContiguousSubArray ->
             [ "contiguous-subarray-array"; "contiguous-subarray-index" ]

@@ -18,14 +18,14 @@ let%expect_test "check fusing" =
   [%expect
     {|
     (let
-     ((+arg1.182 (frame 4 5 6)) (+arg2.184 (frame 7 8 9))
-      (+arg1.186 (frame 1 2 3)))
+     ((+arg1.191 (frame 4 5 6)) (+arg2.193 (frame 7 8 9))
+      (+arg1.195 (frame 1 2 3)))
      (#0
       (#0
        (loop-block (frame-shape 3)
-        (map ((+arg1.151 +arg1.182) (+arg2.152 +arg2.184) (+arg1.157 +arg1.186))
-         (+ +arg1.157 (+ +arg1.151 +arg2.152)))
-        (body-matcher map-result.156) (map-result (map-result.156))
+        (map ((+arg1.160 +arg1.191) (+arg2.161 +arg2.193) (+arg1.166 +arg1.195))
+         (+ +arg1.166 (+ +arg1.160 +arg2.161)))
+        (body-matcher map-result.165) (map-result (map-result.165))
         (consumer (values)))))) |}];
   fuseAndPrint {|
     (define x (+ 1 [1 2 3]))
@@ -34,40 +34,40 @@ let%expect_test "check fusing" =
   [%expect
     {|
     (let
-     ((+arg2.241 (frame 1 2 3)) (+arg2.243 (frame 7 8 9))
-      (+arg2.245 (frame 4 5 6)))
+     ((+arg2.250 (frame 1 2 3)) (+arg2.252 (frame 7 8 9))
+      (+arg2.254 (frame 4 5 6)))
      (#0
       (#0
        (loop-block (frame-shape 3)
-        (map ((+arg2.168 +arg2.241) (+arg2.187 +arg2.243) (+arg2.178 +arg2.245))
-         (let ((fusion-target-map-result.230 (+ 1 +arg2.168)))
-          (+ (+ fusion-target-map-result.230 +arg2.178)
-           (+ fusion-target-map-result.230 +arg2.187))))
-        (body-matcher map-result.191) (map-result (map-result.191))
+        (map ((+arg2.177 +arg2.250) (+arg2.196 +arg2.252) (+arg2.187 +arg2.254))
+         (let ((fusion-target-map-result.239 (+ 1 +arg2.177)))
+          (+ (+ fusion-target-map-result.239 +arg2.187)
+           (+ fusion-target-map-result.239 +arg2.196))))
+        (body-matcher map-result.200) (map-result (map-result.200))
         (consumer (values)))))) |}];
   fuseAndPrint "(reduce{int | 2 [] []} + (+ 1 [1 2 3]))";
   [%expect
     {|
-    (let ((+arg2.308 (frame 1 2 3)))
+    (let ((+arg2.317 (frame 1 2 3)))
      (let
-      ((arr.311
+      ((arr.320
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((+arg2.310 +arg2.308)) (+ 1 +arg2.310))
-           (body-matcher map-result.309) (map-result (map-result.309))
+           (map ((+arg2.319 +arg2.317)) (+ 1 +arg2.319))
+           (body-matcher map-result.318) (map-result (map-result.318))
            (consumer (values)))))))
       (let
-       ((reduce-arg.343
-         (contiguous-subarray arr.311 (frame 1) (shape 3) (shape 2))))
+       ((reduce-arg.352
+         (contiguous-subarray arr.320 (frame 1) (shape 3) (shape 2))))
        (#1
         (loop-block (frame-shape 2)
-         (map ((reduce-arg.344 reduce-arg.343)) (values reduce-arg.344))
-         (body-matcher (reduce-arg.337)) (map-result ())
+         (map ((reduce-arg.353 reduce-arg.352)) (values reduce-arg.353))
+         (body-matcher (reduce-arg.346)) (map-result ())
          (consumer
-          (reduce-zero (contiguous-subarray arr.311 (frame 0) (shape 3) (shape))
-           (reduce-arg1.267 reduce-arg2.270 reduce-arg.337)
-           (+ reduce-arg1.267 reduce-arg2.270)))))))) |}];
+          (reduce-zero (contiguous-subarray arr.320 (frame 0) (shape 3) (shape))
+           (reduce-arg1.276 reduce-arg2.279 reduce-arg.346)
+           (+ reduce-arg1.276 reduce-arg2.279)))))))) |}];
   fuseAndPrint
     {|
       (define x (+ 4 [1 2 3]))
@@ -77,49 +77,49 @@ let%expect_test "check fusing" =
     |};
   [%expect
     {|
-    (let ((+arg2.502 (frame 1 2 3)))
+    (let ((+arg2.511 (frame 1 2 3)))
      (let
-      ((fused-block-result.629
+      ((fused-block-result.638
         (loop-block (frame-shape 3)
-         (map ((+arg2.504 +arg2.502))
-          (let ((fusion-target-map-result.624 (+ 4 +arg2.504)))
+         (map ((+arg2.513 +arg2.511))
+          (let ((fusion-target-map-result.633 (+ 4 +arg2.513)))
            (let
-            ((fusion-target-map-result.628
-              (values fusion-target-map-result.624
-               (+ 5 fusion-target-map-result.624))))
-            (values fusion-target-map-result.628
-             (+ 6 (#0 fusion-target-map-result.628))))))
-         (body-matcher ((map-result.503 map-result.513) map-result.556))
-         (map-result (map-result.503 map-result.513 map-result.556))
+            ((fusion-target-map-result.637
+              (values fusion-target-map-result.633
+               (+ 5 fusion-target-map-result.633))))
+            (values fusion-target-map-result.637
+             (+ 6 (#0 fusion-target-map-result.637))))))
+         (body-matcher ((map-result.512 map-result.522) map-result.565))
+         (map-result (map-result.512 map-result.522 map-result.565))
          (consumer (values)))))
       (let
-       ((reduce-arg.590
-         (contiguous-subarray (#2 (#0 fused-block-result.629)) (frame 1)
+       ((reduce-arg.599
+         (contiguous-subarray (#2 (#0 fused-block-result.638)) (frame 1)
           (shape 3) (shape 2)))
-        (reduce-arg.547
-         (contiguous-subarray (#1 (#0 fused-block-result.629)) (frame 1)
+        (reduce-arg.556
+         (contiguous-subarray (#1 (#0 fused-block-result.638)) (frame 1)
           (shape 3) (shape 2))))
        (+
         (#1
          (loop-block (frame-shape 2)
-          (map ((reduce-arg.548 reduce-arg.547)) (values reduce-arg.548))
-          (body-matcher (reduce-arg.541)) (map-result ())
+          (map ((reduce-arg.557 reduce-arg.556)) (values reduce-arg.557))
+          (body-matcher (reduce-arg.550)) (map-result ())
           (consumer
            (reduce-zero
-            (contiguous-subarray (#1 (#0 fused-block-result.629)) (frame 0)
+            (contiguous-subarray (#1 (#0 fused-block-result.638)) (frame 0)
              (shape 3) (shape))
-            (reduce-arg1.318 reduce-arg2.321 reduce-arg.541)
-            (+ reduce-arg1.318 reduce-arg2.321)))))
+            (reduce-arg1.327 reduce-arg2.330 reduce-arg.550)
+            (+ reduce-arg1.327 reduce-arg2.330)))))
         (#1
          (loop-block (frame-shape 2)
-          (map ((reduce-arg.591 reduce-arg.590)) (values reduce-arg.591))
-          (body-matcher (reduce-arg.584)) (map-result ())
+          (map ((reduce-arg.600 reduce-arg.599)) (values reduce-arg.600))
+          (body-matcher (reduce-arg.593)) (map-result ())
           (consumer
            (reduce-zero
-            (contiguous-subarray (#2 (#0 fused-block-result.629)) (frame 0)
+            (contiguous-subarray (#2 (#0 fused-block-result.638)) (frame 0)
              (shape 3) (shape))
-            (reduce-arg1.462 reduce-arg2.465 reduce-arg.584)
-            (+ reduce-arg1.462 reduce-arg2.465))))))))) |}];
+            (reduce-arg1.471 reduce-arg2.474 reduce-arg.593)
+            (+ reduce-arg1.471 reduce-arg2.474))))))))) |}];
   fuseAndPrint
     {|
       (define x (+ 4 [1 2 3]))
@@ -132,70 +132,70 @@ let%expect_test "check fusing" =
   [%expect
     {|
     (let
-     ((+arg2.530 (frame 1 2 3))
-      (+arg1.585 (frame (frame 6 7 8) (frame 6 7 8) (frame 6 7 8))))
+     ((+arg2.539 (frame 1 2 3))
+      (+arg1.594 (frame (frame 6 7 8) (frame 6 7 8) (frame 6 7 8))))
      (let
-      ((fused-block-result.693
+      ((fused-block-result.702
         (loop-block (frame-shape 3)
-         (map ((+arg2.532 +arg2.530) (+arg1.588 +arg1.585))
+         (map ((+arg2.541 +arg2.539) (+arg1.597 +arg1.594))
           (let
-           ((fusion-target-map-result.688 (+ 4 +arg2.532)) (+arg1.589 +arg1.588))
+           ((fusion-target-map-result.697 (+ 4 +arg2.541)) (+arg1.598 +arg1.597))
            (let
-            ((fusion-target-map-result.692
-              (values fusion-target-map-result.688
-               (+ 5 fusion-target-map-result.688))))
-            (values fusion-target-map-result.692
+            ((fusion-target-map-result.701
+              (values fusion-target-map-result.697
+               (+ 5 fusion-target-map-result.697))))
+            (values fusion-target-map-result.701
              (#0
               (#0
                (loop-block (frame-shape 3)
-                (map ((+arg1.591 +arg1.589))
-                 (+ +arg1.591 (#0 fusion-target-map-result.692)))
-                (body-matcher map-result.590) (map-result (map-result.590))
+                (map ((+arg1.600 +arg1.598))
+                 (+ +arg1.600 (#0 fusion-target-map-result.701)))
+                (body-matcher map-result.599) (map-result (map-result.599))
                 (consumer (values)))))))))
-         (body-matcher ((map-result.531 map-result.542) map-result.586))
-         (map-result (map-result.531 map-result.542 map-result.586))
+         (body-matcher ((map-result.540 map-result.551) map-result.595))
+         (map-result (map-result.540 map-result.551 map-result.595))
          (consumer (values)))))
       (let
-       ((reduce-arg.632
-         (contiguous-subarray (#2 (#0 fused-block-result.693)) (frame 1)
+       ((reduce-arg.641
+         (contiguous-subarray (#2 (#0 fused-block-result.702)) (frame 1)
           (shape 3) (shape 2)))
-        (reduce-arg.576
-         (contiguous-subarray (#1 (#0 fused-block-result.693)) (frame 1)
+        (reduce-arg.585
+         (contiguous-subarray (#1 (#0 fused-block-result.702)) (frame 1)
           (shape 3) (shape 2))))
        (let
-        ((+arg2.635
+        ((+arg2.644
           (#1
            (loop-block (frame-shape 2)
-            (map ((reduce-arg.633 reduce-arg.632)) (values reduce-arg.633))
-            (body-matcher (reduce-arg.618)) (map-result ())
+            (map ((reduce-arg.642 reduce-arg.641)) (values reduce-arg.642))
+            (body-matcher (reduce-arg.627)) (map-result ())
             (consumer
              (reduce-zero
-              (contiguous-subarray (#2 (#0 fused-block-result.693)) (frame 0)
+              (contiguous-subarray (#2 (#0 fused-block-result.702)) (frame 0)
                (shape 3) (shape))
-              (reduce-arg1.485 reduce-arg2.490 reduce-arg.618)
-              (let ((+arg1.627 reduce-arg1.485) (+arg2.628 reduce-arg2.490))
+              (reduce-arg1.494 reduce-arg2.499 reduce-arg.627)
+              (let ((+arg1.636 reduce-arg1.494) (+arg2.637 reduce-arg2.499))
                (#0
                 (#0
                  (loop-block (frame-shape 3)
-                  (map ((+arg1.630 +arg1.627) (+arg2.631 +arg2.628))
-                   (+ +arg1.630 +arg2.631))
-                  (body-matcher map-result.629) (map-result (map-result.629))
+                  (map ((+arg1.639 +arg1.636) (+arg2.640 +arg2.637))
+                   (+ +arg1.639 +arg2.640))
+                  (body-matcher map-result.638) (map-result (map-result.638))
                   (consumer (values)))))))))))
-         (+arg1.578
+         (+arg1.587
           (#1
            (loop-block (frame-shape 2)
-            (map ((reduce-arg.577 reduce-arg.576)) (values reduce-arg.577))
-            (body-matcher (reduce-arg.570)) (map-result ())
+            (map ((reduce-arg.586 reduce-arg.585)) (values reduce-arg.586))
+            (body-matcher (reduce-arg.579)) (map-result ())
             (consumer
              (reduce-zero
-              (contiguous-subarray (#1 (#0 fused-block-result.693)) (frame 0)
+              (contiguous-subarray (#1 (#0 fused-block-result.702)) (frame 0)
                (shape 3) (shape))
-              (reduce-arg1.329 reduce-arg2.332 reduce-arg.570)
-              (+ reduce-arg1.329 reduce-arg2.332)))))))
+              (reduce-arg1.338 reduce-arg2.341 reduce-arg.579)
+              (+ reduce-arg1.338 reduce-arg2.341)))))))
         (#0
          (#0
           (loop-block (frame-shape 3)
-           (map ((+arg2.637 +arg2.635)) (+ +arg1.578 +arg2.637))
-           (body-matcher map-result.636) (map-result (map-result.636))
+           (map ((+arg2.646 +arg2.644)) (+ +arg1.587 +arg2.646))
+           (body-matcher map-result.645) (map-result (map-result.645))
            (consumer (values))))))))) |}]
 ;;

@@ -172,8 +172,15 @@ module Captures = struct
           zeroCaptures + bodyCaptures + getInDim d
         | Just
             (Fold
-              { zeroArg; arrayArgs; mappedMemArgs = _; body; d; character = _; type' = _ })
-          ->
+              { zeroArg
+              ; arrayArgs
+              ; mappedMemArgs = _
+              ; body
+              ; reverse = _
+              ; d
+              ; character = _
+              ; type' = _
+              }) ->
           let zeroCaptures = getInExpr zeroArg.zeroValue in
           let argBindings =
             zeroArg.zeroBinding :: List.map arrayArgs ~f:(fun arg -> arg.binding)
@@ -277,11 +284,13 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
             ; character
             ; type'
             }
-        | Fold { zeroArg; arrayArgs; mappedMemArgs; body; d; character; type' } ->
+        | Fold { zeroArg; arrayArgs; mappedMemArgs; reverse; body; d; character; type' }
+          ->
           Expr.Fold
             { zeroArg = { zeroArg with zeroValue = annotateExpr zeroArg.zeroValue }
             ; arrayArgs
             ; mappedMemArgs
+            ; reverse
             ; body = annotateExpr body
             ; d
             ; character

@@ -908,7 +908,7 @@ and inlineTermApplication indexEnv appStack termApplication =
                   [ "reduce expected a stack of [IndexApp; TypeApp], got"
                   ; [%sexp_of: appStack] appStack |> Sexp.to_string_hum
                   ])))
-     | Fold { character } ->
+     | Fold { character; reverse } ->
        let d, t, tCellShape, uArr =
          match character, primitive.appStack with
          | ( Fold
@@ -1021,6 +1021,7 @@ and inlineTermApplication indexEnv appStack termApplication =
               { zeroArg = { binding = zeroArgBinding; value = zeroArgValue }
               ; arrayArgs
               ; body
+              ; reverse
               ; d
               ; cellShape = tCellShape
               ; character

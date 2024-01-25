@@ -219,8 +219,8 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
             }
       ; type'
       }
-  | ArrayPrimitive (Fold { zeroArg; arrayArgs; body; d; cellShape = _; character; type' })
-    ->
+  | ArrayPrimitive
+      (Fold { zeroArg; arrayArgs; body; reverse; d; cellShape = _; character; type' }) ->
     let type' = nestTypeArray type' in
     let%bind zeroArgValue = nestArray zeroArg.value in
     let zeroArg = { zeroBinding = zeroArg.binding; zeroValue = zeroArgValue } in
@@ -240,7 +240,7 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
       |> NestState.all
     and body = nestArray body in
     let arrayBindings, arrayValues, arrayArgs = List.unzip3 arrays in
-    let consumer = Fold { zeroArg; arrayArgs; body; d; character; type' } in
+    let consumer = Fold { zeroArg; arrayArgs; body; reverse; d; character; type' } in
     let%map letArgs, mapArgs, mapBody, mapBodyMatcher =
       makeMap (Nested.Index.Add d) (List.zip_exn arrayBindings arrayValues)
     in

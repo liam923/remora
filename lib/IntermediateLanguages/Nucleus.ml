@@ -180,6 +180,7 @@ module Expr = struct
         { zeroArg : arg
         ; arrayArgs : arg list
         ; body : array
+        ; reverse : bool
         ; d : Index.dimension
         ; cellShape : Index.shape
         ; character : foldCharacter

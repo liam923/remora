@@ -116,6 +116,7 @@ module Expr = struct
     { zeroArg : 'lOuter foldZeroArg
     ; arrayArgs : foldArrayArg list
     ; body : 'lInner t
+    ; reverse : bool
     ; d : Index.dimension
     ; character : foldCharacter
     ; type' : Type.t
@@ -406,11 +407,15 @@ module Expr = struct
         ]
 
     and sexp_of_fold : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) fold -> Sexp.t =
-      fun sexp_of_a sexp_of_b { zeroArg; arrayArgs; body; d = _; character; type' = _ } ->
+      fun sexp_of_a
+          sexp_of_b
+          { zeroArg; arrayArgs; body; reverse; d = _; character; type' = _ } ->
       let opName =
-        match character with
-        | Fold -> "fold"
-        | Trace -> "trace"
+        match reverse, character with
+        | false, Fold -> "fold"
+        | true, Fold -> "fold-right"
+        | false, Trace -> "trace"
+        | true, Trace -> "trace-right"
       in
       Sexp.List
         [ Sexp.Atom opName

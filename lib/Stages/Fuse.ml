@@ -40,7 +40,10 @@ end
 module ConsumerCompatibility = struct
   type structure =
     | Reduce of { character : Expr.reduceCharacter }
-    | Fold of { character : Expr.foldCharacter }
+    | Fold of
+        { character : Expr.foldCharacter
+        ; reverse : bool
+        }
   [@@deriving equal]
 
   type t =
@@ -50,15 +53,15 @@ module ConsumerCompatibility = struct
   let of_op : Expr.consumerOp -> t = function
     | Reduce { arg = _; zero = _; body = _; d = _; character; type' = _ } ->
       SometimesCompatible (Reduce { character })
-    | Fold { zeroArg = _; arrayArgs = _; body = _; d = _; character; type' = _ } ->
-      SometimesCompatible (Fold { character })
+    | Fold { zeroArg = _; arrayArgs = _; body = _; reverse; d = _; character; type' = _ }
+      -> SometimesCompatible (Fold { character; reverse })
     | Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ } ->
       Incompatible
   ;;
 
   let isCompatible a b =
     match a, b with
-    | SometimesCompatible a, SometimesCompatible b -> equal_structure a b
+    | SometimesCompatible a, SometimesCompatible b -> [%equal: structure] a b
     | Incompatible, _ | _, Incompatible -> false
   ;;
 end
@@ -160,7 +163,7 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
           ; getUsesInIndex (Dimension d)
           ; getUsesInType type'
           ]
-      | Some (Fold { zeroArg; arrayArgs; body; d; character = _; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; reverse = _; d; character = _; type' }) ->
         let arrayBindings =
           arrayArgs
           |> List.map ~f:(fun arg -> arg.binding)
@@ -709,6 +712,7 @@ let mergeConsumers ~(target : Expr.consumerOp option) ~(archer : Expr.consumerOp
                           }
                         ]
                       ~body:(Expr.values [ target.body; archer.body ])
+                ; reverse = target.reverse
                 ; d =
                     (assert (Index.equal_dimension target.d archer.d);
                      target.d)
@@ -1152,14 +1156,14 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
         let%map zero = fuseLoops scope zero
         and body = fuseLoops reduceExtendedScope body in
         Some (Reduce { arg; zero; body; d; character; type' })
-      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+      | Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let foldBindings =
           zeroArg.zeroBinding :: List.map arrayArgs ~f:(fun arg -> arg.binding)
           |> Set.of_list (module Identifier)
         in
         let foldExtendedScope = Set.union scope foldBindings in
         let%map body = fuseLoops foldExtendedScope body in
-        Some (Fold { zeroArg; arrayArgs; body; d; character; type' })
+        Some (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' })
       | Some (Scatter { valuesArg = _; indicesArg = _; dIn = _; dOut = _; type' = _ }) as
         v -> return v
     in

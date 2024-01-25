@@ -282,8 +282,15 @@ let rec getPossibleMemSources
         | Just (ReduceSeq reduce) -> getPossibleMemSourcesInReduce reduce
         | Just
             (Fold
-              { zeroArg; arrayArgs; mappedMemArgs; body; d = _; character = _; type' = _ })
-          ->
+              { zeroArg
+              ; arrayArgs
+              ; mappedMemArgs
+              ; reverse = _
+              ; body
+              ; d = _
+              ; character = _
+              ; type' = _
+              }) ->
           let%bind zeroSources = getPossibleMemSources zeroArg.zeroValue in
           let arrayArgsExtensions =
             List.map arrayArgs ~f:(fun { binding; production = _ } -> binding, mapSources)
@@ -921,7 +928,7 @@ let rec allocRequest
                (Expr.ReducePar
                   { reduce; interimResultMemInterim; interimResultMemFinal; outerBody })
            , true )
-      | Just (Fold { zeroArg; arrayArgs; body; d; character; type' }) ->
+      | Just (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let d = convertDimension d in
         let%bind zeroValue =
           allocRequest ~mallocLoc ~writeToAddr:None zeroArg.zeroValue >>| getExpr
@@ -956,6 +963,7 @@ let rec allocRequest
                      Expr.{ binding; production = convertProduction production })
                ; mappedMemArgs = bodyMemArgs
                ; body
+               ; reverse
                ; d
                ; character
                ; type' = canonicalizeType type'

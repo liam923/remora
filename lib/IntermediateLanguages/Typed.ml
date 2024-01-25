@@ -146,7 +146,10 @@ module Expr = struct
     | LtF
     | LtEqF
     | Reduce of { character : reduceCharacter }
-    | Fold of { character : foldCharacter }
+    | Fold of
+        { character : foldCharacter
+        ; reverse : bool
+        }
     | Append
     | ContiguousSubArray
     | Scatter

@@ -1342,11 +1342,11 @@ and genExpr
     let%bind loopVar =
       GenState.createName (NameOfStr { str = "i"; needsUniquifying = true })
     in
-    let%bind consumerInLoop, consumerResult =
+    let%bind consumerInLoop, consumerResult, loopInReverse =
       match consumer with
       | Nothing ->
         let%bind unitType = genType @@ Tuple [] in
-        return @@ (return (), C.StructConstructor { type' = unitType; args = [] })
+        return @@ (return (), C.StructConstructor { type' = unitType; args = [] }, false)
       | Just (ReduceSeq { arg; zero; body; d = _; character; type' = _ }) ->
         let accVar = C.Name.UniqueName arg.firstBinding in
         let stepVar = C.Name.UniqueName arg.secondBinding in
@@ -1396,10 +1396,18 @@ and genExpr
           in
           characterInLoop
         in
-        return @@ (inLoop, characterResult)
+        return @@ (inLoop, characterResult, false)
       | Just
-          (Fold { arrayArgs; zeroArg; mappedMemArgs; body; d = _; character; type' = _ })
-        ->
+          (Fold
+            { arrayArgs
+            ; zeroArg
+            ; mappedMemArgs
+            ; body
+            ; reverse
+            ; d = _
+            ; character
+            ; type' = _
+            }) ->
         let accVar = C.Name.UniqueName zeroArg.zeroBinding in
         let%bind accType = genType @@ Expr.type' body in
         let%bind cZero = genExpr ~hostOrDevice ~store:false zeroArg.zeroValue in
@@ -1427,7 +1435,7 @@ and genExpr
             in
             let%bind () =
               genCopyExprToMem
-                ~mem:(memDerefer (Literal (Int64Literal 0)))
+                ~mem:(memDerefer @@ if reverse then steps else C.Syntax.intLit 0)
                 ~expr:(VarRef accVar)
                 ~type':(Expr.type' body)
             in
@@ -1435,11 +1443,10 @@ and genExpr
               genCopyExprToMem
                 ~mem:
                   (memDerefer
-                   @@ Binop
-                        { op = "+"
-                        ; arg1 = VarRef loopVar
-                        ; arg2 = Literal (Int64Literal 1)
-                        })
+                   @@
+                   if reverse
+                   then VarRef loopVar
+                   else C.Syntax.(VarRef loopVar + intLit 1))
                 ~expr:(VarRef accVar)
                 ~type':(Expr.type' body)
             in
@@ -1475,7 +1482,7 @@ and genExpr
           in
           characterInLoop
         in
-        return @@ (inLoop, characterResult)
+        return @@ (inLoop, characterResult, reverse)
       | Just
           (Scatter
             { valuesArg
@@ -1503,7 +1510,7 @@ and genExpr
                  ~type':(guillotineType @@ Mem.type' mem))
             ~elseBranch:(return ())
         in
-        return @@ (inLoop, cMem)
+        return @@ (inLoop, cMem, false)
     in
     let%bind body =
       GenState.block
@@ -1550,14 +1557,26 @@ and genExpr
     in
     let%bind () =
       GenState.writeStatement
-      @@ C.ForLoop
-           { loopVar
-           ; loopVarType = Int64
-           ; initialValue = Literal (Int64Literal 0)
-           ; cond = Binop { op = "<"; arg1 = VarRef loopVar; arg2 = steps }
-           ; loopVarUpdate = IncrementOne
-           ; body
-           }
+      @@
+      if loopInReverse
+      then
+        C.ForLoop
+          { loopVar
+          ; loopVarType = Int64
+          ; initialValue = C.Syntax.(steps - intLit 1)
+          ; cond = C.Syntax.(VarRef loopVar >= intLit 0)
+          ; loopVarUpdate = DecrementOne
+          ; body
+          }
+      else
+        C.ForLoop
+          { loopVar
+          ; loopVarType = Int64
+          ; initialValue = C.Syntax.(intLit 0)
+          ; cond = C.Syntax.(VarRef loopVar < steps)
+          ; loopVarUpdate = IncrementOne
+          ; body
+          }
     in
     let%bind mapResult =
       genExpr ~hostOrDevice ~store

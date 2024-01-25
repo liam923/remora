@@ -732,7 +732,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
             { arg; zero; body = Expr.let' ~args:unpackers ~body; d; character; type' }
         in
         usages, Some reduce
-      | Some (Fold { zeroArg; arrayArgs; body; d; character; type' }), _ ->
+      | Some (Fold { zeroArg; arrayArgs; reverse; body; d; character; type' }), _ ->
         let%bind body = reduceTuplesInExpr Whole body in
         let%bind caches = ReduceTupleState.getCaches () in
         let bindings =
@@ -763,6 +763,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
             { zeroArg
             ; arrayArgs
             ; body = Expr.let' ~args:unpackers ~body
+            ; reverse
             ; d
             ; character
             ; type'

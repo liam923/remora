@@ -183,6 +183,7 @@ let rec printStatement = function
     let loopVarUpdateStr =
       match loopVarUpdate with
       | IncrementOne -> [%string "++%{showName loopVar}"]
+      | DecrementOne -> [%string "--%{showName loopVar}"]
       | Increment expr -> [%string "%{showName loopVar} += %{showExpr expr}"]
     in
     let declStr =
