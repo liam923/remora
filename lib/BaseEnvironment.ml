@@ -360,138 +360,6 @@ module Stdlib : S = struct
                   (contiguous-subarray{t | [d-in] [d-out] @cell-shape 1} arr [i]))))
             |}
       }
-    ; { name = "reduce-zero-no-padding"
-      ; userVisible = false
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive { name = Func (Reduce { character = Reduce }); type' })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                         [t @cell-shape]
-                         [t d @cell-shape])
-                        [t @cell-shape])))
-                |}
-            }
-      }
-    ; { name = "reduce-zero"
-      ; userVisible = true
-      ; value =
-          Expression
-            {|
-            (i-fn (d @item-pad @cell-shape)
-              (t-fn (t)
-                (fn ([f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                      [init [t @cell-shape]]
-                      [arr [t d @item-pad @cell-shape]])
-                  (define (up-ranked-f [a [t @item-pad @cell-shape]]
-                                        [b [t @item-pad @cell-shape]])
-                    (f a b))
-                  (reduce-zero-no-padding{t | d (++ @item-pad @cell-shape)} up-ranked-f (replicate{t | @item-pad @cell-shape} init) arr))))
-            |}
-      }
-    ; { name = "reduce"
-      ; userVisible = true
-      ; value =
-          Expression
-            {|
-            (i-fn (d-1 @item-pad @cell-shape)
-              (t-fn (t)
-                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                     [arr [t (+ d-1 1) @item-pad @cell-shape]])
-                  (reduce-zero{t | d-1 @item-pad @cell-shape}
-                    op
-                    (head{t | d-1 (++ @item-pad @cell-shape)} arr)
-                    (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
-            |}
-      }
-    ; { name = "open-scan-zero-no-padding"
-      ; userVisible = false
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive { name = Func (Reduce { character = Scan }); type' })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t)
-                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
-                          [t @cell-shape]
-                          [t d @cell-shape])
-                        [t (+ d 1) @cell-shape])))
-                |}
-            }
-      }
-    ; { name = "open-scan-zero"
-      ; userVisible = true
-      ; value =
-          Expression
-            {|
-            (i-fn (d @item-pad @cell-shape)
-              (t-fn (t)
-                (fn ([f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                      [init [t @cell-shape]]
-                      [arr [t d @item-pad @cell-shape]])
-                  (define (up-ranked-f [a [t @item-pad @cell-shape]]
-                                        [b [t @item-pad @cell-shape]])
-                    (f a b))
-                  (open-scan-zero-no-padding{t | d (++ @item-pad @cell-shape)} up-ranked-f (replicate{t | @item-pad @cell-shape} init) arr))))
-            |}
-      }
-    ; { name = "scan"
-      ; userVisible = true
-      ; value =
-          Expression
-            {|
-            (i-fn (d-1 @item-pad @cell-shape)
-              (t-fn (t)
-                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                     [arr [t (+ d-1 1) @item-pad @cell-shape]])
-                  (open-scan-zero{t | d-1 @item-pad @cell-shape}
-                    op
-                    (head{t | d-1 (++ @item-pad @cell-shape)} arr)
-                    (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
-            |}
-      }
-    ; { name = "scan-zero"
-      ; userVisible = true
-      ; value =
-          Expression
-            {|
-            (i-fn (d @item-pad @cell-shape)
-              (t-fn (t)
-                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
-                     [zero [t @cell-shape]]
-                     [arr [t d @item-pad @cell-shape]])
-                  (tail{t | d (++ @item-pad @cell-shape)} (open-scan-zero{t | d @item-pad @cell-shape}
-                                                            op
-                                                            zero
-                                                            arr)))))
-            |}
-      }
-    ; { name = "fold"
-      ; userVisible = true
-      ; value =
-          Intrinsic
-            { makeValue =
-                (fun type' ->
-                  Expr.Primitive { name = Func (Fold { character = Fold }); type' })
-            ; type' =
-                {|
-                (Pi (d @cell-shape)
-                  (Forall (t @u)
-                    (-> ((-> (@u [t @cell-shape]) @u)
-                         @u
-                         [t d @cell-shape])
-                        @u)))
-                |}
-            }
-      }
     ; { name = "append"
       ; userVisible = true
       ; value =
@@ -522,21 +390,6 @@ module Stdlib : S = struct
                   |}
             }
       }
-    ; { name = "filter"
-      ; userVisible = true
-      ; value =
-          Expression
-            {|
-            (i-fn (l @cell-shape)
-              (t-fn (t)
-                (fn ([arr [t l @cell-shape]] [flags [bool l]])
-                  (define locs-raw (scan-zero{int | l [] []} + 0 (bool->int flags)))
-                  (define locs (if{int | } flags locs-raw (replicate{int | [l] []} -1)))
-                  (define result-size (index{int | [l] [] 1} locs-raw [(reify-dimension l)]))
-                  (lift [d result-size]
-                    (scatter{t | l d @cell-shape} arr locs)))))
-            |}
-      }
     ; { name = "reverse"
       ; userVisible = true
       ; value =
@@ -547,6 +400,194 @@ module Stdlib : S = struct
                 (fn ([arr [t l @cell-shape]])
                   (define indices (- (- (reify-dimension l) 1) iota{ | [l]}))
                   (scatter{t | l l @cell-shape} arr indices))))
+            |}
+      }
+    ; { name = "reduce-init-no-padding"
+      ; userVisible = false
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive { name = Func (Reduce { character = Reduce }); type' })
+            ; type' =
+                {|
+                (Pi (d @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                         [t @cell-shape]
+                         [t d @cell-shape])
+                        [t @cell-shape])))
+                |}
+            }
+      }
+    ; { name = "reduce-init"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                      [init [t @cell-shape]]
+                      [arr [t d @item-pad @cell-shape]])
+                  (define (up-ranked-f [a [t @item-pad @cell-shape]]
+                                        [b [t @item-pad @cell-shape]])
+                    (f a b))
+                  (reduce-init-no-padding{t | d (++ @item-pad @cell-shape)}
+                    up-ranked-f
+                    (replicate{t | @item-pad @cell-shape} init)
+                    arr))))
+            |}
+      }
+    ; { name = "reduce"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [arr [t (+ d-1 1) @item-pad @cell-shape]])
+                  (reduce-init{t | d-1 @item-pad @cell-shape}
+                    op
+                    (head{t | d-1 (++ @item-pad @cell-shape)} arr)
+                    (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
+            |}
+      }
+    ; { name = "scan-init-no-padding"
+      ; userVisible = false
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive { name = Func (Reduce { character = Scan }); type' })
+            ; type' =
+                {|
+                (Pi (d @cell-shape)
+                  (Forall (t)
+                    (-> ((-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])
+                          [t @cell-shape]
+                          [t d @cell-shape])
+                        [t (+ d 1) @cell-shape])))
+                |}
+            }
+      }
+    ; { name = "scan-init"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([f (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                      [init [t @cell-shape]]
+                      [arr [t d @item-pad @cell-shape]])
+                  (define (up-ranked-f [a [t @item-pad @cell-shape]]
+                                       [b [t @item-pad @cell-shape]])
+                    (f a b))
+                  (scan-init-no-padding{t | d (++ @item-pad @cell-shape)}
+                    up-ranked-f
+                    (replicate{t | @item-pad @cell-shape} init)
+                    arr))))
+            |}
+      }
+    ; { name = "iscan"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d-1 @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [arr [t (+ d-1 1) @item-pad @cell-shape]])
+                  (scan-init{t | d-1 @item-pad @cell-shape}
+                    op
+                    (head{t | d-1 (++ @item-pad @cell-shape)} arr)
+                    (tail{t | d-1 (++ @item-pad @cell-shape)} arr)))))
+            |}
+      }
+    ; { name = "iscan-init"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [init [t @cell-shape]]
+                     [arr [t d @item-pad @cell-shape]])
+                  (tail{t | d (++ @item-pad @cell-shape)} (scan-init{t | d @item-pad @cell-shape}
+                                                            op
+                                                            init
+                                                            arr)))))
+            |}
+      }
+    ; { name = "open-scan-init"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (d @item-pad @cell-shape)
+              (t-fn (t)
+                (fn ([op (-> ([t @cell-shape] [t @cell-shape]) [t @cell-shape])]
+                     [init [t @cell-shape]]
+                     [arr [t d @item-pad @cell-shape]])
+                  (subvector{t | (+ d 1) d (++ @item-pad @cell-shape)}
+                    (scan-init{t | d @item-pad @cell-shape} op
+                                                            init
+                                                            arr)
+                    0))))
+            |}
+      }
+    ; { name = "fold"
+      ; userVisible = true
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive { name = Func (Fold { character = Fold }); type' })
+            ; type' =
+                {|
+                (Pi (d @cell-shape)
+                  (Forall (t @u)
+                    (-> ((-> (@u [t @cell-shape]) @u)
+                         @u
+                         [t d @cell-shape])
+                        @u)))
+                |}
+            }
+      }
+    ; { name = "trace"
+      ; userVisible = true
+      ; value =
+          Intrinsic
+            { makeValue =
+                (fun type' ->
+                  Expr.Primitive { name = Func (Fold { character = Trace }); type' })
+            ; type' =
+                {|
+                (Pi (d @t-cell-shape @u-cell-shape)
+                  (Forall (t u)
+                    (-> ((-> ([u @u-cell-shape] [t @t-cell-shape]) [u @u-cell-shape])
+                          [u @u-cell-shape]
+                          [t d @t-cell-shape])
+                        [u (+ d 1) @u-cell-shape])))
+                |}
+            }
+      }
+    ; { name = "filter"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (l @cell-shape)
+              (t-fn (t)
+                (fn ([arr [t l @cell-shape]] [flags [bool l]])
+                  (define locs-raw (iscan-init{int | l [] []} + 0 (bool->int flags)))
+                  (define locs (if{int | } flags locs-raw (replicate{int | [l] []} -1)))
+                  (define result-size (index{int | [l] [] 1} locs-raw [(reify-dimension l)]))
+                  (lift [d result-size]
+                    (scatter{t | l d @cell-shape} arr locs)))))
             |}
       }
     ; { name = "sin"
