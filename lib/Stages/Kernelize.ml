@@ -149,7 +149,23 @@ module ParallelismWorthwhileness = struct
   ;;
 end
 
-let getThreads (_ : DeviceInfo.t) = 32
+let getThreads
+  (_ : DeviceInfo.t)
+  (consumer : (host, device, Corn.Expr.parallel) Corn.Expr.consumerOp option)
+  =
+  match consumer with
+  | None | Some (Scatter _) -> 512
+  | Some
+      (ReducePar
+        { reduce = { arg = _; zero = _; body = _; d = _; character = Reduce; type' = _ }
+        ; outerBody = _
+        }) -> 32
+  | Some
+      (ReducePar
+        { reduce = { arg = _; zero = _; body = _; d = _; character = Scan; type' = _ }
+        ; outerBody = _
+        }) -> 256
+;;
 
 let getBlocks ~threads:threadsPerBlock ~parShape deviceInfo =
   let blocksToReachThreads threads = (threads + threadsPerBlock - 1) / threadsPerBlock in
@@ -310,7 +326,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
         }
     in
     let%bind deviceInfo = KernelizeState.getDeviceInfo () in
-    let threads = getThreads deviceInfo in
+    let threads = getThreads deviceInfo None in
     let blocks = getBlocks ~threads ~parShape:mapAsKernelParShape deviceInfo in
     let%map hostExpr, hostParShape =
       decideParallelism
@@ -431,7 +447,7 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
       match parConsumer with
       | Some (parConsumerExpr, parConsumerParShape) ->
         let%bind deviceInfo = KernelizeState.getDeviceInfo () in
-        let threads = getThreads deviceInfo in
+        let threads = getThreads deviceInfo (Some parConsumerExpr) in
         let blocks = getBlocks ~threads ~parShape:parConsumerParShape deviceInfo in
         decideParallelism
           ~par:

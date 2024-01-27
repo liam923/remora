@@ -40,7 +40,7 @@ let%expect_test "check kernelizing" =
      ((contiguous-subarray-index.383 (frame 0))
       (contiguous-subarray-index.389 (frame 1)))
      (#0
-      (kernel (blocks 320) (threads 32)
+      (kernel (blocks 20) (threads 512)
        (map-kernel (frame-shape 1000000) () (iota iota.367)
         (body-matcher map-result.372) (map-result (map-result.372))
         (let
@@ -81,7 +81,7 @@ let%expect_test "check kernelizing" =
         (map () (iota iota.367)
          (let
           ((map-result.441
-            (kernel (blocks 320) (threads 32)
+            (kernel (blocks 20) (threads 512)
              (map-kernel (frame-shape 1000000) () (iota (iota.369 : iota.367))
               (body-matcher map-result.368) (map-result (map-result.368))
               iota.369))))
@@ -115,7 +115,7 @@ let%expect_test "check kernelizing" =
      ((contiguous-subarray-index.383 (frame 0))
       (contiguous-subarray-index.389 (frame 1)))
      (#0
-      (kernel (blocks 320) (threads 32)
+      (kernel (blocks 20) (threads 512)
        (map-kernel (frame-shape 1000000) () (iota iota.367)
         (body-matcher map-result.372) (map-result (map-result.372))
         (let
@@ -151,7 +151,7 @@ let%expect_test "check kernelizing" =
      ((contiguous-subarray-index.383 (frame 0))
       (contiguous-subarray-index.389 (frame 1)))
      (#0
-      (kernel (blocks 157) (threads 32)
+      (kernel (blocks 10) (threads 512)
        (map-kernel (frame-shape 5000) () (iota iota.367)
         (body-matcher map-result.372) (map-result (map-result.372))
         (let
@@ -192,7 +192,7 @@ let%expect_test "check kernelizing" =
         (map () (iota iota.367)
          (let
           ((map-result.441
-            (kernel (blocks 188) (threads 32)
+            (kernel (blocks 12) (threads 512)
              (map-kernel (frame-shape 6000) () (iota (iota.369 : iota.367))
               (body-matcher map-result.368) (map-result (map-result.368))
               iota.369))))
@@ -226,7 +226,7 @@ let%expect_test "check kernelizing" =
      ((contiguous-subarray-index.383 (frame 0))
       (contiguous-subarray-index.389 (frame 1)))
      (#0
-      (kernel (blocks 188) (threads 32)
+      (kernel (blocks 12) (threads 512)
        (map-kernel (frame-shape 6000) () (iota iota.367)
         (body-matcher map-result.372) (map-result (map-result.372))
         (let
@@ -254,7 +254,7 @@ let%expect_test "check kernelizing" =
   [%expect
     {|
     (#0
-     (kernel (blocks 188) (threads 32)
+     (kernel (blocks 12) (threads 512)
       (map-kernel (frame-shape 10) () (iota iota.144)
        (body-matcher map-result.151) (map-result (map-result.151))
        (#0

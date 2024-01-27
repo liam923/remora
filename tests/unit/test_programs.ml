@@ -4362,7 +4362,7 @@ let%expect_test "sum rows" =
      ((contiguous-subarray-index.383 (frame 0))
       (contiguous-subarray-index.389 (frame 1)))
      (#0
-      (kernel (blocks 320) (threads 32)
+      (kernel (blocks 20) (threads 512)
        (map-kernel (frame-shape 1000000) () (iota iota.367)
         (body-matcher map-result.372) (map-result (map-result.372))
         (let
@@ -4418,7 +4418,7 @@ let%expect_test "sum rows" =
          (getmem frame-array.458))))
       (#0
        (begin
-        (kernel (blocks 320) (threads 32)
+        (kernel (blocks 20) (threads 512)
          ((map
            (map-kernel (frame-shape 1000000) ((map-mem.462 map-mem.461))
             (iota iota.367)
@@ -4512,7 +4512,7 @@ let%expect_test "sum rows" =
               ((Array ((element (Literal IntLiteral)) (shape (shape 10)))))))
             (((name map-mem) (id 467)) (Tuple ()))))
           (index-captures ()))
-         (blocks 320) (threads 32)
+         (blocks 20) (threads 512)
          ((map
            (map-kernel (frame-shape 1000000) ((map-mem.462 map-mem.461))
             (iota iota.367)
