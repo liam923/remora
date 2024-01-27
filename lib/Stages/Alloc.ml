@@ -180,9 +180,12 @@ let rec getPossibleMemSources
   fun (expr : (_, _) Acorn.Expr.t) ->
     let getPossibleMemSourcesInLoopBlock
       : type m lInner p.
-        (l, lInner, p, _, m) Acorn.Expr.loopBlock -> Set.M(Identifier).t MemSourceState.u
+        mapResultMemInterim:Acorn.Mem.t option
+        -> (l, lInner, p, _, m) Acorn.Expr.loopBlock
+        -> Set.M(Identifier).t MemSourceState.u
       =
-      fun Acorn.Expr.
+      fun ~mapResultMemInterim
+          Acorn.Expr.
             { frameShape = _
             ; mapArgs
             ; mapMemArgs
@@ -190,7 +193,6 @@ let rec getPossibleMemSources
             ; mapBody
             ; mapBodyMatcher = _
             ; mapResults = _
-            ; mapResultMemInterim
             ; mapResultMemFinal
             ; consumer
             ; type' = _
@@ -224,7 +226,7 @@ let rec getPossibleMemSources
             iter inputs)
         in
         let getPossibleMemSourcesInReduce
-          Acorn.Expr.{ arg; zero; body; d = _; character = _; type' = _ }
+          ({ arg; zero; body; d = _; type' = _ } : (_, _, _) Acorn.Expr.reduce)
           =
           let%bind zeroSources = getPossibleMemSources zero in
           let initialSources = Set.union zeroSources mapSources in
@@ -234,14 +236,56 @@ let rec getPossibleMemSources
             in
             MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body)
         in
+        let getPossibleMemSourcesInScan
+          ~scanResultMemInterim
+          ({ arg; zero; body; d = _; scanResultMemFinal; type' = _ } :
+            (_, _, _) Acorn.Expr.scan)
+          =
+          let%bind zeroSources = getPossibleMemSources zero in
+          let initialSources = Set.union zeroSources mapSources in
+          let%bind itemSources =
+            iterUntilStable initialSources ~f:(fun sources ->
+              let envExtensions =
+                [ arg.firstBinding, sources; arg.secondBinding, sources ]
+              in
+              MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body)
+          in
+          let%bind sourcesForCopyToScanResultMemFinal =
+            match scanResultMemInterim with
+            | None -> return itemSources
+            | Some scanResultMemInterim ->
+              let%bind scanResultMemInterimSources =
+                getPossibleMemSourcesInMem scanResultMemInterim
+              in
+              let%bind () =
+                MemSourceState.writeToMem
+                  ~memSources:scanResultMemInterimSources
+                  ~valueSources:itemSources
+              in
+              getPossibleMemSourcesInMem scanResultMemInterim
+          in
+          let%bind scanResultMemFinalSources =
+            getPossibleMemSourcesInMem scanResultMemFinal
+          in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~memSources:scanResultMemFinalSources
+              ~valueSources:sourcesForCopyToScanResultMemFinal
+          in
+          getPossibleMemSourcesInMem scanResultMemFinal
+        in
         match consumer with
         | Nothing -> return @@ Set.empty (module Identifier)
         | Just
             (ReducePar
-              { reduce; interimResultMemInterim; interimResultMemFinal; outerBody }) ->
+              { reduce
+              ; interimResultMemDeviceInterim
+              ; interimResultMemHostFinal
+              ; outerBody
+              }) ->
           let%bind innerSources = getPossibleMemSourcesInReduce reduce in
           let%bind interimResultMemInterimSources =
-            getPossibleMemSourcesInMem interimResultMemInterim
+            getPossibleMemSourcesInMem interimResultMemDeviceInterim
           in
           let%bind () =
             MemSourceState.writeToMem
@@ -249,7 +293,7 @@ let rec getPossibleMemSources
               ~memSources:interimResultMemInterimSources
           in
           let%bind interimResultMemInterimSources =
-            getPossibleMemSourcesInMem interimResultMemInterim
+            getPossibleMemSourcesInMem interimResultMemDeviceInterim
           in
           let%bind outerSources =
             iterUntilStable interimResultMemInterimSources ~f:(fun sources ->
@@ -260,7 +304,7 @@ let rec getPossibleMemSources
               @@ getPossibleMemSources outerBody)
           in
           let%bind interimResultMemInterimSources =
-            getPossibleMemSourcesInMem interimResultMemInterim
+            getPossibleMemSourcesInMem interimResultMemDeviceInterim
           in
           let%bind () =
             MemSourceState.writeToMem
@@ -268,18 +312,24 @@ let rec getPossibleMemSources
               ~memSources:interimResultMemInterimSources
           in
           let%bind interimResultMemInterimSources =
-            getPossibleMemSourcesInMem interimResultMemInterim
+            getPossibleMemSourcesInMem interimResultMemDeviceInterim
           in
           let%bind interimResultMemFinalSources =
-            getPossibleMemSourcesInMem interimResultMemFinal
+            getPossibleMemSourcesInMem interimResultMemHostFinal
           in
           let%bind () =
             MemSourceState.writeToMem
               ~valueSources:interimResultMemInterimSources
               ~memSources:interimResultMemFinalSources
           in
-          getPossibleMemSourcesInMem interimResultMemFinal
+          getPossibleMemSourcesInMem interimResultMemHostFinal
         | Just (ReduceSeq reduce) -> getPossibleMemSourcesInReduce reduce
+        | Just (ScanPar { scan; scanResultMemDeviceInterim }) ->
+          getPossibleMemSourcesInScan
+            ~scanResultMemInterim:(Some scanResultMemDeviceInterim)
+            scan
+        | Just (ScanSeq scan) ->
+          getPossibleMemSourcesInScan ~scanResultMemInterim:None scan
         | Just
             (Fold
               { zeroArg
@@ -331,22 +381,25 @@ let rec getPossibleMemSources
           in
           getPossibleMemSourcesInMem memFinal
       in
-      let%bind mapResultMemInterimSources =
-        getPossibleMemSourcesInMem mapResultMemInterim
-      in
-      let%bind () =
-        MemSourceState.writeToMem
-          ~memSources:mapResultMemInterimSources
-          ~valueSources:mapSources
-      in
-      let%bind mapResultMemInterimSources =
-        getPossibleMemSourcesInMem mapResultMemInterim
+      let%bind sourcesForCopyToMapResultMemFinal =
+        match mapResultMemInterim with
+        | None -> return mapSources
+        | Some mapResultMemInterim ->
+          let%bind mapResultMemInterimSources =
+            getPossibleMemSourcesInMem mapResultMemInterim
+          in
+          let%bind () =
+            MemSourceState.writeToMem
+              ~memSources:mapResultMemInterimSources
+              ~valueSources:mapSources
+          in
+          getPossibleMemSourcesInMem mapResultMemInterim
       in
       let%bind mapResultMemFinalSources = getPossibleMemSourcesInMem mapResultMemFinal in
       let%bind () =
         MemSourceState.writeToMem
           ~memSources:mapResultMemFinalSources
-          ~valueSources:mapResultMemInterimSources
+          ~valueSources:sourcesForCopyToMapResultMemFinal
       in
       let%bind mapResultMemFinalSources = getPossibleMemSourcesInMem mapResultMemFinal in
       return @@ Set.union mapResultMemFinalSources consumerSources
@@ -390,9 +443,17 @@ let rec getPossibleMemSources
       in
       MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body
     | ReifyDimensionIndex { dim = _ } -> return @@ Set.empty (module Identifier)
-    | LoopBlock loopBlock -> getPossibleMemSourcesInLoopBlock loopBlock
-    | LoopKernel { kernel; captures = _; blocks = _; threads = _ } ->
-      getPossibleMemSourcesInLoopBlock kernel
+    | LoopBlock loopBlock ->
+      getPossibleMemSourcesInLoopBlock ~mapResultMemInterim:None loopBlock
+    | LoopKernel
+        { kernel = { loopBlock; mapResultMemDeviceInterim }
+        ; captures = _
+        ; blocks = _
+        ; threads = _
+        } ->
+      getPossibleMemSourcesInLoopBlock
+        ~mapResultMemInterim:(Some mapResultMemDeviceInterim)
+        loopBlock
     | ContiguousSubArray
         { arrayArg; indexArg = _; originalShape = _; resultShape = _; type' = _ } ->
       getPossibleMemSources arrayArg
@@ -412,16 +473,18 @@ and updateMemSourceEnvFromStatement
   fun (stmnt : (_, _) Acorn.Expr.statement) ->
     match stmnt with
     | MapKernel
-        { kernel = { map; mapResultMemInterim; mapResultMemFinal }
+        { kernel = { map; mapResultMemDeviceInterim; mapResultMemHostFinal }
         ; captures = _
         ; blocks = _
         ; threads = _
         } ->
       let%bind () = updateMemSourceEnvFromMapInKernel map in
       let%bind mapResultMemInterimSources =
-        getPossibleMemSourcesInMem mapResultMemInterim
+        getPossibleMemSourcesInMem mapResultMemDeviceInterim
       in
-      let%bind mapResultMemFinalSources = getPossibleMemSourcesInMem mapResultMemFinal in
+      let%bind mapResultMemFinalSources =
+        getPossibleMemSourcesInMem mapResultMemHostFinal
+      in
       MemSourceState.writeToMem
         ~valueSources:mapResultMemInterimSources
         ~memSources:mapResultMemFinalSources
@@ -752,7 +815,9 @@ let rec allocRequest
   let allocLoopBlock
     : type lInner seqOrPar exists.
       wrapLoopBlock:
-        ((l, lInner, seqOrPar, unit, exists) Expr.loopBlock -> l Expr.sansCaptures)
+        ((l, lInner, seqOrPar, unit, exists) Expr.loopBlock
+         -> Acorn.Mem.t
+         -> l Expr.sansCaptures)
       -> blocks:int
       -> innerMallocLoc:Acorn.Expr.mallocLoc
       -> createMapTargetAddr:(targetAddr option -> targetAddr option)
@@ -863,7 +928,7 @@ let rec allocRequest
         Acorn.Expr.{ memBinding; mem })
       @ mapBodyMemArgs
     in
-    let processReduce Corn.Expr.{ arg; zero; body; d; character; type' = reduceType } =
+    let processReduce Corn.Expr.{ arg; zero; body; d; type' = reduceType } =
       let d = convertDimension d in
       let%bind zero = allocRequest ~mallocLoc ~writeToAddr:None zero >>| getExpr
       and body =
@@ -871,30 +936,42 @@ let rec allocRequest
         >>| getExpr
         |> declareAllUsedAllocs
       in
-      let%map character =
-        match character with
-        | Reduce -> return Expr.Reduce
-        | Scan ->
-          let resultType =
-            Type.array
-              ~element:(Expr.type' body)
-              ~size:(Add { d with const = d.const + 1 })
-          in
-          let%map mem = malloc ~mallocLoc resultType "scan-result" in
-          Expr.Scan mem
+      return
+        Expr.
+          { arg =
+              { firstBinding = arg.firstBinding
+              ; secondBinding = arg.secondBinding
+              ; production = convertProductionTuple arg.production
+              }
+          ; zero
+          ; body
+          ; d
+          ; type' = canonicalizeType reduceType
+          }
+    in
+    let processScan Corn.Expr.{ arg; zero; body; d; type' = scanType } =
+      let d = convertDimension d in
+      let%bind zero = allocRequest ~mallocLoc ~writeToAddr:None zero >>| getExpr
+      and body =
+        allocRequest ~mallocLoc:innerMallocLoc ~writeToAddr:None body
+        >>| getExpr
+        |> declareAllUsedAllocs
       in
-      Expr.
-        { arg =
-            { firstBinding = arg.firstBinding
-            ; secondBinding = arg.secondBinding
-            ; production = convertProductionTuple arg.production
-            }
-        ; zero
-        ; body
-        ; d
-        ; character
-        ; type' = canonicalizeType reduceType
-        }
+      let scanType = canonicalizeType scanType in
+      let%bind scanResultMemFinal = malloc ~mallocLoc scanType "scan-result" in
+      return
+        Expr.
+          { arg =
+              { firstBinding = arg.firstBinding
+              ; secondBinding = arg.secondBinding
+              ; production = convertProductionTuple arg.production
+              }
+          ; zero
+          ; body
+          ; d
+          ; scanResultMemFinal
+          ; type' = scanType
+          }
     in
     let processConsumer
       : type t.
@@ -917,17 +994,30 @@ let rec allocRequest
             ~element:(Expr.type' reduce.body)
             ~size:(Add (Index.dimensionConstant blocks))
         in
-        let%bind interimResultMemInterim =
+        let%bind interimResultMemDeviceInterim =
           malloc ~mallocLoc:innerMallocLoc interimResultMemType "reduce-interim-result"
         in
-        let%bind interimResultMemFinal =
+        let%bind interimResultMemHostFinal =
           malloc ~mallocLoc interimResultMemType "reduce-interim-result"
         in
         return
         @@ ( Maybe.Just
                (Expr.ReducePar
-                  { reduce; interimResultMemInterim; interimResultMemFinal; outerBody })
+                  { reduce
+                  ; interimResultMemDeviceInterim
+                  ; interimResultMemHostFinal
+                  ; outerBody
+                  })
            , true )
+      | Just (ScanSeq scan) ->
+        let%map scan = processScan scan in
+        Maybe.Just (Expr.ScanSeq scan), true
+      | Just (ScanPar scan) ->
+        let%bind scan = processScan scan in
+        let%bind scanResultMemDeviceInterim =
+          malloc ~mallocLoc:innerMallocLoc scan.type' "scan-interim-result"
+        in
+        return @@ (Maybe.Just (Expr.ScanPar { scan; scanResultMemDeviceInterim }), true)
       | Just (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let d = convertDimension d in
         let%bind zeroValue =
@@ -1001,7 +1091,6 @@ let rec allocRequest
       ; mapMemArgs
       ; mapBodyMatcher
       ; mapResults
-      ; mapResultMemInterim
       ; mapResultMemFinal
       ; consumer
       ; type'
@@ -1012,8 +1101,8 @@ let rec allocRequest
       partialUnwrittenExprToAllocResult
         ~targetAddr:consumerTargetAddr
         ~exprToWriteExtractor:(fun loopBlock -> Expr.tupleDeref ~tuple:loopBlock ~index:1)
-        (wrapLoopBlock loopBlock)
-    else return @@ writtenExprToAllocResult (wrapLoopBlock loopBlock)
+        (wrapLoopBlock loopBlock mapResultMemInterim)
+    else return @@ writtenExprToAllocResult (wrapLoopBlock loopBlock mapResultMemInterim)
   in
   match expr with
   | Ref { id; type' } ->
@@ -1113,7 +1202,7 @@ let rec allocRequest
     writtenExprToAllocResult @@ Let { args; body }
   | LoopBlock loopBlock ->
     allocLoopBlock
-      ~wrapLoopBlock:(fun loopBlock -> Expr.LoopBlock loopBlock)
+      ~wrapLoopBlock:(fun loopBlock _ -> Expr.LoopBlock loopBlock)
       ~blocks:0
       ~innerMallocLoc:mallocLoc
       ~createMapTargetAddr:(fun targetAddr -> targetAddr)
@@ -1125,8 +1214,13 @@ let rec allocRequest
     let type' = canonicalizeType @@ Tuple loopBlock.type' in
     let%bind loopBlockResultMem = getMemForResult type' "loop-block-mem-result" in
     allocLoopBlock
-      ~wrapLoopBlock:(fun loopBlock ->
-        Expr.LoopKernel { kernel = loopBlock; captures = (); blocks; threads })
+      ~wrapLoopBlock:(fun loopBlock mapResultMemDeviceInterim ->
+        Expr.LoopKernel
+          { kernel = { loopBlock; mapResultMemDeviceInterim }
+          ; captures = ()
+          ; blocks
+          ; threads
+          })
       ~blocks
       ~innerMallocLoc:MallocDevice
       ~createMapTargetAddr:(fun _ -> None)
@@ -1298,8 +1392,8 @@ let rec allocRequest
       , mapResultMemInterim )
     in
     let type' = canonicalizeType mapKernel.type' in
-    let%bind mapResultMemFinal = getMemForResult type' "map-mem-result" in
-    let%map mapInKernel, mapResultMemInterim =
+    let%bind mapResultMemHostFinal = getMemForResult type' "map-mem-result" in
+    let%map mapInKernel, mapResultMemDeviceInterim =
       allocMapKernel
         ~outerBindingsForMapBody:(Set.empty (module Identifier))
         ~writeToAddr:None
@@ -1307,13 +1401,13 @@ let rec allocRequest
     in
     let mapKernel =
       Expr.MapKernel
-        { kernel = { map = mapInKernel; mapResultMemInterim; mapResultMemFinal }
+        { kernel = { map = mapInKernel; mapResultMemDeviceInterim; mapResultMemHostFinal }
         ; captures = ()
         ; blocks
         ; threads
         }
     in
-    { expr = Expr.eseq ~statements:[ mapKernel ] ~expr:(Expr.getmem mapResultMemFinal)
+    { expr = Expr.eseq ~statements:[ mapKernel ] ~expr:(Expr.getmem mapResultMemHostFinal)
     ; statement = mapKernel
     }
   | Literal literal -> unwrittenExprToAllocResult @@ Literal literal

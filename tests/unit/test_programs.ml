@@ -746,10 +746,8 @@ let%expect_test "function call with implicit map" =
                (let ((expr-result.179 (+ +arg1.150 +arg2.154)))
                 (begin (putmem expr-result.179 map-mem.178) expr-result.179)))
               (body-matcher map-result.153) (map-result (map-result.153))
-              (map-result-mem-interim (values map-mem.177))
               (map-result-mem-final (values map-mem.177)) (consumer (values)))))))
          (body-matcher map-result.149) (map-result (map-result.149))
-         (map-result-mem-interim (values map-mem.176))
          (map-result-mem-final (values map-mem.176)) (consumer (values)))))))
     Result of stage Capture:
     (malloc-let
@@ -825,10 +823,8 @@ let%expect_test "function call with implicit map" =
                (let ((expr-result.179 (+ +arg1.150 +arg2.154)))
                 (begin (putmem expr-result.179 map-mem.178) expr-result.179)))
               (body-matcher map-result.153) (map-result (map-result.153))
-              (map-result-mem-interim (values map-mem.177))
               (map-result-mem-final (values map-mem.177)) (consumer (values)))))))
          (body-matcher map-result.149) (map-result (map-result.149))
-         (map-result-mem-interim (values map-mem.176))
          (map-result-mem-final (values map-mem.176)) (consumer (values))))))) |}]
 ;;
 
@@ -1405,7 +1401,6 @@ let%expect_test "box and unbox" =
            (let ((expr-result.171 (= 3 (reify-dimension-index len.134))))
             (begin (putmem expr-result.171 map-mem.170) expr-result.171))))
          (body-matcher map-result.152) (map-result (map-result.152))
-         (map-result-mem-interim (values map-mem.169))
          (map-result-mem-final (values map-mem.169)) (consumer (values)))))))
     Result of stage Capture:
     (malloc-let
@@ -1479,7 +1474,6 @@ let%expect_test "box and unbox" =
            (let ((expr-result.171 (= 3 (reify-dimension-index len.134))))
             (begin (putmem expr-result.171 map-mem.170) expr-result.171))))
          (body-matcher map-result.152) (map-result (map-result.152))
-         (map-result-mem-interim (values map-mem.169))
          (map-result-mem-final (values map-mem.169)) (consumer (values))))))) |}]
 ;;
 
@@ -4432,7 +4426,6 @@ let%expect_test "sum rows" =
                     (begin (putmem expr-result.465 (#0 map-mem.464))
                      expr-result.465)))
                   (body-matcher map-result.368) (map-result (map-result.368))
-                  (map-result-mem-interim map-mem.463)
                   (map-result-mem-final map-mem.463) (consumer (values))))))
               (let
                ((reduce-arg.436
@@ -4449,7 +4442,6 @@ let%expect_test "sum rows" =
                      ((reduce-arg.409 reduce-arg.436) (map-mem.468 map-mem.467))
                      reduce-arg.409)
                     (body-matcher reduce-arg.402) (map-result ())
-                    (map-result-mem-interim map-mem.467)
                     (map-result-mem-final map-mem.467)
                     (consumer
                      (reduce-zero
@@ -4526,7 +4518,6 @@ let%expect_test "sum rows" =
                     (begin (putmem expr-result.465 (#0 map-mem.464))
                      expr-result.465)))
                   (body-matcher map-result.368) (map-result (map-result.368))
-                  (map-result-mem-interim map-mem.463)
                   (map-result-mem-final map-mem.463) (consumer (values))))))
               (let
                ((reduce-arg.436
@@ -4543,7 +4534,6 @@ let%expect_test "sum rows" =
                      ((reduce-arg.409 reduce-arg.436) (map-mem.468 map-mem.467))
                      reduce-arg.409)
                     (body-matcher reduce-arg.402) (map-result ())
-                    (map-result-mem-interim map-mem.467)
                     (map-result-mem-final map-mem.467)
                     (consumer
                      (reduce-zero

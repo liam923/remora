@@ -140,7 +140,6 @@ module Captures = struct
         ; mapBody
         ; mapBodyMatcher = _
         ; mapResults = _
-        ; mapResultMemInterim
         ; mapResultMemFinal
         ; consumer
         ; type' = _
@@ -163,13 +162,20 @@ module Captures = struct
       let consumerCaptures =
         match consumer with
         | Nothing -> empty
-        | Just (ReduceSeq { arg; zero; body; d; character = _; type' = _ }) ->
+        | Just (ReduceSeq { arg; zero; body; d; type' = _ }) ->
           let zeroCaptures = getInExpr zero in
           let argBindings =
             Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
           in
           let bodyCaptures = getInExpr body - argBindings in
           zeroCaptures + bodyCaptures + getInDim d
+        | Just (ScanSeq { arg; zero; body; d; scanResultMemFinal; type' = _ }) ->
+          let zeroCaptures = getInExpr zero in
+          let argBindings =
+            Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
+          in
+          let bodyCaptures = getInExpr body - argBindings in
+          zeroCaptures + bodyCaptures + getInDim d + getInMem scanResultMemFinal
         | Just
             (Fold
               { zeroArg
@@ -205,7 +211,6 @@ module Captures = struct
       + iotaCaptures
       + bodyCaptures
       + consumerCaptures
-      + getInMem mapResultMemInterim
       + getInMem mapResultMemFinal
     | Box { indices; body; type' = _ } ->
       getList indices ~f:(fun { expr; index } -> getInExpr expr + getInIndex index)
@@ -268,20 +273,22 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       ; mapBody
       ; mapBodyMatcher
       ; mapResults
-      ; mapResultMemInterim
       ; mapResultMemFinal
       ; consumer
       ; type'
       } ->
     let consumer =
       Maybe.map consumer ~f:(function
-        | ReduceSeq { arg; zero; body; d; character; type' } ->
+        | ReduceSeq { arg; zero; body; d; type' } ->
           Expr.ReduceSeq
+            { arg; zero = annotateExpr zero; body = annotateExpr body; d; type' }
+        | ScanSeq { arg; zero; body; d; scanResultMemFinal; type' } ->
+          Expr.ScanSeq
             { arg
             ; zero = annotateExpr zero
             ; body = annotateExpr body
             ; d
-            ; character
+            ; scanResultMemFinal
             ; type'
             }
         | Fold { zeroArg; arrayArgs; mappedMemArgs; reverse; body; d; character; type' }
@@ -307,24 +314,25 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       ; mapBody = annotateExpr mapBody
       ; mapBodyMatcher
       ; mapResults
-      ; mapResultMemInterim
       ; mapResultMemFinal
       ; consumer
       ; type'
       }
   | LoopKernel
       { kernel =
-          { frameShape
-          ; mapArgs
-          ; mapIotas
-          ; mapMemArgs
-          ; mapBody
-          ; mapBodyMatcher
-          ; mapResults
-          ; mapResultMemInterim
-          ; mapResultMemFinal
-          ; consumer
-          ; type'
+          { loopBlock =
+              { frameShape
+              ; mapArgs
+              ; mapIotas
+              ; mapMemArgs
+              ; mapBody
+              ; mapBodyMatcher
+              ; mapResults
+              ; mapResultMemFinal
+              ; consumer
+              ; type'
+              }
+          ; mapResultMemDeviceInterim
           }
       ; captures = ()
       ; blocks
@@ -352,9 +360,9 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       match consumer with
       | Just
           (ReducePar
-            { reduce = { arg; zero; body; d; character; type' }
-            ; interimResultMemInterim
-            ; interimResultMemFinal
+            { reduce = { arg; zero; body; d; type' }
+            ; interimResultMemDeviceInterim
+            ; interimResultMemHostFinal
             ; outerBody
             }) ->
         let bindings =
@@ -364,16 +372,31 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
         , Maybe.Just
             (Expr.ReducePar
                { reduce =
+                   { arg; zero = annotateExpr zero; body = annotateExpr body; d; type' }
+               ; interimResultMemDeviceInterim
+               ; interimResultMemHostFinal
+               ; outerBody = annotateExpr outerBody
+               }) )
+      | Just
+          (ScanPar
+            { scan = { arg; zero; body; d; scanResultMemFinal; type' }
+            ; scanResultMemDeviceInterim
+            }) ->
+        let bindings =
+          Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
+        in
+        ( Captures.(getInExpr body - bindings)
+        , Maybe.Just
+            (Expr.ScanPar
+               { scan =
                    { arg
                    ; zero = annotateExpr zero
                    ; body = annotateExpr body
                    ; d
-                   ; character
+                   ; scanResultMemFinal
                    ; type'
                    }
-               ; interimResultMemInterim
-               ; interimResultMemFinal
-               ; outerBody = annotateExpr outerBody
+               ; scanResultMemDeviceInterim
                }) )
       | Just (Scatter { valuesArg; indicesArg; dIn; dOut; memInterim; memFinal; type' })
         ->
@@ -384,17 +407,19 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
     in
     LoopKernel
       { kernel =
-          { frameShape
-          ; mapArgs
-          ; mapIotas
-          ; mapMemArgs
-          ; mapBody = annotateExpr mapBody
-          ; mapBodyMatcher
-          ; mapResults
-          ; mapResultMemInterim
-          ; mapResultMemFinal
-          ; consumer
-          ; type'
+          { loopBlock =
+              { frameShape
+              ; mapArgs
+              ; mapIotas
+              ; mapMemArgs
+              ; mapBody = annotateExpr mapBody
+              ; mapBodyMatcher
+              ; mapResults
+              ; mapResultMemFinal
+              ; consumer
+              ; type'
+              }
+          ; mapResultMemDeviceInterim
           }
       ; captures =
           Captures.(
@@ -445,7 +470,7 @@ and annotateStatement
   = function
   | Putmem { addr; expr; type' } -> Putmem { addr; expr = annotateExpr expr; type' }
   | MapKernel
-      { kernel = { map = mapKernel; mapResultMemInterim; mapResultMemFinal }
+      { kernel = { map = mapKernel; mapResultMemDeviceInterim; mapResultMemHostFinal }
       ; captures = ()
       ; blocks
       ; threads
@@ -493,7 +518,7 @@ and annotateStatement
     in
     let captures, mapKernel = annotateMapInKernel mapKernel in
     MapKernel
-      { kernel = { map = mapKernel; mapResultMemInterim; mapResultMemFinal }
+      { kernel = { map = mapKernel; mapResultMemDeviceInterim; mapResultMemHostFinal }
       ; captures
       ; blocks
       ; threads

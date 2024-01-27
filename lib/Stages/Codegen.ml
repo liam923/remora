@@ -951,7 +951,7 @@ let rec genStmnt
     genCopyExprToMem ~expr ~mem:addr ~type'
   | Host, MapKernel { kernel; captures; blocks; threads } ->
     let%bind capturePasses = handleCaptures captures in
-    let%bind resultInterim = genMem ~store:true kernel.mapResultMemInterim in
+    let%bind resultInterim = genMem ~store:true kernel.mapResultMemDeviceInterim in
     let module Map = struct
       type hostAndDeviceExpr =
         { host : C.expr
@@ -1089,10 +1089,10 @@ let rec genStmnt
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
-    let%bind resultFinal = genMem ~store:true kernel.mapResultMemFinal in
+    let%bind resultFinal = genMem ~store:true kernel.mapResultMemHostFinal in
     let%bind () =
       genMoveMemDeviceToHost
-        ~type':(Mem.type' kernel.mapResultMemFinal)
+        ~type':(Mem.type' kernel.mapResultMemHostFinal)
         ~target:resultFinal
         ~source:resultInterim
     in
@@ -1295,7 +1295,6 @@ and genExpr
         ; mapBody
         ; mapBodyMatcher
         ; mapResults (* mapResultMemInterim = mapResultMemFinal for LoopBlock *)
-        ; mapResultMemInterim = _
         ; mapResultMemFinal = mapResultMem
         ; consumer
         ; type'
@@ -1347,7 +1346,7 @@ and genExpr
       | Nothing ->
         let%bind unitType = genType @@ Tuple [] in
         return @@ (return (), C.StructConstructor { type' = unitType; args = [] }, false)
-      | Just (ReduceSeq { arg; zero; body; d = _; character; type' = _ }) ->
+      | Just (ReduceSeq { arg; zero; body; d = _; type' = _ }) ->
         let accVar = C.Name.UniqueName arg.firstBinding in
         let stepVar = C.Name.UniqueName arg.secondBinding in
         let%bind accType = genType @@ Expr.type' body in
@@ -1356,34 +1355,6 @@ and genExpr
           GenState.writeStatement
           @@ C.Define { name = accVar; type' = None; value = Some cZero }
         in
-        let%bind characterInLoop, characterResult =
-          match character with
-          | Reduce -> return @@ (return (), C.VarRef accVar)
-          | Scan mem ->
-            let%bind cMem = genMem ~store:true mem in
-            let%bind memDerefer =
-              genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
-            in
-            let%bind () =
-              genCopyExprToMem
-                ~mem:(memDerefer (Literal (Int64Literal 0)))
-                ~expr:(VarRef accVar)
-                ~type':(Expr.type' body)
-            in
-            let inLoop =
-              genCopyExprToMem
-                ~mem:
-                  (memDerefer
-                   @@ Binop
-                        { op = "+"
-                        ; arg1 = VarRef loopVar
-                        ; arg2 = Literal (Int64Literal 1)
-                        })
-                ~expr:(VarRef accVar)
-                ~type':(Expr.type' body)
-            in
-            return (inLoop, cMem)
-        in
         let inLoop =
           let%bind stepValue = genValueOfProductionTuple arg.production in
           let%bind () =
@@ -1391,12 +1362,42 @@ and genExpr
             @@ C.Define { name = stepVar; type' = Some accType; value = Some stepValue }
           in
           let%bind body = genExpr ~hostOrDevice ~store:false body in
-          let%bind () =
-            GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
-          in
-          characterInLoop
+          GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
         in
-        return @@ (inLoop, characterResult, false)
+        return @@ (inLoop, C.VarRef accVar, false)
+      | Just (ScanSeq { arg; zero; body; d = _; scanResultMemFinal; type' = _ }) ->
+        let accVar = C.Name.UniqueName arg.firstBinding in
+        let stepVar = C.Name.UniqueName arg.secondBinding in
+        let%bind accType = genType @@ Expr.type' body in
+        let%bind cZero = genExpr ~hostOrDevice ~store:false zero in
+        let%bind () =
+          GenState.writeStatement
+          @@ C.Define { name = accVar; type' = None; value = Some cZero }
+        in
+        let%bind cMem = genMem ~store:true scanResultMemFinal in
+        let%bind memDerefer =
+          genArrayDeref ~arrayType:(Mem.type' scanResultMemFinal) ~isMem:true cMem
+        in
+        let%bind () =
+          genCopyExprToMem
+            ~mem:(memDerefer (Literal (Int64Literal 0)))
+            ~expr:(VarRef accVar)
+            ~type':(Expr.type' body)
+        in
+        let inLoop =
+          let%bind stepValue = genValueOfProductionTuple arg.production in
+          let%bind () =
+            GenState.writeStatement
+            @@ C.Define { name = stepVar; type' = Some accType; value = Some stepValue }
+          in
+          let%bind cBody = genExpr ~hostOrDevice ~store:false body in
+          let%bind () = GenState.writeStatement @@ C.Syntax.(VarRef accVar := cBody) in
+          genCopyExprToMem
+            ~mem:(memDerefer C.Syntax.(VarRef loopVar + intLit 1))
+            ~expr:(VarRef accVar)
+            ~type':(Expr.type' body)
+        in
+        return @@ (inLoop, cMem, false)
       | Just
           (Fold
             { arrayArgs
@@ -1587,27 +1588,29 @@ and genExpr
   | ( Host
     , LoopKernel
         { kernel =
-            { frameShape = _
-            ; mapArgs
-            ; mapMemArgs
-            ; mapIotas
-            ; mapBody
-            ; mapBodyMatcher
-            ; mapResults
-            ; mapResultMemInterim
-            ; mapResultMemFinal
-            ; consumer =
-                Just
-                  (Scatter
-                    { valuesArg
-                    ; indicesArg
-                    ; dIn
-                    ; dOut = _
-                    ; memInterim = scatterResultMemInterim
-                    ; memFinal = scatterResultMemFinal
-                    ; type' = _
-                    })
-            ; type'
+            { loopBlock =
+                { frameShape = _
+                ; mapArgs
+                ; mapMemArgs
+                ; mapIotas
+                ; mapBody
+                ; mapBodyMatcher
+                ; mapResults
+                ; mapResultMemFinal
+                ; consumer =
+                    Just
+                      (Scatter
+                        { valuesArg
+                        ; indicesArg
+                        ; dIn
+                        ; dOut = _
+                        ; memInterim = scatterResultMemInterim
+                        ; memFinal = scatterResultMemFinal
+                        ; type' = _
+                        })
+                ; type'
+                }
+            ; mapResultMemDeviceInterim
             }
         ; captures
         ; blocks
@@ -1615,9 +1618,9 @@ and genExpr
         } ) ->
     let%bind capturePasses = handleCaptures captures in
     let%bind dIn, dInPass = createKernelPass "dIn" Int64 @@ genDim dIn in
-    let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemInterim in
+    let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemDeviceInterim in
     let%bind cMapResultMemInterimType =
-      genType ~wrapInPtr:true @@ Mem.type' mapResultMemInterim
+      genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
     in
     let%bind cMapResultMemInterimDevice, mapResultMemInterimPass =
       createKernelPass
@@ -1730,40 +1733,35 @@ and genExpr
   | ( Host
     , LoopKernel
         { kernel =
-            { frameShape = _
-            ; mapArgs
-            ; mapMemArgs
-            ; mapIotas
-            ; mapBody
-            ; mapBodyMatcher
-            ; mapResults
-            ; mapResultMemInterim
-            ; mapResultMemFinal
-            ; consumer =
-                Just
-                  (ReducePar
-                    { reduce =
-                        { arg
-                        ; zero
-                        ; body = reduceBody
-                        ; d
-                        ; character = Reduce
-                        ; type' = reduceType
-                        }
-                    ; interimResultMemInterim = reduceResultsMemInterim
-                    ; interimResultMemFinal = reduceResultsMemFinal
-                    ; outerBody
-                    })
-            ; type'
+            { loopBlock =
+                { frameShape = _
+                ; mapArgs
+                ; mapMemArgs
+                ; mapIotas
+                ; mapBody
+                ; mapBodyMatcher
+                ; mapResults
+                ; mapResultMemFinal
+                ; consumer =
+                    Just
+                      (ReducePar
+                        { reduce = { arg; zero; body = reduceBody; d; type' = reduceType }
+                        ; interimResultMemDeviceInterim = reduceResultsMemInterim
+                        ; interimResultMemHostFinal = reduceResultsMemFinal
+                        ; outerBody
+                        })
+                ; type'
+                }
+            ; mapResultMemDeviceInterim
             }
         ; captures
         ; blocks
         ; threads
         } ) ->
     let%bind capturePasses = handleCaptures captures in
-    let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemInterim in
+    let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemDeviceInterim in
     let%bind cMapResultMemInterimType =
-      genType ~wrapInPtr:true @@ Mem.type' mapResultMemInterim
+      genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
     in
     let%bind cMapResultMemInterimDevice, mapResultMemInterimPass =
       createKernelPass
@@ -2094,31 +2092,31 @@ and genExpr
   | ( Host
     , LoopKernel
         { kernel =
-            { frameShape = _
-            ; mapArgs = _
-            ; mapMemArgs = _
-            ; mapIotas = _
-            ; mapBody = _
-            ; mapBodyMatcher = _
-            ; mapResults = _
-            ; mapResultMemInterim = _
-            ; mapResultMemFinal = _
-            ; consumer =
-                Just
-                  (ReducePar
-                    { reduce =
-                        { arg = _
-                        ; zero = _
-                        ; body = _
-                        ; d = _
-                        ; character = Scan _
-                        ; type' = _
-                        }
-                    ; interimResultMemInterim = _
-                    ; interimResultMemFinal = _
-                    ; outerBody = _
-                    })
-            ; type' = _
+            { loopBlock =
+                { frameShape = _
+                ; mapArgs = _
+                ; mapMemArgs = _
+                ; mapIotas = _
+                ; mapBody = _
+                ; mapBodyMatcher = _
+                ; mapResults = _
+                ; mapResultMemFinal = _
+                ; consumer =
+                    Just
+                      (ScanPar
+                        { scan =
+                            { arg = _
+                            ; zero = _
+                            ; body = _
+                            ; d = _
+                            ; scanResultMemFinal = _
+                            ; type' = _
+                            }
+                        ; scanResultMemDeviceInterim = _
+                        })
+                ; type' = _
+                }
+            ; mapResultMemDeviceInterim = _
             }
         ; captures = _
         ; blocks = _

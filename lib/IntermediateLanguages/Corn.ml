@@ -11,7 +11,6 @@ module Expr = struct
   type parallel = Parallel
   type sequential = Sequential
   type ref = Nested.Expr.ref
-  type reduceCharacter = Nested.Expr.reduceCharacter
   type foldCharacter = Nested.Expr.foldCharacter
 
   type 'l frame =
@@ -98,17 +97,16 @@ module Expr = struct
   and productionTuple = Nested.Expr.productionTuple
   and reduceArg = Nested.Expr.reduceArg
 
-  and ('lOuter, 'lInner) reduce =
+  and ('lOuter, 'lInner) reduceLike =
     { arg : reduceArg
     ; zero : 'lOuter t
     ; body : 'lInner t
     ; d : Index.dimension
-    ; character : reduceCharacter
     ; type' : Type.t
     }
 
   and ('lOuter, 'lInner) parReduce =
-    { reduce : ('lOuter, 'lInner) reduce
+    { reduce : ('lOuter, 'lInner) reduceLike
     ; outerBody : 'lOuter t
     }
 
@@ -131,8 +129,12 @@ module Expr = struct
     }
 
   and ('lOuter, 'lInner, 'p) consumerOp =
-    | ReduceSeq : ('lOuter, 'lInner) reduce -> ('lOuter, 'lInner, sequential) consumerOp
+    | ReduceSeq :
+        ('lOuter, 'lInner) reduceLike
+        -> ('lOuter, 'lInner, sequential) consumerOp
+    | ScanSeq : ('lOuter, 'lInner) reduceLike -> ('lOuter, 'lInner, sequential) consumerOp
     | ReducePar : (host, device) parReduce -> (host, device, parallel) consumerOp
+    | ScanPar : (host, device) reduceLike -> (host, device, parallel) consumerOp
     | Scatter : scatter -> _ consumerOp
     | Fold : ('lOuter, 'lInner) fold -> ('lOuter, 'lInner, sequential) consumerOp
 
@@ -376,15 +378,18 @@ module Expr = struct
     and sexp_of_tupleMatch = [%sexp_of: Nested.Expr.tupleMatch]
     and sexp_of_productionTuple = [%sexp_of: Nested.Expr.productionTuple]
 
-    and sexp_of_reduce
-      : type a b. (a -> Sexp.t) -> (b -> Sexp.t) -> (a, b) reduce -> Sexp.t
+    and sexp_of_reduceLike
+      : type a b.
+        ?characterName:string
+        -> (a -> Sexp.t)
+        -> (b -> Sexp.t)
+        -> (a, b) reduceLike
+        -> Sexp.t
       =
-      fun sexp_of_a sexp_of_b { arg; zero; body; d = _; character; type' = _ } ->
-      let characterName =
-        match character with
-        | Reduce -> "reduce"
-        | Scan -> "scan"
-      in
+      fun ?(characterName = "reduce")
+          sexp_of_a
+          sexp_of_b
+          { arg; zero; body; d = _; type' = _ } ->
       let opName = [%string "%{characterName}-zero"] in
       Sexp.List
         [ Sexp.Atom opName
@@ -402,7 +407,7 @@ module Expr = struct
       =
       fun sexp_of_a sexp_of_b { reduce; outerBody } ->
       Sexp.List
-        [ sexp_of_reduce sexp_of_a sexp_of_b reduce
+        [ sexp_of_reduceLike ~characterName:"reduce" sexp_of_a sexp_of_b reduce
         ; Sexp.List [ Sexp.Atom "outer-body"; sexp_of_t sexp_of_a outerBody ]
         ]
 
@@ -446,8 +451,10 @@ module Expr = struct
         (a -> Sexp.t) -> (b -> Sexp.t) -> (p -> Sexp.t) -> (a, b, p) consumerOp -> Sexp.t
       =
       fun sexp_of_a sexp_of_b _ -> function
-      | ReduceSeq reduce -> sexp_of_reduce sexp_of_a sexp_of_b reduce
+      | ReduceSeq reduce -> sexp_of_reduceLike sexp_of_a sexp_of_b reduce
       | ReducePar reduce -> sexp_of_parReduce sexp_of_host sexp_of_device reduce
+      | ScanSeq scan -> sexp_of_reduceLike sexp_of_a sexp_of_b scan
+      | ScanPar scan -> sexp_of_reduceLike sexp_of_a sexp_of_b scan
       | Fold fold -> sexp_of_fold sexp_of_a sexp_of_b fold
       | Scatter scatter -> sexp_of_scatter scatter
 

@@ -155,16 +155,8 @@ let getThreads
   =
   match consumer with
   | None | Some (Scatter _) -> 512
-  | Some
-      (ReducePar
-        { reduce = { arg = _; zero = _; body = _; d = _; character = Reduce; type' = _ }
-        ; outerBody = _
-        }) -> 32
-  | Some
-      (ReducePar
-        { reduce = { arg = _; zero = _; body = _; d = _; character = Scan; type' = _ }
-        ; outerBody = _
-        }) -> 256
+  | Some (ReducePar _) -> 32
+  | Some (ScanPar _) -> 256
 ;;
 
 let getBlocks ~threads:threadsPerBlock ~parShape deviceInfo =
@@ -367,38 +359,31 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
       =
       match consumer with
       | Reduce { arg; zero; body; d; character; type' } ->
+        let makeSeq ~(character : Nested.Expr.reduceCharacter) reduceLike =
+          match character with
+          | Reduce -> Expr.ReduceSeq reduceLike
+          | Scan -> Expr.ScanSeq reduceLike
+        in
+        let makePar ~(character : Nested.Expr.reduceCharacter) ~outerBody reduceLike =
+          match character with
+          | Reduce -> Expr.ReducePar { reduce = reduceLike; outerBody }
+          | Scan -> Expr.ScanPar reduceLike
+        in
         let%map zeroOpts = getOpts zero
         and bodyOpts = getOpts body in
         let zeroOptsHostParShape = hostParShape zeroOpts in
-        ( Expr.ReduceSeq
-            { arg
-            ; zero = hostExpr zeroOpts
-            ; body = bodyOpts.hostExpr
-            ; d
-            ; character
-            ; type'
-            }
-        , Expr.ReduceSeq
-            { arg
-            ; zero = deviceExpr zeroOpts
-            ; body = bodyOpts.deviceExpr
-            ; d
-            ; character
-            ; type'
-            }
+        ( makeSeq
+            ~character
+            { arg; zero = hostExpr zeroOpts; body = bodyOpts.hostExpr; d; type' }
+        , makeSeq
+            ~character
+            { arg; zero = deviceExpr zeroOpts; body = bodyOpts.deviceExpr; d; type' }
         , ParallelismShape.max [ bodyOpts.hostParShape; zeroOptsHostParShape ]
         , Some
-            ( Expr.ReducePar
-                { reduce =
-                    { arg
-                    ; zero = hostExpr zeroOpts
-                    ; body = bodyOpts.deviceExpr
-                    ; d
-                    ; character
-                    ; type'
-                    }
-                ; outerBody = bodyOpts.hostExpr
-                }
+            ( makePar
+                ~character
+                ~outerBody:bodyOpts.hostExpr
+                { arg; zero = hostExpr zeroOpts; body = bodyOpts.deviceExpr; d; type' }
             , ParallelismShape.max
                 [ ParallelismShape.singleDimensionParallelism (Add d)
                 ; zeroOptsHostParShape
