@@ -4489,21 +4489,22 @@ let%expect_test "sum rows" =
          (getmem frame-array.458))))
       (#0
        (begin
-        (kernel captures
-         ((expr-captures
-           ((((name contiguous-subarray-index) (id 383))
-             (Array ((element (Literal IntLiteral)) (shape (shape 1)))))
-            (((name contiguous-subarray-index) (id 389))
-             (Array ((element (Literal IntLiteral)) (shape (shape 1)))))))
-          (mem-captures
-           ((((name map-mem) (id 461))
-             (Tuple
-              ((Array ((element (Literal IntLiteral)) (shape (shape 1000000)))))))
-            (((name map-mem) (id 463))
-             (Tuple
-              ((Array ((element (Literal IntLiteral)) (shape (shape 10)))))))
-            (((name map-mem) (id 467)) (Tuple ()))))
-          (index-captures ()))
+        (kernel
+         (captures
+          ((expr-captures
+            ((((name contiguous-subarray-index) (id 383))
+              (Array ((element (Literal IntLiteral)) (shape (shape 1)))))
+             (((name contiguous-subarray-index) (id 389))
+              (Array ((element (Literal IntLiteral)) (shape (shape 1)))))))
+           (mem-captures
+            ((((name map-mem) (id 461))
+              (Tuple
+               ((Array ((element (Literal IntLiteral)) (shape (shape 1000000)))))))
+             (((name map-mem) (id 463))
+              (Tuple
+               ((Array ((element (Literal IntLiteral)) (shape (shape 10)))))))
+             (((name map-mem) (id 467)) (Tuple ()))))
+           (index-captures ())))
          (blocks 20) (threads 512)
          ((map
            (map-kernel (frame-shape 1000000) ((map-mem.462 map-mem.461))

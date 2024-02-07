@@ -178,6 +178,30 @@ let%expect_test "sum evens" =
     250500 |}]
 ;;
 
+let%expect_test "sum of sums" =
+  compileAndRun
+    {|
+    (define sums (scan-init{int | 1000 [] []} + 0 (+ 1 iota{ | [1000]})))
+    (reduce{int | 1000 [] []} + sums)
+    |};
+  [%expect {|
+    167167000 |}]
+;;
+
+let%expect_test "sum of sums array" =
+  compileAndRun
+    {|
+    (define sums (scan-init{int | 1000 [5] []} + 0 (+ 1 iota{ | [1000 5]})))
+    (reduce{int | 1000 [5] []} + sums)
+    |};
+  [%expect {|
+    [[833833000 834333500 834834000 835334500 835835000]
+     [833833000 834333500 834834000 835334500 835835000]
+     [833833000 834333500 834834000 835334500 835835000]
+     [833833000 834333500 834834000 835334500 835835000]
+     [833833000 834333500 834834000 835334500 835835000]] |}]
+;;
+
 let%expect_test "covariance" =
   compileAndRun
     {|
