@@ -179,12 +179,6 @@ and program =
 
 and t = program [@@deriving sexp_of]
 
-let fieldDeref ~value ~fieldName ~valueIsPtr =
-  if valueIsPtr
-  then PtrFieldDeref { value; fieldName }
-  else FieldDeref { value; fieldName }
-;;
-
 module Syntax = struct
   let ( + ) arg1 arg2 = Binop { op = "+"; arg1; arg2 }
   let ( - ) arg1 arg2 = Binop { op = "-"; arg1; arg2 }
@@ -207,7 +201,8 @@ module Syntax = struct
   let charLit c = Literal (CharLiteral c)
   let refStr str = VarRef (StrName str)
   let refId id = VarRef (UniqueName id)
-  let ( %-> ) value fieldName = FieldDeref { value; fieldName }
+  let ( %-> ) value fieldName = PtrFieldDeref { value; fieldName }
+  let ( %. ) value fieldName = FieldDeref { value; fieldName }
   let ( := ) lhs rhs = Assign { lhs; rhs }
   let eval expr = Eval expr
   let callBuiltin name ?typeArgs args = FunCall { fun' = StrName name; typeArgs; args }

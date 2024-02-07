@@ -313,8 +313,8 @@ let tupleFieldName i = C.Name.StrName [%string "_%{i#Int}"]
 let boxValueFieldName = C.Name.StrName "value"
 let sliceDimCountFieldName = C.Name.StrName "dimCount"
 let sliceDimsFieldName = C.Name.StrName "dims"
-let blockIndex = C.Syntax.(refStr "blockIdx" %-> StrName "x")
-let threadIndex = C.Syntax.(refStr "threadIdx" %-> StrName "x")
+let blockIndex = C.Syntax.(refStr "blockIdx" %. StrName "x")
+let threadIndex = C.Syntax.(refStr "threadIdx" %. StrName "x")
 
 let genTypeForSort sort =
   match sort with
@@ -385,7 +385,7 @@ let genDim ({ const; refs; lens } : Index.dimension) =
   let addLens init =
     Map.fold lens ~init ~f:(fun ~key:sliceVar ~data:multiplier cValSoFar ->
       C.Syntax.(
-        cValSoFar + (refId sliceVar %-> sliceDimCountFieldName * intLit multiplier)))
+        cValSoFar + (refId sliceVar %. sliceDimCountFieldName * intLit multiplier)))
   in
   addLens @@ addRefs @@ C.Literal (Int64Literal const)
 ;;
@@ -639,23 +639,14 @@ let genCopyExprToMem =
         parameters
         |> List.map ~f:(fun param ->
           GenState.writeStatement
-          @@ C.Assign
-               { lhs =
-                   C.fieldDeref
-                     ~value:mem
-                     ~fieldName:(UniqueName param.binding)
-                     ~valueIsPtr:memNeedsPtrDeref
-               ; rhs = FieldDeref { value = expr; fieldName = UniqueName param.binding }
-               })
+          @@ C.Syntax.(
+               mem %-> UniqueName param.binding := expr %. UniqueName param.binding))
         |> GenState.all_unit
       in
       GenState.writeStatement
       @@ C.Syntax.(
-           C.fieldDeref
-             ~value:mem
-             ~fieldName:boxValueFieldName
-             ~valueIsPtr:memNeedsPtrDeref
-           := FieldDeref { value = expr; fieldName = boxValueFieldName })
+           mem %-> boxValueFieldName
+             := FieldDeref { value = expr; fieldName = boxValueFieldName })
     | Atom (Literal (IntLiteral | FloatLiteral | BooleanLiteral | CharacterLiteral)) ->
       let mem = if memNeedsPtrDeref then C.PtrDeref mem else mem in
       GenState.writeStatement @@ C.Assign { lhs = mem; rhs = expr }
@@ -669,6 +660,20 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
     match copyDir with
     | `HostToDevice -> "HostToDevice"
     | `DeviceToHost -> "DeviceToHost"
+  in
+  let writeToMem ~mem ~type' expr =
+    match copyDir with
+    | `HostToDevice ->
+      let%bind exprVar = GenState.createVarAuto "value" expr in
+      let%bind type' = genType type' in
+      GenState.writeStatement
+      @@ C.Eval
+           C.Syntax.(
+             callBuiltin
+               "copyHostToDevice"
+               ~typeArgs:[ type' ]
+               [ mem; PtrRef exprVar; intLit 1 ])
+    | `DeviceToHost -> GenState.writeStatement C.Syntax.(PtrDeref mem := expr)
   in
   match type' with
   | Array { element; shape } ->
@@ -703,7 +708,7 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
            genCopyExprBetweenMachines
              ~type':elementType
              ~copyDir
-             C.Syntax.(source %-> tupleFieldName i))
+             C.Syntax.(source %. tupleFieldName i))
          |> GenState.all
        in
        return @@ C.StructConstructor { type' = cType; args }
@@ -714,27 +719,15 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
            genCopyExprBetweenMachines
              ~type':elementType
              ~copyDir
-             ~targetMem:C.Syntax.(target %-> tupleFieldName i)
-             C.Syntax.(source %-> tupleFieldName i))
+             ~targetMem:C.Syntax.(target %. tupleFieldName i)
+             C.Syntax.(source %. tupleFieldName i))
          |> GenState.all
        in
        return target)
   | Atom (Literal _) ->
     let%bind () =
       match targetMem with
-      | Some target ->
-        (match copyDir with
-         | `HostToDevice ->
-           let%bind sourceVar = GenState.createVarAuto "value" source in
-           let%bind type' = genType type' in
-           GenState.writeStatement
-           @@ C.Eval
-                C.Syntax.(
-                  callBuiltin
-                    "copyHostToDevice"
-                    ~typeArgs:[ type' ]
-                    [ target; PtrRef sourceVar; intLit 1 ])
-         | `DeviceToHost -> GenState.writeStatement C.Syntax.(PtrDeref target := source))
+      | Some target -> writeToMem ~mem:target ~type' source
       | None -> return ()
     in
     return source
@@ -778,11 +771,19 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
       genCopyExprBetweenMachines
         ~type':body
         ~copyDir
-        C.Syntax.(source %-> boxValueFieldName)
+        C.Syntax.(source %. boxValueFieldName)
     in
-    let%bind type' = genType type' in
-    let _ = C.StructConstructor { type'; args = copiedValue :: copiedParams } in
-    raise Unimplemented.default
+    let%bind cType = genType type' in
+    let%bind copiedBox =
+      GenState.createVarAuto "box"
+      @@ C.StructConstructor { type' = cType; args = copiedValue :: copiedParams }
+    in
+    let%bind () =
+      match targetMem with
+      | Some target -> writeToMem ~mem:target ~type' copiedBox
+      | None -> return ()
+    in
+    return copiedBox
 ;;
 
 let rec genMoveMem direction ~(type' : Type.t) ~target ~source =
@@ -857,10 +858,7 @@ let rec genMoveMem direction ~(type' : Type.t) ~target ~source =
           @@ Define { name = UniqueName param.binding; type' = None; value = Some value }
         in
         GenState.writeStatement
-        @@ C.Assign
-             { lhs = FieldDeref { value = target; fieldName = UniqueName param.binding }
-             ; rhs = VarRef (UniqueName param.binding)
-             })
+        @@ C.Syntax.(target %-> UniqueName param.binding := refId param.binding))
       |> GenState.all_unit
     in
     let%bind copiedBoxValue =
@@ -870,12 +868,7 @@ let rec genMoveMem direction ~(type' : Type.t) ~target ~source =
         genCopyExprBetweenMachines ~type':body ~copyDir:direction boxValue
       | `HostToHost | `DeviceToDevice -> return @@ boxValue
     in
-    (* TODO: this is wrong *)
-    GenState.writeStatement
-    @@ C.Assign
-         { lhs = FieldDeref { value = target; fieldName = boxValueFieldName }
-         ; rhs = copiedBoxValue
-         }
+    GenState.writeStatement C.Syntax.(target %-> boxValueFieldName := copiedBoxValue)
 ;;
 
 type funPass =
@@ -1300,8 +1293,8 @@ and genExpr
     storeIfRequested ~name:"values" @@ C.StructConstructor { type'; args = elements }
   | _, Ref { id; type' = _ } -> return @@ C.VarRef (UniqueName id)
   | _, BoxValue { box; type' = _ } ->
-    let%map box = genExpr ~hostOrDevice ~store box in
-    C.FieldDeref { value = box; fieldName = boxValueFieldName }
+    let%bind box = genExpr ~hostOrDevice ~store box in
+    return C.Syntax.(box %. boxValueFieldName)
   | _, IndexLet { indexArgs; body; type' = _ } ->
     let%bind () =
       indexArgs
@@ -2988,7 +2981,7 @@ and genExpr
                         GenState.createVarAuto
                           "valOffset"
                           C.Syntax.(
-                            (refStr "blockDim" %-> StrName "x" * blockIndex) + threadIndex)
+                            (refStr "blockDim" %. StrName "x" * blockIndex) + threadIndex)
                       in
                       let%bind adjOffset =
                         GenState.createVarAuto "adjOffset" blockIndex
@@ -3150,9 +3143,9 @@ and genExpr
                      match shapeElement with
                      | Add d -> writeUpdate (genDim d)
                      | ShapeRef shapeRef ->
-                       let dims = C.Syntax.(refId shapeRef %-> sliceDimsFieldName) in
+                       let dims = C.Syntax.(refId shapeRef %. sliceDimsFieldName) in
                        let dimCount =
-                         C.Syntax.(refId shapeRef %-> sliceDimCountFieldName)
+                         C.Syntax.(refId shapeRef %. sliceDimCountFieldName)
                        in
                        let%bind () =
                          GenState.writeForLoop
