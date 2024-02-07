@@ -1140,7 +1140,7 @@ let rec genStmnt
            (KernelLaunch
               { kernel = kernelName
               ; blocks = C.Syntax.intLit blocks
-              ; threads = C.Syntax.intLit blocks
+              ; threads = C.Syntax.intLit threads
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
