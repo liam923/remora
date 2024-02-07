@@ -56,18 +56,20 @@ type name =
       }
   | NameOfId of Identifier.t
 
+let createId str =
+  make ~f:(fun state ->
+    State.run
+      (Identifier.create
+         str
+         ~getCounter:(fun (s : CompilerState.state) -> s.idCounter)
+         ~setCounter:(fun s idCounter -> { s with idCounter }))
+      state)
+;;
+
 let createName : name -> (C.name, _) u = function
   | NameOfStr { str; needsUniquifying = true } ->
     let open Let_syntax in
-    let%map id =
-      make ~f:(fun state ->
-        State.run
-          (Identifier.create
-             str
-             ~getCounter:(fun (s : CompilerState.state) -> s.idCounter)
-             ~setCounter:(fun s idCounter -> { s with idCounter }))
-          state)
-    in
+    let%map id = createId str in
     C.Name.UniqueName id
   | NameOfStr { str; needsUniquifying = false } -> return @@ C.Name.StrName str
   | NameOfId id -> return @@ C.Name.UniqueName id

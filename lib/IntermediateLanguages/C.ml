@@ -83,6 +83,7 @@ and expr =
       ; index : expr
       }
   | PtrDeref of expr
+  | PtrRef of expr
   | Ternary of
       { cond : expr
       ; then' : expr
@@ -95,8 +96,8 @@ and expr =
       }
   | KernelLaunch of
       { kernel : name
-      ; blocks : int
-      ; threads : int
+      ; blocks : expr
+      ; threads : expr
       ; args : expr list
       }
   | Binop of
@@ -163,6 +164,8 @@ and varUpdate =
   | IncrementOne
   | DecrementOne
   | Increment of expr
+  | ShiftRight of expr
+  | ShiftLeft of expr
 
 and block = statement list
 
@@ -193,8 +196,11 @@ module Syntax = struct
   let ( < ) arg1 arg2 = Binop { op = "<"; arg1; arg2 }
   let ( <= ) arg1 arg2 = Binop { op = "<="; arg1; arg2 }
   let ( << ) arg1 arg2 = Binop { op = "<<"; arg1; arg2 }
+  let ( >> ) arg1 arg2 = Binop { op = ">>"; arg1; arg2 }
   let ( == ) arg1 arg2 = Binop { op = "=="; arg1; arg2 }
+  let ( != ) arg1 arg2 = Binop { op = "!="; arg1; arg2 }
   let ( && ) arg1 arg2 = Binop { op = "&&"; arg1; arg2 }
+  let ( || ) arg1 arg2 = Binop { op = "||"; arg1; arg2 }
   let pp arg = PrefixOp { op = "++"; arg }
   let not arg = PrefixOp { op = "!"; arg }
   let intLit i = Literal (Int64Literal i)
@@ -203,11 +209,9 @@ module Syntax = struct
   let refId id = VarRef (UniqueName id)
   let ( %-> ) value fieldName = FieldDeref { value; fieldName }
   let ( := ) lhs rhs = Assign { lhs; rhs }
-
-  let callBuiltin name ?(typeArgs = None) args =
-    FunCall { fun' = StrName name; typeArgs; args }
-  ;;
-
+  let eval expr = Eval expr
+  let callBuiltin name ?typeArgs args = FunCall { fun' = StrName name; typeArgs; args }
+  let call name ?typeArgs args = FunCall { fun' = name; typeArgs; args }
   let arrayDeref value index = ArrayDeref { value; index }
 
   let rec arrayDerefs value indices =

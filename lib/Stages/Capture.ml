@@ -368,7 +368,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
         let bindings =
           Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
         in
-        ( Captures.(getInExpr body - bindings)
+        ( Captures.(getInExpr body - bindings + getInDim d)
         , Maybe.Just
             (Expr.ReducePar
                { reduce =
@@ -385,7 +385,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
         let bindings =
           Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
         in
-        ( Captures.(getInExpr body - bindings)
+        ( Captures.(getInExpr body - bindings + getInDim d)
         , Maybe.Just
             (Expr.ScanPar
                { scan =

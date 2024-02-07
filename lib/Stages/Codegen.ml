@@ -250,6 +250,7 @@ module GenState = struct
   ;;
 
   let createName name = returnF (CBuilder.createName name)
+  let createId str = returnF (CBuilder.createId str)
 
   let storeExpr ?(name = "storedExpr") (expr : C.expr) =
     let open Let_syntax in
@@ -662,34 +663,81 @@ let genCopyExprToMem =
   genCopyExprToMem ~memNeedsPtrDeref:true
 ;;
 
-let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir source =
+let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source =
   let open GenState.Let_syntax in
-  let copyFun =
+  let dirStr =
     match copyDir with
-    | `HostToDevice -> "copyHostToDeviceMalloc"
-    | `DeviceToHost -> "copyDeviceToHostMalloc"
+    | `HostToDevice -> "HostToDevice"
+    | `DeviceToHost -> "DeviceToHost"
   in
   match type' with
   | Array { element; shape } ->
     let size = genShapeSize @@ NeList.to_list shape in
     let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
-    return
-    @@ C.FunCall
-         { fun' = StrName copyFun
-         ; typeArgs = Some [ cElementType ]
-         ; args = [ source; size ]
-         }
+    (match targetMem with
+     | None ->
+       return
+         C.Syntax.(
+           callBuiltin
+             [%string "copy%{dirStr}Malloc"]
+             ~typeArgs:[ cElementType ]
+             [ source; size ])
+     | Some target ->
+       let%bind () =
+         GenState.writeStatement
+         @@ C.Eval
+              C.Syntax.(
+                callBuiltin
+                  [%string "copy%{dirStr}"]
+                  ~typeArgs:[ cElementType ]
+                  [ target; source; size ])
+       in
+       return target)
   | Tuple elements ->
-    let%bind cType = genType type' in
-    let%bind args =
-      elements
-      |> List.mapi ~f:(fun i elementType ->
-        genCopyExprBetweenMachines ~type':elementType ~copyDir
-        @@ C.FieldDeref { value = source; fieldName = tupleFieldName i })
-      |> GenState.all
+    (match targetMem with
+     | None ->
+       let%bind cType = genType type' in
+       let%bind args =
+         elements
+         |> List.mapi ~f:(fun i elementType ->
+           genCopyExprBetweenMachines
+             ~type':elementType
+             ~copyDir
+             C.Syntax.(source %-> tupleFieldName i))
+         |> GenState.all
+       in
+       return @@ C.StructConstructor { type' = cType; args }
+     | Some target ->
+       let%bind _ =
+         elements
+         |> List.mapi ~f:(fun i elementType ->
+           genCopyExprBetweenMachines
+             ~type':elementType
+             ~copyDir
+             ~targetMem:C.Syntax.(target %-> tupleFieldName i)
+             C.Syntax.(source %-> tupleFieldName i))
+         |> GenState.all
+       in
+       return target)
+  | Atom (Literal _) ->
+    let%bind () =
+      match targetMem with
+      | Some target ->
+        (match copyDir with
+         | `HostToDevice ->
+           let%bind sourceVar = GenState.createVarAuto "value" source in
+           let%bind type' = genType type' in
+           GenState.writeStatement
+           @@ C.Eval
+                C.Syntax.(
+                  callBuiltin
+                    "copyHostToDevice"
+                    ~typeArgs:[ type' ]
+                    [ target; PtrRef sourceVar; intLit 1 ])
+         | `DeviceToHost -> GenState.writeStatement C.Syntax.(PtrDeref target := source))
+      | None -> return ()
     in
-    return @@ C.StructConstructor { type' = cType; args }
-  | Atom (Literal _) -> return source
+    return source
   | Atom (Sigma { parameters; body }) ->
     let%bind copiedParams =
       parameters
@@ -708,7 +756,7 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir source =
               { type' = TypeRef (StrName "Slice")
               ; args =
                   [ FunCall
-                      { fun' = StrName copyFun
+                      { fun' = StrName [%string "copy%{dirStr}Malloc"]
                       ; typeArgs = Some [ Int64 ]
                       ; args =
                           [ FieldDeref { value = source; fieldName = sliceDimsFieldName }
@@ -727,16 +775,25 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir source =
       |> GenState.all
     in
     let%bind copiedValue =
-      genCopyExprBetweenMachines ~type':body ~copyDir
-      @@ FieldDeref { value = source; fieldName = boxValueFieldName }
+      genCopyExprBetweenMachines
+        ~type':body
+        ~copyDir
+        C.Syntax.(source %-> boxValueFieldName)
     in
     let%bind type' = genType type' in
-    return @@ C.StructConstructor { type'; args = copiedValue :: copiedParams }
+    let _ = C.StructConstructor { type'; args = copiedValue :: copiedParams } in
+    raise Unimplemented.default
 ;;
 
-let rec genMoveMemDeviceToHost ~(type' : Type.t) ~target ~source =
+let rec genMoveMem direction ~(type' : Type.t) ~target ~source =
   let open GenState.Let_syntax in
-  let copyFun = "copyDeviceToHost" in
+  let copyFun =
+    match direction with
+    | `DeviceToHost -> "copyDeviceToHost"
+    | `HostToDevice -> "copyHostToDevice"
+    | `HostToHost -> "copyHostToHost"
+    | `DeviceToDevice -> "copyDeviceToDevice"
+  in
   match type' with
   | Array { element; shape } ->
     let size = genShapeSize @@ NeList.to_list shape in
@@ -751,7 +808,8 @@ let rec genMoveMemDeviceToHost ~(type' : Type.t) ~target ~source =
   | Tuple elements ->
     elements
     |> List.mapi ~f:(fun i elementType ->
-      genMoveMemDeviceToHost
+      genMoveMem
+        direction
         ~type':elementType
         ~target:(C.FieldDeref { value = target; fieldName = tupleFieldName i })
         ~source:(C.FieldDeref { value = source; fieldName = tupleFieldName i }))
@@ -805,25 +863,29 @@ let rec genMoveMemDeviceToHost ~(type' : Type.t) ~target ~source =
              })
       |> GenState.all_unit
     in
-    let%bind copiedValue =
-      genCopyExprBetweenMachines ~type':body ~copyDir:`DeviceToHost
-      @@ FieldDeref { value = source; fieldName = boxValueFieldName }
+    let%bind copiedBoxValue =
+      let boxValue = C.FieldDeref { value = source; fieldName = boxValueFieldName } in
+      match direction with
+      | (`HostToDevice | `DeviceToHost) as direction ->
+        genCopyExprBetweenMachines ~type':body ~copyDir:direction boxValue
+      | `HostToHost | `DeviceToDevice -> return @@ boxValue
     in
+    (* TODO: this is wrong *)
     GenState.writeStatement
     @@ C.Assign
          { lhs = FieldDeref { value = target; fieldName = boxValueFieldName }
-         ; rhs = copiedValue
+         ; rhs = copiedBoxValue
          }
 ;;
 
-type kernelPass =
+type funPass =
   { arg : C.expr
   ; param : C.funParam
   }
 [@@deriving sexp_of]
 
 let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
-  : (kernelPass list, _) GenState.u
+  : (funPass list, _) GenState.u
   =
   let open GenState.Let_syntax in
   let indexPasses =
@@ -926,7 +988,7 @@ let rec genValueOfProductionTuple : Expr.productionTuple -> (C.expr, _) GenState
     return @@ C.VarRef (UniqueName production.productionId)
 ;;
 
-let createKernelPass varName type' hostValue =
+let createFunPass varName type' hostValue =
   let open GenState.Let_syntax in
   let%bind paramVar =
     GenState.createName @@ NameOfStr { str = varName; needsUniquifying = true }
@@ -1084,14 +1146,15 @@ let rec genStmnt
       @@ C.Eval
            (KernelLaunch
               { kernel = kernelName
-              ; blocks
-              ; threads
+              ; blocks = C.Syntax.intLit blocks
+              ; threads = C.Syntax.intLit blocks
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
     let%bind resultFinal = genMem ~store:true kernel.mapResultMemHostFinal in
     let%bind () =
-      genMoveMemDeviceToHost
+      genMoveMem
+        `DeviceToHost
         ~type':(Mem.type' kernel.mapResultMemHostFinal)
         ~target:resultFinal
         ~source:resultInterim
@@ -1617,13 +1680,13 @@ and genExpr
         ; threads
         } ) ->
     let%bind capturePasses = handleCaptures captures in
-    let%bind dIn, dInPass = createKernelPass "dIn" Int64 @@ genDim dIn in
+    let%bind dIn, dInPass = createFunPass "dIn" Int64 @@ genDim dIn in
     let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemDeviceInterim in
     let%bind cMapResultMemInterimType =
       genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
     in
     let%bind cMapResultMemInterimDevice, mapResultMemInterimPass =
-      createKernelPass
+      createFunPass
         "mapResultMemInterim"
         cMapResultMemInterimType
         cMapResultMemInterimHost
@@ -1633,7 +1696,7 @@ and genExpr
       genType ~wrapInPtr:true @@ Mem.type' scatterResultMemInterim
     in
     let%bind cScatterResultMemInterimDevice, scatterResultMemInterimPass =
-      createKernelPass
+      createFunPass
         "scatterResultMemInterim"
         cScatterResultMemInterimType
         cScatterResultMemInterimHost
@@ -1709,21 +1772,23 @@ and genExpr
       @@ C.Eval
            (KernelLaunch
               { kernel = kernelName
-              ; blocks
-              ; threads
+              ; blocks = C.Syntax.intLit blocks
+              ; threads = C.Syntax.intLit threads
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
     let%bind mapResultFinal = genMem ~store:true mapResultMemFinal in
     let%bind () =
-      genMoveMemDeviceToHost
+      genMoveMem
+        `DeviceToHost
         ~type':(Mem.type' mapResultMemFinal)
         ~target:mapResultFinal
         ~source:cMapResultMemInterimHost
     in
     let%bind scatterResultFinal = genMem ~store:true scatterResultMemFinal in
     let%bind () =
-      genMoveMemDeviceToHost
+      genMoveMem
+        `DeviceToHost
         ~type':(Mem.type' scatterResultMemFinal)
         ~target:scatterResultFinal
         ~source:cScatterResultMemInterimHost
@@ -1764,7 +1829,7 @@ and genExpr
       genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
     in
     let%bind cMapResultMemInterimDevice, mapResultMemInterimPass =
-      createKernelPass
+      createFunPass
         "mapResultMemInterim"
         cMapResultMemInterimType
         cMapResultMemInterimHost
@@ -1774,15 +1839,14 @@ and genExpr
       genType ~wrapInPtr:true @@ Mem.type' reduceResultsMemInterim
     in
     let%bind cReduceResultMemInterimDevice, reduceResultMemInterimPass =
-      createKernelPass
+      createFunPass
         "reduceResultsMemInterim"
         cReduceResultsMemInterimType
         cReduceResultsMemInterimHost
     in
     let%bind dHost = GenState.createVarAuto "d" @@ genDim d in
-    let%bind dDevice, dPass = createKernelPass "d" Int64 dHost in
     let kernelPasses =
-      capturePasses @ [ mapResultMemInterimPass; reduceResultMemInterimPass; dPass ]
+      capturePasses @ [ mapResultMemInterimPass; reduceResultMemInterimPass ]
     in
     let genComputeSum ~hostOrDevice ~op firstValue secondValue =
       let%bind () =
@@ -1820,6 +1884,7 @@ and genExpr
                 ; dims = C.Syntax.[ intLit threads; intLit Int.(threads + 1) ]
                 }
             in
+            let%bind dDevice = GenState.createVarAuto "d" @@ genDim d in
             let%bind blockRemainder =
               GenState.createVarAuto "blockRemainder"
               @@ C.Syntax.(dDevice % intLit blocks)
@@ -2039,15 +2104,16 @@ and genExpr
       @@ C.Eval
            (KernelLaunch
               { kernel = kernelName
-              ; blocks
-              ; threads
+              ; blocks = C.Syntax.intLit blocks
+              ; threads = C.Syntax.intLit threads
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
     (* copy the map result from device back to host *)
     let%bind mapResultFinal = genMem ~store:true mapResultMemFinal in
     let%bind () =
-      genMoveMemDeviceToHost
+      genMoveMem
+        `DeviceToHost
         ~type':(Mem.type' mapResultMemFinal)
         ~target:mapResultFinal
         ~source:cMapResultMemInterimHost
@@ -2055,7 +2121,8 @@ and genExpr
     (* copy the reduce result from device back to host *)
     let%bind reduceResultsFinal = genMem ~store:true reduceResultsMemFinal in
     let%bind () =
-      genMoveMemDeviceToHost
+      genMoveMem
+        `DeviceToHost
         ~type':(Mem.type' reduceResultsMemFinal)
         ~target:reduceResultsFinal
         ~source:cReduceResultsMemInterimHost
@@ -2094,34 +2161,935 @@ and genExpr
         { kernel =
             { loopBlock =
                 { frameShape = _
-                ; mapArgs = _
-                ; mapMemArgs = _
-                ; mapIotas = _
-                ; mapBody = _
-                ; mapBodyMatcher = _
-                ; mapResults = _
-                ; mapResultMemFinal = _
+                ; mapArgs
+                ; mapMemArgs
+                ; mapIotas
+                ; mapBody
+                ; mapBodyMatcher
+                ; mapResults
+                ; mapResultMemFinal
                 ; consumer =
                     Just
                       (ScanPar
                         { scan =
-                            { arg = _
-                            ; zero = _
-                            ; body = _
-                            ; d = _
-                            ; scanResultMemFinal = _
-                            ; type' = _
-                            }
-                        ; scanResultMemDeviceInterim = _
+                            { arg; zero; body; d; scanResultMemFinal; type' = scanType }
+                        ; scanResultMemDeviceInterim
                         })
-                ; type' = _
+                ; type' = loopType
                 }
-            ; mapResultMemDeviceInterim = _
+            ; mapResultMemDeviceInterim
             }
-        ; captures = _
-        ; blocks = _
-        ; threads = _
-        } ) -> raise Unimplemented.default
+        ; captures
+        ; blocks
+        ; threads
+        } ) ->
+    let genComputeSum firstValue secondValue =
+      let%bind () =
+        GenState.writeStatement
+        @@ C.Define
+             { name = UniqueName arg.firstBinding; type' = None; value = Some firstValue }
+      in
+      let%bind () =
+        GenState.writeStatement
+        @@ C.Define
+             { name = UniqueName arg.secondBinding
+             ; type' = None
+             ; value = Some secondValue
+             }
+      in
+      genExpr ~hostOrDevice:Device ~store:false body
+    in
+    let%bind cMapResultMemInterimHost = genMem ~store:true mapResultMemDeviceInterim in
+    let%bind cMapResultMemInterimType =
+      genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
+    in
+    let%bind cMapResultMemInterimRef, mapResultMemInterimPass =
+      createFunPass
+        "mapResultMemInterim"
+        cMapResultMemInterimType
+        cMapResultMemInterimHost
+    in
+    let%bind cScanResultMemInterimHost = genMem ~store:true scanResultMemDeviceInterim in
+    let%bind cZeroType = genType @@ Expr.type' zero in
+    let%bind cZeroHost = genExpr ~hostOrDevice:Host ~store:true zero in
+    let%bind capturePasses = handleCaptures captures in
+    (* runScan creates a `scanRunner` function and calls it. It also generates
+       kernels that `scanRunner` calls. runScan can create either a version with or without
+       maps. "with maps" means that it will perform the mapping when it reads its input.
+       This is necessary bedcause the with map version relies on the no map version. *)
+    let rec runScan
+      ~input:mapOrCInputFromCall
+      ~output:cOutputFromCall
+      ~outputType
+      ~n:cNFromCall
+      ~zero:cZeroFromCall
+      =
+      let scanElementType = Expr.type' body in
+      let%bind cScanElementType = genType scanElementType in
+      let%bind cOutputType = genType outputType in
+      let%bind cOutput, outputPass = createFunPass "output" cOutputType cOutputFromCall in
+      let%bind n, nPass = createFunPass "n" C.Int64 cNFromCall in
+      let%bind cZeroRef, zeroPass = createFunPass "init" cZeroType cZeroFromCall in
+      let%bind mapOrCInput, passes, includeMaps =
+        match mapOrCInputFromCall with
+        | `WithMap ->
+          return
+            ( `WithMap
+            , outputPass :: mapResultMemInterimPass :: nPass :: zeroPass :: capturePasses
+            , true )
+        | `NoMap cInputFromCall ->
+          let cInputType = cOutputType in
+          let%bind cInput, inputPass = createFunPass "input" cInputType cInputFromCall in
+          return
+            ( `NoMap cInput
+            , inputPass :: outputPass :: nPass :: zeroPass :: capturePasses
+            , false )
+      in
+      let runnerName = if includeMaps then "scanRunnerWithMap" else "scanRunnerNoMap" in
+      let%bind scanRunner =
+        GenState.defineFun
+          (NameOfStr { str = runnerName; needsUniquifying = true })
+          ~f:(fun scanRunner ->
+            let%bind runnerBody =
+              GenState.block
+              @@
+              let maxKernelProcessingSize = 2 * blocks * threads in
+              let conflictFreeOffset n =
+                let logNumBanks = 4 in
+                Int.shift_right n logNumBanks
+              in
+              let conflictFreeOffsetC n =
+                let logNumBanks = 4 in
+                C.Syntax.(n >> intLit logNumBanks)
+              in
+              let%bind () = GenState.comment "how many full runs we can do" in
+              let%bind runs =
+                GenState.createVarAuto "runs"
+                @@ C.Syntax.(n / intLit maxKernelProcessingSize)
+              in
+              let%bind () = GenState.comment "how many elements don't fit in full runs" in
+              let%bind unevenSize =
+                GenState.createVarAuto "unevenSize"
+                @@ C.Syntax.(n % intLit maxKernelProcessingSize)
+              in
+              let%bind () = GenState.comment "number of full blocks that fit in uneven" in
+              let%bind unevenBlocks =
+                GenState.createVarAuto "unevenBlocks"
+                @@ C.Syntax.(unevenSize / intLit Int.(2 * threads))
+              in
+              let%bind () =
+                GenState.comment "number of elements that don't fit in one block"
+              in
+              let%bind lastBlockSize =
+                GenState.createVarAuto "lastBlockSize"
+                @@ C.Syntax.(unevenSize % intLit Int.(2 * threads))
+              in
+              (* hacky workaround for blockCount here. It needs to be used to define the
+                 size of an array malloced. To avoid substantial code changes, we create
+                 an id that we bind the blockCount to and then treat that id as something
+                 available in the index environment *)
+              let%bind blockCountId = GenState.createId "blockCount" in
+              let%bind () =
+                GenState.writeStatement
+                @@ C.Define
+                     { name = UniqueName blockCountId
+                     ; type' = None
+                     ; value =
+                         Some
+                           C.Syntax.(
+                             (n + intLit Int.((2 * threads) - 1))
+                             / intLit Int.(2 * threads))
+                     }
+              in
+              let blockCount = C.Syntax.refId blockCountId in
+              let sumsType =
+                Type.array
+                  ~element:scanElementType
+                  ~size:(Add (Index.dimensionRef blockCountId))
+              in
+              let%bind sums =
+                genMalloc ~hostOrDevice:Host ~memLoc:MallocDevice ~store:true sumsType
+              in
+              let%bind sumsAsMemDerefer =
+                genArrayDeref ~arrayType:sumsType ~isMem:true sums
+              in
+              let sumsSummedType =
+                Type.array
+                  ~element:scanElementType
+                  ~size:
+                    (Add
+                       (Index.addDimensions
+                          (Index.dimensionConstant 1)
+                          (Index.dimensionRef blockCountId)))
+              in
+              let%bind sumsSummed =
+                genMalloc
+                  ~hostOrDevice:Host
+                  ~memLoc:MallocDevice
+                  ~store:true
+                  sumsSummedType
+              in
+              let%bind () = GenState.comment "do scan on chunks" in
+              let innerCapturePasses =
+                List.map capturePasses ~f:(fun { arg = _; param } ->
+                  { arg = VarRef param.name; param })
+              in
+              let makeParam str type' =
+                let%bind name =
+                  GenState.createName @@ NameOfStr { str; needsUniquifying = true }
+                in
+                return (C.VarRef name, ({ name; type' } : C.funParam))
+              in
+              let getInputElementOrDoMap
+                ~dDevice
+                ~mapResultMemInterim
+                ~inputDerefer
+                ~loopVar
+                =
+                if includeMaps
+                then (
+                  let%bind () =
+                    genMapBodyOnDevice
+                      ~loopVar
+                      ~loopSize:dDevice
+                      ~mapArgs
+                      ~mapIotas
+                      ~mapMemArgs
+                      ~mapBody
+                      ~mapBodyMatcher
+                      ~mapResults
+                      ~mapResultTypes:
+                        (match loopType with
+                         | [ Tuple mapResultTypes; _ ] -> mapResultTypes
+                         | _ ->
+                           raise
+                           @@ Unreachable.Error
+                                "expected 2 element tuple where first element is a tuple")
+                      ~mapResultMem:mapResultMemInterim
+                  in
+                  genValueOfProductionTuple arg.production)
+                else return @@ inputDerefer loopVar
+              in
+              let%bind scanKernel =
+                GenState.defineFun
+                  (NameOfStr
+                     { str =
+                         (if includeMaps then "scanKernelWithMaps" else "scanKernelNoMaps")
+                     ; needsUniquifying = true
+                     })
+                  ~f:(fun _ ->
+                    let%bind input, inputParam = makeParam "input" cOutputType in
+                    let%bind mapResultMemInterimType =
+                      genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
+                    in
+                    let%bind mapResultMemInterim, mapResultMemInterimParam =
+                      makeParam "mapResultMemInterim" mapResultMemInterimType
+                    in
+                    let%bind output, outputParam = makeParam "output" cOutputType in
+                    let%bind chunkOffset, chunkOffsetParam =
+                      makeParam "chunkOffset" Int64
+                    in
+                    let%bind totalSums, totalSumsParam =
+                      makeParam "totalSums" cOutputType
+                    in
+                    let%bind scanKernelBody =
+                      GenState.block
+                      @@
+                      let%bind temp =
+                        GenState.createVar "temp"
+                        @@ fun name ->
+                        C.DefineDetail
+                          { attributes = [ "__shared__" ]
+                          ; name
+                          ; type' = Some cScanElementType
+                          ; value = None
+                          ; dims =
+                              [ C.Syntax.intLit
+                                  ((threads * 2) + conflictFreeOffset threads)
+                              ]
+                          }
+                      in
+                      let%bind offset =
+                        GenState.createVarAuto "offset" @@ C.Syntax.intLit 1
+                      in
+                      let%bind ai = GenState.createVarAuto "ai" @@ threadIndex in
+                      let%bind bi =
+                        GenState.createVarAuto "bi"
+                        @@ C.Syntax.(threadIndex + intLit threads)
+                      in
+                      let%bind bankOffsetA =
+                        GenState.createVarAuto "bankOffsetA" @@ conflictFreeOffsetC ai
+                      in
+                      let%bind bankOffsetB =
+                        GenState.createVarAuto "bankOffsetB" @@ conflictFreeOffsetC bi
+                      in
+                      let%bind dDevice = GenState.createVarAuto "d" @@ genDim d in
+                      let%bind inputDerefer =
+                        genArrayDeref ~arrayType:scanType ~isMem:false input
+                      in
+                      (* loadInputAndDoMap does
+                         temp[i + bankOffset] = f(input[blockIdx.x * n + i])
+                         f is a no-op if includesMap is false *)
+                      let loadInputAndDoMap i bankOffset =
+                        (* wrap in a block in order to reduce the scope of the map
+                           productions, since those variables are re-used for both the a
+                           and b instances *)
+                        let%bind block =
+                          GenState.block
+                          @@
+                          let%bind scanArg =
+                            getInputElementOrDoMap
+                              ~dDevice
+                              ~inputDerefer
+                              ~mapResultMemInterim
+                              ~loopVar:
+                                C.Syntax.(
+                                  chunkOffset
+                                  + (blockIndex * intLit threads * intLit 2)
+                                  + i)
+                          in
+                          GenState.writeStatement
+                            C.Syntax.(arrayDerefs temp [ i + bankOffset ] := scanArg)
+                        in
+                        GenState.writeStatement @@ C.Block block
+                      in
+                      let%bind () = loadInputAndDoMap ai bankOffsetA in
+                      let%bind () = loadInputAndDoMap bi bankOffsetB in
+                      let%bind () =
+                        GenState.writeForLoop
+                          ~loopVar:"d"
+                          ~loopVarType:Int64
+                          ~initialValue:(C.Syntax.intLit threads)
+                          ~cond:(fun d -> C.Syntax.(d > intLit 0))
+                          ~loopVarUpdate:(ShiftRight (C.Syntax.intLit 1))
+                          ~body:(fun d ->
+                            let%bind () = GenState.writeStatement @@ C.SyncThreads in
+                            let%bind () =
+                              GenState.writeIte
+                                ~cond:C.Syntax.(threadIndex < d)
+                                ~thenBranch:
+                                  (let%bind ai =
+                                     GenState.createVarAuto
+                                       "ai"
+                                       C.Syntax.(
+                                         (offset * ((intLit 2 * threadIndex) + intLit 1))
+                                         - intLit 1)
+                                   in
+                                   let%bind bi =
+                                     GenState.createVarAuto
+                                       "bi"
+                                       C.Syntax.(
+                                         (offset * ((intLit 2 * threadIndex) + intLit 2))
+                                         - intLit 1)
+                                   in
+                                   let%bind () =
+                                     GenState.writeStatement
+                                     @@ C.Syntax.(ai := ai + conflictFreeOffsetC ai)
+                                   in
+                                   let%bind () =
+                                     GenState.writeStatement
+                                     @@ C.Syntax.(bi := bi + conflictFreeOffsetC bi)
+                                   in
+                                   let%bind sum =
+                                     genComputeSum
+                                       C.Syntax.(arrayDerefs temp [ ai ])
+                                       C.Syntax.(arrayDerefs temp [ bi ])
+                                   in
+                                   GenState.writeStatement
+                                     C.Syntax.(arrayDerefs temp [ bi ] := sum))
+                                ~elseBranch:(return ())
+                            in
+                            let%bind () =
+                              GenState.writeStatement
+                              @@ C.Syntax.(offset := offset * intLit 2)
+                            in
+                            return ())
+                      in
+                      let%bind () =
+                        GenState.writeForLoop
+                          ~loopVar:"d"
+                          ~loopVarType:Int64
+                          ~initialValue:(C.Syntax.intLit 1)
+                          ~cond:(fun d -> C.Syntax.(d < intLit threads * intLit 2))
+                          ~loopVarUpdate:(ShiftLeft (C.Syntax.intLit 1))
+                          ~body:(fun d ->
+                            let%bind () =
+                              GenState.writeStatement
+                                C.Syntax.(offset := offset >> intLit 1)
+                            in
+                            let%bind () = GenState.writeStatement @@ C.SyncThreads in
+                            let%bind () =
+                              GenState.writeIte
+                                ~cond:C.Syntax.(threadIndex < d)
+                                ~thenBranch:
+                                  (let%bind ai =
+                                     GenState.createVarAuto
+                                       "ai"
+                                       C.Syntax.(
+                                         (offset * ((intLit 2 * threadIndex) + intLit 1))
+                                         - intLit 1)
+                                   in
+                                   let%bind bi =
+                                     GenState.createVarAuto
+                                       "bi"
+                                       C.Syntax.(
+                                         (offset * ((intLit 2 * threadIndex) + intLit 2))
+                                         - intLit 1)
+                                   in
+                                   let%bind () =
+                                     GenState.writeStatement
+                                     @@ C.Syntax.(ai := ai + conflictFreeOffsetC ai)
+                                   in
+                                   let%bind () =
+                                     GenState.writeStatement
+                                     @@ C.Syntax.(bi := bi + conflictFreeOffsetC bi)
+                                   in
+                                   GenState.writeIte
+                                     ~cond:C.Syntax.(threadIndex == intLit 0)
+                                     ~thenBranch:
+                                       (GenState.writeStatement
+                                          C.Syntax.(
+                                            arrayDerefs temp [ bi ]
+                                              := arrayDerefs temp [ ai ]))
+                                     ~elseBranch:
+                                       (let%bind t =
+                                          GenState.createVarAuto
+                                            "t"
+                                            C.Syntax.(arrayDerefs temp [ ai ])
+                                        in
+                                        let%bind () =
+                                          GenState.writeStatement
+                                            C.Syntax.(
+                                              arrayDerefs temp [ ai ]
+                                                := arrayDerefs temp [ bi ])
+                                        in
+                                        let%bind sum =
+                                          genComputeSum
+                                            t
+                                            C.Syntax.(arrayDerefs temp [ bi ])
+                                        in
+                                        GenState.writeStatement
+                                          C.Syntax.(arrayDerefs temp [ bi ] := sum)))
+                                ~elseBranch:(return ())
+                            in
+                            return ())
+                      in
+                      let%bind () = GenState.writeStatement C.SyncThreads in
+                      let%bind outputAsMemDerefer =
+                        genArrayDeref ~arrayType:outputType ~isMem:true output
+                      in
+                      let%bind () =
+                        genCopyExprToMem
+                          ~mem:
+                            (outputAsMemDerefer
+                               C.Syntax.(
+                                 chunkOffset
+                                 + (blockIndex * intLit threads * intLit 2)
+                                 + ai))
+                          ~expr:C.Syntax.(arrayDerefs temp [ ai + bankOffsetA ])
+                          ~type':scanElementType
+                      in
+                      let%bind () =
+                        genCopyExprToMem
+                          ~mem:
+                            (outputAsMemDerefer
+                               C.Syntax.(
+                                 chunkOffset
+                                 + (blockIndex * intLit threads * intLit 2)
+                                 + bi))
+                          ~expr:C.Syntax.(arrayDerefs temp [ bi + bankOffsetB ])
+                          ~type':scanElementType
+                      in
+                      let%bind () = GenState.writeStatement @@ C.SyncThreads in
+                      let%bind () =
+                        GenState.writeIte
+                          ~cond:C.Syntax.(threadIndex == intLit 0)
+                          ~thenBranch:
+                            (let%bind outputDerefer =
+                               genArrayDeref ~arrayType:outputType ~isMem:false output
+                             in
+                             let a =
+                               outputDerefer
+                                 C.Syntax.(
+                                   (blockIndex * intLit threads * intLit 2)
+                                   + ((intLit threads * intLit 2) - intLit 1))
+                             in
+                             let%bind b =
+                               getInputElementOrDoMap
+                                 ~dDevice
+                                 ~inputDerefer
+                                 ~mapResultMemInterim
+                                 ~loopVar:
+                                   C.Syntax.(
+                                     chunkOffset
+                                     + (blockIndex * intLit threads * intLit 2)
+                                     + (intLit threads * intLit 2)
+                                     - intLit 1)
+                             in
+                             let%bind sum = genComputeSum a b in
+                             (* sumsType is not technically the correct array type
+                                because the length is wrong, but that doesn't matter
+                                for genArrayDeref *)
+                             let%bind totalSumsDerefer =
+                               genArrayDeref ~arrayType:sumsType ~isMem:true totalSums
+                             in
+                             genCopyExprToMem
+                               ~mem:(totalSumsDerefer blockIndex)
+                               ~expr:sum
+                               ~type':scanElementType)
+                          ~elseBranch:(return ())
+                      in
+                      return ()
+                    in
+                    let commonParams : C.funParam list =
+                      outputParam
+                      :: chunkOffsetParam
+                      :: totalSumsParam
+                      :: List.map innerCapturePasses ~f:(fun p -> p.param)
+                    in
+                    let%bind params =
+                      if includeMaps
+                      then return (mapResultMemInterimParam :: commonParams)
+                      else return (inputParam :: commonParams)
+                    in
+                    return
+                    @@ C.
+                         { params
+                         ; body = scanKernelBody
+                         ; returnType = None
+                         ; funType = Kernel
+                         })
+              in
+              let%bind () =
+                GenState.writeForLoop
+                  ~loopVar:"i"
+                  ~loopVarType:Int64
+                  ~initialValue:(C.Syntax.intLit 0)
+                  ~cond:(fun i -> C.Syntax.(i < runs))
+                  ~loopVarUpdate:IncrementOne
+                  ~body:(fun i ->
+                    let commonArgs =
+                      cOutput
+                      :: C.Syntax.(intLit maxKernelProcessingSize * i)
+                      :: sumsAsMemDerefer C.Syntax.(i * intLit blocks)
+                      :: List.map innerCapturePasses ~f:(fun p -> p.arg)
+                    in
+                    let args =
+                      match mapOrCInput with
+                      | `WithMap -> cMapResultMemInterimRef :: commonArgs
+                      | `NoMap cInput -> cInput :: commonArgs
+                    in
+                    GenState.writeStatement
+                    @@ C.Eval
+                         (KernelLaunch
+                            { kernel = scanKernel
+                            ; blocks = C.Syntax.intLit blocks
+                            ; threads = C.Syntax.intLit threads
+                            ; args
+                            }))
+              in
+              let%bind () =
+                GenState.writeIte
+                  ~cond:C.Syntax.(unevenBlocks != intLit 0)
+                  ~thenBranch:
+                    (let commonArgs =
+                       cOutput
+                       :: C.Syntax.(intLit maxKernelProcessingSize * runs)
+                       :: sumsAsMemDerefer C.Syntax.(runs * intLit blocks)
+                       :: List.map innerCapturePasses ~f:(fun p -> p.arg)
+                     in
+                     let args =
+                       match mapOrCInput with
+                       | `WithMap -> cMapResultMemInterimRef :: commonArgs
+                       | `NoMap cInput -> cInput :: commonArgs
+                     in
+                     GenState.writeStatement
+                     @@ C.Eval
+                          (KernelLaunch
+                             { kernel = scanKernel
+                             ; blocks = unevenBlocks
+                             ; threads = C.Syntax.intLit threads
+                             ; args
+                             }))
+                  ~elseBranch:(return ())
+              in
+              let%bind naiveScanKernel =
+                GenState.defineFun
+                  (NameOfStr
+                     { str =
+                         (if includeMaps
+                          then "naiveScanKernelWithMaps"
+                          else "naiveScanKernelNoMaps")
+                     ; needsUniquifying = true
+                     })
+                  ~f:(fun _ ->
+                    let%bind input, inputParam = makeParam "input" cOutputType in
+                    let%bind mapResultMemInterimType =
+                      genType ~wrapInPtr:true @@ Mem.type' mapResultMemDeviceInterim
+                    in
+                    let%bind mapResultMemInterim, mapResultMemInterimParam =
+                      makeParam "mapResultMemInterim" mapResultMemInterimType
+                    in
+                    let%bind output, outputParam = makeParam "output" cOutputType in
+                    let%bind chunkOffset, chunkOffsetParam =
+                      makeParam "chunkOffset" Int64
+                    in
+                    let%bind n, nParam = makeParam "n" Int64 in
+                    let%bind totalSums, totalSumsParam =
+                      makeParam "totalSums" cOutputType
+                    in
+                    let%bind naiveScanKernelBody =
+                      GenState.block
+                      @@
+                      let%bind temp =
+                        GenState.createVar "temp"
+                        @@ fun name ->
+                        C.DefineDetail
+                          { attributes = [ "__shared__" ]
+                          ; name
+                          ; type' = Some cScanElementType
+                          ; value = None
+                          ; dims = [ C.Syntax.intLit (threads * 10) ]
+                          }
+                      in
+                      let%bind pout =
+                        GenState.createVarAuto "pout" @@ C.Syntax.intLit 0
+                      in
+                      let%bind () =
+                        GenState.comment
+                          "This is exclusive scan, so shift right by one and set first \
+                           element to 0"
+                      in
+                      let%bind dDevice = GenState.createVarAuto "d" @@ genDim d in
+                      let%bind inputDerefer =
+                        genArrayDeref ~arrayType:scanType ~isMem:false input
+                      in
+                      let%bind () =
+                        GenState.writeIte
+                          ~cond:C.Syntax.(threadIndex > intLit 0)
+                          ~thenBranch:
+                            (let%bind value =
+                               getInputElementOrDoMap
+                                 ~dDevice
+                                 ~inputDerefer
+                                 ~mapResultMemInterim
+                                 ~loopVar:C.Syntax.(chunkOffset + threadIndex - intLit 1)
+                             in
+                             GenState.writeStatement
+                             @@ C.Syntax.(
+                                  arrayDerefs temp [ (pout * n) + threadIndex ] := value))
+                          ~elseBranch:(return ())
+                      in
+                      let%bind () = GenState.writeStatement C.SyncThreads in
+                      let%bind () =
+                        GenState.writeForLoop
+                          ~loopVar:"offset"
+                          ~loopVarType:Int64
+                          ~initialValue:C.Syntax.(intLit 1)
+                          ~cond:(fun offset -> C.Syntax.(offset < n))
+                          ~loopVarUpdate:(ShiftLeft C.Syntax.(intLit 1))
+                          ~body:(fun offset ->
+                            let%bind () =
+                              GenState.writeStatement C.Syntax.(pout := intLit 1 - pout)
+                            in
+                            let%bind pin =
+                              GenState.createVarAuto "pint" C.Syntax.(intLit 1 - pout)
+                            in
+                            let%bind () =
+                              GenState.writeIte
+                                ~cond:C.Syntax.(threadIndex > offset)
+                                ~thenBranch:
+                                  (let%bind sum =
+                                     genComputeSum
+                                       C.Syntax.(
+                                         arrayDerefs
+                                           temp
+                                           [ (pin * n) + threadIndex - offset ])
+                                       C.Syntax.(
+                                         arrayDerefs temp [ (pin * n) + threadIndex ])
+                                   in
+                                   GenState.writeStatement
+                                     C.Syntax.(
+                                       arrayDerefs temp [ (pout * n) + threadIndex ]
+                                       := sum))
+                                ~elseBranch:
+                                  (GenState.writeStatement
+                                     C.Syntax.(
+                                       arrayDerefs temp [ (pout * n) + threadIndex ]
+                                       := arrayDerefs temp [ (pin * n) + threadIndex ]))
+                            in
+                            GenState.writeStatement C.SyncThreads)
+                      in
+                      let%bind outputDerefer =
+                        genArrayDeref ~arrayType:outputType ~isMem:true output
+                      in
+                      let%bind () =
+                        genCopyExprToMem
+                          ~mem:(outputDerefer C.Syntax.(chunkOffset + threadIndex))
+                          ~expr:C.Syntax.(arrayDerefs temp [ (pout * n) + threadIndex ])
+                          ~type':scanElementType
+                      in
+                      let%bind () = GenState.writeStatement C.SyncThreads in
+                      GenState.writeIte
+                        ~cond:C.Syntax.(threadIndex == n - intLit 1)
+                        ~thenBranch:
+                          (let%bind scanArg =
+                             getInputElementOrDoMap
+                               ~dDevice
+                               ~inputDerefer
+                               ~mapResultMemInterim
+                               ~loopVar:C.Syntax.(chunkOffset + n - intLit 1)
+                           in
+                           let%bind sum =
+                             genComputeSum
+                               C.Syntax.(arrayDerefs temp [ (pout * n) + threadIndex ])
+                               scanArg
+                           in
+                           (* sumsType is not technically the correct array type
+                              because the length is wrong, but that doesn't matter
+                              for genArrayDeref *)
+                           let%bind totalSumsDerefer =
+                             genArrayDeref ~arrayType:sumsType ~isMem:true totalSums
+                           in
+                           genCopyExprToMem
+                             ~mem:(totalSumsDerefer blockIndex)
+                             ~expr:sum
+                             ~type':scanElementType)
+                        ~elseBranch:(return ())
+                    in
+                    let commonParams : C.funParam list =
+                      outputParam
+                      :: chunkOffsetParam
+                      :: nParam
+                      :: totalSumsParam
+                      :: List.map innerCapturePasses ~f:(fun p -> p.param)
+                    in
+                    let%bind params =
+                      if includeMaps
+                      then return (mapResultMemInterimParam :: commonParams)
+                      else return (inputParam :: commonParams)
+                    in
+                    return
+                    @@ C.
+                         { params
+                         ; body = naiveScanKernelBody
+                         ; returnType = None
+                         ; funType = Kernel
+                         })
+              in
+              let%bind () =
+                GenState.writeIte
+                  ~cond:C.Syntax.(lastBlockSize != intLit 0)
+                  ~thenBranch:
+                    (let%bind lastOffset =
+                       GenState.createVarAuto
+                         "lastOffset"
+                         C.Syntax.(
+                           (intLit maxKernelProcessingSize * runs)
+                           + (unevenBlocks * intLit threads * intLit 2))
+                     in
+                     let commonArgs =
+                       cOutput
+                       :: lastOffset
+                       :: lastBlockSize
+                       :: sumsAsMemDerefer
+                            C.Syntax.((runs * intLit blocks) + unevenBlocks)
+                       :: List.map innerCapturePasses ~f:(fun p -> p.arg)
+                     in
+                     let args =
+                       match mapOrCInput with
+                       | `WithMap -> cMapResultMemInterimRef :: commonArgs
+                       | `NoMap cInput -> cInput :: commonArgs
+                     in
+                     GenState.writeStatement
+                     @@ C.Eval
+                          (KernelLaunch
+                             { kernel = naiveScanKernel
+                             ; blocks = C.Syntax.intLit 1
+                             ; threads = lastBlockSize
+                             ; args
+                             }))
+                  ~elseBranch:(return ())
+              in
+              let%bind () =
+                GenState.writeIte
+                  ~cond:C.Syntax.(runs != intLit 0 || unevenBlocks != intLit 0)
+                  ~thenBranch:
+                    (if includeMaps
+                     then
+                       runScan
+                         ~input:(`NoMap sums)
+                         ~output:sumsSummed
+                         ~outputType:sumsSummedType
+                         ~n:blockCount
+                         ~zero:cZeroRef
+                     else (
+                       let args =
+                         sums
+                         :: sumsSummed
+                         :: n
+                         :: cZeroRef
+                         :: List.map capturePasses ~f:(fun p -> C.VarRef p.param.name)
+                       in
+                       GenState.writeStatement @@ C.Eval C.Syntax.(call scanRunner args)))
+                  ~elseBranch:
+                    (let%bind sumsSummedDerefer =
+                       genArrayDeref ~arrayType:sumsSummedType ~isMem:true sumsSummed
+                     in
+                     let%bind _ =
+                       genCopyExprBetweenMachines
+                         ~copyDir:`HostToDevice
+                         ~type':(Expr.type' zero)
+                         ~targetMem:(sumsSummedDerefer @@ C.Syntax.intLit 0)
+                         cZeroRef
+                     in
+                     return ())
+              in
+              let%bind () =
+                GenState.writeIte
+                  ~cond:C.Syntax.(lastBlockSize != intLit 0)
+                  ~thenBranch:
+                    (let%bind outputDerefer =
+                       genArrayDeref ~arrayType:outputType ~isMem:true cOutput
+                     in
+                     genMoveMem
+                       `DeviceToDevice
+                       ~type':scanElementType
+                       ~target:(outputDerefer n)
+                       ~source:
+                         (sumsAsMemDerefer
+                            C.Syntax.((runs * intLit blocks) + unevenBlocks)))
+                  ~elseBranch:(return ())
+              in
+              let%bind adjBlockValues, adjBlockValuesPass =
+                createFunPass "values" cOutputType cOutput
+              in
+              let%bind cSumsSummedType = genType ~wrapInPtr:true sumsSummedType in
+              let%bind adjBlockAdjs, adjBlockAdjsPass =
+                createFunPass "adjs" cSumsSummedType sumsSummed
+              in
+              let%bind adjBlockN, adjBlockNPass =
+                createFunPass "n" Int64 C.Syntax.(n + intLit 1)
+              in
+              let adjBlockPasses =
+                adjBlockValuesPass :: adjBlockAdjsPass :: adjBlockNPass :: capturePasses
+              in
+              let adjBlockName =
+                if includeMaps then "adjBlockWithMap" else "adjBlockNoMap"
+              in
+              let%bind adjBlock =
+                GenState.defineFun
+                  (NameOfStr { str = adjBlockName; needsUniquifying = true })
+                  ~f:(fun _ ->
+                    let%bind adjBlockBody =
+                      GenState.block
+                      @@
+                      let%bind valOffset =
+                        GenState.createVarAuto
+                          "valOffset"
+                          C.Syntax.(
+                            (refStr "blockDim" %-> StrName "x" * blockIndex) + threadIndex)
+                      in
+                      let%bind adjOffset =
+                        GenState.createVarAuto "adjOffset" blockIndex
+                      in
+                      GenState.writeIte
+                        ~cond:C.Syntax.(valOffset < adjBlockN)
+                        ~thenBranch:
+                          (let%bind valuesAsMemDerefer =
+                             genArrayDeref
+                               ~arrayType:outputType
+                               ~isMem:true
+                               adjBlockValues
+                           in
+                           let%bind adjsDerefer =
+                             genArrayDeref
+                               ~arrayType:sumsSummedType
+                               ~isMem:false
+                               adjBlockAdjs
+                           in
+                           GenState.writeIte
+                             ~cond:C.Syntax.(threadIndex == intLit 0)
+                             ~thenBranch:
+                               (genCopyExprToMem
+                                  ~mem:(valuesAsMemDerefer valOffset)
+                                  ~expr:(adjsDerefer adjOffset)
+                                  ~type':scanElementType)
+                             ~elseBranch:
+                               (let%bind valuesDerefer =
+                                  genArrayDeref
+                                    ~arrayType:outputType
+                                    ~isMem:false
+                                    adjBlockValues
+                                in
+                                let%bind sum =
+                                  genComputeSum
+                                    (adjsDerefer adjOffset)
+                                    (valuesDerefer valOffset)
+                                in
+                                genCopyExprToMem
+                                  ~mem:(valuesAsMemDerefer valOffset)
+                                  ~expr:sum
+                                  ~type':scanElementType))
+                        ~elseBranch:(return ())
+                    in
+                    return
+                    @@ C.
+                         { params = List.map adjBlockPasses ~f:(fun p -> p.param)
+                         ; body = adjBlockBody
+                         ; returnType = None
+                         ; funType = Kernel
+                         })
+              in
+              GenState.writeStatement
+              @@ C.Eval
+                   (C.KernelLaunch
+                      { kernel = adjBlock
+                      ; blocks = C.Syntax.(blockCount + intLit 1)
+                      ; threads = C.Syntax.(intLit Int.(threads * 2))
+                      ; args = List.map adjBlockPasses ~f:(fun p -> p.arg)
+                      })
+            in
+            return
+            @@ C.
+                 { params = List.map passes ~f:(fun p -> p.param)
+                 ; body = runnerBody
+                 ; returnType = None
+                 ; funType = Host
+                 })
+      in
+      GenState.writeStatement
+      @@ C.Syntax.(eval (call scanRunner (List.map passes ~f:(fun p -> p.arg))))
+    in
+    let%bind () =
+      runScan
+        ~input:`WithMap
+        ~output:cScanResultMemInterimHost
+        ~outputType:scanType
+        ~n:(genDim d)
+        ~zero:cZeroHost
+    in
+    (* copy scan result from device to host *)
+    let%bind scanResultFinal = genMem ~store:true scanResultMemFinal in
+    let%bind () =
+      genMoveMem
+        `DeviceToHost
+        ~type':(Mem.type' scanResultMemFinal)
+        ~target:scanResultFinal
+        ~source:cScanResultMemInterimHost
+    in
+    (* copy map result from device to host *)
+    let%bind mapResultFinal = genMem ~store:true mapResultMemFinal in
+    let%bind () =
+      genMoveMem
+        `DeviceToHost
+        ~type':(Mem.type' mapResultMemFinal)
+        ~target:mapResultFinal
+        ~source:cMapResultMemInterimHost
+    in
+    (* return *)
+    let%bind type' = genType @@ Tuple loopType in
+    return @@ C.StructConstructor { type'; args = [ mapResultFinal; scanResultFinal ] }
   | ( _
     , ContiguousSubArray
         { arrayArg; indexArg; originalShape = _; resultShape = _; type' = outType } ) ->
@@ -2408,17 +3376,14 @@ let genPrint type' value =
     let%bind dimCount = GenState.createVarAuto "dimCount" @@ genShapeDimCount shape in
     let%bind dims =
       GenState.createVarAuto "dims"
-      @@ C.Syntax.(callBuiltin "mallocHost" ~typeArgs:(Some [ Int64 ]) [ dimCount ])
+      @@ C.Syntax.(callBuiltin "mallocHost" ~typeArgs:[ Int64 ] [ dimCount ])
     in
     let%bind _ = reifyShapeIndexToMem ~mem:dims shape in
     let%bind () =
       GenState.writeStatement
       @@ C.Eval
            C.Syntax.(
-             callBuiltin
-               "printArray"
-               ~typeArgs:(Some [ cElement ])
-               [ value; dims; dimCount ])
+             callBuiltin "printArray" ~typeArgs:[ cElement ] [ value; dims; dimCount ])
     in
     return ()
   | Type.Tuple _ -> raise Unimplemented.default

@@ -13,6 +13,7 @@ type name =
       }
   | NameOfId of Identifier.t
 
+val createId : string -> (Identifier.t, _) u
 val createName : name -> (C.name, _) u
 val defineFunL : name -> f:(C.name -> ('a * C.fun', 'e) u) -> ('a * C.name, 'e) u
 val defineFun : name -> f:(C.name -> (C.fun', 'e) u) -> (C.name, 'e) u

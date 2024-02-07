@@ -109,6 +109,7 @@ let rec showExpr = function
     [%string "%{showExpr value}->%{showName fieldName}"]
   | ArrayDeref { value; index } -> [%string "%{showExpr value}[%{showExpr index}]"]
   | PtrDeref expr -> [%string "*%{showExpr expr}"]
+  | PtrRef expr -> [%string "&%{showExpr expr}"]
   | Ternary { cond; then'; else' } ->
     [%string "(%{showExpr cond} ? %{showExpr then'} : %{showExpr else'})"]
   | FunCall { fun'; typeArgs; args } ->
@@ -123,7 +124,8 @@ let rec showExpr = function
     [%string "%{showName fun'}%{typeArgsStr}(%{argsStr})"]
   | KernelLaunch { kernel; blocks; threads; args } ->
     let argsStr = args |> List.map ~f:showExpr |> String.concat ~sep:", " in
-    [%string "%{showName kernel}<<<%{blocks#Int}, %{threads#Int}>>>(%{argsStr})"]
+    [%string
+      "%{showName kernel}<<<%{showExpr blocks}, %{showExpr threads}>>>(%{argsStr})"]
   | Binop { op; arg1; arg2 } -> [%string "(%{showExpr arg1} %{op} %{showExpr arg2})"]
   | PrefixOp { op; arg } -> [%string "(%{op}%{showExpr arg})"]
   | StructConstructor { type'; args } ->
@@ -185,6 +187,8 @@ let rec printStatement = function
       | IncrementOne -> [%string "++%{showName loopVar}"]
       | DecrementOne -> [%string "--%{showName loopVar}"]
       | Increment expr -> [%string "%{showName loopVar} += %{showExpr expr}"]
+      | ShiftRight expr -> [%string "%{showName loopVar} >>= %{showExpr expr}"]
+      | ShiftLeft expr -> [%string "%{showName loopVar} <<= %{showExpr expr}"]
     in
     let declStr =
       [%string "%{showType loopVarType} %{showName loopVar} = %{showExpr initialValue}"]
