@@ -203,6 +203,11 @@ module Syntax = struct
   let refId id = VarRef (UniqueName id)
   let ( %-> ) value fieldName = PtrFieldDeref { value; fieldName }
   let ( %. ) value fieldName = FieldDeref { value; fieldName }
+
+  let fieldDeref value fieldName ~inPtr =
+    if inPtr then value %-> fieldName else value %. fieldName
+  ;;
+
   let ( := ) lhs rhs = Assign { lhs; rhs }
   let eval expr = Eval expr
   let callBuiltin name ?typeArgs args = FunCall { fun' = StrName name; typeArgs; args }

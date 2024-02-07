@@ -640,13 +640,14 @@ let genCopyExprToMem =
         |> List.map ~f:(fun param ->
           GenState.writeStatement
           @@ C.Syntax.(
-               mem %-> UniqueName param.binding := expr %. UniqueName param.binding))
+               fieldDeref mem (UniqueName param.binding) ~inPtr:memNeedsPtrDeref
+               := expr %. UniqueName param.binding))
         |> GenState.all_unit
       in
       GenState.writeStatement
       @@ C.Syntax.(
-           mem %-> boxValueFieldName
-             := FieldDeref { value = expr; fieldName = boxValueFieldName })
+           fieldDeref mem boxValueFieldName ~inPtr:memNeedsPtrDeref
+           := FieldDeref { value = expr; fieldName = boxValueFieldName })
     | Atom (Literal (IntLiteral | FloatLiteral | BooleanLiteral | CharacterLiteral)) ->
       let mem = if memNeedsPtrDeref then C.PtrDeref mem else mem in
       GenState.writeStatement @@ C.Assign { lhs = mem; rhs = expr }
