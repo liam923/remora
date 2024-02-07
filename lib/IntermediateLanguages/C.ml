@@ -212,12 +212,12 @@ module Syntax = struct
   let eval expr = Eval expr
   let callBuiltin name ?typeArgs args = FunCall { fun' = StrName name; typeArgs; args }
   let call name ?typeArgs args = FunCall { fun' = name; typeArgs; args }
-  let arrayDeref value index = ArrayDeref { value; index }
+  let initStruct type' args = StructConstructor { type'; args }
 
-  let rec arrayDerefs value indices =
+  let rec arrayDeref value indices =
     match indices with
     | [] -> value
-    | head :: rest -> arrayDerefs (arrayDeref value head) rest
+    | head :: rest -> arrayDeref (ArrayDeref { value; index = head }) rest
   ;;
 
   let ternary ~cond ~then' ~else' = Ternary { cond; then'; else' }

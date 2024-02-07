@@ -1,5 +1,6 @@
 open! Base
 open Acorn
+module Cx = C.Syntax
 
 let prelude =
   {|
@@ -230,7 +231,7 @@ module GenState = struct
       CBuilder.defineStructL name ~f:(fun name -> run (f name) inState))
   ;;
 
-  let writeStatement statement =
+  let write statement =
     let open Let_syntax in
     let%bind state = get () in
     let%map () = set { state with statementsRev = statement :: state.statementsRev } in
@@ -252,21 +253,29 @@ module GenState = struct
   let createName name = returnF (CBuilder.createName name)
   let createId str = returnF (CBuilder.createId str)
 
+  let createVar name makeDefine =
+    let open Let_syntax in
+    let%bind var = createName @@ NameOfStr { str = name; needsUniquifying = true } in
+    let%bind () = write @@ makeDefine var in
+    return @@ C.VarRef var
+  ;;
+
+  let createVarAuto name value =
+    createVar name @@ fun name -> C.Define { name; type' = None; value = Some value }
+  ;;
+
   let storeExpr ?(name = "storedExpr") (expr : C.expr) =
     let open Let_syntax in
     match expr with
     | Literal _ | VarRef _ -> (* Don't need to store if its a constant *) return expr
-    | _ ->
-      let%bind name = createName (NameOfStr { str = name; needsUniquifying = true }) in
-      let%map () = writeStatement @@ C.Define { name; type' = None; value = Some expr } in
-      C.VarRef name
+    | _ -> createVarAuto name expr
   ;;
 
   let writeIte ~cond ~thenBranch ~elseBranch =
     let open Let_syntax in
     let%bind thenBranch = block thenBranch in
     let%bind elseBranch = block elseBranch in
-    writeStatement @@ C.Ite { cond; thenBranch; elseBranch }
+    write @@ C.Ite { cond; thenBranch; elseBranch }
   ;;
 
   let writeForLoop ~loopVar ~loopVarType ~initialValue ~cond ~loopVarUpdate ~body =
@@ -276,19 +285,7 @@ module GenState = struct
     in
     let cond = cond @@ C.VarRef loopVar in
     let%bind body = block @@ body @@ C.VarRef loopVar in
-    writeStatement
-    @@ C.ForLoop { loopVar; loopVarType; initialValue; cond; loopVarUpdate; body }
-  ;;
-
-  let createVar name makeDefine =
-    let open Let_syntax in
-    let%bind var = createName @@ NameOfStr { str = name; needsUniquifying = true } in
-    let%bind () = writeStatement @@ makeDefine var in
-    return @@ C.VarRef var
-  ;;
-
-  let createVarAuto name value =
-    createVar name @@ fun name -> C.Define { name; type' = None; value = Some value }
+    write @@ C.ForLoop { loopVar; loopVarType; initialValue; cond; loopVarUpdate; body }
   ;;
 
   let scope name type' value =
@@ -300,21 +297,21 @@ module GenState = struct
       block
       @@
       let%bind value = value in
-      writeStatement @@ C.Syntax.(result := value)
+      write @@ Cx.(result := value)
     in
-    let%bind () = writeStatement @@ C.Block block in
+    let%bind () = write @@ C.Block block in
     return result
   ;;
 
-  let comment comment = writeStatement @@ C.Comment comment
+  let comment comment = write @@ C.Comment comment
 end
 
 let tupleFieldName i = C.Name.StrName [%string "_%{i#Int}"]
 let boxValueFieldName = C.Name.StrName "value"
 let sliceDimCountFieldName = C.Name.StrName "dimCount"
 let sliceDimsFieldName = C.Name.StrName "dims"
-let blockIndex = C.Syntax.(refStr "blockIdx" %. StrName "x")
-let threadIndex = C.Syntax.(refStr "threadIdx" %. StrName "x")
+let blockIndex = Cx.(refStr "blockIdx" %. StrName "x")
+let threadIndex = Cx.(refStr "threadIdx" %. StrName "x")
 
 let genTypeForSort sort =
   match sort with
@@ -380,29 +377,22 @@ type 'l hostOrDevice =
 let genDim ({ const; refs; lens } : Index.dimension) =
   let addRefs init =
     Map.fold refs ~init ~f:(fun ~key:dimVar ~data:multiplier cValSoFar ->
-      C.Syntax.(cValSoFar + (refId dimVar * intLit multiplier)))
+      Cx.(cValSoFar + (refId dimVar * intLit multiplier)))
   in
   let addLens init =
     Map.fold lens ~init ~f:(fun ~key:sliceVar ~data:multiplier cValSoFar ->
-      C.Syntax.(
-        cValSoFar + (refId sliceVar %. sliceDimCountFieldName * intLit multiplier)))
+      Cx.(cValSoFar + (refId sliceVar %. sliceDimCountFieldName * intLit multiplier)))
   in
-  addLens @@ addRefs @@ C.Literal (Int64Literal const)
+  addLens @@ addRefs @@ Cx.(intLit const)
 ;;
 
 let genShapeElementSize = function
   | Index.Add dim -> genDim dim
-  | Index.ShapeRef shapeRef ->
-    C.FunCall
-      { fun' = StrName "product"
-      ; typeArgs = None
-      ; args = [ VarRef (UniqueName shapeRef) ]
-      }
+  | Index.ShapeRef shapeRef -> Cx.(callBuiltin "product" [ refId shapeRef ])
 ;;
 
 let genShapeSize shape =
-  List.fold shape ~init:(C.Literal (Int64Literal 1)) ~f:(fun acc se ->
-    C.Binop { op = "*"; arg1 = acc; arg2 = genShapeElementSize se })
+  List.fold shape ~init:Cx.(intLit 1) ~f:(fun acc se -> Cx.(acc * genShapeElementSize se))
 ;;
 
 let genShapeDimCount shape =
@@ -411,16 +401,10 @@ let genShapeDimCount shape =
       match shapeElement with
       | Index.Add _ -> knownSoFar + 1, unknownSoFar
       | Index.ShapeRef ref ->
-        let refCount =
-          C.FieldDeref
-            { value = VarRef (UniqueName ref); fieldName = sliceDimCountFieldName }
-        in
+        let refCount = Cx.(refId ref %. sliceDimCountFieldName) in
         knownSoFar, refCount :: unknownSoFar)
   in
-  List.fold
-    unknownDimCounts
-    ~init:(C.Literal (Int64Literal knownDimCount))
-    ~f:(fun acc dimCount -> C.Binop { op = "+"; arg1 = acc; arg2 = dimCount })
+  List.fold unknownDimCounts ~init:Cx.(intLit knownDimCount) ~f:Cx.( + )
 ;;
 
 let reifyShapeIndexToMem ~mem shape =
@@ -428,7 +412,7 @@ let reifyShapeIndexToMem ~mem shape =
   let sumOffsets intOffset sliceSizeOffsets =
     List.fold
       sliceSizeOffsets
-      ~init:(C.Literal (Int64Literal intOffset))
+      ~init:Cx.(intLit intOffset)
       ~f:(fun offsetSoFar sliceSize ->
         Binop { op = "+"; arg1 = offsetSoFar; arg2 = sliceSize })
   in
@@ -441,29 +425,19 @@ let reifyShapeIndexToMem ~mem shape =
         let offset = sumOffsets intOffset sliceSizeOffsets in
         match shapeElement with
         | Index.Add dim ->
-          let%map () =
-            GenState.writeStatement
-            @@ C.Assign
-                 { lhs = C.ArrayDeref { value = mem; index = offset }; rhs = genDim dim }
-          in
+          let%map () = GenState.write Cx.(arrayDeref mem [ offset ] := genDim dim) in
           intOffset + 1, sliceSizeOffsets
         | Index.ShapeRef id ->
-          let slice = C.VarRef (UniqueName id) in
-          let sliceSize =
-            C.FieldDeref { value = slice; fieldName = sliceDimCountFieldName }
-          in
+          let slice = Cx.refId id in
+          let sliceSize = Cx.(slice %. sliceDimCountFieldName) in
           let%map () =
-            GenState.writeStatement
+            GenState.write
             @@ C.Eval
-                 (FunCall
-                    { fun' = StrName "copySameLoc"
-                    ; typeArgs = Some [ Int64 ]
-                    ; args =
-                        [ Binop { op = "+"; arg1 = mem; arg2 = offset }
-                        ; C.FieldDeref { value = slice; fieldName = sliceDimsFieldName }
-                        ; sliceSize
-                        ]
-                    })
+                 Cx.(
+                   callBuiltin
+                     "copySameLoc"
+                     ~typeArgs:[ Int64 ]
+                     [ mem + offset; slice %. sliceDimCountFieldName; sliceSize ])
           in
           intOffset, sliceSize :: sliceSizeOffsets)
   in
@@ -502,12 +476,12 @@ let rec genArrayDeref ~arrayType ?resultType ~isMem array
       | Type.Tuple _ -> raise @@ Unreachable.Error "inconsistent result and array types"
     in
     let%bind stride = genShapeSize strideShape |> GenState.storeExpr ~name:"stride" in
-    let stridedIndex index = C.Binop { op = "*"; arg1 = index; arg2 = stride } in
+    let stridedIndex index = Cx.(index * stride) in
     return
     @@
     if resultIsPointer
-    then fun index -> C.Binop { op = "+"; arg1 = array; arg2 = stridedIndex index }
-    else fun index -> C.ArrayDeref { value = array; index = stridedIndex index }
+    then fun index -> Cx.(array + stridedIndex index)
+    else fun index -> Cx.(arrayDeref array [ stridedIndex index ])
   | Type.Tuple elements ->
     let resultElements =
       match resultType with
@@ -518,16 +492,18 @@ let rec genArrayDeref ~arrayType ?resultType ~isMem array
     let%bind elementBuilders =
       List.zip_exn elements resultElements
       |> List.mapi ~f:(fun i (arrayElemType, resultElemType) ->
-        genArrayDeref ~arrayType:arrayElemType ~resultType:resultElemType ~isMem
-        @@ C.FieldDeref { value = array; fieldName = tupleFieldName i })
+        genArrayDeref
+          ~arrayType:arrayElemType
+          ~resultType:resultElemType
+          ~isMem
+          Cx.(array %. tupleFieldName i))
       |> GenState.all
     in
     return
     @@ fun index ->
-    C.StructConstructor
-      { type'
-      ; args = List.map elementBuilders ~f:(fun elementBuilder -> elementBuilder index)
-      }
+    Cx.initStruct
+      type'
+      (List.map elementBuilders ~f:(fun elementBuilder -> elementBuilder index))
   | Type.Atom _ -> raise @@ Unreachable.Error "Expected array type"
 ;;
 
@@ -554,24 +530,14 @@ let genMalloc
     | Type.Array { element; shape } ->
       let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
       let numElements = genShapeSize @@ NeList.to_list shape in
-      return
-      @@ C.FunCall
-           { fun' = StrName mallocer
-           ; typeArgs = Some [ cElementType ]
-           ; args = [ numElements ]
-           }
+      return @@ Cx.callBuiltin mallocer ~typeArgs:[ cElementType ] [ numElements ]
     | Type.Tuple elements ->
       let%bind cType = genType ~wrapInPtr:true (Tuple elements) in
       let%bind mallocedElements = elements |> List.map ~f:mallocType |> GenState.all in
-      return @@ C.StructConstructor { type' = cType; args = mallocedElements }
+      return @@ Cx.initStruct cType mallocedElements
     | Type.Atom _ ->
       let%bind cType = genType ~wrapInPtr:false type' in
-      return
-      @@ C.FunCall
-           { fun' = StrName mallocer
-           ; typeArgs = Some [ cType ]
-           ; args = [ Literal (Int64Literal 1) ]
-           }
+      return @@ Cx.(callBuiltin mallocer ~typeArgs:[ cType ] [ intLit 1 ])
   in
   let%bind mem = mallocType type' in
   if store then GenState.storeExpr ~name:"mem" mem else return mem
@@ -582,14 +548,14 @@ let rec genMem : store:bool -> Mem.t -> (C.expr, _) GenState.u =
   let open GenState.Let_syntax in
   let storeIfRequested ~name e = if store then GenState.storeExpr ~name e else return e in
   match expr with
-  | Ref { id; type' = _ } -> return @@ C.VarRef (UniqueName id)
+  | Ref { id; type' = _ } -> return @@ Cx.refId id
   | Values { elements; type' } ->
     let%bind elements = elements |> List.map ~f:(genMem ~store) |> GenState.all in
     let%bind type' = genType ~wrapInPtr:true type' in
-    storeIfRequested ~name:"memValues" @@ C.StructConstructor { type'; args = elements }
+    storeIfRequested ~name:"memValues" @@ Cx.initStruct type' elements
   | TupleDeref { tuple; index; type' = _ } ->
     let%map tuple = genMem ~store tuple in
-    C.FieldDeref { value = tuple; fieldName = tupleFieldName index }
+    Cx.(tuple %. tupleFieldName index)
   | Index { mem; offset; type' } ->
     let memType = Mem.type' mem in
     let%bind offset = genDim offset |> GenState.storeExpr ~name:"offset" in
@@ -616,8 +582,8 @@ let genCopyExprToMem =
       GenState.writeForLoop
         ~loopVar:"i"
         ~loopVarType:Int64
-        ~initialValue:C.Syntax.(intLit 0)
-        ~cond:(fun loopVar -> C.Syntax.(loopVar < size))
+        ~initialValue:Cx.(intLit 0)
+        ~cond:(fun loopVar -> Cx.(loopVar < size))
         ~loopVarUpdate:IncrementOne
         ~body:(fun loopVar ->
           genCopyExprToMem
@@ -630,27 +596,27 @@ let genCopyExprToMem =
       |> List.mapi ~f:(fun i element ->
         genCopyExprToMem
           ~memNeedsPtrDeref
-          ~mem:(C.FieldDeref { value = mem; fieldName = tupleFieldName i })
-          ~expr:(C.FieldDeref { value = expr; fieldName = tupleFieldName i })
+          ~mem:Cx.(mem %. tupleFieldName i)
+          ~expr:Cx.(expr %. tupleFieldName i)
           ~type':element)
       |> GenState.all_unit
     | Atom (Sigma { parameters; body = _ }) ->
       let%bind () =
         parameters
         |> List.map ~f:(fun param ->
-          GenState.writeStatement
-          @@ C.Syntax.(
+          GenState.write
+          @@ Cx.(
                fieldDeref mem (UniqueName param.binding) ~inPtr:memNeedsPtrDeref
                := expr %. UniqueName param.binding))
         |> GenState.all_unit
       in
-      GenState.writeStatement
-      @@ C.Syntax.(
+      GenState.write
+      @@ Cx.(
            fieldDeref mem boxValueFieldName ~inPtr:memNeedsPtrDeref
-           := FieldDeref { value = expr; fieldName = boxValueFieldName })
+           := expr %. boxValueFieldName)
     | Atom (Literal (IntLiteral | FloatLiteral | BooleanLiteral | CharacterLiteral)) ->
       let mem = if memNeedsPtrDeref then C.PtrDeref mem else mem in
-      GenState.writeStatement @@ C.Assign { lhs = mem; rhs = expr }
+      GenState.write @@ Cx.(mem := expr)
   in
   genCopyExprToMem ~memNeedsPtrDeref:true
 ;;
@@ -667,14 +633,14 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
     | `HostToDevice ->
       let%bind exprVar = GenState.createVarAuto "value" expr in
       let%bind type' = genType type' in
-      GenState.writeStatement
+      GenState.write
       @@ C.Eval
-           C.Syntax.(
+           Cx.(
              callBuiltin
                "copyHostToDevice"
                ~typeArgs:[ type' ]
                [ mem; PtrRef exprVar; intLit 1 ])
-    | `DeviceToHost -> GenState.writeStatement C.Syntax.(PtrDeref mem := expr)
+    | `DeviceToHost -> GenState.write Cx.(PtrDeref mem := expr)
   in
   match type' with
   | Array { element; shape } ->
@@ -683,16 +649,16 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
     (match targetMem with
      | None ->
        return
-         C.Syntax.(
+         Cx.(
            callBuiltin
              [%string "copy%{dirStr}Malloc"]
              ~typeArgs:[ cElementType ]
              [ source; size ])
      | Some target ->
        let%bind () =
-         GenState.writeStatement
+         GenState.write
          @@ C.Eval
-              C.Syntax.(
+              Cx.(
                 callBuiltin
                   [%string "copy%{dirStr}"]
                   ~typeArgs:[ cElementType ]
@@ -709,10 +675,10 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
            genCopyExprBetweenMachines
              ~type':elementType
              ~copyDir
-             C.Syntax.(source %. tupleFieldName i))
+             Cx.(source %. tupleFieldName i))
          |> GenState.all
        in
-       return @@ C.StructConstructor { type' = cType; args }
+       return @@ Cx.initStruct cType args
      | Some target ->
        let%bind _ =
          elements
@@ -720,8 +686,8 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
            genCopyExprBetweenMachines
              ~type':elementType
              ~copyDir
-             ~targetMem:C.Syntax.(target %. tupleFieldName i)
-             C.Syntax.(source %. tupleFieldName i))
+             ~targetMem:Cx.(target %. tupleFieldName i)
+             Cx.(source %. tupleFieldName i))
          |> GenState.all
        in
        return target)
@@ -736,48 +702,35 @@ let rec genCopyExprBetweenMachines ~(type' : Type.t) ~copyDir ?targetMem source 
     let%bind copiedParams =
       parameters
       |> List.map ~f:(fun param ->
-        let sourceValue =
-          C.FieldDeref { value = source; fieldName = UniqueName param.binding }
-        in
+        let sourceValue = Cx.(source %. UniqueName param.binding) in
         let value =
           match param.bound with
           | Dim -> sourceValue
           | Shape ->
-            let dimCount =
-              C.FieldDeref { value = sourceValue; fieldName = sliceDimCountFieldName }
-            in
-            C.StructConstructor
-              { type' = TypeRef (StrName "Slice")
-              ; args =
-                  [ FunCall
-                      { fun' = StrName [%string "copy%{dirStr}Malloc"]
-                      ; typeArgs = Some [ Int64 ]
-                      ; args =
-                          [ FieldDeref { value = source; fieldName = sliceDimsFieldName }
-                          ; dimCount
-                          ]
-                      }
-                  ; dimCount
-                  ]
-              }
+            let dimCount = Cx.(sourceValue %. sliceDimCountFieldName) in
+            Cx.(
+              initStruct
+                (TypeRef (StrName "Slice"))
+                [ callBuiltin
+                    [%string "copy%{dirStr}Malloc"]
+                    ~typeArgs:[ Int64 ]
+                    [ source %. sliceDimsFieldName; dimCount ]
+                ; dimCount
+                ])
         in
         let%bind () =
-          GenState.writeStatement
+          GenState.write
           @@ Define { name = UniqueName param.binding; type' = None; value = Some value }
         in
-        return @@ C.VarRef (UniqueName param.binding))
+        return @@ Cx.(refId param.binding))
       |> GenState.all
     in
     let%bind copiedValue =
-      genCopyExprBetweenMachines
-        ~type':body
-        ~copyDir
-        C.Syntax.(source %. boxValueFieldName)
+      genCopyExprBetweenMachines ~type':body ~copyDir Cx.(source %. boxValueFieldName)
     in
     let%bind cType = genType type' in
     let%bind copiedBox =
-      GenState.createVarAuto "box"
-      @@ C.StructConstructor { type' = cType; args = copiedValue :: copiedParams }
+      GenState.createVarAuto "box" @@ Cx.initStruct cType (copiedValue :: copiedParams)
     in
     let%bind () =
       match targetMem with
@@ -800,76 +753,56 @@ let rec genMoveMem direction ~(type' : Type.t) ~target ~source =
   | Array { element; shape } ->
     let size = genShapeSize @@ NeList.to_list shape in
     let%bind cElementType = genType ~wrapInPtr:false (Atom element) in
-    GenState.writeStatement
-    @@ C.Eval
-         (FunCall
-            { fun' = StrName copyFun
-            ; typeArgs = Some [ cElementType ]
-            ; args = [ target; source; size ]
-            })
+    GenState.write
+    @@ C.Eval Cx.(callBuiltin copyFun ~typeArgs:[ cElementType ] [ target; source; size ])
   | Tuple elements ->
     elements
     |> List.mapi ~f:(fun i elementType ->
       genMoveMem
         direction
         ~type':elementType
-        ~target:(C.FieldDeref { value = target; fieldName = tupleFieldName i })
-        ~source:(C.FieldDeref { value = source; fieldName = tupleFieldName i }))
+        ~target:Cx.(target %. tupleFieldName i)
+        ~source:Cx.(source %. tupleFieldName i))
     |> GenState.all_unit
   | Atom (Literal _) ->
     let%bind cType = genType ~wrapInPtr:false type' in
-    GenState.writeStatement
-    @@ C.Eval
-         (FunCall
-            { fun' = StrName copyFun
-            ; typeArgs = Some [ cType ]
-            ; args = [ target; source; Literal (Int64Literal 1) ]
-            })
+    GenState.write
+    @@ C.Eval Cx.(callBuiltin copyFun ~typeArgs:[ cType ] [ target; source; intLit 1 ])
   | Atom (Sigma { parameters; body }) ->
     let%bind () =
       parameters
       |> List.map ~f:(fun param ->
-        let sourceValue =
-          C.FieldDeref { value = source; fieldName = UniqueName param.binding }
-        in
+        let sourceValue = Cx.(source %. UniqueName param.binding) in
         let value =
           match param.bound with
           | Dim -> sourceValue
           | Shape ->
-            let dimCount =
-              C.FieldDeref { value = sourceValue; fieldName = sliceDimCountFieldName }
-            in
-            C.StructConstructor
-              { type' = TypeRef (StrName "Slice")
-              ; args =
-                  [ FunCall
-                      { fun' = StrName copyFun
-                      ; typeArgs = Some [ Int64 ]
-                      ; args =
-                          [ FieldDeref { value = source; fieldName = sliceDimsFieldName }
-                          ; dimCount
-                          ]
-                      }
-                  ; dimCount
-                  ]
-              }
+            let dimCount = Cx.(sourceValue %. sliceDimCountFieldName) in
+            Cx.(
+              initStruct
+                (TypeRef (StrName "Slice"))
+                [ callBuiltin
+                    copyFun
+                    ~typeArgs:[ Int64 ]
+                    [ source %. sliceDimsFieldName; dimCount ]
+                ; dimCount
+                ])
         in
         let%bind () =
-          GenState.writeStatement
+          GenState.write
           @@ Define { name = UniqueName param.binding; type' = None; value = Some value }
         in
-        GenState.writeStatement
-        @@ C.Syntax.(target %-> UniqueName param.binding := refId param.binding))
+        GenState.write @@ Cx.(target %-> UniqueName param.binding := refId param.binding))
       |> GenState.all_unit
     in
     let%bind copiedBoxValue =
-      let boxValue = C.FieldDeref { value = source; fieldName = boxValueFieldName } in
+      let boxValue = Cx.(source %. boxValueFieldName) in
       match direction with
       | (`HostToDevice | `DeviceToHost) as direction ->
         genCopyExprBetweenMachines ~type':body ~copyDir:direction boxValue
       | `HostToHost | `DeviceToDevice -> return @@ boxValue
     in
-    GenState.writeStatement C.Syntax.(target %-> boxValueFieldName := copiedBoxValue)
+    GenState.write Cx.(target %-> boxValueFieldName := copiedBoxValue)
 ;;
 
 type funPass =
@@ -886,27 +819,20 @@ let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
     indexCaptures
     |> Map.to_alist
     |> List.map ~f:(fun (id, sort) ->
-      let cRef = C.VarRef (UniqueName id) in
+      let cRef = Cx.(refId id) in
       match sort with
       | Dim ->
         { arg = cRef; param = ({ name = UniqueName id; type' = Int64 } : C.funParam) }
       | Shape ->
-        let dimCount =
-          C.FieldDeref { value = cRef; fieldName = sliceDimCountFieldName }
-        in
-        let dims = C.FieldDeref { value = cRef; fieldName = sliceDimsFieldName } in
+        let dimCount = Cx.(cRef %. sliceDimCountFieldName) in
+        let dims = Cx.(cRef %. sliceDimsFieldName) in
         let arg =
-          C.StructConstructor
-            { type' = TypeRef (StrName "Slice")
-            ; args =
-                [ FunCall
-                    { fun' = StrName "copyHostToDevice"
-                    ; typeArgs = Some [ Int64 ]
-                    ; args = [ dims; dimCount ]
-                    }
-                ; dimCount
-                ]
-            }
+          Cx.(
+            initStruct
+              (TypeRef (StrName "Slice"))
+              [ callBuiltin "copyHostToDevice" ~typeArgs:[ Int64 ] [ dims; dimCount ]
+              ; dimCount
+              ])
         in
         let param : C.funParam = { name = UniqueName id; type' = Int64 } in
         { arg; param })
@@ -917,7 +843,7 @@ let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
     |> List.map ~f:(fun (id, type') ->
       let%bind cType = genType type' in
       let%bind arg =
-        genCopyExprBetweenMachines ~type' ~copyDir:`HostToDevice (VarRef (UniqueName id))
+        genCopyExprBetweenMachines ~type' ~copyDir:`HostToDevice Cx.(refId id)
       in
       let param : C.funParam = { name = UniqueName id; type' = cType } in
       return { arg; param })
@@ -929,7 +855,7 @@ let handleCaptures Expr.{ indexCaptures; exprCaptures; memCaptures }
     |> List.map ~f:(fun (id, type') ->
       let%bind cType = genType ~wrapInPtr:true type' in
       let param : C.funParam = { name = UniqueName id; type' = cType } in
-      return { arg = VarRef (UniqueName id); param })
+      return { arg = Cx.refId id; param })
     |> GenState.all
   in
   let paramsAndArgs = indexPasses @ exprPasses @ memPasses in
@@ -944,30 +870,27 @@ let rec genMax ~store l ~default =
   | [ value ] -> return value
   | head :: rest ->
     let%bind maxRest = genMax ~store:true rest ~default in
-    storeIfRequested
-    @@ C.Syntax.(ternary ~cond:(head > maxRest) ~then':head ~else':maxRest)
+    storeIfRequested @@ Cx.(ternary ~cond:(head > maxRest) ~then':head ~else':maxRest)
 ;;
 
 let genIota ~loopVar ~loopSize ({ iota; nestIn } : Expr.mapIota) =
   let value =
     match nestIn with
     | None -> loopVar
-    | Some parentIota -> C.Syntax.((VarRef (UniqueName parentIota) * loopSize) + loopVar)
+    | Some parentIota -> Cx.((refId parentIota * loopSize) + loopVar)
   in
-  GenState.writeStatement
+  GenState.write
   @@ Define { name = UniqueName iota; type' = Some Int64; value = Some value }
 ;;
 
 let rec genMatchMapBody (matcher : Expr.tupleMatch) res =
   match matcher with
   | Binding id ->
-    GenState.writeStatement
-    @@ C.Define { name = UniqueName id; type' = None; value = Some res }
+    GenState.write @@ C.Define { name = UniqueName id; type' = None; value = Some res }
   | Unpack matchers ->
     matchers
     |> List.mapi ~f:(fun i matcher ->
-      genMatchMapBody matcher
-      @@ C.FieldDeref { value = res; fieldName = tupleFieldName i })
+      genMatchMapBody matcher @@ Cx.(res %. tupleFieldName i))
     |> GenState.all_unit
 ;;
 
@@ -977,9 +900,8 @@ let rec genValueOfProductionTuple : Expr.productionTuple -> (C.expr, _) GenState
   | ProductionTuple { elements; type' } ->
     let%bind cType = genType type' in
     let%bind args = elements |> List.map ~f:genValueOfProductionTuple |> GenState.all in
-    return @@ C.StructConstructor { type' = cType; args }
-  | ProductionTupleAtom production ->
-    return @@ C.VarRef (UniqueName production.productionId)
+    return @@ Cx.initStruct cType args
+  | ProductionTupleAtom production -> return @@ Cx.(refId production.productionId)
 ;;
 
 let createFunPass varName type' hostValue =
@@ -1060,11 +982,11 @@ let rec genStmnt
           let%bind maxBodySize, maxBodySizePass =
             subMaps
             |> List.map ~f:(fun (subMap : Map.t) -> subMap.bodySize.host)
-            |> genMax ~store:false ~default:(C.Syntax.intLit 1)
+            |> genMax ~store:false ~default:(Cx.intLit 1)
             >>= hostAndDeviceExprFromHost ~name:"maxBodySize" ~type':Int64
           in
           let%bind bodySize, bodySizePass =
-            C.Syntax.(maxBodySize.host * frameShapeSize.host)
+            Cx.(maxBodySize.host * frameShapeSize.host)
             |> GenState.storeExpr ~name:"bodySize"
             >>= hostAndDeviceExprFromHost ~name:"bodySize" ~type':Int64
           in
@@ -1087,10 +1009,10 @@ let rec genStmnt
         match mapBody with
         | Statement _ -> return chunkVar
         | SubMaps { subMaps = _; maxBodySize } ->
-          GenState.storeExpr ~name:"i" @@ C.Syntax.(chunkVar / maxBodySize.device)
+          GenState.storeExpr ~name:"i" @@ Cx.(chunkVar / maxBodySize.device)
       in
       GenState.writeIte
-        ~cond:C.Syntax.(loopVar < frameShapeSize.device)
+        ~cond:Cx.(loopVar < frameShapeSize.device)
         ~thenBranch:
           (let%bind () =
              genMapBodySetup
@@ -1104,7 +1026,7 @@ let rec genStmnt
            | Statement statement -> genStmnt ~hostOrDevice:Device statement
            | SubMaps { subMaps; maxBodySize } ->
              subMaps
-             |> List.map ~f:(genMapBody C.Syntax.(chunkVar % maxBodySize.device))
+             |> List.map ~f:(genMapBody Cx.(chunkVar % maxBodySize.device))
              |> GenState.all_unit)
         ~elseBranch:(return ())
     in
@@ -1119,10 +1041,9 @@ let rec genStmnt
               GenState.writeForLoop
                 ~loopVar:"i"
                 ~loopVarType:Int64
-                ~initialValue:C.Syntax.((blockIndex * intLit threads) + threadIndex)
-                ~cond:(fun loopVar ->
-                  C.Syntax.(loopVar < annotatedMapKernel.bodySize.device))
-                ~loopVarUpdate:(Increment (C.Syntax.intLit @@ (blocks * threads)))
+                ~initialValue:Cx.((blockIndex * intLit threads) + threadIndex)
+                ~cond:(fun loopVar -> Cx.(loopVar < annotatedMapKernel.bodySize.device))
+                ~loopVarUpdate:(Increment (Cx.intLit @@ (blocks * threads)))
                 ~body:(fun loopVar -> genMapBody loopVar annotatedMapKernel)
             in
             return ()
@@ -1136,12 +1057,12 @@ let rec genStmnt
                })
     in
     let%bind () =
-      GenState.writeStatement
+      GenState.write
       @@ C.Eval
            (KernelLaunch
               { kernel = kernelName
-              ; blocks = C.Syntax.intLit blocks
-              ; threads = C.Syntax.intLit threads
+              ; blocks = Cx.intLit blocks
+              ; threads = Cx.intLit threads
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
@@ -1156,7 +1077,7 @@ let rec genStmnt
     return ()
   | _, ComputeForSideEffects expr ->
     let%bind expr = genExpr ~hostOrDevice ~store:false expr in
-    GenState.writeStatement @@ C.Eval expr
+    GenState.write @@ C.Eval expr
   | _, SLet let' -> genLet ~hostOrDevice ~genBody:(genStmnt ~hostOrDevice) let'
   | _, SMallocLet mallocLet ->
     genMallocLet ~hostOrDevice ~genBody:(genStmnt ~hostOrDevice) mallocLet
@@ -1187,21 +1108,20 @@ and genExpr
         let%bind indexExpr = genExpr ~hostOrDevice ~store:false index.expr in
         let index =
           match index.index with
-          | Shape shape ->
-            C.StructConstructor { type'; args = [ indexExpr; genShapeDimCount shape ] }
+          | Shape shape -> Cx.initStruct type' [ indexExpr; genShapeDimCount shape ]
           | Dimension _ -> indexExpr
         in
         let paramName = C.Name.UniqueName param.binding in
         let%bind () =
-          GenState.writeStatement
+          GenState.write
           @@ C.Define { name = paramName; type' = Some type'; value = Some index }
         in
         return @@ C.VarRef paramName)
       |> GenState.all
     in
     let%bind body = genExpr ~hostOrDevice ~store:false body in
-    return @@ C.StructConstructor { type' = boxType; args = body :: indices }
-  | _, Literal (IntLiteral i) -> return @@ C.Literal (Int64Literal i)
+    return @@ Cx.initStruct boxType (body :: indices)
+  | _, Literal (IntLiteral i) -> return @@ Cx.(intLit i)
   | _, Literal (FloatLiteral f) -> return @@ C.Literal (Float64Literal f)
   | _, Literal (CharacterLiteral c) -> return @@ C.Literal (CharLiteral c)
   | _, Literal (BooleanLiteral b) -> return @@ C.Literal (BoolLiteral b)
@@ -1253,13 +1173,12 @@ and genExpr
          | _ -> raise @@ Unreachable.Error "expected one args for not"
        in
        let%bind arg = genExpr ~hostOrDevice ~store:false arg in
-       storeIfRequested ~name:"castResult" @@ C.Syntax.(not arg)
+       storeIfRequested ~name:"castResult" @@ Cx.(not arg)
      | LibFun { name; libName; argTypes = _; retType = _ } ->
        let%bind args =
          args |> List.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all
        in
-       storeIfRequested ~name:[%string "%{name}Result"]
-       @@ C.Syntax.callBuiltin libName args
+       storeIfRequested ~name:[%string "%{name}Result"] @@ Cx.callBuiltin libName args
      | If ->
        let cond, then', else' =
          match args with
@@ -1277,25 +1196,25 @@ and genExpr
            ~cond
            ~thenBranch:
              (let%bind then' = genExpr ~hostOrDevice ~store:false then' in
-              GenState.writeStatement @@ C.Syntax.(res := then'))
+              GenState.write @@ Cx.(res := then'))
            ~elseBranch:
              (let%bind else' = genExpr ~hostOrDevice ~store:false else' in
-              GenState.writeStatement @@ C.Syntax.(res := else'))
+              GenState.write @@ Cx.(res := else'))
        in
        return res)
   | _, TupleDeref { tuple; index; type' = _ } ->
     let%map tuple = genExpr ~hostOrDevice ~store tuple in
-    C.FieldDeref { value = tuple; fieldName = tupleFieldName index }
+    Cx.(tuple %. tupleFieldName index)
   | _, Values { elements; type' } ->
     let%bind elements =
       elements |> List.map ~f:(genExpr ~hostOrDevice ~store:false) |> GenState.all
     in
     let%bind type' = genType (Tuple type') in
-    storeIfRequested ~name:"values" @@ C.StructConstructor { type'; args = elements }
-  | _, Ref { id; type' = _ } -> return @@ C.VarRef (UniqueName id)
+    storeIfRequested ~name:"values" @@ Cx.initStruct type' elements
+  | _, Ref { id; type' = _ } -> return @@ Cx.(refId id)
   | _, BoxValue { box; type' = _ } ->
     let%bind box = genExpr ~hostOrDevice ~store box in
-    return C.Syntax.(box %. boxValueFieldName)
+    return Cx.(box %. boxValueFieldName)
   | _, IndexLet { indexArgs; body; type' = _ } ->
     let%bind () =
       indexArgs
@@ -1313,8 +1232,7 @@ and genExpr
                  | _ -> raise @@ Unreachable.Error "expected 1d array of ints"
                in
                let dimCount = genShapeElementSize size in
-               C.StructConstructor
-                 { type' = genTypeForSort Shape; args = [ cv; dimCount ] })
+               Cx.initStruct (genTypeForSort Shape) [ cv; dimCount ])
           | FromBox { box; i } ->
             let params =
               match Expr.type' box with
@@ -1323,14 +1241,14 @@ and genExpr
             in
             let param = List.nth_exn params i in
             let%map box = genExpr ~hostOrDevice ~store:false box in
-            C.FieldDeref { value = box; fieldName = UniqueName param.binding }
+            Cx.(box %. UniqueName param.binding)
         in
         let type' =
           match sort with
           | Dim -> C.Int64
           | Shape -> C.Ptr Int64
         in
-        GenState.writeStatement
+        GenState.write
         @@ C.Define
              { name = UniqueName indexBinding
              ; type' = Some type'
@@ -1390,7 +1308,7 @@ and genExpr
           genArrayDeref
             ~arrayType:resultTypeArr
             ~isMem:true
-            (C.FieldDeref { value = cMapResultMem; fieldName = tupleFieldName i })
+            Cx.(cMapResultMem %. tupleFieldName i)
         in
         return @@ (derefer, guillotineType resultTypeArr))
       |> GenState.all
@@ -1402,24 +1320,23 @@ and genExpr
       match consumer with
       | Nothing ->
         let%bind unitType = genType @@ Tuple [] in
-        return @@ (return (), C.StructConstructor { type' = unitType; args = [] }, false)
+        return @@ (return (), Cx.initStruct unitType [], false)
       | Just (ReduceSeq { arg; zero; body; d = _; type' = _ }) ->
         let accVar = C.Name.UniqueName arg.firstBinding in
         let stepVar = C.Name.UniqueName arg.secondBinding in
         let%bind accType = genType @@ Expr.type' body in
         let%bind cZero = genExpr ~hostOrDevice ~store:false zero in
         let%bind () =
-          GenState.writeStatement
-          @@ C.Define { name = accVar; type' = None; value = Some cZero }
+          GenState.write @@ C.Define { name = accVar; type' = None; value = Some cZero }
         in
         let inLoop =
           let%bind stepValue = genValueOfProductionTuple arg.production in
           let%bind () =
-            GenState.writeStatement
+            GenState.write
             @@ C.Define { name = stepVar; type' = Some accType; value = Some stepValue }
           in
           let%bind body = genExpr ~hostOrDevice ~store:false body in
-          GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
+          GenState.write Cx.(VarRef accVar := body)
         in
         return @@ (inLoop, C.VarRef accVar, false)
       | Just (ScanSeq { arg; zero; body; d = _; scanResultMemFinal; type' = _ }) ->
@@ -1428,8 +1345,7 @@ and genExpr
         let%bind accType = genType @@ Expr.type' body in
         let%bind cZero = genExpr ~hostOrDevice ~store:false zero in
         let%bind () =
-          GenState.writeStatement
-          @@ C.Define { name = accVar; type' = None; value = Some cZero }
+          GenState.write @@ C.Define { name = accVar; type' = None; value = Some cZero }
         in
         let%bind cMem = genMem ~store:true scanResultMemFinal in
         let%bind memDerefer =
@@ -1444,13 +1360,13 @@ and genExpr
         let inLoop =
           let%bind stepValue = genValueOfProductionTuple arg.production in
           let%bind () =
-            GenState.writeStatement
+            GenState.write
             @@ C.Define { name = stepVar; type' = Some accType; value = Some stepValue }
           in
           let%bind cBody = genExpr ~hostOrDevice ~store:false body in
-          let%bind () = GenState.writeStatement @@ C.Syntax.(VarRef accVar := cBody) in
+          let%bind () = GenState.write @@ Cx.(VarRef accVar := cBody) in
           genCopyExprToMem
-            ~mem:(memDerefer C.Syntax.(VarRef loopVar + intLit 1))
+            ~mem:(memDerefer Cx.(VarRef loopVar + intLit 1))
             ~expr:(VarRef accVar)
             ~type':(Expr.type' body)
         in
@@ -1470,7 +1386,7 @@ and genExpr
         let%bind accType = genType @@ Expr.type' body in
         let%bind cZero = genExpr ~hostOrDevice ~store:false zeroArg.zeroValue in
         let%bind () =
-          GenState.writeStatement
+          GenState.write
           @@ C.Define { name = accVar; type' = Some accType; value = Some cZero }
         in
         let%bind foldMemArgsWithDerefers =
@@ -1493,7 +1409,7 @@ and genExpr
             in
             let%bind () =
               genCopyExprToMem
-                ~mem:(memDerefer @@ if reverse then steps else C.Syntax.intLit 0)
+                ~mem:(memDerefer @@ if reverse then steps else Cx.intLit 0)
                 ~expr:(VarRef accVar)
                 ~type':(Expr.type' body)
             in
@@ -1501,10 +1417,7 @@ and genExpr
               genCopyExprToMem
                 ~mem:
                   (memDerefer
-                   @@
-                   if reverse
-                   then VarRef loopVar
-                   else C.Syntax.(VarRef loopVar + intLit 1))
+                   @@ if reverse then VarRef loopVar else Cx.(VarRef loopVar + intLit 1))
                 ~expr:(VarRef accVar)
                 ~type':(Expr.type' body)
             in
@@ -1514,8 +1427,8 @@ and genExpr
           let%bind () =
             arrayArgs
             |> List.map ~f:(fun { binding; production } ->
-              let productionValue = C.VarRef (UniqueName production.productionId) in
-              GenState.writeStatement
+              let productionValue = Cx.(refId production.productionId) in
+              GenState.write
               @@ C.Define
                    { name = UniqueName binding
                    ; type' = None
@@ -1526,7 +1439,7 @@ and genExpr
           let%bind () =
             foldMemArgsWithDerefers
             |> List.map ~f:(fun (arg, derefer) ->
-              GenState.writeStatement
+              GenState.write
               @@ C.Define
                    { name = UniqueName arg.memBinding
                    ; type' = None
@@ -1535,9 +1448,7 @@ and genExpr
             |> GenState.all_unit
           in
           let%bind body = genExpr ~hostOrDevice ~store:false body in
-          let%bind () =
-            GenState.writeStatement @@ C.Assign { lhs = VarRef accVar; rhs = body }
-          in
+          let%bind () = GenState.write Cx.(VarRef accVar := body) in
           characterInLoop
         in
         return @@ (inLoop, characterResult, reverse)
@@ -1553,14 +1464,14 @@ and genExpr
             }) ->
         (* For sequential, memInterim = memFinal, so can just write directly to memFinal *)
         let%bind cMem = genMem ~store:true mem in
-        let cValueArg = C.VarRef (UniqueName valuesArg.productionId) in
-        let cIndexArg = C.VarRef (UniqueName indicesArg.productionId) in
+        let cValueArg = Cx.(refId valuesArg.productionId) in
+        let cIndexArg = Cx.(refId indicesArg.productionId) in
         let%bind outputDerefer =
           genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true cMem
         in
         let inLoop =
           GenState.writeIte
-            ~cond:C.Syntax.(cIndexArg >= intLit 0)
+            ~cond:Cx.(cIndexArg >= intLit 0)
             ~thenBranch:
               (genCopyExprToMem
                  ~mem:(outputDerefer cIndexArg)
@@ -1576,7 +1487,7 @@ and genExpr
       let%bind () =
         mapArgsWithDerefers
         |> List.map ~f:(fun (arg, derefer) ->
-          GenState.writeStatement
+          GenState.write
           @@ C.Define
                { name = UniqueName arg.binding
                ; type' = None
@@ -1587,7 +1498,7 @@ and genExpr
       let%bind () =
         mapMemArgsWithDerefers
         |> List.map ~f:(fun (arg, derefer) ->
-          GenState.writeStatement
+          GenState.write
           @@ C.Define
                { name = UniqueName arg.memBinding
                ; type' = None
@@ -1606,7 +1517,7 @@ and genExpr
         List.zip_exn mapResults mapResultDerefersAndTypes
         |> List.map ~f:(fun (resultId, (resultDerefer, resultType)) ->
           genCopyExprToMem
-            ~expr:(C.VarRef (UniqueName resultId))
+            ~expr:Cx.(refId resultId)
             ~mem:(resultDerefer @@ VarRef loopVar)
             ~type':resultType)
         |> GenState.all_unit
@@ -1614,15 +1525,15 @@ and genExpr
       consumerInLoop
     in
     let%bind () =
-      GenState.writeStatement
+      GenState.write
       @@
       if loopInReverse
       then
         C.ForLoop
           { loopVar
           ; loopVarType = Int64
-          ; initialValue = C.Syntax.(steps - intLit 1)
-          ; cond = C.Syntax.(VarRef loopVar >= intLit 0)
+          ; initialValue = Cx.(steps - intLit 1)
+          ; cond = Cx.(VarRef loopVar >= intLit 0)
           ; loopVarUpdate = DecrementOne
           ; body
           }
@@ -1630,8 +1541,8 @@ and genExpr
         C.ForLoop
           { loopVar
           ; loopVarType = Int64
-          ; initialValue = C.Syntax.(intLit 0)
-          ; cond = C.Syntax.(VarRef loopVar < steps)
+          ; initialValue = Cx.(intLit 0)
+          ; cond = Cx.(VarRef loopVar < steps)
           ; loopVarUpdate = IncrementOne
           ; body
           }
@@ -1641,7 +1552,7 @@ and genExpr
       @@ Getmem { addr = mapResultMem; type' = Mem.type' mapResultMem }
     in
     let%bind type' = genType @@ Tuple type' in
-    return @@ C.StructConstructor { type'; args = [ mapResult; consumerResult ] }
+    return @@ Cx.initStruct type' [ mapResult; consumerResult ]
   | ( Host
     , LoopKernel
         { kernel =
@@ -1709,9 +1620,9 @@ and genExpr
               GenState.writeForLoop
                 ~loopVar:"i"
                 ~loopVarType:Int64
-                ~initialValue:C.Syntax.((blockIndex * intLit threads) + threadIndex)
-                ~cond:(fun i -> C.Syntax.(i < dIn))
-                ~loopVarUpdate:(Increment (C.Syntax.intLit @@ (blocks * threads)))
+                ~initialValue:Cx.((blockIndex * intLit threads) + threadIndex)
+                ~cond:(fun i -> Cx.(i < dIn))
+                ~loopVarUpdate:(Increment (Cx.intLit @@ (blocks * threads)))
                 ~body:(fun loopVar ->
                   let%bind () = GenState.comment "perform the map" in
                   let%bind () =
@@ -1734,8 +1645,8 @@ and genExpr
                       ~mapResultMem:cMapResultMemInterimDevice
                   in
                   let%bind () = GenState.comment "perform the scatter" in
-                  let cValueArg = C.VarRef (UniqueName valuesArg.productionId) in
-                  let cIndexArg = C.VarRef (UniqueName indicesArg.productionId) in
+                  let cValueArg = Cx.(refId valuesArg.productionId) in
+                  let cIndexArg = Cx.(refId indicesArg.productionId) in
                   let%bind scatterResultMemInterimDerefer =
                     genArrayDeref
                       ~arrayType:(Mem.type' scatterResultMemInterim)
@@ -1743,7 +1654,7 @@ and genExpr
                       cScatterResultMemInterimDevice
                   in
                   GenState.writeIte
-                    ~cond:C.Syntax.(cIndexArg >= intLit 0)
+                    ~cond:Cx.(cIndexArg >= intLit 0)
                     ~thenBranch:
                       (genCopyExprToMem
                          ~mem:(scatterResultMemInterimDerefer cIndexArg)
@@ -1762,12 +1673,12 @@ and genExpr
                })
     in
     let%bind () =
-      GenState.writeStatement
+      GenState.write
       @@ C.Eval
            (KernelLaunch
               { kernel = kernelName
-              ; blocks = C.Syntax.intLit blocks
-              ; threads = C.Syntax.intLit threads
+              ; blocks = Cx.intLit blocks
+              ; threads = Cx.intLit threads
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
@@ -1788,7 +1699,7 @@ and genExpr
         ~source:cScatterResultMemInterimHost
     in
     let%bind type' = genType @@ Tuple type' in
-    return @@ C.StructConstructor { type'; args = [ mapResultFinal; scatterResultFinal ] }
+    return @@ Cx.initStruct type' [ mapResultFinal; scatterResultFinal ]
   | ( Host
     , LoopKernel
         { kernel =
@@ -1844,12 +1755,12 @@ and genExpr
     in
     let genComputeSum ~hostOrDevice ~op firstValue secondValue =
       let%bind () =
-        GenState.writeStatement
+        GenState.write
         @@ C.Define
              { name = UniqueName arg.firstBinding; type' = None; value = Some firstValue }
       in
       let%bind () =
-        GenState.writeStatement
+        GenState.write
         @@ C.Define
              { name = UniqueName arg.secondBinding
              ; type' = None
@@ -1875,20 +1786,19 @@ and genExpr
                 ; name
                 ; type' = Some cReduceType
                 ; value = None
-                ; dims = C.Syntax.[ intLit threads; intLit Int.(threads + 1) ]
+                ; dims = Cx.[ intLit threads; intLit Int.(threads + 1) ]
                 }
             in
             let%bind dDevice = GenState.createVarAuto "d" @@ genDim d in
             let%bind blockRemainder =
-              GenState.createVarAuto "blockRemainder"
-              @@ C.Syntax.(dDevice % intLit blocks)
+              GenState.createVarAuto "blockRemainder" @@ Cx.(dDevice % intLit blocks)
             in
             let%bind elementsPerBlock =
-              GenState.createVarAuto "elementsPerBlock" C.Syntax.(dDevice / intLit blocks)
+              GenState.createVarAuto "elementsPerBlock" Cx.(dDevice / intLit blocks)
             in
             let%bind elementsThisBlock =
               GenState.createVarAuto "elementsThisBlock"
-              @@ C.Syntax.(
+              @@ Cx.(
                    ternary
                      ~cond:(blockIndex < blockRemainder)
                      ~then':(elementsPerBlock + intLit 1)
@@ -1896,7 +1806,7 @@ and genExpr
             in
             let%bind blockStart =
               GenState.createVarAuto "blockStart"
-              @@ C.Syntax.(
+              @@ Cx.(
                    ternary
                      ~cond:(blockIndex < blockRemainder)
                      ~then':(blockIndex * (elementsPerBlock + intLit 1))
@@ -1904,15 +1814,15 @@ and genExpr
             in
             let%bind threadRemainder =
               GenState.createVarAuto "threadRemainder"
-              @@ C.Syntax.(elementsThisBlock % intLit threads)
+              @@ Cx.(elementsThisBlock % intLit threads)
             in
             let%bind elementsPerThread =
               GenState.createVarAuto "elementsPerThread"
-              @@ C.Syntax.(elementsThisBlock / intLit threads)
+              @@ Cx.(elementsThisBlock / intLit threads)
             in
             let%bind elementsThisThread =
               GenState.createVarAuto "elementsThisThread"
-              @@ C.Syntax.(
+              @@ Cx.(
                    ternary
                      ~cond:(threadIndex < threadRemainder)
                      ~then':(elementsPerThread + intLit 1)
@@ -1924,7 +1834,7 @@ and genExpr
             in
             let%bind slices =
               GenState.createVarAuto "slices"
-              @@ C.Syntax.(
+              @@ Cx.(
                    (elementsThisBlock + intLit Int.((threads * threads) - 1))
                    / intLit Int.(threads * threads))
             in
@@ -1933,21 +1843,21 @@ and genExpr
               GenState.writeForLoop
                 ~loopVar:"slice"
                 ~loopVarType:Int64
-                ~initialValue:C.Syntax.(intLit 0)
-                ~cond:(fun slice -> C.Syntax.(slice < slices))
+                ~initialValue:Cx.(intLit 0)
+                ~cond:(fun slice -> Cx.(slice < slices))
                 ~loopVarUpdate:IncrementOne
                 ~body:(fun slice ->
                   let%bind () =
                     GenState.writeForLoop
                       ~loopVar:"i"
                       ~loopVarType:Int64
-                      ~initialValue:C.Syntax.(intLit 0)
-                      ~cond:(fun i -> C.Syntax.(i < intLit threads))
+                      ~initialValue:Cx.(intLit 0)
+                      ~cond:(fun i -> Cx.(i < intLit threads))
                       ~loopVarUpdate:IncrementOne
                       ~body:(fun i ->
                         let%bind offset =
                           GenState.createVarAuto "offset"
-                          @@ C.Syntax.(
+                          @@ Cx.(
                                ternary
                                  ~cond:(i < threadRemainder)
                                  ~then':(i * (elementsPerThread + intLit 1))
@@ -1955,14 +1865,14 @@ and genExpr
                         in
                         let%bind indexInBlock =
                           GenState.createVarAuto "indexInBlock"
-                          @@ C.Syntax.(offset + (slice * intLit threads) + threadIndex)
+                          @@ Cx.(offset + (slice * intLit threads) + threadIndex)
                         in
                         GenState.writeIte
-                          ~cond:C.Syntax.(indexInBlock < elementsThisBlock)
+                          ~cond:Cx.(indexInBlock < elementsThisBlock)
                           ~thenBranch:
                             (let%bind index =
                                GenState.createVarAuto "index"
-                               @@ C.Syntax.(blockStart + indexInBlock)
+                               @@ Cx.(blockStart + indexInBlock)
                              in
                              let%bind () =
                                genMapBodyOnDevice
@@ -1987,15 +1897,14 @@ and genExpr
                              let%bind reduceArg =
                                genValueOfProductionTuple arg.production
                              in
-                             GenState.writeStatement
-                               C.Syntax.(
-                                 arrayDerefs cache [ i; threadIndex ] := reduceArg))
+                             GenState.write
+                               Cx.(arrayDeref cache [ i; threadIndex ] := reduceArg))
                           ~elseBranch:(return ()))
                   in
-                  let%bind () = GenState.writeStatement C.SyncThreads in
+                  let%bind () = GenState.write C.SyncThreads in
                   let%bind elementsThisThreadAndSlice =
                     GenState.createVarAuto "elementsThisThreadAndSlice"
-                    @@ C.Syntax.(
+                    @@ Cx.(
                          ternary
                            ~cond:(slice == slices - intLit 1)
                            ~then':(elementsThisThread % intLit threads)
@@ -2005,46 +1914,45 @@ and genExpr
                     GenState.writeForLoop
                       ~loopVar:"i"
                       ~loopVarType:Int64
-                      ~initialValue:C.Syntax.(intLit 0)
-                      ~cond:(fun i -> C.Syntax.(i < elementsThisThreadAndSlice))
+                      ~initialValue:Cx.(intLit 0)
+                      ~cond:(fun i -> Cx.(i < elementsThisThreadAndSlice))
                       ~loopVarUpdate:IncrementOne
                       ~body:(fun i ->
                         GenState.writeIte
-                          ~cond:C.Syntax.(slice == intLit 0 && i == intLit 0)
+                          ~cond:Cx.(slice == intLit 0 && i == intLit 0)
                           ~thenBranch:
-                            (GenState.writeStatement
-                               C.Syntax.(
-                                 threadSum := arrayDerefs cache [ threadIndex; i ]))
+                            (GenState.write
+                               Cx.(threadSum := arrayDeref cache [ threadIndex; i ]))
                           ~elseBranch:
                             (let%bind res =
                                genComputeSum
                                  ~hostOrDevice:Device
                                  ~op:reduceBody
                                  threadSum
-                                 C.Syntax.(arrayDerefs cache [ threadIndex; i ])
+                                 Cx.(arrayDeref cache [ threadIndex; i ])
                              in
-                             GenState.writeStatement @@ C.Syntax.(threadSum := res)))
+                             GenState.write @@ Cx.(threadSum := res)))
                   in
-                  let%bind () = GenState.writeStatement C.SyncThreads in
+                  let%bind () = GenState.write C.SyncThreads in
                   return ())
             in
             (* add up the thread sums and write them to the interim result *)
             let%bind () =
-              GenState.writeStatement
-              @@ C.Syntax.(arrayDerefs cache [ threadIndex; intLit 0 ] := threadSum)
+              GenState.write
+              @@ Cx.(arrayDeref cache [ threadIndex; intLit 0 ] := threadSum)
             in
-            let%bind () = GenState.writeStatement @@ C.SyncThreads in
+            let%bind () = GenState.write @@ C.SyncThreads in
             let%bind () =
               GenState.writeIte
-                ~cond:C.Syntax.(threadIndex == intLit 0 && elementsThisBlock > intLit 0)
+                ~cond:Cx.(threadIndex == intLit 0 && elementsThisBlock > intLit 0)
                 ~thenBranch:
                   (let%bind blockSum =
                      GenState.createVarAuto "blockSum"
-                     @@ C.Syntax.(arrayDerefs cache [ intLit 0; intLit 0 ])
+                     @@ Cx.(arrayDeref cache [ intLit 0; intLit 0 ])
                    in
                    let%bind threadsWithSums =
                      GenState.createVarAuto "threadsWithSums"
-                     @@ C.Syntax.(
+                     @@ Cx.(
                           ternary
                             ~cond:(elementsPerThread == intLit 0)
                             ~then':threadRemainder
@@ -2054,8 +1962,8 @@ and genExpr
                      GenState.writeForLoop
                        ~loopVar:"i"
                        ~loopVarType:Int64
-                       ~initialValue:C.Syntax.(intLit 1)
-                       ~cond:(fun loopVar -> C.Syntax.(loopVar < threadsWithSums))
+                       ~initialValue:Cx.(intLit 1)
+                       ~cond:(fun loopVar -> Cx.(loopVar < threadsWithSums))
                        ~loopVarUpdate:IncrementOne
                        ~body:(fun loopVar ->
                          let%bind res =
@@ -2063,9 +1971,9 @@ and genExpr
                              ~hostOrDevice:Device
                              ~op:reduceBody
                              blockSum
-                             C.Syntax.(arrayDerefs cache [ loopVar; intLit 0 ])
+                             Cx.(arrayDeref cache [ loopVar; intLit 0 ])
                          in
-                         GenState.writeStatement @@ C.Syntax.(blockSum := res))
+                         GenState.write @@ Cx.(blockSum := res))
                    in
                    let%bind cReduceResultMemInterimDeviceDerefer =
                      genArrayDeref
@@ -2094,12 +2002,12 @@ and genExpr
     in
     (* call the kernel *)
     let%bind () =
-      GenState.writeStatement
+      GenState.write
       @@ C.Eval
            (KernelLaunch
               { kernel = kernelName
-              ; blocks = C.Syntax.intLit blocks
-              ; threads = C.Syntax.intLit threads
+              ; blocks = Cx.intLit blocks
+              ; threads = Cx.intLit threads
               ; args = List.map kernelPasses ~f:(fun pass -> pass.arg)
               })
     in
@@ -2134,8 +2042,8 @@ and genExpr
       GenState.writeForLoop
         ~loopVar:"i"
         ~loopVarType:Int64
-        ~initialValue:C.Syntax.(intLit 0)
-        ~cond:C.Syntax.(fun i -> i < callBuiltin "std::min" [ intLit blocks; dHost ])
+        ~initialValue:Cx.(intLit 0)
+        ~cond:Cx.(fun i -> i < callBuiltin "std::min" [ intLit blocks; dHost ])
         ~loopVarUpdate:IncrementOne
         ~body:(fun i ->
           let%bind res =
@@ -2145,11 +2053,11 @@ and genExpr
               reduceResult
               (reduceResultsMemFinalDerefer i)
           in
-          GenState.writeStatement @@ C.Syntax.(reduceResult := res))
+          GenState.write @@ Cx.(reduceResult := res))
     in
     (* return *)
     let%bind type' = genType @@ Tuple type' in
-    return @@ C.StructConstructor { type'; args = [ mapResultFinal; reduceResult ] }
+    return @@ Cx.initStruct type' [ mapResultFinal; reduceResult ]
   | ( Host
     , LoopKernel
         { kernel =
@@ -2179,12 +2087,12 @@ and genExpr
         } ) ->
     let genComputeSum firstValue secondValue =
       let%bind () =
-        GenState.writeStatement
+        GenState.write
         @@ C.Define
              { name = UniqueName arg.firstBinding; type' = None; value = Some firstValue }
       in
       let%bind () =
-        GenState.writeStatement
+        GenState.write
         @@ C.Define
              { name = UniqueName arg.secondBinding
              ; type' = None
@@ -2254,29 +2162,28 @@ and genExpr
               in
               let conflictFreeOffsetC n =
                 let logNumBanks = 4 in
-                C.Syntax.(n >> intLit logNumBanks)
+                Cx.(n >> intLit logNumBanks)
               in
               let%bind () = GenState.comment "how many full runs we can do" in
               let%bind runs =
-                GenState.createVarAuto "runs"
-                @@ C.Syntax.(n / intLit maxKernelProcessingSize)
+                GenState.createVarAuto "runs" @@ Cx.(n / intLit maxKernelProcessingSize)
               in
               let%bind () = GenState.comment "how many elements don't fit in full runs" in
               let%bind unevenSize =
                 GenState.createVarAuto "unevenSize"
-                @@ C.Syntax.(n % intLit maxKernelProcessingSize)
+                @@ Cx.(n % intLit maxKernelProcessingSize)
               in
               let%bind () = GenState.comment "number of full blocks that fit in uneven" in
               let%bind unevenBlocks =
                 GenState.createVarAuto "unevenBlocks"
-                @@ C.Syntax.(unevenSize / intLit Int.(2 * threads))
+                @@ Cx.(unevenSize / intLit Int.(2 * threads))
               in
               let%bind () =
                 GenState.comment "number of elements that don't fit in one block"
               in
               let%bind lastBlockSize =
                 GenState.createVarAuto "lastBlockSize"
-                @@ C.Syntax.(unevenSize % intLit Int.(2 * threads))
+                @@ Cx.(unevenSize % intLit Int.(2 * threads))
               in
               (* hacky workaround for blockCount here. It needs to be used to define the
                  size of an array malloced. To avoid substantial code changes, we create
@@ -2284,18 +2191,18 @@ and genExpr
                  available in the index environment *)
               let%bind blockCountId = GenState.createId "blockCount" in
               let%bind () =
-                GenState.writeStatement
+                GenState.write
                 @@ C.Define
                      { name = UniqueName blockCountId
                      ; type' = None
                      ; value =
                          Some
-                           C.Syntax.(
+                           Cx.(
                              (n + intLit Int.((2 * threads) - 1))
                              / intLit Int.(2 * threads))
                      }
               in
-              let blockCount = C.Syntax.refId blockCountId in
+              let blockCount = Cx.refId blockCountId in
               let sumsType =
                 Type.array
                   ~element:scanElementType
@@ -2398,18 +2305,13 @@ and genExpr
                           ; type' = Some cScanElementType
                           ; value = None
                           ; dims =
-                              [ C.Syntax.intLit
-                                  ((threads * 2) + conflictFreeOffset threads)
-                              ]
+                              [ Cx.intLit ((threads * 2) + conflictFreeOffset threads) ]
                           }
                       in
-                      let%bind offset =
-                        GenState.createVarAuto "offset" @@ C.Syntax.intLit 1
-                      in
+                      let%bind offset = GenState.createVarAuto "offset" @@ Cx.intLit 1 in
                       let%bind ai = GenState.createVarAuto "ai" @@ threadIndex in
                       let%bind bi =
-                        GenState.createVarAuto "bi"
-                        @@ C.Syntax.(threadIndex + intLit threads)
+                        GenState.createVarAuto "bi" @@ Cx.(threadIndex + intLit threads)
                       in
                       let%bind bankOffsetA =
                         GenState.createVarAuto "bankOffsetA" @@ conflictFreeOffsetC ai
@@ -2437,15 +2339,15 @@ and genExpr
                               ~inputDerefer
                               ~mapResultMemInterim
                               ~loopVar:
-                                C.Syntax.(
+                                Cx.(
                                   chunkOffset
                                   + (blockIndex * intLit threads * intLit 2)
                                   + i)
                           in
-                          GenState.writeStatement
-                            C.Syntax.(arrayDerefs temp [ i + bankOffset ] := scanArg)
+                          GenState.write
+                            Cx.(arrayDeref temp [ i + bankOffset ] := scanArg)
                         in
-                        GenState.writeStatement @@ C.Block block
+                        GenState.write @@ C.Block block
                       in
                       let%bind () = loadInputAndDoMap ai bankOffsetA in
                       let%bind () = loadInputAndDoMap bi bankOffsetB in
@@ -2453,49 +2355,47 @@ and genExpr
                         GenState.writeForLoop
                           ~loopVar:"d"
                           ~loopVarType:Int64
-                          ~initialValue:(C.Syntax.intLit threads)
-                          ~cond:(fun d -> C.Syntax.(d > intLit 0))
-                          ~loopVarUpdate:(ShiftRight (C.Syntax.intLit 1))
+                          ~initialValue:(Cx.intLit threads)
+                          ~cond:(fun d -> Cx.(d > intLit 0))
+                          ~loopVarUpdate:(ShiftRight (Cx.intLit 1))
                           ~body:(fun d ->
-                            let%bind () = GenState.writeStatement @@ C.SyncThreads in
+                            let%bind () = GenState.write @@ C.SyncThreads in
                             let%bind () =
                               GenState.writeIte
-                                ~cond:C.Syntax.(threadIndex < d)
+                                ~cond:Cx.(threadIndex < d)
                                 ~thenBranch:
                                   (let%bind ai =
                                      GenState.createVarAuto
                                        "ai"
-                                       C.Syntax.(
+                                       Cx.(
                                          (offset * ((intLit 2 * threadIndex) + intLit 1))
                                          - intLit 1)
                                    in
                                    let%bind bi =
                                      GenState.createVarAuto
                                        "bi"
-                                       C.Syntax.(
+                                       Cx.(
                                          (offset * ((intLit 2 * threadIndex) + intLit 2))
                                          - intLit 1)
                                    in
                                    let%bind () =
-                                     GenState.writeStatement
-                                     @@ C.Syntax.(ai := ai + conflictFreeOffsetC ai)
+                                     GenState.write
+                                     @@ Cx.(ai := ai + conflictFreeOffsetC ai)
                                    in
                                    let%bind () =
-                                     GenState.writeStatement
-                                     @@ C.Syntax.(bi := bi + conflictFreeOffsetC bi)
+                                     GenState.write
+                                     @@ Cx.(bi := bi + conflictFreeOffsetC bi)
                                    in
                                    let%bind sum =
                                      genComputeSum
-                                       C.Syntax.(arrayDerefs temp [ ai ])
-                                       C.Syntax.(arrayDerefs temp [ bi ])
+                                       Cx.(arrayDeref temp [ ai ])
+                                       Cx.(arrayDeref temp [ bi ])
                                    in
-                                   GenState.writeStatement
-                                     C.Syntax.(arrayDerefs temp [ bi ] := sum))
+                                   GenState.write Cx.(arrayDeref temp [ bi ] := sum))
                                 ~elseBranch:(return ())
                             in
                             let%bind () =
-                              GenState.writeStatement
-                              @@ C.Syntax.(offset := offset * intLit 2)
+                              GenState.write @@ Cx.(offset := offset * intLit 2)
                             in
                             return ())
                       in
@@ -2503,72 +2403,68 @@ and genExpr
                         GenState.writeForLoop
                           ~loopVar:"d"
                           ~loopVarType:Int64
-                          ~initialValue:(C.Syntax.intLit 1)
-                          ~cond:(fun d -> C.Syntax.(d < intLit threads * intLit 2))
-                          ~loopVarUpdate:(ShiftLeft (C.Syntax.intLit 1))
+                          ~initialValue:(Cx.intLit 1)
+                          ~cond:(fun d -> Cx.(d < intLit threads * intLit 2))
+                          ~loopVarUpdate:(ShiftLeft (Cx.intLit 1))
                           ~body:(fun d ->
                             let%bind () =
-                              GenState.writeStatement
-                                C.Syntax.(offset := offset >> intLit 1)
+                              GenState.write Cx.(offset := offset >> intLit 1)
                             in
-                            let%bind () = GenState.writeStatement @@ C.SyncThreads in
+                            let%bind () = GenState.write @@ C.SyncThreads in
                             let%bind () =
                               GenState.writeIte
-                                ~cond:C.Syntax.(threadIndex < d)
+                                ~cond:Cx.(threadIndex < d)
                                 ~thenBranch:
                                   (let%bind ai =
                                      GenState.createVarAuto
                                        "ai"
-                                       C.Syntax.(
+                                       Cx.(
                                          (offset * ((intLit 2 * threadIndex) + intLit 1))
                                          - intLit 1)
                                    in
                                    let%bind bi =
                                      GenState.createVarAuto
                                        "bi"
-                                       C.Syntax.(
+                                       Cx.(
                                          (offset * ((intLit 2 * threadIndex) + intLit 2))
                                          - intLit 1)
                                    in
                                    let%bind () =
-                                     GenState.writeStatement
-                                     @@ C.Syntax.(ai := ai + conflictFreeOffsetC ai)
+                                     GenState.write
+                                     @@ Cx.(ai := ai + conflictFreeOffsetC ai)
                                    in
                                    let%bind () =
-                                     GenState.writeStatement
-                                     @@ C.Syntax.(bi := bi + conflictFreeOffsetC bi)
+                                     GenState.write
+                                     @@ Cx.(bi := bi + conflictFreeOffsetC bi)
                                    in
                                    GenState.writeIte
-                                     ~cond:C.Syntax.(threadIndex == intLit 0)
+                                     ~cond:Cx.(threadIndex == intLit 0)
                                      ~thenBranch:
-                                       (GenState.writeStatement
-                                          C.Syntax.(
-                                            arrayDerefs temp [ bi ]
-                                              := arrayDerefs temp [ ai ]))
+                                       (GenState.write
+                                          Cx.(
+                                            arrayDeref temp [ bi ]
+                                              := arrayDeref temp [ ai ]))
                                      ~elseBranch:
                                        (let%bind t =
                                           GenState.createVarAuto
                                             "t"
-                                            C.Syntax.(arrayDerefs temp [ ai ])
+                                            Cx.(arrayDeref temp [ ai ])
                                         in
                                         let%bind () =
-                                          GenState.writeStatement
-                                            C.Syntax.(
-                                              arrayDerefs temp [ ai ]
-                                                := arrayDerefs temp [ bi ])
+                                          GenState.write
+                                            Cx.(
+                                              arrayDeref temp [ ai ]
+                                                := arrayDeref temp [ bi ])
                                         in
                                         let%bind sum =
-                                          genComputeSum
-                                            t
-                                            C.Syntax.(arrayDerefs temp [ bi ])
+                                          genComputeSum t Cx.(arrayDeref temp [ bi ])
                                         in
-                                        GenState.writeStatement
-                                          C.Syntax.(arrayDerefs temp [ bi ] := sum)))
+                                        GenState.write Cx.(arrayDeref temp [ bi ] := sum)))
                                 ~elseBranch:(return ())
                             in
                             return ())
                       in
-                      let%bind () = GenState.writeStatement C.SyncThreads in
+                      let%bind () = GenState.write C.SyncThreads in
                       let%bind outputAsMemDerefer =
                         genArrayDeref ~arrayType:outputType ~isMem:true output
                       in
@@ -2576,35 +2472,35 @@ and genExpr
                         genCopyExprToMem
                           ~mem:
                             (outputAsMemDerefer
-                               C.Syntax.(
+                               Cx.(
                                  chunkOffset
                                  + (blockIndex * intLit threads * intLit 2)
                                  + ai))
-                          ~expr:C.Syntax.(arrayDerefs temp [ ai + bankOffsetA ])
+                          ~expr:Cx.(arrayDeref temp [ ai + bankOffsetA ])
                           ~type':scanElementType
                       in
                       let%bind () =
                         genCopyExprToMem
                           ~mem:
                             (outputAsMemDerefer
-                               C.Syntax.(
+                               Cx.(
                                  chunkOffset
                                  + (blockIndex * intLit threads * intLit 2)
                                  + bi))
-                          ~expr:C.Syntax.(arrayDerefs temp [ bi + bankOffsetB ])
+                          ~expr:Cx.(arrayDeref temp [ bi + bankOffsetB ])
                           ~type':scanElementType
                       in
-                      let%bind () = GenState.writeStatement @@ C.SyncThreads in
+                      let%bind () = GenState.write @@ C.SyncThreads in
                       let%bind () =
                         GenState.writeIte
-                          ~cond:C.Syntax.(threadIndex == intLit 0)
+                          ~cond:Cx.(threadIndex == intLit 0)
                           ~thenBranch:
                             (let%bind outputDerefer =
                                genArrayDeref ~arrayType:outputType ~isMem:false output
                              in
                              let a =
                                outputDerefer
-                                 C.Syntax.(
+                                 Cx.(
                                    (blockIndex * intLit threads * intLit 2)
                                    + ((intLit threads * intLit 2) - intLit 1))
                              in
@@ -2614,7 +2510,7 @@ and genExpr
                                  ~inputDerefer
                                  ~mapResultMemInterim
                                  ~loopVar:
-                                   C.Syntax.(
+                                   Cx.(
                                      chunkOffset
                                      + (blockIndex * intLit threads * intLit 2)
                                      + (intLit threads * intLit 2)
@@ -2658,14 +2554,14 @@ and genExpr
                 GenState.writeForLoop
                   ~loopVar:"i"
                   ~loopVarType:Int64
-                  ~initialValue:(C.Syntax.intLit 0)
-                  ~cond:(fun i -> C.Syntax.(i < runs))
+                  ~initialValue:(Cx.intLit 0)
+                  ~cond:(fun i -> Cx.(i < runs))
                   ~loopVarUpdate:IncrementOne
                   ~body:(fun i ->
                     let commonArgs =
                       cOutput
-                      :: C.Syntax.(intLit maxKernelProcessingSize * i)
-                      :: sumsAsMemDerefer C.Syntax.(i * intLit blocks)
+                      :: Cx.(intLit maxKernelProcessingSize * i)
+                      :: sumsAsMemDerefer Cx.(i * intLit blocks)
                       :: List.map innerCapturePasses ~f:(fun p -> p.arg)
                     in
                     let args =
@@ -2673,23 +2569,23 @@ and genExpr
                       | `WithMap -> cMapResultMemInterimRef :: commonArgs
                       | `NoMap cInput -> cInput :: commonArgs
                     in
-                    GenState.writeStatement
+                    GenState.write
                     @@ C.Eval
                          (KernelLaunch
                             { kernel = scanKernel
-                            ; blocks = C.Syntax.intLit blocks
-                            ; threads = C.Syntax.intLit threads
+                            ; blocks = Cx.intLit blocks
+                            ; threads = Cx.intLit threads
                             ; args
                             }))
               in
               let%bind () =
                 GenState.writeIte
-                  ~cond:C.Syntax.(unevenBlocks != intLit 0)
+                  ~cond:Cx.(unevenBlocks != intLit 0)
                   ~thenBranch:
                     (let commonArgs =
                        cOutput
-                       :: C.Syntax.(intLit maxKernelProcessingSize * runs)
-                       :: sumsAsMemDerefer C.Syntax.(runs * intLit blocks)
+                       :: Cx.(intLit maxKernelProcessingSize * runs)
+                       :: sumsAsMemDerefer Cx.(runs * intLit blocks)
                        :: List.map innerCapturePasses ~f:(fun p -> p.arg)
                      in
                      let args =
@@ -2697,12 +2593,12 @@ and genExpr
                        | `WithMap -> cMapResultMemInterimRef :: commonArgs
                        | `NoMap cInput -> cInput :: commonArgs
                      in
-                     GenState.writeStatement
+                     GenState.write
                      @@ C.Eval
                           (KernelLaunch
                              { kernel = scanKernel
                              ; blocks = unevenBlocks
-                             ; threads = C.Syntax.intLit threads
+                             ; threads = Cx.intLit threads
                              ; args
                              }))
                   ~elseBranch:(return ())
@@ -2743,12 +2639,10 @@ and genExpr
                           ; name
                           ; type' = Some cScanElementType
                           ; value = None
-                          ; dims = [ C.Syntax.intLit (threads * 10) ]
+                          ; dims = [ Cx.intLit (threads * 10) ]
                           }
                       in
-                      let%bind pout =
-                        GenState.createVarAuto "pout" @@ C.Syntax.intLit 0
-                      in
+                      let%bind pout = GenState.createVarAuto "pout" @@ Cx.intLit 0 in
                       let%bind () =
                         GenState.comment
                           "This is exclusive scan, so shift right by one and set first \
@@ -2760,83 +2654,78 @@ and genExpr
                       in
                       let%bind () =
                         GenState.writeIte
-                          ~cond:C.Syntax.(threadIndex > intLit 0)
+                          ~cond:Cx.(threadIndex > intLit 0)
                           ~thenBranch:
                             (let%bind value =
                                getInputElementOrDoMap
                                  ~dDevice
                                  ~inputDerefer
                                  ~mapResultMemInterim
-                                 ~loopVar:C.Syntax.(chunkOffset + threadIndex - intLit 1)
+                                 ~loopVar:Cx.(chunkOffset + threadIndex - intLit 1)
                              in
-                             GenState.writeStatement
-                             @@ C.Syntax.(
-                                  arrayDerefs temp [ (pout * n) + threadIndex ] := value))
+                             GenState.write
+                             @@ Cx.(arrayDeref temp [ (pout * n) + threadIndex ] := value))
                           ~elseBranch:(return ())
                       in
-                      let%bind () = GenState.writeStatement C.SyncThreads in
+                      let%bind () = GenState.write C.SyncThreads in
                       let%bind () =
                         GenState.writeForLoop
                           ~loopVar:"offset"
                           ~loopVarType:Int64
-                          ~initialValue:C.Syntax.(intLit 1)
-                          ~cond:(fun offset -> C.Syntax.(offset < n))
-                          ~loopVarUpdate:(ShiftLeft C.Syntax.(intLit 1))
+                          ~initialValue:Cx.(intLit 1)
+                          ~cond:(fun offset -> Cx.(offset < n))
+                          ~loopVarUpdate:(ShiftLeft Cx.(intLit 1))
                           ~body:(fun offset ->
-                            let%bind () =
-                              GenState.writeStatement C.Syntax.(pout := intLit 1 - pout)
-                            in
+                            let%bind () = GenState.write Cx.(pout := intLit 1 - pout) in
                             let%bind pin =
-                              GenState.createVarAuto "pint" C.Syntax.(intLit 1 - pout)
+                              GenState.createVarAuto "pint" Cx.(intLit 1 - pout)
                             in
                             let%bind () =
                               GenState.writeIte
-                                ~cond:C.Syntax.(threadIndex > offset)
+                                ~cond:Cx.(threadIndex > offset)
                                 ~thenBranch:
                                   (let%bind sum =
                                      genComputeSum
-                                       C.Syntax.(
-                                         arrayDerefs
+                                       Cx.(
+                                         arrayDeref
                                            temp
                                            [ (pin * n) + threadIndex - offset ])
-                                       C.Syntax.(
-                                         arrayDerefs temp [ (pin * n) + threadIndex ])
+                                       Cx.(arrayDeref temp [ (pin * n) + threadIndex ])
                                    in
-                                   GenState.writeStatement
-                                     C.Syntax.(
-                                       arrayDerefs temp [ (pout * n) + threadIndex ]
-                                       := sum))
+                                   GenState.write
+                                     Cx.(
+                                       arrayDeref temp [ (pout * n) + threadIndex ] := sum))
                                 ~elseBranch:
-                                  (GenState.writeStatement
-                                     C.Syntax.(
-                                       arrayDerefs temp [ (pout * n) + threadIndex ]
-                                       := arrayDerefs temp [ (pin * n) + threadIndex ]))
+                                  (GenState.write
+                                     Cx.(
+                                       arrayDeref temp [ (pout * n) + threadIndex ]
+                                       := arrayDeref temp [ (pin * n) + threadIndex ]))
                             in
-                            GenState.writeStatement C.SyncThreads)
+                            GenState.write C.SyncThreads)
                       in
                       let%bind outputDerefer =
                         genArrayDeref ~arrayType:outputType ~isMem:true output
                       in
                       let%bind () =
                         genCopyExprToMem
-                          ~mem:(outputDerefer C.Syntax.(chunkOffset + threadIndex))
-                          ~expr:C.Syntax.(arrayDerefs temp [ (pout * n) + threadIndex ])
+                          ~mem:(outputDerefer Cx.(chunkOffset + threadIndex))
+                          ~expr:Cx.(arrayDeref temp [ (pout * n) + threadIndex ])
                           ~type':scanElementType
                       in
-                      let%bind () = GenState.writeStatement C.SyncThreads in
+                      let%bind () = GenState.write C.SyncThreads in
                       GenState.writeIte
-                        ~cond:C.Syntax.(threadIndex == n - intLit 1)
+                        ~cond:Cx.(threadIndex == n - intLit 1)
                         ~thenBranch:
                           (let%bind scanArg =
                              getInputElementOrDoMap
                                ~dDevice
                                ~inputDerefer
                                ~mapResultMemInterim
-                               ~loopVar:C.Syntax.(chunkOffset + n - intLit 1)
+                               ~loopVar:Cx.(chunkOffset + n - intLit 1)
                            in
                            let%bind sum =
                              genComputeSum
-                               C.Syntax.(arrayDerefs temp [ (pout * n) + threadIndex ])
+                               Cx.(arrayDeref temp [ (pout * n) + threadIndex ])
                                scanArg
                            in
                            (* sumsType is not technically the correct array type
@@ -2873,12 +2762,12 @@ and genExpr
               in
               let%bind () =
                 GenState.writeIte
-                  ~cond:C.Syntax.(lastBlockSize != intLit 0)
+                  ~cond:Cx.(lastBlockSize != intLit 0)
                   ~thenBranch:
                     (let%bind lastOffset =
                        GenState.createVarAuto
                          "lastOffset"
-                         C.Syntax.(
+                         Cx.(
                            (intLit maxKernelProcessingSize * runs)
                            + (unevenBlocks * intLit threads * intLit 2))
                      in
@@ -2886,8 +2775,7 @@ and genExpr
                        cOutput
                        :: lastOffset
                        :: lastBlockSize
-                       :: sumsAsMemDerefer
-                            C.Syntax.((runs * intLit blocks) + unevenBlocks)
+                       :: sumsAsMemDerefer Cx.((runs * intLit blocks) + unevenBlocks)
                        :: List.map innerCapturePasses ~f:(fun p -> p.arg)
                      in
                      let args =
@@ -2895,11 +2783,11 @@ and genExpr
                        | `WithMap -> cMapResultMemInterimRef :: commonArgs
                        | `NoMap cInput -> cInput :: commonArgs
                      in
-                     GenState.writeStatement
+                     GenState.write
                      @@ C.Eval
                           (KernelLaunch
                              { kernel = naiveScanKernel
-                             ; blocks = C.Syntax.intLit 1
+                             ; blocks = Cx.intLit 1
                              ; threads = lastBlockSize
                              ; args
                              }))
@@ -2907,7 +2795,7 @@ and genExpr
               in
               let%bind () =
                 GenState.writeIte
-                  ~cond:C.Syntax.(runs != intLit 0 || unevenBlocks != intLit 0)
+                  ~cond:Cx.(runs != intLit 0 || unevenBlocks != intLit 0)
                   ~thenBranch:
                     (if includeMaps
                      then
@@ -2925,7 +2813,7 @@ and genExpr
                          :: cZeroRef
                          :: List.map capturePasses ~f:(fun p -> C.VarRef p.param.name)
                        in
-                       GenState.writeStatement @@ C.Eval C.Syntax.(call scanRunner args)))
+                       GenState.write @@ C.Eval Cx.(call scanRunner args)))
                   ~elseBranch:
                     (let%bind sumsSummedDerefer =
                        genArrayDeref ~arrayType:sumsSummedType ~isMem:true sumsSummed
@@ -2934,14 +2822,14 @@ and genExpr
                        genCopyExprBetweenMachines
                          ~copyDir:`HostToDevice
                          ~type':(Expr.type' zero)
-                         ~targetMem:(sumsSummedDerefer @@ C.Syntax.intLit 0)
+                         ~targetMem:(sumsSummedDerefer @@ Cx.intLit 0)
                          cZeroRef
                      in
                      return ())
               in
               let%bind () =
                 GenState.writeIte
-                  ~cond:C.Syntax.(lastBlockSize != intLit 0)
+                  ~cond:Cx.(lastBlockSize != intLit 0)
                   ~thenBranch:
                     (let%bind outputDerefer =
                        genArrayDeref ~arrayType:outputType ~isMem:true cOutput
@@ -2951,8 +2839,7 @@ and genExpr
                        ~type':scanElementType
                        ~target:(outputDerefer n)
                        ~source:
-                         (sumsAsMemDerefer
-                            C.Syntax.((runs * intLit blocks) + unevenBlocks)))
+                         (sumsAsMemDerefer Cx.((runs * intLit blocks) + unevenBlocks)))
                   ~elseBranch:(return ())
               in
               let%bind adjBlockValues, adjBlockValuesPass =
@@ -2963,7 +2850,7 @@ and genExpr
                 createFunPass "adjs" cSumsSummedType sumsSummed
               in
               let%bind adjBlockN, adjBlockNPass =
-                createFunPass "n" Int64 C.Syntax.(n + intLit 1)
+                createFunPass "n" Int64 Cx.(n + intLit 1)
               in
               let adjBlockPasses =
                 adjBlockValuesPass :: adjBlockAdjsPass :: adjBlockNPass :: capturePasses
@@ -2981,14 +2868,14 @@ and genExpr
                       let%bind valOffset =
                         GenState.createVarAuto
                           "valOffset"
-                          C.Syntax.(
+                          Cx.(
                             (refStr "blockDim" %. StrName "x" * blockIndex) + threadIndex)
                       in
                       let%bind adjOffset =
                         GenState.createVarAuto "adjOffset" blockIndex
                       in
                       GenState.writeIte
-                        ~cond:C.Syntax.(valOffset < adjBlockN)
+                        ~cond:Cx.(valOffset < adjBlockN)
                         ~thenBranch:
                           (let%bind valuesAsMemDerefer =
                              genArrayDeref
@@ -3003,7 +2890,7 @@ and genExpr
                                adjBlockAdjs
                            in
                            GenState.writeIte
-                             ~cond:C.Syntax.(threadIndex == intLit 0)
+                             ~cond:Cx.(threadIndex == intLit 0)
                              ~thenBranch:
                                (genCopyExprToMem
                                   ~mem:(valuesAsMemDerefer valOffset)
@@ -3035,12 +2922,12 @@ and genExpr
                          ; funType = Kernel
                          })
               in
-              GenState.writeStatement
+              GenState.write
               @@ C.Eval
                    (C.KernelLaunch
                       { kernel = adjBlock
-                      ; blocks = C.Syntax.(blockCount + intLit 1)
-                      ; threads = C.Syntax.(intLit Int.(threads * 2))
+                      ; blocks = Cx.(blockCount + intLit 1)
+                      ; threads = Cx.(intLit Int.(threads * 2))
                       ; args = List.map adjBlockPasses ~f:(fun p -> p.arg)
                       })
             in
@@ -3052,8 +2939,7 @@ and genExpr
                  ; funType = Host
                  })
       in
-      GenState.writeStatement
-      @@ C.Syntax.(eval (call scanRunner (List.map passes ~f:(fun p -> p.arg))))
+      GenState.write @@ Cx.(eval (call scanRunner (List.map passes ~f:(fun p -> p.arg))))
     in
     let%bind () =
       runScan
@@ -3083,7 +2969,7 @@ and genExpr
     in
     (* return *)
     let%bind type' = genType @@ Tuple loopType in
-    return @@ C.StructConstructor { type'; args = [ mapResultFinal; scanResultFinal ] }
+    return @@ Cx.initStruct type' [ mapResultFinal; scanResultFinal ]
   | ( _
     , ContiguousSubArray
         { arrayArg; indexArg; originalShape = _; resultShape = _; type' = outType } ) ->
@@ -3102,39 +2988,36 @@ and genExpr
         (* shape and indexArg need to be iterated together, but shape is a list of shape
            elements. While individual elements are reified, the whole thing is not. This
            is the reason for the below odd iteration structure *)
-        let%bind offset = GenState.createVarAuto "offset" @@ C.Syntax.intLit 0 in
+        let%bind offset = GenState.createVarAuto "offset" @@ Cx.intLit 0 in
         (* indexIndex is the index in indexArg that we are currently on *)
-        let%bind indexIndex = GenState.createVarAuto "indexIndex" @@ C.Syntax.intLit 0 in
+        let%bind indexIndex = GenState.createVarAuto "indexIndex" @@ Cx.intLit 0 in
         let%bind () =
           GenState.writeForLoop
             ~loopVar:"elementIndex"
             ~loopVarType:Int64
-            ~initialValue:(C.Syntax.intLit 0)
-            ~cond:(fun elementIndex ->
-              C.Syntax.(elementIndex < intLit (List.length shape)))
+            ~initialValue:(Cx.intLit 0)
+            ~cond:(fun elementIndex -> Cx.(elementIndex < intLit (List.length shape)))
             ~loopVarUpdate:IncrementOne
             ~body:(fun elementIndex ->
               List.foldi shape ~init:(return ()) ~f:(fun i acc shapeElement ->
                 GenState.writeIte
-                  ~cond:C.Syntax.(intLit i == elementIndex)
+                  ~cond:Cx.(intLit i == elementIndex)
                   ~thenBranch:
                     (let writeUpdate currentDimSize =
                        let%bind () =
-                         GenState.writeStatement
-                         @@ C.Syntax.(offset := offset * currentDimSize)
+                         GenState.write @@ Cx.(offset := offset * currentDimSize)
                        in
                        let%bind () =
                          GenState.writeIte
-                           ~cond:C.Syntax.(indexIndex < cIndexArgLen)
+                           ~cond:Cx.(indexIndex < cIndexArgLen)
                            ~thenBranch:
                              (let%bind () =
-                                GenState.writeStatement
-                                  C.Syntax.(
-                                    offset := offset + arrayDeref cIndexArg indexIndex)
+                                GenState.write
+                                  Cx.(
+                                    offset := offset + arrayDeref cIndexArg [ indexIndex ])
                               in
                               let%bind () =
-                                GenState.writeStatement
-                                  C.Syntax.(indexIndex := indexIndex + intLit 1)
+                                GenState.write Cx.(indexIndex := indexIndex + intLit 1)
                               in
                               return ())
                            ~elseBranch:(return ())
@@ -3144,25 +3027,23 @@ and genExpr
                      match shapeElement with
                      | Add d -> writeUpdate (genDim d)
                      | ShapeRef shapeRef ->
-                       let dims = C.Syntax.(refId shapeRef %. sliceDimsFieldName) in
-                       let dimCount =
-                         C.Syntax.(refId shapeRef %. sliceDimCountFieldName)
-                       in
+                       let dims = Cx.(refId shapeRef %. sliceDimsFieldName) in
+                       let dimCount = Cx.(refId shapeRef %. sliceDimCountFieldName) in
                        let%bind () =
                          GenState.writeForLoop
                            ~loopVar:"i"
                            ~loopVarType:Int64
-                           ~initialValue:(C.Syntax.intLit 0)
-                           ~cond:(fun i -> C.Syntax.(i < dimCount))
+                           ~initialValue:(Cx.intLit 0)
+                           ~cond:(fun i -> Cx.(i < dimCount))
                            ~loopVarUpdate:IncrementOne
-                           ~body:(fun i -> writeUpdate C.Syntax.(arrayDeref dims i))
+                           ~body:(fun i -> writeUpdate Cx.(arrayDeref dims [ i ]))
                        in
                        return ())
                   ~elseBranch:acc))
         in
         (match outType with
-         | Atom _ -> return C.Syntax.(arrayDeref cArrayArg offset)
-         | Array _ -> return C.Syntax.(cArrayArg + offset)
+         | Atom _ -> return Cx.(arrayDeref cArrayArg [ offset ])
+         | Array _ -> return Cx.(cArrayArg + offset)
          | Tuple _ -> raise Unreachable.default)
       | Tuple inElements ->
         let outElements =
@@ -3174,13 +3055,10 @@ and genExpr
         let%bind elements =
           List.zip_exn inElements outElements
           |> List.mapi ~f:(fun i (elementType, outElementType) ->
-            genSubArray
-              (C.FieldDeref { value = cArrayArg; fieldName = tupleFieldName i })
-              elementType
-              outElementType)
+            genSubArray Cx.(cArrayArg %. tupleFieldName i) elementType outElementType)
           |> GenState.all
         in
-        return @@ C.StructConstructor { type'; args = elements }
+        return @@ Cx.initStruct type' elements
       | Atom _ -> (* This case should only be hit when indexArg is [] *) return cArrayArg
     in
     let%bind subarray = genSubArray cArrayArg (Expr.type' arrayArg) outType in
@@ -3188,16 +3066,12 @@ and genExpr
   | Host, IfParallelismHitsCutoff { parallelism; cutoff; then'; else'; type' } ->
     let rec genParallelism (parallelism : Expr.parallelism) =
       match parallelism with
-      | KnownParallelism n -> C.Literal (Int64Literal n)
+      | KnownParallelism n -> Cx.(intLit n)
       | Parallelism { shape; rest } ->
         let shapeSize = genShapeElementSize shape in
-        C.Binop { op = "*"; arg1 = shapeSize; arg2 = genParallelism rest }
+        Cx.(shapeSize * genParallelism rest)
       | MaxParallelism pars ->
-        C.FunCall
-          { fun' = StrName "std::max"
-          ; typeArgs = None
-          ; args = [ Arr (List.map pars ~f:genParallelism) ]
-          }
+        Cx.callBuiltin "std::max" [ Arr (List.map pars ~f:genParallelism) ]
     in
     let parallelism = genParallelism parallelism in
     let%bind cType = genType type' in
@@ -3207,11 +3081,11 @@ and genExpr
     in
     let writeBranch branch =
       let%bind res = genExpr ~hostOrDevice ~store:false branch in
-      GenState.writeStatement @@ C.Syntax.(resVar := res)
+      GenState.write @@ Cx.(resVar := res)
     in
     let%bind () =
       GenState.writeIte
-        ~cond:C.Syntax.(parallelism >= intLit cutoff)
+        ~cond:Cx.(parallelism >= intLit cutoff)
         ~thenBranch:(writeBranch then')
         ~elseBranch:(writeBranch else')
     in
@@ -3227,11 +3101,11 @@ and genExpr
         let%bind elements =
           elements
           |> List.mapi ~f:(fun i element ->
-            genGetmem (C.FieldDeref { value = mem; fieldName = tupleFieldName i }) element)
+            genGetmem Cx.(mem %. tupleFieldName i) element)
           |> GenState.all
         in
         let%bind destType = genType ~wrapInPtr:false type' in
-        return @@ C.StructConstructor { type' = destType; args = elements }
+        return @@ Cx.initStruct destType elements
       | Atom (Sigma _)
       | Atom (Literal (IntLiteral | FloatLiteral | BooleanLiteral | CharacterLiteral)) ->
         return @@ C.PtrDeref mem
@@ -3253,7 +3127,7 @@ and genLet
     |> List.map ~f:(fun { binding; value } ->
       let%bind varType = genType @@ Expr.type' value in
       let%bind value = genExpr ~hostOrDevice ~store:false value in
-      GenState.writeStatement
+      GenState.write
       @@ C.Define { name = UniqueName binding; type' = Some varType; value = Some value })
     |> GenState.all_unit
   in
@@ -3273,7 +3147,7 @@ and genMallocLet
     |> List.map ~f:(fun { memBinding; memType; memLoc } ->
       let%bind varType = genType ~wrapInPtr:true memType in
       let%bind mem = genMalloc ~hostOrDevice ~store:false ~memLoc memType in
-      GenState.writeStatement
+      GenState.write
       @@ C.Define { name = UniqueName memBinding; type' = Some varType; value = Some mem })
     |> GenState.all_unit
   in
@@ -3292,9 +3166,9 @@ and genMapBodySetup
     mapArgs
     |> List.map ~f:(fun { binding; ref } ->
       let%bind derefer =
-        genArrayDeref ~arrayType:ref.type' ~isMem:false @@ VarRef (UniqueName ref.id)
+        genArrayDeref ~arrayType:ref.type' ~isMem:false @@ Cx.refId ref.id
       in
-      GenState.writeStatement
+      GenState.write
       @@ C.Define
            { name = UniqueName binding; type' = None; value = Some (derefer loopVar) })
     |> GenState.all_unit
@@ -3304,7 +3178,7 @@ and genMapBodySetup
     |> List.map ~f:(fun { memBinding; mem } ->
       let%bind cMem = genMem ~store:true mem in
       let%bind derefer = genArrayDeref ~arrayType:(Mem.type' mem) ~isMem:true @@ cMem in
-      GenState.writeStatement
+      GenState.write
       @@ C.Define
            { name = UniqueName memBinding; type' = None; value = Some (derefer loopVar) })
     |> GenState.all_unit
@@ -3340,7 +3214,7 @@ and genMapBodyOnDevice
         genArrayDeref
           ~arrayType:resultTypeArr
           ~isMem:true
-          (C.FieldDeref { value = mapResultMem; fieldName = tupleFieldName i })
+          Cx.(mapResultMem %. tupleFieldName i)
       in
       return @@ (derefer, guillotineType resultTypeArr))
     |> GenState.all
@@ -3349,7 +3223,7 @@ and genMapBodyOnDevice
     List.zip_exn mapResults mapResultDerefersAndTypes
     |> List.map ~f:(fun (resultId, (resultDerefer, resultType)) ->
       genCopyExprToMem
-        ~expr:(C.VarRef (UniqueName resultId))
+        ~expr:Cx.(refId resultId)
         ~mem:(resultDerefer loopVar)
         ~type':resultType)
     |> GenState.all_unit
@@ -3361,8 +3235,7 @@ let genPrint type' value =
   let open GenState.Let_syntax in
   match type' with
   | Type.Atom (Literal (IntLiteral | FloatLiteral | CharacterLiteral | BooleanLiteral)) ->
-    GenState.writeStatement
-    @@ C.Eval C.Syntax.(refStr "std::cout" << value << charLit '\n')
+    GenState.write @@ C.Eval Cx.(refStr "std::cout" << value << charLit '\n')
   | Type.Atom (Sigma _) -> raise Unimplemented.default
   | Type.Array { element; shape } ->
     let%bind cElement = genType (Atom element) in
@@ -3370,14 +3243,13 @@ let genPrint type' value =
     let%bind dimCount = GenState.createVarAuto "dimCount" @@ genShapeDimCount shape in
     let%bind dims =
       GenState.createVarAuto "dims"
-      @@ C.Syntax.(callBuiltin "mallocHost" ~typeArgs:[ Int64 ] [ dimCount ])
+      @@ Cx.(callBuiltin "mallocHost" ~typeArgs:[ Int64 ] [ dimCount ])
     in
     let%bind _ = reifyShapeIndexToMem ~mem:dims shape in
     let%bind () =
-      GenState.writeStatement
+      GenState.write
       @@ C.Eval
-           C.Syntax.(
-             callBuiltin "printArray" ~typeArgs:[ cElement ] [ value; dims; dimCount ])
+           Cx.(callBuiltin "printArray" ~typeArgs:[ cElement ] [ value; dims; dimCount ])
     in
     return ()
   | Type.Tuple _ -> raise Unimplemented.default
@@ -3389,9 +3261,9 @@ let genMainBlock (deviceInfo : DeviceInfo.t) (main : withCaptures) =
   @@
   let%bind () =
     (* reserve heap space *)
-    GenState.writeStatement
+    GenState.write
     @@ C.Eval
-         C.Syntax.(
+         Cx.(
            callBuiltin
              "HANDLE_ERROR"
              [ callBuiltin
