@@ -958,20 +958,24 @@ let rec allocRequest
         |> declareAllUsedAllocs
       in
       let scanType = canonicalizeType scanType in
-      let%bind scanResultMemFinal = malloc ~mallocLoc scanType "scan-result" in
+      let%bind scanResultMemInterim =
+        malloc ~mallocLoc:innerMallocLoc scanType "scan-interim-result"
+      in
+      let%bind scanResultMemFinal = createConsumerResultMemFinal scanResultMemInterim in
       return
-        Expr.
-          { arg =
-              { firstBinding = arg.firstBinding
-              ; secondBinding = arg.secondBinding
-              ; production = convertProductionTuple arg.production
-              }
-          ; zero
-          ; body
-          ; d
-          ; scanResultMemFinal
-          ; type' = scanType
-          }
+        ( scanResultMemInterim
+        , Expr.
+            { arg =
+                { firstBinding = arg.firstBinding
+                ; secondBinding = arg.secondBinding
+                ; production = convertProductionTuple arg.production
+                }
+            ; zero
+            ; body
+            ; d
+            ; scanResultMemFinal
+            ; type' = scanType
+            } )
     in
     let processConsumer
       : type t.
@@ -1010,13 +1014,10 @@ let rec allocRequest
                   })
            , true )
       | Just (ScanSeq scan) ->
-        let%map scan = processScan scan in
+        let%map _, scan = processScan scan in
         Maybe.Just (Expr.ScanSeq scan), true
       | Just (ScanPar scan) ->
-        let%bind scan = processScan scan in
-        let%bind scanResultMemDeviceInterim =
-          malloc ~mallocLoc:innerMallocLoc scan.type' "scan-interim-result"
-        in
+        let%bind scanResultMemDeviceInterim, scan = processScan scan in
         return @@ (Maybe.Just (Expr.ScanPar { scan; scanResultMemDeviceInterim }), true)
       | Just (Fold { zeroArg; arrayArgs; body; reverse; d; character; type' }) ->
         let d = convertDimension d in

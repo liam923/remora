@@ -1033,7 +1033,7 @@ module Expr = struct
           ::
           (match sexp_of_c captures with
            | Sexp.List [] -> []
-           | capturesSexp -> [ Sexp.Atom "captures"; capturesSexp ]))
+           | capturesSexp -> [ Sexp.List [ Sexp.Atom "captures"; capturesSexp ] ]))
          @ [ Sexp.List [ Sexp.Atom "blocks"; Int.sexp_of_t blocks ]
            ; Sexp.List [ Sexp.Atom "threads"; Int.sexp_of_t threads ]
            ]
