@@ -2501,7 +2501,8 @@ and genExpr
                              let a =
                                outputDerefer
                                  Cx.(
-                                   (blockIndex * intLit threads * intLit 2)
+                                   chunkOffset
+                                   + (blockIndex * intLit threads * intLit 2)
                                    + ((intLit threads * intLit 2) - intLit 1))
                              in
                              let%bind b =

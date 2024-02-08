@@ -1,5 +1,6 @@
 open! Base
 
+val showExpr : C.expr -> string
 val printC : C.t -> string
 
 module Stage (SB : Source.BuilderT) :

@@ -188,13 +188,24 @@ let%expect_test "sum of sums" =
     167167000 |}]
 ;;
 
+let%expect_test "sum of sums (larger)" =
+  compileAndRun
+    {|
+    (define sums (scan-init{int | 100000 [] []} + 0 (+ 1 iota{ | [100000]})))
+    (reduce{int | 100000 [] []} + sums)
+    |};
+  [%expect {|
+    166671666700000 |}]
+;;
+
 let%expect_test "sum of sums array" =
   compileAndRun
     {|
     (define sums (scan-init{int | 1000 [5] []} + 0 (+ 1 iota{ | [1000 5]})))
     (reduce{int | 1000 [5] []} + sums)
     |};
-  [%expect {|
+  [%expect
+    {|
     [[833833000 834333500 834834000 835334500 835835000]
      [833833000 834333500 834834000 835334500 835835000]
      [833833000 834333500 834834000 835334500 835835000]
