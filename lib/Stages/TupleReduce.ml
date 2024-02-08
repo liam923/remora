@@ -36,6 +36,38 @@ module TupleRequest = struct
     let actualStr = actual |> sexp_of_t |> Sexp.to_string in
     Unreachable.Error [%string "Expected %{expected} request type, got %{actualStr}"]
   ;;
+
+  let rec subIndices subs = function
+    | Whole -> Whole
+    | Element { i; rest } -> Element { i; rest = subIndices subs rest }
+    | Elements derefs ->
+      Elements
+        (List.map derefs ~f:(fun { i; rest } -> { i; rest = subIndices subs rest }))
+    | Collection { subRequest; collectionType = Array array } ->
+      let subRequest = subIndices subs subRequest in
+      let element = Nested.Substitute.Type.subIndicesIntoType subs array.element in
+      let shape = Nested.Substitute.Index.subIndicesIntoShape subs [ array.size ] in
+      let rec makeArray shape =
+        match shape with
+        | [] -> element
+        | size :: restShape -> Type.Array { element = makeArray restShape; size }
+      in
+      let rec makeRequest shape =
+        match shape with
+        | [] -> subRequest
+        | size :: restShape ->
+          Collection
+            { subRequest = makeRequest restShape
+            ; collectionType = Array { element = makeArray restShape; size }
+            }
+      in
+      makeRequest shape
+    | Collection { subRequest; collectionType = Sigma sigma } ->
+      Collection
+        { subRequest = subIndices subs subRequest
+        ; collectionType = Sigma (Nested.Substitute.Type.subIndicesIntoSigma subs sigma)
+        }
+  ;;
 end
 
 type 't reduceTupleResult =
@@ -385,12 +417,19 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
     let type' = reduceTuplesType request type' in
     Expr.Append { args; type' }
   | Box { indices; body; bodyType; type' } ->
-    let bodyRequest =
+    let bodyRequestUnsubbed =
       match request with
       | Collection { subRequest; collectionType = Sigma _ } -> subRequest
       | Whole -> Whole
       | _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"sigma")
     in
+    let bodyRequestSubs =
+      List.zip_exn type'.parameters indices
+      |> List.fold
+           ~init:(Map.empty (module Identifier))
+           ~f:(fun subs (param, index) -> Map.set subs ~key:param.binding ~data:index)
+    in
+    let bodyRequest = TupleRequest.subIndices bodyRequestSubs bodyRequestUnsubbed in
     let%map body = reduceTuplesInExpr bodyRequest body in
     let type' = reduceTuplesSigmaType request type' in
     Expr.Box { indices; body; bodyType; type' }

@@ -573,3 +573,51 @@ end
 type t = Expr.t
 
 let sexp_of_t = Expr.sexp_of_t
+
+module Substitute = struct
+  module Index = Typed.Substitute.Index
+
+  module Type = struct
+    let rec subIndicesIntoArray indices Type.{ element; size } =
+      let shape = Index.subIndicesIntoShape indices [ size ] in
+      let rec makeArray shape =
+        match shape with
+        | [] -> element
+        | size :: restShape -> Type.Array { element = makeArray restShape; size }
+      in
+      makeArray shape
+
+    and subIndicesIntoType indices =
+      let open Type in
+      function
+      | Sigma sigma -> Sigma (subIndicesIntoSigma indices sigma)
+      | Literal IntLiteral -> Literal IntLiteral
+      | Literal FloatLiteral -> Literal FloatLiteral
+      | Literal CharacterLiteral -> Literal CharacterLiteral
+      | Literal BooleanLiteral -> Literal BooleanLiteral
+      | Array array -> subIndicesIntoArray indices array
+      | Tuple elements -> Tuple (List.map elements ~f:(subIndicesIntoType indices))
+
+    and subIndicesIntoSigma indices Type.{ parameters; body } =
+      Type.{ parameters; body = subIndicesIntoType indices body }
+    ;;
+
+    let rec subTypesIntoArray types Type.{ element; size } =
+      Type.{ element = subTypesIntoType types element; size }
+
+    and subTypesIntoType types =
+      let open Type in
+      function
+      | Sigma sigma -> Sigma (subTypesIntoSigma types sigma)
+      | Literal IntLiteral -> Literal IntLiteral
+      | Literal FloatLiteral -> Literal FloatLiteral
+      | Literal CharacterLiteral -> Literal CharacterLiteral
+      | Literal BooleanLiteral -> Literal BooleanLiteral
+      | Array array -> Array (subTypesIntoArray types array)
+      | Tuple elements -> Tuple (List.map elements ~f:(subTypesIntoType types))
+
+    and subTypesIntoSigma types Type.{ parameters; body } =
+      Type.{ parameters; body = subTypesIntoType types body }
+    ;;
+  end
+end
