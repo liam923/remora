@@ -374,7 +374,9 @@ let rec optimize : Expr.t -> Expr.t =
           })
     in
     let body = optimize body in
-    IndexLet { indexArgs; body; type' }
+    (match indexArgs with
+     | [] -> body
+     | _ :: _ -> IndexLet { indexArgs; body; type' })
   | ReifyIndex { index = Dimension d; type' = _ } as original ->
     if Map.is_empty d.refs
     then (* The dimension is known, so we can sub it in *)
@@ -1077,20 +1079,6 @@ and hoistExpressionsInBody loopBarrier body ~bindings =
   in
   body, moreHoistingsToPropogate @ hoistingsToPropogate
 ;;
-
-(* let simplify expr =
-  let open State.Let_syntax in
-  let rec loop expr =
-    let unoptimized = expr in
-    let optimized = optimize unoptimized in
-    if Expr.equal unoptimized optimized
-    then (
-      let%bind { res = reduced; droppedAny } = TupleReduce.reduceTuples optimized in
-      if droppedAny then loop reduced else return optimized)
-    else loop optimized
-  in
-  loop expr
-;; *)
 
 let simplify expr =
   let open State.Let_syntax in
