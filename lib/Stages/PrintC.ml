@@ -68,15 +68,21 @@ let showName (name : name) =
   let replacements =
     Map.of_alist_exn
       (module Char)
-      [ '-', "_"; '+', "plus"; '*', "mul"; '/', "div"; '.', "_" ]
+      [ '-', "_"; '+', "plus"; '*', "mul"; '/', "div"; '.', "_"; '=', "equal" ]
   in
-  let nameStr =
-    match name with
-    | UniqueName id -> [%string "%{Identifier.name id}_%{Identifier.uniqueNum id#Int}"]
-    | StrName str -> str
-  in
-  String.concat_map nameStr ~f:(fun c ->
-    Map.find replacements c |> Option.value ~default:(String.of_char c))
+  match name with
+  | UniqueName id ->
+    let nameStr = [%string "%{Identifier.name id}_%{Identifier.uniqueNum id#Int}"] in
+    nameStr
+    |> String.concat_map ~f:(fun c ->
+      Map.find replacements c |> Option.value ~default:(String.of_char c))
+    |> String.map ~f:(fun c -> if Char.is_alphanum c then c else '_')
+    |> fun str ->
+    (match String.to_list str with
+     | [] -> "_"
+     | h :: _ when Char.is_digit h -> [%string "_%{str}"]
+     | _ -> str)
+  | StrName str -> str
 ;;
 
 let rec showType : type' -> string = function
