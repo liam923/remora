@@ -150,40 +150,7 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     let bodyUsages =
       Set.diff (getUsesInExpr mapBody) (Set.union argBindings iotaBindings)
     in
-    let consumerUsages =
-      match consumer with
-      | Some (Reduce { arg; zero; body; d; character = _; type' }) ->
-        let argBindings =
-          Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
-        in
-        Set.union_list
-          (module Identifier)
-          [ getUsesInExpr zero
-          ; Set.diff (getUsesInExpr body) argBindings
-          ; getUsesInIndex (Dimension d)
-          ; getUsesInType type'
-          ]
-      | Some (Fold { zeroArg; arrayArgs; body; reverse = _; d; character = _; type' }) ->
-        let arrayBindings =
-          arrayArgs
-          |> List.map ~f:(fun arg -> arg.binding)
-          |> Set.of_list (module Identifier)
-        in
-        Set.union_list
-          (module Identifier)
-          [ Set.diff (getUsesInExpr body) (Set.add arrayBindings zeroArg.zeroBinding)
-          ; getUsesInIndex (Dimension d)
-          ; getUsesInType type'
-          ]
-      | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; type' }) ->
-        Set.union_list
-          (module Identifier)
-          [ getUsesInIndex (Dimension dIn)
-          ; getUsesInIndex (Dimension dOut)
-          ; getUsesInType type'
-          ]
-      | None -> Set.empty (module Identifier)
-    in
+    let consumerUsages = getUsesInConsumer consumer in
     let typeUsages = getUsesInTuple type' in
     Set.union_list
       (module Identifier)
@@ -224,6 +191,38 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     Set.union (getUsesInExpr zipArg) (getUsesInType type')
   | Unzip { unzipArg; type' } ->
     Set.union (getUsesInExpr unzipArg) (getUsesInType (Tuple type'))
+
+and getUsesInConsumer consumer =
+  match consumer with
+  | Some (Reduce { arg; zero; body; d; character = _; type' }) ->
+    let argBindings =
+      Set.of_list (module Identifier) [ arg.firstBinding; arg.secondBinding ]
+    in
+    Set.union_list
+      (module Identifier)
+      [ getUsesInExpr zero
+      ; Set.diff (getUsesInExpr body) argBindings
+      ; getUsesInIndex (Dimension d)
+      ; getUsesInType type'
+      ]
+  | Some (Fold { zeroArg; arrayArgs; body; reverse = _; d; character = _; type' }) ->
+    let arrayBindings =
+      arrayArgs |> List.map ~f:(fun arg -> arg.binding) |> Set.of_list (module Identifier)
+    in
+    Set.union_list
+      (module Identifier)
+      [ Set.diff (getUsesInExpr body) (Set.add arrayBindings zeroArg.zeroBinding)
+      ; getUsesInIndex (Dimension d)
+      ; getUsesInType type'
+      ]
+  | Some (Scatter { valuesArg = _; indicesArg = _; dIn; dOut; type' }) ->
+    Set.union_list
+      (module Identifier)
+      [ getUsesInIndex (Dimension dIn)
+      ; getUsesInIndex (Dimension dOut)
+      ; getUsesInType type'
+      ]
+  | None -> Set.empty (module Identifier)
 ;;
 
 (** Represents a value that contains the result of a map.
@@ -438,7 +437,7 @@ let rec liftFrom
        - each iota parent needs to be available? not necessary - will not
          propogate lifting to inside a map body, so the same parents are always in
          scope
-       - body can only use capturables (any uses should be put in captures)
+       - body and consumer can only use capturables (any uses should be put in captures)
        - consumers need to be compatible *)
     let frameShapesMatch = Index.equal_shapeElement target.frameShape frameShape in
     let argsToLift, argsToRemove, badArgs =
@@ -457,7 +456,10 @@ let rec liftFrom
     let bodyCaptures =
       Set.diff (getUsesInExpr mapBody) (Set.of_list (module Identifier) bindings)
     in
-    let bodyOk = Set.is_subset bodyCaptures ~of_:capturables in
+    let consumerCaptures = getUsesInConsumer consumer in
+    let bodyAndConsumerOk =
+      Set.is_subset (Set.union bodyCaptures consumerCaptures) ~of_:capturables
+    in
     let consumersAreCompatible =
       match Option.both targetConsumer consumer with
       | Some (targetConsumer, consumer) ->
@@ -466,7 +468,10 @@ let rec liftFrom
           (ConsumerCompatibility.of_op consumer)
       | None -> true
     in
-    if frameShapesMatch && List.is_empty badArgs && bodyOk && consumersAreCompatible
+    if frameShapesMatch
+       && List.is_empty badArgs
+       && bodyAndConsumerOk
+       && consumersAreCompatible
     then (
       let%bind archerMapResultBinding = FuseState.createId "fusion-archer-map-result"
       and targetMapResultElementBinding = FuseState.createId "fusion-target-map-result" in
