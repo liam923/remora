@@ -1069,3 +1069,17 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
 ;;
 
 let reduceTuples expr = reduceTuplesInExpr Whole expr |> ReduceTupleState.toCompilerState
+
+module Stage (SB : Source.BuilderT) = struct
+  type state = CompilerState.state
+  type input = Nested.t
+  type output = Nested.t
+  type error = (SB.source option, string) Source.annotate
+
+  let name = "Reduce Tuples"
+
+  let run input =
+    CompilerPipeline.S.make ~f:(fun state ->
+      State.run (State.map (reduceTuples input) ~f:(fun r -> r.res)) state)
+  ;;
+end
