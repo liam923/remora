@@ -2810,7 +2810,7 @@ and genExpr
                        let args =
                          sums
                          :: sumsSummed
-                         :: n
+                         :: blockCount
                          :: cZeroRef
                          :: List.map capturePasses ~f:(fun p -> C.VarRef p.param.name)
                        in

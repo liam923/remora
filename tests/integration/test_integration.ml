@@ -191,11 +191,11 @@ let%expect_test "sum of sums" =
 let%expect_test "sum of sums (larger)" =
   compileAndRun
     {|
-    (define sums (scan-init{int | 100000 [] []} + 0 (+ 1 iota{ | [100000]})))
-    (reduce{int | 100000 [] []} + sums)
+    (define sums (scan-init{int | 1000000 [] []} + 0 (+ 1 iota{ | [1000000]})))
+    (reduce{int | 1000000 [] []} + sums)
     |};
   [%expect {|
-    166671666700000 |}]
+    166667166667000000 |}]
 ;;
 
 let%expect_test "sum of sums array" =
