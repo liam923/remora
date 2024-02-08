@@ -2962,12 +2962,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 190)))
+       (((binding ((name f) (id 200)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name arr) (id 271)))
+        ((binding ((name arr) (id 291)))
          (value
           (Frame
            ((dimensions (3))
@@ -2984,7 +2984,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name flags) (id 274)))
+        ((binding ((name flags) (id 294)))
          (value
           (Frame
            ((dimensions (3))
@@ -3005,189 +3005,331 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name locs-raw) (id 403)))
+          (((binding ((name locs-raw) (id 427)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 278)))
+                (((binding ((name f) (id 297)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name op) (id 365)))
-                  (value
-                   (AtomAsArray
-                    ((element (Values ((elements ()) (type' ()))))
-                     (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name init) (id 395)))
-                  (value
-                   (AtomAsArray
-                    ((element (Literal (IntLiteral 0)))
-                     (type' ((element (Literal IntLiteral)) (shape ())))))))
-                 ((binding ((name arr) (id 371)))
+                 ((binding ((name -arg1) (id 424)))
                   (value
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name f) (id 368)))
+                      (((binding ((name f) (id 299)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
                            (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name boolToIntArg) (id 369)))
+                       ((binding ((name op) (id 386)))
                         (value
-                         (Ref
-                          ((id ((name flags) (id 274)))
+                         (AtomAsArray
+                          ((element (Values ((elements ()) (type' ()))))
+                           (type' ((element (Tuple ())) (shape ())))))))
+                       ((binding ((name init) (id 416)))
+                        (value
+                         (AtomAsArray
+                          ((element (Literal (IntLiteral 0)))
+                           (type' ((element (Literal IntLiteral)) (shape ())))))))
+                       ((binding ((name arr) (id 392)))
+                        (value
+                         (ArrayPrimitive
+                          (Map (frameShape ())
+                           (args
+                            (((binding ((name f) (id 389)))
+                              (value
+                               (AtomAsArray
+                                ((element (Values ((elements ()) (type' ()))))
+                                 (type' ((element (Tuple ())) (shape ())))))))
+                             ((binding ((name boolToIntArg) (id 390)))
+                              (value
+                               (Ref
+                                ((id ((name flags) (id 294)))
+                                 (type'
+                                  ((element (Literal BooleanLiteral))
+                                   (shape ((Add ((const 3) (refs ())))))))))))))
+                           (body
+                            (ArrayPrimitive
+                             (Map (frameShape ((Add ((const 3) (refs ())))))
+                              (args
+                               (((binding ((name boolToIntArg) (id 391)))
+                                 (value
+                                  (Ref
+                                   ((id ((name boolToIntArg) (id 390)))
+                                    (type'
+                                     ((element (Literal BooleanLiteral))
+                                      (shape ((Add ((const 3) (refs ())))))))))))))
+                              (body
+                               (AtomAsArray
+                                ((element
+                                  (AtomicPrimitive
+                                   ((op BoolToInt)
+                                    (args
+                                     ((ArrayAsAtom
+                                       ((array
+                                         (Ref
+                                          ((id ((name boolToIntArg) (id 391)))
+                                           (type'
+                                            ((element (Literal BooleanLiteral))
+                                             (shape ()))))))
+                                        (type' (Literal BooleanLiteral))))))
+                                    (type' (Literal IntLiteral)))))
+                                 (type'
+                                  ((element (Literal IntLiteral)) (shape ()))))))
+                              (type'
+                               ((element (Literal IntLiteral))
+                                (shape ((Add ((const 3) (refs ()))))))))))
                            (type'
-                            ((element (Literal BooleanLiteral))
+                            ((element (Literal IntLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))))
                      (body
                       (ArrayPrimitive
-                       (Map (frameShape ((Add ((const 3) (refs ())))))
-                        (args
-                         (((binding ((name boolToIntArg) (id 370)))
-                           (value
-                            (Ref
-                             ((id ((name boolToIntArg) (id 369)))
-                              (type'
-                               ((element (Literal BooleanLiteral))
-                                (shape ((Add ((const 3) (refs ())))))))))))))
-                        (body
-                         (AtomAsArray
-                          ((element
-                            (AtomicPrimitive
-                             ((op BoolToInt)
-                              (args
-                               ((ArrayAsAtom
-                                 ((array
-                                   (Ref
-                                    ((id ((name boolToIntArg) (id 370)))
-                                     (type'
-                                      ((element (Literal BooleanLiteral))
-                                       (shape ()))))))
-                                  (type' (Literal BooleanLiteral))))))
-                              (type' (Literal IntLiteral)))))
-                           (type' ((element (Literal IntLiteral)) (shape ()))))))
-                        (type'
-                         ((element (Literal IntLiteral))
-                          (shape ((Add ((const 3) (refs ()))))))))))
-                     (type'
-                      ((element (Literal IntLiteral))
-                       (shape ((Add ((const 3) (refs ())))))))))))))
-               (body
-                (ArrayPrimitive
-                 (Map (frameShape ())
-                  (args
-                   (((binding ((name f) (id 318)))
-                     (value
-                      (AtomAsArray
-                       ((element (Values ((elements ()) (type' ()))))
-                        (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name arr) (id 400)))
-                     (value
-                      (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 325)))
+                         (((binding ((name f) (id 339)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name f) (id 366)))
+                          ((binding ((name arr) (id 421)))
                            (value
-                            (Ref
-                             ((id ((name op) (id 365)))
-                              (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name init) (id 396)))
-                           (value
-                            (Ref
-                             ((id ((name init) (id 395)))
-                              (type' ((element (Literal IntLiteral)) (shape ())))))))
-                          ((binding ((name arr) (id 372)))
-                           (value
-                            (Ref
-                             ((id ((name arr) (id 371)))
-                              (type'
-                               ((element (Literal IntLiteral))
-                                (shape ((Add ((const 3) (refs ())))))))))))))
-                        (body
-                         (ArrayPrimitive
-                          (Map (frameShape ())
-                           (args
-                            (((binding ((name up-ranked-f) (id 353)))
-                              (value
-                               (AtomAsArray
-                                ((element (Values ((elements ()) (type' ()))))
-                                 (type' ((element (Tuple ())) (shape ())))))))))
-                           (body
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 351)))
+                               (((binding ((name f) (id 346)))
                                  (value
                                   (AtomAsArray
                                    ((element (Values ((elements ()) (type' ()))))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name scan-f-arg) (id 354)))
+                                ((binding ((name f) (id 387)))
                                  (value
                                   (Ref
-                                   ((id ((name up-ranked-f) (id 353)))
+                                   ((id ((name op) (id 386)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name scan-zero-arg) (id 399)))
+                                ((binding ((name init) (id 417)))
                                  (value
+                                  (Ref
+                                   ((id ((name init) (id 416)))
+                                    (type'
+                                     ((element (Literal IntLiteral)) (shape ())))))))
+                                ((binding ((name arr) (id 393)))
+                                 (value
+                                  (Ref
+                                   ((id ((name arr) (id 392)))
+                                    (type'
+                                     ((element (Literal IntLiteral))
+                                      (shape ((Add ((const 3) (refs ())))))))))))))
+                              (body
+                               (ArrayPrimitive
+                                (Map (frameShape ())
+                                 (args
+                                  (((binding ((name up-ranked-f) (id 374)))
+                                    (value
+                                     (AtomAsArray
+                                      ((element
+                                        (Values ((elements ()) (type' ()))))
+                                       (type' ((element (Tuple ())) (shape ())))))))))
+                                 (body
                                   (ArrayPrimitive
                                    (Map (frameShape ())
                                     (args
-                                     (((binding ((name f) (id 381)))
+                                     (((binding ((name f) (id 372)))
                                        (value
                                         (AtomAsArray
                                          ((element
                                            (Values ((elements ()) (type' ()))))
                                           (type'
                                            ((element (Tuple ())) (shape ())))))))
-                                      ((binding ((name v) (id 397)))
+                                      ((binding ((name scan-f-arg) (id 375)))
                                        (value
                                         (Ref
-                                         ((id ((name init) (id 396)))
+                                         ((id ((name up-ranked-f) (id 374)))
                                           (type'
-                                           ((element (Literal IntLiteral))
-                                            (shape ())))))))))
-                                    (body
-                                     (ArrayPrimitive
-                                      (Map (frameShape ())
-                                       (args
-                                        (((binding ((name make) (id 391)))
-                                          (value
-                                           (AtomAsArray
-                                            ((element
-                                              (Values ((elements ()) (type' ()))))
-                                             (type'
-                                              ((element (Tuple ())) (shape ())))))))))
-                                       (body
+                                           ((element (Tuple ())) (shape ())))))))
+                                      ((binding ((name scan-zero-arg) (id 420)))
+                                       (value
                                         (ArrayPrimitive
                                          (Map (frameShape ())
                                           (args
-                                           (((binding ((name f) (id 392)))
+                                           (((binding ((name f) (id 402)))
                                              (value
-                                              (Ref
-                                               ((id ((name make) (id 391)))
+                                              (AtomAsArray
+                                               ((element
+                                                 (Values
+                                                  ((elements ()) (type' ()))))
                                                 (type'
                                                  ((element (Tuple ()))
                                                   (shape ())))))))
-                                            ((binding ((name v) (id 398)))
+                                            ((binding ((name v) (id 418)))
                                              (value
                                               (Ref
-                                               ((id ((name v) (id 397)))
+                                               ((id ((name init) (id 417)))
                                                 (type'
                                                  ((element (Literal IntLiteral))
                                                   (shape ())))))))))
                                           (body
                                            (ArrayPrimitive
-                                            (Map (frameShape ()) (args ())
+                                            (Map (frameShape ())
+                                             (args
+                                              (((binding ((name make) (id 412)))
+                                                (value
+                                                 (AtomAsArray
+                                                  ((element
+                                                    (Values
+                                                     ((elements ()) (type' ()))))
+                                                   (type'
+                                                    ((element (Tuple ()))
+                                                     (shape ())))))))))
                                              (body
+                                              (ArrayPrimitive
+                                               (Map (frameShape ())
+                                                (args
+                                                 (((binding ((name f) (id 413)))
+                                                   (value
+                                                    (Ref
+                                                     ((id ((name make) (id 412)))
+                                                      (type'
+                                                       ((element (Tuple ()))
+                                                        (shape ())))))))
+                                                  ((binding ((name v) (id 419)))
+                                                   (value
+                                                    (Ref
+                                                     ((id ((name v) (id 418)))
+                                                      (type'
+                                                       ((element
+                                                         (Literal IntLiteral))
+                                                        (shape ())))))))))
+                                                (body
+                                                 (ArrayPrimitive
+                                                  (Map (frameShape ()) (args ())
+                                                   (body
+                                                    (Ref
+                                                     ((id ((name v) (id 419)))
+                                                      (type'
+                                                       ((element
+                                                         (Literal IntLiteral))
+                                                        (shape ()))))))
+                                                   (type'
+                                                    ((element
+                                                      (Literal IntLiteral))
+                                                     (shape ()))))))
+                                                (type'
+                                                 ((element (Literal IntLiteral))
+                                                  (shape ()))))))
+                                             (type'
+                                              ((element (Literal IntLiteral))
+                                               (shape ()))))))
+                                          (type'
+                                           ((element (Literal IntLiteral))
+                                            (shape ())))))))
+                                      ((binding ((name scan-array-arg) (id 394)))
+                                       (value
+                                        (Ref
+                                         ((id ((name arr) (id 393)))
+                                          (type'
+                                           ((element (Literal IntLiteral))
+                                            (shape ((Add ((const 3) (refs ())))))))))))))
+                                    (body
+                                     (ArrayPrimitive
+                                      (Reduce
+                                       (arg
+                                        ((firstBinding
+                                          ((name reduce-arg1) (id 395)))
+                                         (secondBinding
+                                          ((name reduce-arg2) (id 398)))
+                                         (value
+                                          (Ref
+                                           ((id ((name scan-array-arg) (id 394)))
+                                            (type'
+                                             ((element (Literal IntLiteral))
+                                              (shape
+                                               ((Add ((const 3) (refs ()))))))))))))
+                                       (zero
+                                        (Ref
+                                         ((id ((name scan-zero-arg) (id 420)))
+                                          (type'
+                                           ((element (Literal IntLiteral))
+                                            (shape ()))))))
+                                       (body
+                                        (ArrayPrimitive
+                                         (Map (frameShape ())
+                                          (args
+                                           (((binding ((name f) (id 388)))
+                                             (value
                                               (Ref
-                                               ((id ((name v) (id 398)))
+                                               ((id ((name f) (id 387)))
+                                                (type'
+                                                 ((element (Tuple ()))
+                                                  (shape ())))))))
+                                            ((binding ((name arg0) (id 396)))
+                                             (value
+                                              (Ref
+                                               ((id
+                                                 ((name reduce-arg1) (id 395)))
+                                                (type'
+                                                 ((element (Literal IntLiteral))
+                                                  (shape ())))))))
+                                            ((binding ((name arg1) (id 399)))
+                                             (value
+                                              (Ref
+                                               ((id
+                                                 ((name reduce-arg2) (id 398)))
+                                                (type'
+                                                 ((element (Literal IntLiteral))
+                                                  (shape ())))))))))
+                                          (body
+                                           (ArrayPrimitive
+                                            (Map (frameShape ())
+                                             (args
+                                              (((binding ((name arg0) (id 397)))
+                                                (value
+                                                 (Ref
+                                                  ((id ((name arg0) (id 396)))
+                                                   (type'
+                                                    ((element
+                                                      (Literal IntLiteral))
+                                                     (shape ())))))))
+                                               ((binding ((name arg1) (id 400)))
+                                                (value
+                                                 (Ref
+                                                  ((id ((name arg1) (id 399)))
+                                                   (type'
+                                                    ((element
+                                                      (Literal IntLiteral))
+                                                     (shape ())))))))))
+                                             (body
+                                              (AtomAsArray
+                                               ((element
+                                                 (AtomicPrimitive
+                                                  ((op Add)
+                                                   (args
+                                                    ((ArrayAsAtom
+                                                      ((array
+                                                        (Ref
+                                                         ((id
+                                                           ((name arg0) (id 397)))
+                                                          (type'
+                                                           ((element
+                                                             (Literal IntLiteral))
+                                                            (shape ()))))))
+                                                       (type'
+                                                        (Literal IntLiteral))))
+                                                     (ArrayAsAtom
+                                                      ((array
+                                                        (Ref
+                                                         ((id
+                                                           ((name arg1) (id 400)))
+                                                          (type'
+                                                           ((element
+                                                             (Literal IntLiteral))
+                                                            (shape ()))))))
+                                                       (type'
+                                                        (Literal IntLiteral))))))
+                                                   (type' (Literal IntLiteral)))))
                                                 (type'
                                                  ((element (Literal IntLiteral))
                                                   (shape ()))))))
@@ -3197,176 +3339,118 @@ let%expect_test "check inlining" =
                                           (type'
                                            ((element (Literal IntLiteral))
                                             (shape ()))))))
+                                       (d ((const 3) (refs ()))) (cellShape ())
+                                       (character Scan)
                                        (type'
                                         ((element (Literal IntLiteral))
-                                         (shape ()))))))
-                                    (type'
-                                     ((element (Literal IntLiteral)) (shape ())))))))
-                                ((binding ((name scan-array-arg) (id 373)))
-                                 (value
-                                  (Ref
-                                   ((id ((name arr) (id 372)))
+                                         (shape ((Add ((const 4) (refs ()))))))))))
                                     (type'
                                      ((element (Literal IntLiteral))
-                                      (shape ((Add ((const 3) (refs ())))))))))))))
-                              (body
-                               (ArrayPrimitive
-                                (Reduce
-                                 (arg
-                                  ((firstBinding ((name reduce-arg1) (id 374)))
-                                   (secondBinding ((name reduce-arg2) (id 377)))
-                                   (value
-                                    (Ref
-                                     ((id ((name scan-array-arg) (id 373)))
-                                      (type'
-                                       ((element (Literal IntLiteral))
-                                        (shape ((Add ((const 3) (refs ()))))))))))))
-                                 (zero
-                                  (Ref
-                                   ((id ((name scan-zero-arg) (id 399)))
-                                    (type'
-                                     ((element (Literal IntLiteral)) (shape ()))))))
-                                 (body
-                                  (ArrayPrimitive
-                                   (Map (frameShape ())
-                                    (args
-                                     (((binding ((name f) (id 367)))
-                                       (value
-                                        (Ref
-                                         ((id ((name f) (id 366)))
-                                          (type'
-                                           ((element (Tuple ())) (shape ())))))))
-                                      ((binding ((name arg0) (id 375)))
-                                       (value
-                                        (Ref
-                                         ((id ((name reduce-arg1) (id 374)))
-                                          (type'
-                                           ((element (Literal IntLiteral))
-                                            (shape ())))))))
-                                      ((binding ((name arg1) (id 378)))
-                                       (value
-                                        (Ref
-                                         ((id ((name reduce-arg2) (id 377)))
-                                          (type'
-                                           ((element (Literal IntLiteral))
-                                            (shape ())))))))))
-                                    (body
-                                     (ArrayPrimitive
-                                      (Map (frameShape ())
-                                       (args
-                                        (((binding ((name arg0) (id 376)))
-                                          (value
-                                           (Ref
-                                            ((id ((name arg0) (id 375)))
-                                             (type'
-                                              ((element (Literal IntLiteral))
-                                               (shape ())))))))
-                                         ((binding ((name arg1) (id 379)))
-                                          (value
-                                           (Ref
-                                            ((id ((name arg1) (id 378)))
-                                             (type'
-                                              ((element (Literal IntLiteral))
-                                               (shape ())))))))))
-                                       (body
-                                        (AtomAsArray
-                                         ((element
-                                           (AtomicPrimitive
-                                            ((op Add)
-                                             (args
-                                              ((ArrayAsAtom
-                                                ((array
-                                                  (Ref
-                                                   ((id ((name arg0) (id 376)))
-                                                    (type'
-                                                     ((element
-                                                       (Literal IntLiteral))
-                                                      (shape ()))))))
-                                                 (type' (Literal IntLiteral))))
-                                               (ArrayAsAtom
-                                                ((array
-                                                  (Ref
-                                                   ((id ((name arg1) (id 379)))
-                                                    (type'
-                                                     ((element
-                                                       (Literal IntLiteral))
-                                                      (shape ()))))))
-                                                 (type' (Literal IntLiteral))))))
-                                             (type' (Literal IntLiteral)))))
-                                          (type'
-                                           ((element (Literal IntLiteral))
-                                            (shape ()))))))
-                                       (type'
-                                        ((element (Literal IntLiteral))
-                                         (shape ()))))))
-                                    (type'
-                                     ((element (Literal IntLiteral)) (shape ()))))))
-                                 (d ((const 3) (refs ()))) (cellShape ())
-                                 (character Scan)
+                                      (shape ((Add ((const 4) (refs ()))))))))))
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 4) (refs ()))))))))))
                               (type'
                                ((element (Literal IntLiteral))
-                                (shape ((Add ((const 4) (refs ()))))))))))
+                                (shape ((Add ((const 4) (refs ())))))))))))))
+                        (body
+                         (ArrayPrimitive
+                          (Map (frameShape ())
+                           (args
+                            (((binding ((name f) (id 344)))
+                              (value
+                               (AtomAsArray
+                                ((element (Values ((elements ()) (type' ()))))
+                                 (type' ((element (Tuple ())) (shape ())))))))
+                             ((binding
+                               ((name contiguous-subarray-array) (id 422)))
+                              (value
+                               (Ref
+                                ((id ((name arr) (id 421)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 4) (refs ())))))))))))
+                             ((binding
+                               ((name contiguous-subarray-index) (id 423)))
+                              (value
+                               (Frame
+                                ((dimensions (1))
+                                 (elements
+                                  ((AtomAsArray
+                                    ((element (Literal (IntLiteral 1)))
+                                     (type'
+                                      ((element (Literal IntLiteral)) (shape ())))))))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ())))))))))))))
+                           (body
+                            (ArrayPrimitive
+                             (ContiguousSubArray
+                              (arrayArg
+                               (Ref
+                                ((id ((name contiguous-subarray-array) (id 422)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 4) (refs ()))))))))))
+                              (indexArg
+                               (Ref
+                                ((id ((name contiguous-subarray-index) (id 423)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ()))))))))))
+                              (originalShape ((Add ((const 4) (refs ())))))
+                              (resultShape ((Add ((const 3) (refs ())))))
+                              (cellShape ()) (l ((const 1) (refs ())))
+                              (type'
+                               ((element (Literal IntLiteral))
+                                (shape ((Add ((const 3) (refs ()))))))))))
                            (type'
                             ((element (Literal IntLiteral))
-                             (shape ((Add ((const 4) (refs ()))))))))))
-                        (type'
-                         ((element (Literal IntLiteral))
-                          (shape ((Add ((const 4) (refs ())))))))))))))
-                  (body
-                   (ArrayPrimitive
-                    (Map (frameShape ())
-                     (args
-                      (((binding ((name f) (id 323)))
-                        (value
-                         (AtomAsArray
-                          ((element (Values ((elements ()) (type' ()))))
-                           (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name contiguous-subarray-array) (id 401)))
-                        (value
-                         (Ref
-                          ((id ((name arr) (id 400)))
-                           (type'
-                            ((element (Literal IntLiteral))
-                             (shape ((Add ((const 4) (refs ())))))))))))
-                       ((binding ((name contiguous-subarray-index) (id 402)))
-                        (value
-                         (Frame
-                          ((dimensions (1))
-                           (elements
-                            ((AtomAsArray
-                              ((element (Literal (IntLiteral 1)))
-                               (type'
-                                ((element (Literal IntLiteral)) (shape ())))))))
-                           (type'
-                            ((element (Literal IntLiteral))
-                             (shape ((Add ((const 1) (refs ())))))))))))))
-                     (body
-                      (ArrayPrimitive
-                       (ContiguousSubArray
-                        (arrayArg
-                         (Ref
-                          ((id ((name contiguous-subarray-array) (id 401)))
-                           (type'
-                            ((element (Literal IntLiteral))
-                             (shape ((Add ((const 4) (refs ()))))))))))
-                        (indexArg
-                         (Ref
-                          ((id ((name contiguous-subarray-index) (id 402)))
-                           (type'
-                            ((element (Literal IntLiteral))
-                             (shape ((Add ((const 1) (refs ()))))))))))
-                        (originalShape ((Add ((const 4) (refs ())))))
-                        (resultShape ((Add ((const 3) (refs ())))))
-                        (cellShape ()) (l ((const 1) (refs ())))
+                             (shape ((Add ((const 3) (refs ()))))))))))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ()))))))))))
                      (type'
                       ((element (Literal IntLiteral))
-                       (shape ((Add ((const 3) (refs ()))))))))))
+                       (shape ((Add ((const 3) (refs ())))))))))))
+                 ((binding ((name -arg2) (id 426)))
+                  (value
+                   (AtomAsArray
+                    ((element (Literal (IntLiteral 1)))
+                     (type' ((element (Literal IntLiteral)) (shape ())))))))))
+               (body
+                (ArrayPrimitive
+                 (Map (frameShape ((Add ((const 3) (refs ())))))
+                  (args
+                   (((binding ((name -arg1) (id 425)))
+                     (value
+                      (Ref
+                       ((id ((name -arg1) (id 424)))
+                        (type'
+                         ((element (Literal IntLiteral))
+                          (shape ((Add ((const 3) (refs ())))))))))))))
+                  (body
+                   (AtomAsArray
+                    ((element
+                      (AtomicPrimitive
+                       ((op Sub)
+                        (args
+                         ((ArrayAsAtom
+                           ((array
+                             (Ref
+                              ((id ((name -arg1) (id 425)))
+                               (type'
+                                ((element (Literal IntLiteral)) (shape ()))))))
+                            (type' (Literal IntLiteral))))
+                          (ArrayAsAtom
+                           ((array
+                             (Ref
+                              ((id ((name -arg2) (id 426)))
+                               (type'
+                                ((element (Literal IntLiteral)) (shape ()))))))
+                            (type' (Literal IntLiteral))))))
+                        (type' (Literal IntLiteral)))))
+                     (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ()))))))))))
@@ -3377,41 +3461,41 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name locs) (id 425)))
+             (((binding ((name locs) (id 449)))
                (value
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 273)))
+                   (((binding ((name f) (id 293)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name if-cond) (id 275)))
+                    ((binding ((name if-cond) (id 295)))
                      (value
                       (Ref
-                       ((id ((name flags) (id 274)))
+                       ((id ((name flags) (id 294)))
                         (type'
                          ((element (Literal BooleanLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name then-branch) (id 404)))
+                    ((binding ((name then-branch) (id 428)))
                      (value
                       (Ref
-                       ((id ((name locs-raw) (id 403)))
+                       ((id ((name locs-raw) (id 427)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name else-branch) (id 423)))
+                    ((binding ((name else-branch) (id 447)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 407)))
+                         (((binding ((name f) (id 431)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 421)))
+                          ((binding ((name v) (id 445)))
                            (value
                             (AtomAsArray
                              ((element (Literal (IntLiteral -1)))
@@ -3420,7 +3504,7 @@ let%expect_test "check inlining" =
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name make) (id 417)))
+                            (((binding ((name make) (id 441)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
@@ -3429,15 +3513,15 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 418)))
+                               (((binding ((name f) (id 442)))
                                  (value
                                   (Ref
-                                   ((id ((name make) (id 417)))
+                                   ((id ((name make) (id 441)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name v) (id 422)))
+                                ((binding ((name v) (id 446)))
                                  (value
                                   (Ref
-                                   ((id ((name v) (id 421)))
+                                   ((id ((name v) (id 445)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ())))))))))
                               (body
@@ -3446,7 +3530,7 @@ let%expect_test "check inlining" =
                                  (args ())
                                  (body
                                   (Ref
-                                   ((id ((name v) (id 422)))
+                                   ((id ((name v) (id 446)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ()))))))
                                  (type'
@@ -3465,24 +3549,24 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Map (frameShape ((Add ((const 3) (refs ())))))
                      (args
-                      (((binding ((name if-cond) (id 276)))
+                      (((binding ((name if-cond) (id 296)))
                         (value
                          (Ref
-                          ((id ((name if-cond) (id 275)))
+                          ((id ((name if-cond) (id 295)))
                            (type'
                             ((element (Literal BooleanLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))
-                       ((binding ((name then-branch) (id 405)))
+                       ((binding ((name then-branch) (id 429)))
                         (value
                          (Ref
-                          ((id ((name then-branch) (id 404)))
+                          ((id ((name then-branch) (id 428)))
                            (type'
                             ((element (Literal IntLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))
-                       ((binding ((name else-branch) (id 424)))
+                       ((binding ((name else-branch) (id 448)))
                         (value
                          (Ref
-                          ((id ((name else-branch) (id 423)))
+                          ((id ((name else-branch) (id 447)))
                            (type'
                             ((element (Literal IntLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3495,7 +3579,7 @@ let%expect_test "check inlining" =
                             ((ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name if-cond) (id 276)))
+                                 ((id ((name if-cond) (id 296)))
                                   (type'
                                    ((element (Literal BooleanLiteral))
                                     (shape ()))))))
@@ -3503,14 +3587,14 @@ let%expect_test "check inlining" =
                              (ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name then-branch) (id 405)))
+                                 ((id ((name then-branch) (id 429)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))
                              (ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name else-branch) (id 424)))
+                                 ((id ((name else-branch) (id 448)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))))
@@ -3526,87 +3610,181 @@ let%expect_test "check inlining" =
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name result-size) (id 439)))
+                (((binding ((name result-size) (id 469)))
                   (value
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name f) (id 428)))
+                      (((binding ((name f) (id 451)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
                            (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name arr) (id 435)))
+                       ((binding ((name +arg1) (id 452)))
                         (value
-                         (Ref
-                          ((id ((name locs-raw) (id 403)))
-                           (type'
-                            ((element (Literal IntLiteral))
-                             (shape ((Add ((const 3) (refs ())))))))))))
-                       ((binding ((name index) (id 437)))
+                         (AtomAsArray
+                          ((element (Literal (IntLiteral 1)))
+                           (type' ((element (Literal IntLiteral)) (shape ())))))))
+                       ((binding ((name +arg2) (id 468)))
                         (value
-                         (Frame
-                          ((dimensions (1))
-                           (elements
-                            ((ReifyIndex
-                              ((index (Dimension ((const 3) (refs ()))))
-                               (type'
-                                ((element (Literal IntLiteral)) (shape ())))))))
-                           (type'
-                            ((element (Literal IntLiteral))
-                             (shape ((Add ((const 1) (refs ())))))))))))))
-                     (body
-                      (ArrayPrimitive
-                       (Map (frameShape ())
-                        (args
-                         (((binding ((name f) (id 434)))
-                           (value
-                            (AtomAsArray
-                             ((element (Values ((elements ()) (type' ()))))
-                              (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name contiguous-subarray-array) (id 436)))
-                           (value
-                            (Ref
-                             ((id ((name arr) (id 435)))
-                              (type'
-                               ((element (Literal IntLiteral))
-                                (shape ((Add ((const 3) (refs ())))))))))))
-                          ((binding ((name contiguous-subarray-index) (id 438)))
-                           (value
-                            (Ref
-                             ((id ((name index) (id 437)))
-                              (type'
-                               ((element (Literal IntLiteral))
-                                (shape ((Add ((const 1) (refs ())))))))))))))
-                        (body
                          (ArrayPrimitive
-                          (ContiguousSubArray
-                           (arrayArg
-                            (Ref
-                             ((id ((name contiguous-subarray-array) (id 436)))
-                              (type'
-                               ((element (Literal IntLiteral))
-                                (shape ((Add ((const 3) (refs ()))))))))))
-                           (indexArg
-                            (Ref
-                             ((id ((name contiguous-subarray-index) (id 438)))
-                              (type'
-                               ((element (Literal IntLiteral))
-                                (shape ((Add ((const 1) (refs ()))))))))))
-                           (originalShape ((Add ((const 3) (refs ())))))
-                           (resultShape ()) (cellShape ())
-                           (l ((const 1) (refs ())))
-                           (type' ((element (Literal IntLiteral)) (shape ()))))))
+                          (Map (frameShape ())
+                           (args
+                            (((binding ((name f) (id 454)))
+                              (value
+                               (AtomAsArray
+                                ((element (Values ((elements ()) (type' ()))))
+                                 (type' ((element (Tuple ())) (shape ())))))))
+                             ((binding ((name arr) (id 461)))
+                              (value
+                               (Ref
+                                ((id ((name locs-raw) (id 427)))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 3) (refs ())))))))))))
+                             ((binding ((name index) (id 466)))
+                              (value
+                               (Frame
+                                ((dimensions (1))
+                                 (elements
+                                  ((ArrayPrimitive
+                                    (Map (frameShape ())
+                                     (args
+                                      (((binding ((name f) (id 463)))
+                                        (value
+                                         (AtomAsArray
+                                          ((element
+                                            (Values ((elements ()) (type' ()))))
+                                           (type'
+                                            ((element (Tuple ())) (shape ())))))))
+                                       ((binding ((name -arg1) (id 464)))
+                                        (value
+                                         (ReifyIndex
+                                          ((index
+                                            (Dimension ((const 3) (refs ()))))
+                                           (type'
+                                            ((element (Literal IntLiteral))
+                                             (shape ())))))))
+                                       ((binding ((name -arg2) (id 465)))
+                                        (value
+                                         (AtomAsArray
+                                          ((element (Literal (IntLiteral 1)))
+                                           (type'
+                                            ((element (Literal IntLiteral))
+                                             (shape ())))))))))
+                                     (body
+                                      (AtomAsArray
+                                       ((element
+                                         (AtomicPrimitive
+                                          ((op Sub)
+                                           (args
+                                            ((ArrayAsAtom
+                                              ((array
+                                                (Ref
+                                                 ((id ((name -arg1) (id 464)))
+                                                  (type'
+                                                   ((element
+                                                     (Literal IntLiteral))
+                                                    (shape ()))))))
+                                               (type' (Literal IntLiteral))))
+                                             (ArrayAsAtom
+                                              ((array
+                                                (Ref
+                                                 ((id ((name -arg2) (id 465)))
+                                                  (type'
+                                                   ((element
+                                                     (Literal IntLiteral))
+                                                    (shape ()))))))
+                                               (type' (Literal IntLiteral))))))
+                                           (type' (Literal IntLiteral)))))
+                                        (type'
+                                         ((element (Literal IntLiteral))
+                                          (shape ()))))))
+                                     (type'
+                                      ((element (Literal IntLiteral)) (shape ())))))))
+                                 (type'
+                                  ((element (Literal IntLiteral))
+                                   (shape ((Add ((const 1) (refs ())))))))))))))
+                           (body
+                            (ArrayPrimitive
+                             (Map (frameShape ())
+                              (args
+                               (((binding ((name f) (id 460)))
+                                 (value
+                                  (AtomAsArray
+                                   ((element (Values ((elements ()) (type' ()))))
+                                    (type' ((element (Tuple ())) (shape ())))))))
+                                ((binding
+                                  ((name contiguous-subarray-array) (id 462)))
+                                 (value
+                                  (Ref
+                                   ((id ((name arr) (id 461)))
+                                    (type'
+                                     ((element (Literal IntLiteral))
+                                      (shape ((Add ((const 3) (refs ())))))))))))
+                                ((binding
+                                  ((name contiguous-subarray-index) (id 467)))
+                                 (value
+                                  (Ref
+                                   ((id ((name index) (id 466)))
+                                    (type'
+                                     ((element (Literal IntLiteral))
+                                      (shape ((Add ((const 1) (refs ())))))))))))))
+                              (body
+                               (ArrayPrimitive
+                                (ContiguousSubArray
+                                 (arrayArg
+                                  (Ref
+                                   ((id
+                                     ((name contiguous-subarray-array) (id 462)))
+                                    (type'
+                                     ((element (Literal IntLiteral))
+                                      (shape ((Add ((const 3) (refs ()))))))))))
+                                 (indexArg
+                                  (Ref
+                                   ((id
+                                     ((name contiguous-subarray-index) (id 467)))
+                                    (type'
+                                     ((element (Literal IntLiteral))
+                                      (shape ((Add ((const 1) (refs ()))))))))))
+                                 (originalShape ((Add ((const 3) (refs ())))))
+                                 (resultShape ()) (cellShape ())
+                                 (l ((const 1) (refs ())))
+                                 (type'
+                                  ((element (Literal IntLiteral)) (shape ()))))))
+                              (type' ((element (Literal IntLiteral)) (shape ()))))))
+                           (type' ((element (Literal IntLiteral)) (shape ())))))))))
+                     (body
+                      (AtomAsArray
+                       ((element
+                         (AtomicPrimitive
+                          ((op Add)
+                           (args
+                            ((ArrayAsAtom
+                              ((array
+                                (Ref
+                                 ((id ((name +arg1) (id 452)))
+                                  (type'
+                                   ((element (Literal IntLiteral)) (shape ()))))))
+                               (type' (Literal IntLiteral))))
+                             (ArrayAsAtom
+                              ((array
+                                (Ref
+                                 ((id ((name +arg2) (id 468)))
+                                  (type'
+                                   ((element (Literal IntLiteral)) (shape ()))))))
+                               (type' (Literal IntLiteral))))))
+                           (type' (Literal IntLiteral)))))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))
                      (type' ((element (Literal IntLiteral)) (shape ())))))))))
                (body
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name index-value) (id 440)))
+                   (((binding ((name index-value) (id 470)))
                      (value
                       (Ref
-                       ((id ((name result-size) (id 439)))
+                       ((id ((name result-size) (id 469)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
                    (IndexLet
@@ -3615,7 +3793,7 @@ let%expect_test "check inlining" =
                         (indexValue
                          (Runtime
                           (Ref
-                           ((id ((name index-value) (id 440)))
+                           ((id ((name index-value) (id 470)))
                             (type' ((element (Literal IntLiteral)) (shape ())))))))
                         (sort Dim))))
                      (body
@@ -3629,22 +3807,22 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 270)))
+                               (((binding ((name f) (id 290)))
                                  (value
                                   (AtomAsArray
                                    ((element (Values ((elements ()) (type' ()))))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name scatter-values) (id 272)))
+                                ((binding ((name scatter-values) (id 292)))
                                  (value
                                   (Ref
-                                   ((id ((name arr) (id 271)))
+                                   ((id ((name arr) (id 291)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))
-                                ((binding ((name scatter-indices) (id 426)))
+                                ((binding ((name scatter-indices) (id 450)))
                                  (value
                                   (Ref
-                                   ((id ((name locs) (id 425)))
+                                   ((id ((name locs) (id 449)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3653,13 +3831,13 @@ let%expect_test "check inlining" =
                                 (Scatter
                                  (valuesArg
                                   (Ref
-                                   ((id ((name scatter-values) (id 272)))
+                                   ((id ((name scatter-values) (id 292)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ()))))))))))
                                  (indicesArg
                                   (Ref
-                                   ((id ((name scatter-indices) (id 426)))
+                                   ((id ((name scatter-indices) (id 450)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ()))))))))))

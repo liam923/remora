@@ -1331,13 +1331,13 @@ let%expect_test "box and unbox" =
         (consumer (values))))))
     Result of stage Alloc:
     (malloc-let
-     ((map-mem.169 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
+     ((map-mem.172 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
        host)
-      (frame-array.165
+      (frame-array.168
        (Array ((element (Literal CharacterLiteral)) (shape (shape 2)))) host)
-      (frame-array.160
+      (frame-array.163
        (Array ((element (Literal CharacterLiteral)) (shape (shape 3)))) host)
-      (frame-array.159
+      (frame-array.162
        (Array
         ((element
           (Sigma
@@ -1356,16 +1356,16 @@ let%expect_test "box and unbox" =
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.160) (offset 0)
+               (index (mem frame-array.163) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'e'
-               (index (mem frame-array.160) (offset 1)
+               (index (mem frame-array.163) (offset 1)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'y'
-               (index (mem frame-array.160) (offset 2)
+               (index (mem frame-array.163) (offset 2)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.160)))
-           (index (mem frame-array.159) (offset 0)
+             (getmem frame-array.163)))
+           (index (mem frame-array.162) (offset 0)
             (type'
              (Atom
               (Sigma
@@ -1378,13 +1378,13 @@ let%expect_test "box and unbox" =
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.165) (offset 0)
+               (index (mem frame-array.168) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'i'
-               (index (mem frame-array.165) (offset 1)
+               (index (mem frame-array.168) (offset 1)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.165)))
-           (index (mem frame-array.159) (offset 1)
+             (getmem frame-array.168)))
+           (index (mem frame-array.162) (offset 1)
             (type'
              (Atom
               (Sigma
@@ -1392,25 +1392,25 @@ let%expect_test "box and unbox" =
                 (body
                  (Array
                   ((element (Literal CharacterLiteral)) (shape (shape len.133))))))))))))
-         (getmem frame-array.159))))
+         (getmem frame-array.162))))
       (#0
        (#0
         (loop (frame-shape 2)
-         (map ((box.153 box.151) (map-mem.170 map-mem.169))
+         (map ((box.153 box.151) (map-mem.173 map-mem.172))
           (index-let ((len.134 box-index-0 box.153))
-           (let ((expr-result.171 (= 3 (reify-dimension-index len.134))))
-            (begin (putmem expr-result.171 map-mem.170) expr-result.171))))
+           (let ((expr-result.174 (= 3 (reify-dimension-index len.134))))
+            (begin (putmem expr-result.174 map-mem.173) expr-result.174))))
          (body-matcher map-result.152) (map-result (map-result.152))
-         (map-result-mem-final (values map-mem.169)) (consumer (values)))))))
+         (map-result-mem-final (values map-mem.172)) (consumer (values)))))))
     Result of stage Capture:
     (malloc-let
-     ((map-mem.169 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
+     ((map-mem.172 (Array ((element (Literal BooleanLiteral)) (shape (shape 2))))
        host)
-      (frame-array.165
+      (frame-array.168
        (Array ((element (Literal CharacterLiteral)) (shape (shape 2)))) host)
-      (frame-array.160
+      (frame-array.163
        (Array ((element (Literal CharacterLiteral)) (shape (shape 3)))) host)
-      (frame-array.159
+      (frame-array.162
        (Array
         ((element
           (Sigma
@@ -1429,16 +1429,16 @@ let%expect_test "box and unbox" =
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.160) (offset 0)
+               (index (mem frame-array.163) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'e'
-               (index (mem frame-array.160) (offset 1)
+               (index (mem frame-array.163) (offset 1)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'y'
-               (index (mem frame-array.160) (offset 2)
+               (index (mem frame-array.163) (offset 2)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.160)))
-           (index (mem frame-array.159) (offset 0)
+             (getmem frame-array.163)))
+           (index (mem frame-array.162) (offset 0)
             (type'
              (Atom
               (Sigma
@@ -1451,13 +1451,13 @@ let%expect_test "box and unbox" =
             (begin
              (begin-do
               (putmem 'h'
-               (index (mem frame-array.165) (offset 0)
+               (index (mem frame-array.168) (offset 0)
                 (type' (Atom (Literal CharacterLiteral)))))
               (putmem 'i'
-               (index (mem frame-array.165) (offset 1)
+               (index (mem frame-array.168) (offset 1)
                 (type' (Atom (Literal CharacterLiteral))))))
-             (getmem frame-array.165)))
-           (index (mem frame-array.159) (offset 1)
+             (getmem frame-array.168)))
+           (index (mem frame-array.162) (offset 1)
             (type'
              (Atom
               (Sigma
@@ -1465,16 +1465,16 @@ let%expect_test "box and unbox" =
                 (body
                  (Array
                   ((element (Literal CharacterLiteral)) (shape (shape len.133))))))))))))
-         (getmem frame-array.159))))
+         (getmem frame-array.162))))
       (#0
        (#0
         (loop (frame-shape 2)
-         (map ((box.153 box.151) (map-mem.170 map-mem.169))
+         (map ((box.153 box.151) (map-mem.173 map-mem.172))
           (index-let ((len.134 box-index-0 box.153))
-           (let ((expr-result.171 (= 3 (reify-dimension-index len.134))))
-            (begin (putmem expr-result.171 map-mem.170) expr-result.171))))
+           (let ((expr-result.174 (= 3 (reify-dimension-index len.134))))
+            (begin (putmem expr-result.174 map-mem.173) expr-result.174))))
          (body-matcher map-result.152) (map-result (map-result.152))
-         (map-result-mem-final (values map-mem.169)) (consumer (values))))))) |}]
+         (map-result-mem-final (values map-mem.172)) (consumer (values))))))) |}]
 ;;
 
 let%expect_test "sum rows" =
