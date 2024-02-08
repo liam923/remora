@@ -228,7 +228,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
           let derefString =
             derefStack
             |> List.rev
-            |> List.map ~f:(fun i -> [%string "[%{i#Int}]"])
+            |> List.map ~f:(fun i -> [%string ".%{i#Int}"])
             |> String.concat
           in
           let varName = [%string "%{Identifier.name masterId}%{derefString}"] in
@@ -606,7 +606,22 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
        Expr.Unzip { unzipArg; type' }
      | Collection _ -> raise (TupleRequest.unexpected ~actual:request ~expected:"tuple"))
   | IndexLet { indexArgs; body; type' } ->
-    let%map body = reduceTuplesInExpr request body in
+    let%map body = reduceTuplesInExpr request body
+    and indexArgs =
+      indexArgs
+      |> List.map ~f:(fun { indexBinding; indexValue; sort } ->
+        let%bind indexValue =
+          match indexValue with
+          | Runtime value ->
+            let%bind value = reduceTuplesInExpr Whole value in
+            return @@ Expr.Runtime value
+          | FromBox { i; box } ->
+            let%bind box = reduceTuplesInExpr Whole box in
+            return @@ Expr.FromBox { i; box }
+        in
+        return @@ Expr.{ indexBinding; indexValue; sort })
+      |> ReduceTupleState.all
+    in
     Expr.IndexLet { indexArgs; body; type' }
   | Let { args; body; type' } ->
     let%bind body = reduceTuplesInExpr request body in
