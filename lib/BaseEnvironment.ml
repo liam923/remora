@@ -625,7 +625,7 @@ module Stdlib : S = struct
                 (fn ([arr [t l @cell-shape]] [flags [bool l]])
                   (define locs-raw (- (iscan-init{int | l [] []} + 0 (bool->int flags)) 1))
                   (define locs (if{int | } flags locs-raw (replicate{int | [l] []} -1)))
-                  (define result-size (index{int | [l] [] 1} locs-raw [(reify-dimension l)]))
+                  (define result-size (+ 1 (index{int | [l] [] 1} locs-raw [(- (reify-dimension l) 1)])))
                   (lift [d result-size]
                     (scatter{t | l d @cell-shape} arr locs)))))
             |}

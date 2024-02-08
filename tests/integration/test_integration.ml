@@ -231,3 +231,16 @@ let%expect_test "covariance" =
     |};
   [%expect {| 2.16667 |}]
 ;;
+
+let%expect_test "filter" =
+  compileAndRun
+    {|
+    ; sum the even numbers from 1 to 10,000
+    (define nums (+ 1 iota{ | [10000]}))
+    (define evens (filter{int | 10000 []} nums (= (% nums 2) 0)))
+
+    (unbox evens (nums len)
+      (reduce-init{int | len [] []} + 0 nums))
+    |};
+  [%expect {| 25005000 |}]
+;;
