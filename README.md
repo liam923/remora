@@ -8,8 +8,7 @@ Remora was designed as the [PhD thesis of Justin Slepak](https://ccs.neu.edu/~jr
 
 This project, which is currently in-progress, aims to compile Remora code into efficient CUDA C code for GPU execution.
 
-An interim report is available in this repository at [./interim-report.pdf](./interim-report.pdf).
-This report describes in detail what has been done so far (at the time of writing it) for the project, as well as what the next steps are.
+An report is available in this repository at [./thesis-report.pdf](./thesis-report.pdf) that describes how the compiler works.
 
 ## Usage
 
@@ -21,11 +20,14 @@ opam install .
 
 ### Compile a program
 
-The following command will print out an intermediate representation of a program that is the product of what has been implement so far. 
+The following command will print to stdout a complete CUDA C++ 17 program:
 
 ```bash
 dune exec --display=quiet -- remora /path/to/program.remora
 ```
+
+The CUDA C program can then be compiled with [nvcc](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html).
+It is recommended to use the flags `-std=c++17 -arch=native -w`.
 
 ### Run Tests
 
