@@ -7,6 +7,7 @@ let prelude =
 #include <cstdio>
 #include <algorithm>
 #include <iostream>
+#include <vector>
 
 static void HandleError(cudaError_t err, const char *file, int line) {
   if (err != cudaSuccess) {
