@@ -163,6 +163,7 @@ void printArray(T* elements, int64_t* dims, int64_t dimCount) {
   }
 };
 |}
+  |> String.strip
   |> String.split_lines
 ;;
 

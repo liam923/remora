@@ -277,7 +277,7 @@ let printProgram { includes; prelude; structDecs; funDecs; main } =
      @ [ printMain main ])
 ;;
 
-let printC prog = printProgram prog |> Buffer.create ~indent:"    "
+let printC prog = printProgram prog |> Buffer.create ~indent:"    " |> String.strip
 
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
