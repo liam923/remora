@@ -674,6 +674,58 @@ module Stdlib : S = struct
       ; userVisible = true
       ; value = Expression {| (fn ([x float]) (if{float | } (>=. x 0.) x (*. x -1.))) |}
       }
+    ; { name = "max"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (l-1)
+              (fn ([arr [int (+ l-1 1)]])
+                (reduce{int | l-1 [] []}
+                  (fn ([a int] [b int])
+                    (if{int | } (> a b) a b))
+                  arr)))
+            |}
+      }
+    ; { name = "max."
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (l-1)
+              (fn ([arr [float (+ l-1 1)]])
+                (reduce{float | l-1 [] []}
+                  (fn ([a float] [b float])
+                    (if{float | } (>. a b) a b))
+                  arr)))
+            |}
+      }
+    ; { name = "min"
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (l-1)
+              (fn ([arr [int (+ l-1 1)]])
+                (reduce{int | l-1 [] []}
+                  (fn ([a int] [b int])
+                    (if{int | } (< a b) a b))
+                  arr)))
+            |}
+      }
+    ; { name = "min."
+      ; userVisible = true
+      ; value =
+          Expression
+            {|
+            (i-fn (l-1)
+              (fn ([arr [float (+ l-1 1)]])
+                (reduce{float | l-1 [] []}
+                  (fn ([a float] [b float])
+                    (if{float | } (<. a b) a b))
+                  arr)))
+            |}
+      }
     ]
   ;;
 
