@@ -75,6 +75,7 @@ let rec nonComputational : Expr.t -> bool = function
   | BoxValue { box; type' = _ } -> nonComputational box
   | IndexLet _ -> false
   | ReifyIndex _ -> false
+  | ShapeProd _ -> false
   | Box _ -> false
   | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
     true
@@ -122,6 +123,7 @@ let getCounts =
       and bodyCounts = getCountsExpr inLoop body in
       Counts.merge (bodyCounts :: indexValueCounts)
     | ReifyIndex { index; type' = _ } -> getCountsIndex inLoop index
+    | ShapeProd shape -> getCountsIndex inLoop @@ Shape shape
     | Let { args; body; type' = _ } ->
       let argCounts = args |> List.map ~f:(fun arg -> getCountsExpr inLoop arg.value)
       and bodyCounts = getCountsExpr inLoop body in
@@ -244,6 +246,7 @@ let rec subExpr subKey subValue : Expr.t -> Expr.t option =
     and body = subExpr subKey subValue body in
     IndexLet { indexArgs; body; type' }
   | ReifyIndex { index; type' } -> return (ReifyIndex { index; type' })
+  | ShapeProd shape -> return (ShapeProd shape)
   | Let { args; body; type' } ->
     let%map args =
       args
@@ -398,6 +401,15 @@ let rec optimize : Expr.t -> Expr.t =
          ; type'
          }
      | None -> original)
+  | ShapeProd shape ->
+    (* Compute the shape product if all dimensions are statically known *)
+    shape
+    |> List.map ~f:(function
+      | ShapeRef _ -> None
+      | Add { const; refs } -> if Map.is_empty refs then Some const else None)
+    |> Option.all
+    |> Option.value_map ~default:(ShapeProd shape) ~f:(fun elems ->
+      Literal (IntLiteral (List.fold elems ~init:1 ~f:( * ))))
   | Append { args; type' } ->
     let args = List.map args ~f:optimize in
     let elementType =
@@ -668,6 +680,7 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
     let body, bodyHoistings = hoistDeclarationsInBody body ~bindings in
     Expr.IndexLet { indexArgs; body; type' }, indexValueHoistings @ bodyHoistings
   | ReifyIndex _ as reify -> reify, []
+  | ShapeProd _ as shapeProd -> shapeProd, []
   | Append { args; type' } ->
     let args, hoistings = hoistDeclarationsMap args ~f:hoistDeclarations in
     Append { args; type' }, hoistings
@@ -925,6 +938,7 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
       and body, bodyHoistings = hoistExpressionsInBody loopBarrier body ~bindings in
       Expr.IndexLet { indexArgs; body; type' }, indexValueHoistings @ bodyHoistings
     | ReifyIndex _ as reify -> return (reify, [])
+    | ShapeProd _ as shapeProd -> return (shapeProd, [])
     | Append { args; type' } ->
       let%map args, hoistings =
         hoistExpressionsMap args ~f:(hoistExpressions loopBarrier)

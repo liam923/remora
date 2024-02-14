@@ -1263,6 +1263,7 @@ and genExpr
   | _, MallocLet mallocLet ->
     genMallocLet ~hostOrDevice ~genBody:(genExpr ~hostOrDevice ~store) mallocLet
   | _, ReifyDimensionIndex { dim } -> GenState.storeExpr ~name:"reifiedDim" @@ genDim dim
+  | _, ShapeProd shape -> GenState.storeExpr ~name:"shapeProd" @@ genShapeSize shape
   | ( _
     , LoopBlock
         { frameShape

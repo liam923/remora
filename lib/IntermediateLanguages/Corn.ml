@@ -229,6 +229,7 @@ module Expr = struct
     | BoxValue : 'l boxValue -> 'l t
     | IndexLet : 'l indexLet -> 'l t
     | ReifyIndex : reifyIndex -> _ t
+    | ShapeProd : Index.shape -> _ t
     | Let : 'l let' -> 'l t
     | LoopBlock : ('l, 'l, sequential, 'e) loopBlock -> 'l t
     | LoopKernel : (host, device, parallel, Maybe.doesExist) loopBlock kernel -> host t
@@ -259,6 +260,7 @@ module Expr = struct
     | IndexLet indexLet -> indexLet.type'
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
+    | ShapeProd _ -> Literal IntLiteral
     | LoopBlock loopBlock -> Tuple loopBlock.type'
     | LoopKernel loopKernel -> Tuple loopKernel.kernel.type'
     | MapKernel mapKernel -> mapKernel.kernel.type'
@@ -636,6 +638,8 @@ module Expr = struct
       | IndexLet indexLet -> sexp_of_indexLet sexp_of_a indexLet
       | Let let' -> sexp_of_let sexp_of_a let'
       | ReifyIndex reifyIndex -> sexp_of_reifyIndex reifyIndex
+      | ShapeProd shape ->
+        Sexp.List [ Sexp.Atom "shape-prod"; [%sexp_of: Index.shape] shape ]
       | LoopBlock loopBlock ->
         sexp_of_loopBlock sexp_of_a sexp_of_a sexp_of_sequential () loopBlock
       | LoopKernel loopKernel ->

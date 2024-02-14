@@ -410,6 +410,9 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
   | ReifyIndex _ as reifyIndex ->
     assert (TupleRequest.isWhole request);
     return reifyIndex
+  | ShapeProd _ as shapeProd ->
+    assert (TupleRequest.isWhole request);
+    return shapeProd
   | Append { args; type' } ->
     let%map args =
       args |> List.map ~f:(reduceTuplesInExpr request) |> ReduceTupleState.all

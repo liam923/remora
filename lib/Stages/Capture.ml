@@ -226,6 +226,7 @@ module Captures = struct
       + getInType type'
     | Eseq { statement; expr; type' = _ } -> getInStatement statement + getInExpr expr
     | ReifyDimensionIndex { dim } -> getInDim dim
+    | ShapeProd shape -> getInShape shape
     | Literal _ -> empty
     | Getmem { addr; type' = _ } -> getInMem addr
 
@@ -463,7 +464,7 @@ let rec annotateExpr : type l. l Expr.sansCaptures -> l Expr.withCaptures = func
       }
   | Eseq { statement; expr; type' } ->
     Eseq { statement = annotateStatement statement; expr = annotateExpr expr; type' }
-  | (Ref _ | ReifyDimensionIndex _ | Literal _ | Getmem _) as expr -> expr
+  | (Ref _ | ReifyDimensionIndex _ | ShapeProd _ | Literal _ | Getmem _) as expr -> expr
 
 and annotateStatement
   : type l. l Expr.statementSansCaptures -> l Expr.statementWithCaptures

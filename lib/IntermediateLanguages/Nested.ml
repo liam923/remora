@@ -254,6 +254,7 @@ module Expr = struct
     | BoxValue of boxValue
     | IndexLet of indexLet
     | ReifyIndex of reifyIndex
+    | ShapeProd of Index.shape
     | Let of let'
     | LoopBlock of loopBlock
     | Box of box
@@ -282,6 +283,7 @@ module Expr = struct
     | IndexLet indexLet -> indexLet.type'
     | Let let' -> let'.type'
     | ReifyIndex reifyIndex -> reifyIndex.type'
+    | ShapeProd _ -> Literal IntLiteral
     | LoopBlock loopBlock -> Tuple loopBlock.type'
     | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
     | Append append -> append.type'
@@ -558,6 +560,8 @@ module Expr = struct
       | IndexLet indexLet -> sexp_of_indexLet indexLet
       | Let let' -> sexp_of_let let'
       | ReifyIndex reifyIndex -> sexp_of_reifyIndex reifyIndex
+      | ShapeProd shape ->
+        Sexp.List [ Sexp.Atom "shape-prod"; [%sexp_of: Index.shape] shape ]
       | LoopBlock loopBlock -> sexp_of_loopBlock loopBlock
       | ContiguousSubArray contiguousSubArray ->
         sexp_of_contiguousSubArray contiguousSubArray

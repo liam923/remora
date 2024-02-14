@@ -443,6 +443,7 @@ let rec getPossibleMemSources
       in
       MemSourceState.withEnvExtensions envExtensions @@ getPossibleMemSources body
     | ReifyDimensionIndex { dim = _ } -> return @@ Set.empty (module Identifier)
+    | ShapeProd _ -> return @@ Set.empty (module Identifier)
     | LoopBlock loopBlock ->
       getPossibleMemSourcesInLoopBlock ~mapResultMemInterim:None loopBlock
     | LoopKernel
@@ -1187,6 +1188,7 @@ let rec allocRequest
      | _ ->
        let%map mem = getMemForResult type' "reify-index-array" in
        statementToAllocResult ~mem (ReifyShapeIndex { shape; mem }))
+  | ShapeProd shape -> unwrittenExprToAllocResult @@ ShapeProd (convertShape shape)
   | Let { args; body; type' = _ } ->
     let argBindings =
       args |> List.map ~f:(fun arg -> arg.binding) |> Set.of_list (module Identifier)

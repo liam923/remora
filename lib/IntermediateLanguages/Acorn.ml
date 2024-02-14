@@ -519,6 +519,7 @@ module Expr = struct
     | IndexLet : ('l, 'c) indexLet -> ('l, 'c) t
     | MallocLet : ('l, 'c) t mallocLet -> ('l, 'c) t
     | ReifyDimensionIndex : reifyDimensionIndex -> (_, _) t
+    | ShapeProd : Index.shape -> (_, _) t
     | LoopBlock : ('l, 'l, sequential, 'c, 'e) loopBlock -> ('l, 'c) t
     | LoopKernel : (('c, Maybe.doesExist) parLoopBlock, 'c) kernel -> (host, 'c) t
     | Let : ('l, ('l, 'c) t, 'c) let' -> ('l, 'c) t
@@ -567,6 +568,7 @@ module Expr = struct
     | Let let' -> type' let'.body
     | MallocLet mallocLet -> type' mallocLet.body
     | ReifyDimensionIndex _ -> Atom (Literal IntLiteral)
+    | ShapeProd _ -> Atom (Literal IntLiteral)
     | LoopBlock loopBlock -> Tuple loopBlock.type'
     | LoopKernel loopKernel -> Tuple loopKernel.kernel.loopBlock.type'
     | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
@@ -1079,6 +1081,8 @@ module Expr = struct
       | Let let' -> sexp_of_let sexp_of_a (sexp_of_t sexp_of_a sexp_of_c) sexp_of_c let'
       | ReifyDimensionIndex reifyDimensionIndex ->
         sexp_of_reifyDimensionIndex reifyDimensionIndex
+      | ShapeProd shape ->
+        Sexp.List [ Sexp.Atom "shape-prod"; [%sexp_of: Index.shape] shape ]
       | LoopBlock loopBlock ->
         sexp_of_loopBlock
           sexp_of_a

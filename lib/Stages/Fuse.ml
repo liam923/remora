@@ -112,6 +112,7 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     let typeUsages = getUsesInType type' in
     Set.union_list (module Identifier) (typeUsages :: bodyUsages :: argsUsages)
   | ReifyIndex { index; type' } -> Set.union (getUsesInIndex index) (getUsesInType type')
+  | ShapeProd shape -> getUsesInIndex @@ Shape shape
   | Let { args; body; type' } ->
     let argsUsages = List.map args ~f:(fun arg -> getUsesInExpr arg.value) in
     let bindings =
@@ -249,6 +250,7 @@ let rec getMapValue mapRefs =
   | BoxValue _ -> None
   | IndexLet { indexArgs = _; body; type' = _ } -> getMapValue mapRefs body
   | ReifyIndex _ -> None
+  | ShapeProd _ -> None
   | Let { args; body; type' = _ } ->
     let mapRefs =
       List.fold args ~init:mapRefs ~f:(fun acc { binding; value } ->
@@ -589,7 +591,7 @@ let rec liftFrom
       liftFrom target targetConsumer capturables mapRefs unzipArg
     in
     extraction, Unzip { unzipArg; type' }
-  | (Ref _ | ReifyIndex { index = _; type' = _ } | Literal _) as expr ->
+  | (Ref _ | ReifyIndex { index = _; type' = _ } | ShapeProd _ | Literal _) as expr ->
     return (None, expr)
 ;;
 
@@ -784,6 +786,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
     let%map body = fuseLoops extendedScope body in
     IndexLet { indexArgs; body; type' }
   | ReifyIndex { index = _; type' = _ } as expr -> return expr
+  | ShapeProd _ as expr -> return expr
   | Let { args; body; type' } ->
     let allBindings =
       args |> List.map ~f:(fun arg -> arg.binding) |> Set.of_list (module Identifier)
@@ -900,6 +903,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
           | Frame _
           | BoxValue _
           | ReifyIndex _
+          | ShapeProd _
           | Box _
           | Literal _
           | ScalarPrimitive _

@@ -265,6 +265,12 @@ let rec getOpts (expr : Nested.t) : (compilationOptions, _) KernelizeState.u =
          ~hostExpr:(ReifyIndex reifyIndex)
          ~deviceExpr:(ReifyIndex reifyIndex)
          ~hostParShape:ParallelismShape.empty
+  | ShapeProd shape ->
+    return
+    @@ compilationOptions
+         ~hostExpr:(ShapeProd shape)
+         ~deviceExpr:(ShapeProd shape)
+         ~hostParShape:ParallelismShape.empty
   | Let { args; body; type' } ->
     let%map argsHost, argsDevice, argsHostParShapes =
       args
