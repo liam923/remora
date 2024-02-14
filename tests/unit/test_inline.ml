@@ -24,17 +24,17 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 135)))
+       (((binding ((name f) (id 151)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 136)))
+        ((binding ((name +arg1) (id 152)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 137)))
+        ((binding ((name +arg2) (id 153)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 2)))
@@ -48,13 +48,13 @@ let%expect_test "check inlining" =
              ((ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg1) (id 136)))
+                  ((id ((name +arg1) (id 152)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))
               (ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg2) (id 137)))
+                  ((id ((name +arg2) (id 153)))
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))))
             (type' (Literal IntLiteral)))))
@@ -66,12 +66,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 136)))
+       (((binding ((name f) (id 152)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 137)))
+        ((binding ((name +arg1) (id 153)))
          (value
           (Frame
            ((dimensions (3))
@@ -88,7 +88,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name +arg2) (id 139)))
+        ((binding ((name +arg2) (id 155)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 4)))
@@ -97,10 +97,10 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 3) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 138)))
+          (((binding ((name +arg1) (id 154)))
             (value
              (Ref
-              ((id ((name +arg1) (id 137)))
+              ((id ((name +arg1) (id 153)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))))
@@ -113,13 +113,13 @@ let%expect_test "check inlining" =
                 ((ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name +arg1) (id 138)))
+                     ((id ((name +arg1) (id 154)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))
                  (ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name +arg2) (id 139)))
+                     ((id ((name +arg2) (id 155)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))))
                (type' (Literal IntLiteral)))))
@@ -163,7 +163,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 138)))
+       (((binding ((name id) (id 154)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -172,19 +172,19 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 139)))
+          (((binding ((name f) (id 155)))
             (value
              (Ref
-              ((id ((name id) (id 138)))
+              ((id ((name id) (id 154)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name x) (id 141)))
+           ((binding ((name x) (id 157)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name x) (id 141)))
+           ((id ((name x) (id 157)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
@@ -198,12 +198,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 142)))
+       (((binding ((name id) (id 158)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name id) (id 139)))
+        ((binding ((name id) (id 155)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -212,19 +212,19 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 140)))
+          (((binding ((name f) (id 156)))
             (value
              (Ref
-              ((id ((name id) (id 139)))
+              ((id ((name id) (id 155)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name x) (id 143)))
+           ((binding ((name x) (id 159)))
             (value
              (Ref
-              ((id ((name id) (id 142)))
+              ((id ((name id) (id 158)))
                (type' ((element (Tuple ())) (shape ())))))))))
          (body
           (Ref
-           ((id ((name x) (id 143))) (type' ((element (Tuple ())) (shape ()))))))
+           ((id ((name x) (id 159))) (type' ((element (Tuple ())) (shape ()))))))
          (type' ((element (Tuple ())) (shape ()))))))
       (type' ((element (Tuple ())) (shape ()))))) |}];
   checkAndPrint
@@ -237,12 +237,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 141)))
+       (((binding ((name id) (id 157)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name id) (id 145)))
+        ((binding ((name id) (id 161)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -251,34 +251,34 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 147)))
+          (((binding ((name f) (id 163)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 142)))
+                (((binding ((name f) (id 158)))
                   (value
                    (Ref
-                    ((id ((name id) (id 141)))
+                    ((id ((name id) (id 157)))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name x) (id 146)))
+                 ((binding ((name x) (id 162)))
                   (value
                    (Ref
-                    ((id ((name id) (id 145)))
+                    ((id ((name id) (id 161)))
                      (type' ((element (Tuple ())) (shape ())))))))))
                (body
                 (Ref
-                 ((id ((name x) (id 146)))
+                 ((id ((name x) (id 162)))
                   (type' ((element (Tuple ())) (shape ()))))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name arg0) (id 149)))
+           ((binding ((name arg0) (id 165)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (Ref
-           ((id ((name arg0) (id 149)))
+           ((id ((name arg0) (id 165)))
             (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
@@ -291,19 +291,19 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 138)))
+       (((binding ((name f) (id 154)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name x) (id 140)))
+        ((binding ((name x) (id 156)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 10)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))))
       (body
        (Ref
-        ((id ((name x) (id 140)))
+        ((id ((name x) (id 156)))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint {|
@@ -314,7 +314,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 135)))
+       (((binding ((name f) (id 151)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -332,17 +332,17 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 166)))
+       (((binding ((name f) (id 182)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name op) (id 252)))
+        ((binding ((name op) (id 268)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name arr) (id 262)))
+        ((binding ((name arr) (id 278)))
          (value
           (Frame
            ((dimensions (5))
@@ -369,30 +369,30 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 212)))
+          (((binding ((name f) (id 228)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name f) (id 253)))
+           ((binding ((name f) (id 269)))
             (value
              (Ref
-              ((id ((name op) (id 252)))
+              ((id ((name op) (id 268)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name init) (id 299)))
+           ((binding ((name init) (id 315)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 290)))
+                (((binding ((name f) (id 306)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 296)))
+                 ((binding ((name arr) (id 312)))
                   (value
                    (Ref
-                    ((id ((name arr) (id 262)))
+                    ((id ((name arr) (id 278)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 5) (refs ())))))))))))))
@@ -400,19 +400,19 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 295)))
+                   (((binding ((name f) (id 311)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name contiguous-subarray-array) (id 297)))
+                    ((binding ((name contiguous-subarray-array) (id 313)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 296)))
+                       ((id ((name arr) (id 312)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 5) (refs ())))))))))))
-                    ((binding ((name contiguous-subarray-index) (id 298)))
+                    ((binding ((name contiguous-subarray-index) (id 314)))
                      (value
                       (Frame
                        ((dimensions (1))
@@ -428,13 +428,13 @@ let%expect_test "check inlining" =
                     (ContiguousSubArray
                      (arrayArg
                       (Ref
-                       ((id ((name contiguous-subarray-array) (id 297)))
+                       ((id ((name contiguous-subarray-array) (id 313)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 5) (refs ()))))))))))
                      (indexArg
                       (Ref
-                       ((id ((name contiguous-subarray-index) (id 298)))
+                       ((id ((name contiguous-subarray-index) (id 314)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 1) (refs ()))))))))))
@@ -443,20 +443,20 @@ let%expect_test "check inlining" =
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name arr) (id 266)))
+           ((binding ((name arr) (id 282)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 256)))
+                (((binding ((name f) (id 272)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 263)))
+                 ((binding ((name arr) (id 279)))
                   (value
                    (Ref
-                    ((id ((name arr) (id 262)))
+                    ((id ((name arr) (id 278)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 5) (refs ())))))))))))))
@@ -464,19 +464,19 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 261)))
+                   (((binding ((name f) (id 277)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name contiguous-subarray-array) (id 264)))
+                    ((binding ((name contiguous-subarray-array) (id 280)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 263)))
+                       ((id ((name arr) (id 279)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 5) (refs ())))))))))))
-                    ((binding ((name contiguous-subarray-index) (id 265)))
+                    ((binding ((name contiguous-subarray-index) (id 281)))
                      (value
                       (Frame
                        ((dimensions (1))
@@ -492,13 +492,13 @@ let%expect_test "check inlining" =
                     (ContiguousSubArray
                      (arrayArg
                       (Ref
-                       ((id ((name contiguous-subarray-array) (id 264)))
+                       ((id ((name contiguous-subarray-array) (id 280)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 5) (refs ()))))))))))
                      (indexArg
                       (Ref
-                       ((id ((name contiguous-subarray-index) (id 265)))
+                       ((id ((name contiguous-subarray-index) (id 281)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 1) (refs ()))))))))))
@@ -518,16 +518,16 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name init) (id 300)))
+             (((binding ((name init) (id 316)))
                (value
                 (Ref
-                 ((id ((name init) (id 299)))
+                 ((id ((name init) (id 315)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name up-ranked-f) (id 240)))
+                (((binding ((name up-ranked-f) (id 256)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
@@ -536,36 +536,36 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 238)))
+                   (((binding ((name f) (id 254)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name reduce-f-arg) (id 241)))
+                    ((binding ((name reduce-f-arg) (id 257)))
                      (value
                       (Ref
-                       ((id ((name up-ranked-f) (id 240)))
+                       ((id ((name up-ranked-f) (id 256)))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name reduce-zero-arg) (id 303)))
+                    ((binding ((name reduce-zero-arg) (id 319)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 275)))
+                         (((binding ((name f) (id 291)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 301)))
+                          ((binding ((name v) (id 317)))
                            (value
                             (Ref
-                             ((id ((name init) (id 300)))
+                             ((id ((name init) (id 316)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name make) (id 285)))
+                            (((binding ((name make) (id 301)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
@@ -574,15 +574,15 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 286)))
+                               (((binding ((name f) (id 302)))
                                  (value
                                   (Ref
-                                   ((id ((name make) (id 285)))
+                                   ((id ((name make) (id 301)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name v) (id 302)))
+                                ((binding ((name v) (id 318)))
                                  (value
                                   (Ref
-                                   ((id ((name v) (id 301)))
+                                   ((id ((name v) (id 317)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ())))))))))
                               (body
@@ -590,7 +590,7 @@ let%expect_test "check inlining" =
                                 (Map (frameShape ()) (args ())
                                  (body
                                   (Ref
-                                   ((id ((name v) (id 302)))
+                                   ((id ((name v) (id 318)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ()))))))
                                  (type'
@@ -598,10 +598,10 @@ let%expect_test "check inlining" =
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name reduce-array-arg) (id 267)))
+                    ((binding ((name reduce-array-arg) (id 283)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 266)))
+                       ((id ((name arr) (id 282)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 4) (refs ())))))))))))))
@@ -609,51 +609,51 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Reduce
                      (arg
-                      ((firstBinding ((name reduce-arg1) (id 268)))
-                       (secondBinding ((name reduce-arg2) (id 271)))
+                      ((firstBinding ((name reduce-arg1) (id 284)))
+                       (secondBinding ((name reduce-arg2) (id 287)))
                        (value
                         (Ref
-                         ((id ((name reduce-array-arg) (id 267)))
+                         ((id ((name reduce-array-arg) (id 283)))
                           (type'
                            ((element (Literal IntLiteral))
                             (shape ((Add ((const 4) (refs ()))))))))))))
                      (zero
                       (Ref
-                       ((id ((name reduce-zero-arg) (id 303)))
+                       ((id ((name reduce-zero-arg) (id 319)))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))
                      (body
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 254)))
+                         (((binding ((name f) (id 270)))
                            (value
                             (Ref
-                             ((id ((name f) (id 253)))
+                             ((id ((name f) (id 269)))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name arg0) (id 269)))
+                          ((binding ((name arg0) (id 285)))
                            (value
                             (Ref
-                             ((id ((name reduce-arg1) (id 268)))
+                             ((id ((name reduce-arg1) (id 284)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))
-                          ((binding ((name arg1) (id 272)))
+                          ((binding ((name arg1) (id 288)))
                            (value
                             (Ref
-                             ((id ((name reduce-arg2) (id 271)))
+                             ((id ((name reduce-arg2) (id 287)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name arg0) (id 270)))
+                            (((binding ((name arg0) (id 286)))
                               (value
                                (Ref
-                                ((id ((name arg0) (id 269)))
+                                ((id ((name arg0) (id 285)))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))
-                             ((binding ((name arg1) (id 273)))
+                             ((binding ((name arg1) (id 289)))
                               (value
                                (Ref
-                                ((id ((name arg1) (id 272)))
+                                ((id ((name arg1) (id 288)))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))))
                            (body
@@ -665,7 +665,7 @@ let%expect_test "check inlining" =
                                   ((ArrayAsAtom
                                     ((array
                                       (Ref
-                                       ((id ((name arg0) (id 270)))
+                                       ((id ((name arg0) (id 286)))
                                         (type'
                                          ((element (Literal IntLiteral))
                                           (shape ()))))))
@@ -673,7 +673,7 @@ let%expect_test "check inlining" =
                                    (ArrayAsAtom
                                     ((array
                                       (Ref
-                                       ((id ((name arg1) (id 273)))
+                                       ((id ((name arg1) (id 289)))
                                         (type'
                                          ((element (Literal IntLiteral))
                                           (shape ()))))))
@@ -693,8 +693,8 @@ let%expect_test "check inlining" =
   [%expect
     {|
     Error: Could not determine what function is being called in function call:
-    ((func (Ref ((id ((name f) (id 135))))))
-     (args (((id ((name +arg1) (id 132)))) ((id ((name +arg2) (id 133))))))
+    ((func (Ref ((id ((name f) (id 151))))))
+     (args (((id ((name +arg1) (id 148)))) ((id ((name +arg2) (id 149))))))
      (type' (Arr ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
@@ -706,7 +706,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 139)))
+       (((binding ((name id) (id 155)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -715,23 +715,23 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 140)))
+          (((binding ((name f) (id 156)))
             (value
              (Frame
               ((dimensions (3))
                (elements
                 ((Ref
-                  ((id ((name id) (id 139)))
+                  ((id ((name id) (id 155)))
                    (type' ((element (Tuple ())) (shape ())))))
                  (Ref
-                  ((id ((name id) (id 139)))
+                  ((id ((name id) (id 155)))
                    (type' ((element (Tuple ())) (shape ())))))
                  (Ref
-                  ((id ((name id) (id 139)))
+                  ((id ((name id) (id 155)))
                    (type' ((element (Tuple ())) (shape ())))))))
                (type'
                 ((element (Tuple ())) (shape ((Add ((const 3) (refs ())))))))))))
-           ((binding ((name x) (id 143)))
+           ((binding ((name x) (id 159)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
@@ -740,15 +740,15 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name f) (id 141)))
+             (((binding ((name f) (id 157)))
                (value
                 (Ref
-                 ((id ((name f) (id 140)))
+                 ((id ((name f) (id 156)))
                   (type'
                    ((element (Tuple ())) (shape ((Add ((const 3) (refs ())))))))))))))
             (body
              (Ref
-              ((id ((name x) (id 143)))
+              ((id ((name x) (id 159)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (type'
              ((element (Literal IntLiteral))
@@ -772,17 +772,17 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 142)))
+          (((binding ((name f) (id 158)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name +arg1) (id 146)))
+           ((binding ((name +arg1) (id 162)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 144)))
+                (((binding ((name f) (id 160)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
@@ -792,12 +792,12 @@ let%expect_test "check inlining" =
                  ((index (Dimension ((const 5) (refs ()))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name +arg2) (id 150)))
+           ((binding ((name +arg2) (id 166)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 148)))
+                (((binding ((name f) (id 164)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
@@ -816,13 +816,13 @@ let%expect_test "check inlining" =
                 ((ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name +arg1) (id 146)))
+                     ((id ((name +arg1) (id 162)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))
                  (ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name +arg2) (id 150)))
+                     ((id ((name +arg2) (id 166)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))))
                (type' (Literal IntLiteral)))))
@@ -844,7 +844,7 @@ let%expect_test "check inlining" =
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 209)))
+       (((binding ((name f) (id 225)))
          (value
           (TypeApplication
            ((tFunc
@@ -866,7 +866,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 210)))
+                                  (((binding ((name arr) (id 226)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 26))))
@@ -878,7 +878,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 211)))
+                                     (((binding ((name f) (id 227)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -901,11 +901,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 26))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 212)))
-                                       (value (Ref ((id ((name arr) (id 210)))))))
+                                         (id 228)))
+                                       (value (Ref ((id ((name arr) (id 226)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 213)))
+                                         (id 229)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -914,14 +914,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 0)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 211))))))
+                                      ((func (Ref ((id ((name f) (id 227))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 212))))
+                                            (id 228))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 213))))))
+                                            (id 229))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 26))))
@@ -938,19 +938,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 132))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 148))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 214)))
-         (value (Ref ((id ((name arr) (id 145)))))))))
+        ((binding ((name arr) (id 230)))
+         (value (Ref ((id ((name arr) (id 161)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 209))))))
-         (args (((id ((name arr) (id 214))))))
+        ((func (Ref ((id ((name f) (id 225))))))
+         (args (((id ((name arr) (id 230))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 132))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 148))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ())))))))
       (frameShape ())
@@ -958,14 +958,14 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 132))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 148))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ()))))))
 
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 216)))
+       (((binding ((name f) (id 232)))
          (value
           (TypeApplication
            ((tFunc
@@ -987,7 +987,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 217)))
+                                  (((binding ((name arr) (id 233)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 30))))
@@ -999,7 +999,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 218)))
+                                     (((binding ((name f) (id 234)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1026,11 +1026,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 30))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 219)))
-                                       (value (Ref ((id ((name arr) (id 217)))))))
+                                         (id 235)))
+                                       (value (Ref ((id ((name arr) (id 233)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 220)))
+                                         (id 236)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1039,14 +1039,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 1)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 218))))))
+                                      ((func (Ref ((id ((name f) (id 234))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 219))))
+                                            (id 235))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 220))))))
+                                            (id 236))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 30))))
@@ -1069,19 +1069,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 132))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 148))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 221)))
-         (value (Ref ((id ((name arr) (id 145)))))))))
+        ((binding ((name arr) (id 237)))
+         (value (Ref ((id ((name arr) (id 161)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 216))))))
-         (args (((id ((name arr) (id 221))))))
+        ((func (Ref ((id ((name f) (id 232))))))
+         (args (((id ((name arr) (id 237))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 132))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 148))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ((Add ((const 1) (refs ())))))))))))
       (frameShape ())
@@ -1089,15 +1089,15 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 132))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 148))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ((Add ((const 1) (refs ())))))))))) |}];
   checkAndPrint {| (reduce{int | 2 [] []} [+ -] [1 2 3]) |};
   [%expect
     {|
     Error: Could not determine what function is being called in function call:
-    ((func (Ref ((id ((name f) (id 248))))))
-     (args (((id ((name arg0) (id 251)))) ((id ((name arg1) (id 252))))))
+    ((func (Ref ((id ((name f) (id 264))))))
+     (args (((id ((name arg0) (id 267)))) ((id ((name arg1) (id 268))))))
      (type' (Arr ((element (Literal IntLiteral)) (shape ()))))) |}];
   checkAndPrint
     {|
@@ -1112,7 +1112,7 @@ let%expect_test "check inlining" =
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 204)))
+       (((binding ((name f) (id 220)))
          (value
           (TypeApplication
            ((tFunc
@@ -1134,7 +1134,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 205)))
+                                  (((binding ((name arr) (id 221)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 26))))
@@ -1146,7 +1146,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 206)))
+                                     (((binding ((name f) (id 222)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1169,11 +1169,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 26))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 207)))
-                                       (value (Ref ((id ((name arr) (id 205)))))))
+                                         (id 223)))
+                                       (value (Ref ((id ((name arr) (id 221)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 208)))
+                                         (id 224)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1182,14 +1182,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 0)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 206))))))
+                                      ((func (Ref ((id ((name f) (id 222))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 207))))
+                                            (id 223))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 208))))))
+                                            (id 224))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 26))))
@@ -1206,19 +1206,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 209)))
-         (value (Ref ((id ((name arr) (id 140)))))))))
+        ((binding ((name arr) (id 225)))
+         (value (Ref ((id ((name arr) (id 156)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 204))))))
-         (args (((id ((name arr) (id 209))))))
+        ((func (Ref ((id ((name f) (id 220))))))
+         (args (((id ((name arr) (id 225))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ())))))))
       (frameShape ())
@@ -1226,14 +1226,14 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 150))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ()))))))
 
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 211)))
+       (((binding ((name f) (id 227)))
          (value
           (TypeApplication
            ((tFunc
@@ -1255,7 +1255,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 212)))
+                                  (((binding ((name arr) (id 228)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 30))))
@@ -1267,7 +1267,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 213)))
+                                     (((binding ((name f) (id 229)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1294,11 +1294,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 30))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 214)))
-                                       (value (Ref ((id ((name arr) (id 212)))))))
+                                         (id 230)))
+                                       (value (Ref ((id ((name arr) (id 228)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 215)))
+                                         (id 231)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1307,14 +1307,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 1)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 213))))))
+                                      ((func (Ref ((id ((name f) (id 229))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 214))))
+                                            (id 230))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 215))))))
+                                            (id 231))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 30))))
@@ -1337,19 +1337,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 216)))
-         (value (Ref ((id ((name arr) (id 140)))))))))
+        ((binding ((name arr) (id 232)))
+         (value (Ref ((id ((name arr) (id 156)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 211))))))
-         (args (((id ((name arr) (id 216))))))
+        ((func (Ref ((id ((name f) (id 227))))))
+         (args (((id ((name arr) (id 232))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
@@ -1357,7 +1357,7 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 150))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ((Add ((const 2) (refs ())))))))))) |}];
   checkAndPrint
@@ -1373,7 +1373,7 @@ let%expect_test "check inlining" =
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 204)))
+       (((binding ((name f) (id 220)))
          (value
           (TypeApplication
            ((tFunc
@@ -1395,7 +1395,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 205)))
+                                  (((binding ((name arr) (id 221)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 26))))
@@ -1407,7 +1407,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 206)))
+                                     (((binding ((name f) (id 222)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1430,11 +1430,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 26))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 207)))
-                                       (value (Ref ((id ((name arr) (id 205)))))))
+                                         (id 223)))
+                                       (value (Ref ((id ((name arr) (id 221)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 208)))
+                                         (id 224)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1443,14 +1443,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 0)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 206))))))
+                                      ((func (Ref ((id ((name f) (id 222))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 207))))
+                                            (id 223))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 208))))))
+                                            (id 224))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 26))))
@@ -1467,19 +1467,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 209)))
-         (value (Ref ((id ((name arr) (id 140)))))))))
+        ((binding ((name arr) (id 225)))
+         (value (Ref ((id ((name arr) (id 156)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 204))))))
-         (args (((id ((name arr) (id 209))))))
+        ((func (Ref ((id ((name f) (id 220))))))
+         (args (((id ((name arr) (id 225))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ())))))))
       (frameShape ())
@@ -1487,14 +1487,14 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 150))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ()))))))
 
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 211)))
+       (((binding ((name f) (id 227)))
          (value
           (TypeApplication
            ((tFunc
@@ -1516,7 +1516,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 212)))
+                                  (((binding ((name arr) (id 228)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 30))))
@@ -1528,7 +1528,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 213)))
+                                     (((binding ((name f) (id 229)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1555,11 +1555,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 30))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 214)))
-                                       (value (Ref ((id ((name arr) (id 212)))))))
+                                         (id 230)))
+                                       (value (Ref ((id ((name arr) (id 228)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 215)))
+                                         (id 231)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1568,14 +1568,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 1)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 213))))))
+                                      ((func (Ref ((id ((name f) (id 229))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 214))))
+                                            (id 230))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 215))))))
+                                            (id 231))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 30))))
@@ -1598,19 +1598,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 216)))
-         (value (Ref ((id ((name arr) (id 140)))))))))
+        ((binding ((name arr) (id 232)))
+         (value (Ref ((id ((name arr) (id 156)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 211))))))
-         (args (((id ((name arr) (id 216))))))
+        ((func (Ref ((id ((name f) (id 227))))))
+         (args (((id ((name arr) (id 232))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
@@ -1618,7 +1618,7 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 150))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ((Add ((const 2) (refs ())))))))))) |}];
   checkAndPrint
@@ -1634,7 +1634,7 @@ let%expect_test "check inlining" =
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 204)))
+       (((binding ((name f) (id 220)))
          (value
           (TypeApplication
            ((tFunc
@@ -1656,7 +1656,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 205)))
+                                  (((binding ((name arr) (id 221)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 26))))
@@ -1668,7 +1668,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 206)))
+                                     (((binding ((name f) (id 222)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1691,11 +1691,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 26))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 207)))
-                                       (value (Ref ((id ((name arr) (id 205)))))))
+                                         (id 223)))
+                                       (value (Ref ((id ((name arr) (id 221)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 208)))
+                                         (id 224)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1704,14 +1704,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 0)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 206))))))
+                                      ((func (Ref ((id ((name f) (id 222))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 207))))
+                                            (id 223))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 208))))))
+                                            (id 224))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 26))))
@@ -1728,19 +1728,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 209)))
-         (value (Ref ((id ((name arr) (id 140)))))))))
+        ((binding ((name arr) (id 225)))
+         (value (Ref ((id ((name arr) (id 156)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 204))))))
-         (args (((id ((name arr) (id 209))))))
+        ((func (Ref ((id ((name f) (id 220))))))
+         (args (((id ((name arr) (id 225))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ())))))))
       (frameShape ())
@@ -1748,14 +1748,14 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 150))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ()))))))
 
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name f) (id 211)))
+       (((binding ((name f) (id 227)))
          (value
           (TypeApplication
            ((tFunc
@@ -1777,7 +1777,7 @@ let%expect_test "check inlining" =
                              ((element
                                (TermLambda
                                 ((params
-                                  (((binding ((name arr) (id 212)))
+                                  (((binding ((name arr) (id 228)))
                                     (bound
                                      (Arr
                                       ((element (AtomRef ((name t) (id 30))))
@@ -1789,7 +1789,7 @@ let%expect_test "check inlining" =
                                  (body
                                   (Map
                                    ((args
-                                     (((binding ((name f) (id 213)))
+                                     (((binding ((name f) (id 229)))
                                        (value
                                         (TypeApplication
                                          ((tFunc
@@ -1816,11 +1816,11 @@ let%expect_test "check inlining" =
                                            ((Atom (AtomRef ((name t) (id 30))))))))))
                                       ((binding
                                         ((name contiguous-subarray-array)
-                                         (id 214)))
-                                       (value (Ref ((id ((name arr) (id 212)))))))
+                                         (id 230)))
+                                       (value (Ref ((id ((name arr) (id 228)))))))
                                       ((binding
                                         ((name contiguous-subarray-index)
-                                         (id 215)))
+                                         (id 231)))
                                        (value
                                         (Frame
                                          ((dimensions (1))
@@ -1829,14 +1829,14 @@ let%expect_test "check inlining" =
                                              ((element (Literal (IntLiteral 1)))))))))))))
                                     (body
                                      (TermApplication
-                                      ((func (Ref ((id ((name f) (id 213))))))
+                                      ((func (Ref ((id ((name f) (id 229))))))
                                        (args
                                         (((id
                                            ((name contiguous-subarray-array)
-                                            (id 214))))
+                                            (id 230))))
                                          ((id
                                            ((name contiguous-subarray-index)
-                                            (id 215))))))
+                                            (id 231))))))
                                        (type'
                                         (Arr
                                          ((element (AtomRef ((name t) (id 30))))
@@ -1859,19 +1859,19 @@ let%expect_test "check inlining" =
             (args
              ((Atom
                (Forall
-                ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+                ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                  (body (Arr ((element (Literal IntLiteral)) (shape ())))))))))))))
-        ((binding ((name arr) (id 216)))
-         (value (Ref ((id ((name arr) (id 140)))))))))
+        ((binding ((name arr) (id 232)))
+         (value (Ref ((id ((name arr) (id 156)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 211))))))
-         (args (((id ((name arr) (id 216))))))
+        ((func (Ref ((id ((name f) (id 227))))))
+         (args (((id ((name arr) (id 232))))))
          (type'
           (Arr
            ((element
              (Forall
-              ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+              ((parameters (((binding ((name @t) (id 150))) (bound Array))))
                (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (shape ((Add ((const 2) (refs ())))))))))))
       (frameShape ())
@@ -1879,7 +1879,7 @@ let%expect_test "check inlining" =
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 134))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 150))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ((Add ((const 2) (refs ())))))))))) |}];
   checkAndPrint {| (reduce{int | 2 [] []} + [1 2 3]) |};
@@ -1888,17 +1888,17 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 166)))
+       (((binding ((name f) (id 182)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name op) (id 252)))
+        ((binding ((name op) (id 268)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name arr) (id 262)))
+        ((binding ((name arr) (id 278)))
          (value
           (Frame
            ((dimensions (3))
@@ -1919,30 +1919,30 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 212)))
+          (((binding ((name f) (id 228)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name f) (id 253)))
+           ((binding ((name f) (id 269)))
             (value
              (Ref
-              ((id ((name op) (id 252)))
+              ((id ((name op) (id 268)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name init) (id 299)))
+           ((binding ((name init) (id 315)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 290)))
+                (((binding ((name f) (id 306)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 296)))
+                 ((binding ((name arr) (id 312)))
                   (value
                    (Ref
-                    ((id ((name arr) (id 262)))
+                    ((id ((name arr) (id 278)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -1950,19 +1950,19 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 295)))
+                   (((binding ((name f) (id 311)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name contiguous-subarray-array) (id 297)))
+                    ((binding ((name contiguous-subarray-array) (id 313)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 296)))
+                       ((id ((name arr) (id 312)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name contiguous-subarray-index) (id 298)))
+                    ((binding ((name contiguous-subarray-index) (id 314)))
                      (value
                       (Frame
                        ((dimensions (1))
@@ -1978,13 +1978,13 @@ let%expect_test "check inlining" =
                     (ContiguousSubArray
                      (arrayArg
                       (Ref
-                       ((id ((name contiguous-subarray-array) (id 297)))
+                       ((id ((name contiguous-subarray-array) (id 313)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ()))))))))))
                      (indexArg
                       (Ref
-                       ((id ((name contiguous-subarray-index) (id 298)))
+                       ((id ((name contiguous-subarray-index) (id 314)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 1) (refs ()))))))))))
@@ -1993,20 +1993,20 @@ let%expect_test "check inlining" =
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name arr) (id 266)))
+           ((binding ((name arr) (id 282)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 256)))
+                (((binding ((name f) (id 272)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 263)))
+                 ((binding ((name arr) (id 279)))
                   (value
                    (Ref
-                    ((id ((name arr) (id 262)))
+                    ((id ((name arr) (id 278)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -2014,19 +2014,19 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 261)))
+                   (((binding ((name f) (id 277)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name contiguous-subarray-array) (id 264)))
+                    ((binding ((name contiguous-subarray-array) (id 280)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 263)))
+                       ((id ((name arr) (id 279)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name contiguous-subarray-index) (id 265)))
+                    ((binding ((name contiguous-subarray-index) (id 281)))
                      (value
                       (Frame
                        ((dimensions (1))
@@ -2042,13 +2042,13 @@ let%expect_test "check inlining" =
                     (ContiguousSubArray
                      (arrayArg
                       (Ref
-                       ((id ((name contiguous-subarray-array) (id 264)))
+                       ((id ((name contiguous-subarray-array) (id 280)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ()))))))))))
                      (indexArg
                       (Ref
-                       ((id ((name contiguous-subarray-index) (id 265)))
+                       ((id ((name contiguous-subarray-index) (id 281)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 1) (refs ()))))))))))
@@ -2068,16 +2068,16 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name init) (id 300)))
+             (((binding ((name init) (id 316)))
                (value
                 (Ref
-                 ((id ((name init) (id 299)))
+                 ((id ((name init) (id 315)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name up-ranked-f) (id 240)))
+                (((binding ((name up-ranked-f) (id 256)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
@@ -2086,36 +2086,36 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 238)))
+                   (((binding ((name f) (id 254)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name reduce-f-arg) (id 241)))
+                    ((binding ((name reduce-f-arg) (id 257)))
                      (value
                       (Ref
-                       ((id ((name up-ranked-f) (id 240)))
+                       ((id ((name up-ranked-f) (id 256)))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name reduce-zero-arg) (id 303)))
+                    ((binding ((name reduce-zero-arg) (id 319)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 275)))
+                         (((binding ((name f) (id 291)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 301)))
+                          ((binding ((name v) (id 317)))
                            (value
                             (Ref
-                             ((id ((name init) (id 300)))
+                             ((id ((name init) (id 316)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name make) (id 285)))
+                            (((binding ((name make) (id 301)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
@@ -2124,15 +2124,15 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 286)))
+                               (((binding ((name f) (id 302)))
                                  (value
                                   (Ref
-                                   ((id ((name make) (id 285)))
+                                   ((id ((name make) (id 301)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name v) (id 302)))
+                                ((binding ((name v) (id 318)))
                                  (value
                                   (Ref
-                                   ((id ((name v) (id 301)))
+                                   ((id ((name v) (id 317)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ())))))))))
                               (body
@@ -2140,7 +2140,7 @@ let%expect_test "check inlining" =
                                 (Map (frameShape ()) (args ())
                                  (body
                                   (Ref
-                                   ((id ((name v) (id 302)))
+                                   ((id ((name v) (id 318)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ()))))))
                                  (type'
@@ -2148,10 +2148,10 @@ let%expect_test "check inlining" =
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name reduce-array-arg) (id 267)))
+                    ((binding ((name reduce-array-arg) (id 283)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 266)))
+                       ((id ((name arr) (id 282)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 2) (refs ())))))))))))))
@@ -2159,51 +2159,51 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Reduce
                      (arg
-                      ((firstBinding ((name reduce-arg1) (id 268)))
-                       (secondBinding ((name reduce-arg2) (id 271)))
+                      ((firstBinding ((name reduce-arg1) (id 284)))
+                       (secondBinding ((name reduce-arg2) (id 287)))
                        (value
                         (Ref
-                         ((id ((name reduce-array-arg) (id 267)))
+                         ((id ((name reduce-array-arg) (id 283)))
                           (type'
                            ((element (Literal IntLiteral))
                             (shape ((Add ((const 2) (refs ()))))))))))))
                      (zero
                       (Ref
-                       ((id ((name reduce-zero-arg) (id 303)))
+                       ((id ((name reduce-zero-arg) (id 319)))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))
                      (body
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 254)))
+                         (((binding ((name f) (id 270)))
                            (value
                             (Ref
-                             ((id ((name f) (id 253)))
+                             ((id ((name f) (id 269)))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name arg0) (id 269)))
+                          ((binding ((name arg0) (id 285)))
                            (value
                             (Ref
-                             ((id ((name reduce-arg1) (id 268)))
+                             ((id ((name reduce-arg1) (id 284)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))
-                          ((binding ((name arg1) (id 272)))
+                          ((binding ((name arg1) (id 288)))
                            (value
                             (Ref
-                             ((id ((name reduce-arg2) (id 271)))
+                             ((id ((name reduce-arg2) (id 287)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name arg0) (id 270)))
+                            (((binding ((name arg0) (id 286)))
                               (value
                                (Ref
-                                ((id ((name arg0) (id 269)))
+                                ((id ((name arg0) (id 285)))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))
-                             ((binding ((name arg1) (id 273)))
+                             ((binding ((name arg1) (id 289)))
                               (value
                                (Ref
-                                ((id ((name arg1) (id 272)))
+                                ((id ((name arg1) (id 288)))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))))
                            (body
@@ -2215,7 +2215,7 @@ let%expect_test "check inlining" =
                                   ((ArrayAsAtom
                                     ((array
                                       (Ref
-                                       ((id ((name arg0) (id 270)))
+                                       ((id ((name arg0) (id 286)))
                                         (type'
                                          ((element (Literal IntLiteral))
                                           (shape ()))))))
@@ -2223,7 +2223,7 @@ let%expect_test "check inlining" =
                                    (ArrayAsAtom
                                     ((array
                                       (Ref
-                                       ((id ((name arg1) (id 273)))
+                                       ((id ((name arg1) (id 289)))
                                         (type'
                                          ((element (Literal IntLiteral))
                                           (shape ()))))))
@@ -2245,22 +2245,22 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 136)))
+       (((binding ((name f) (id 152)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name fold-f-arg) (id 137)))
+        ((binding ((name fold-f-arg) (id 153)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name fold-zero-arg) (id 140)))
+        ((binding ((name fold-zero-arg) (id 156)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 0)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name fold-array-arg) (id 142)))
+        ((binding ((name fold-array-arg) (id 158)))
          (value
           (Frame
            ((dimensions (5))
@@ -2287,16 +2287,16 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Fold
          (zeroArg
-          ((binding ((name fold-zero-arg) (id 141)))
+          ((binding ((name fold-zero-arg) (id 157)))
            (value
             (Ref
-             ((id ((name fold-zero-arg) (id 140)))
+             ((id ((name fold-zero-arg) (id 156)))
               (type' ((element (Literal IntLiteral)) (shape ()))))))))
          (arrayArgs
-          (((binding ((name fold-array-arg) (id 143)))
+          (((binding ((name fold-array-arg) (id 159)))
             (value
              (Ref
-              ((id ((name fold-array-arg) (id 142)))
+              ((id ((name fold-array-arg) (id 158)))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 5) (refs ())))))))))))))
@@ -2309,13 +2309,13 @@ let%expect_test "check inlining" =
                 ((ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name fold-zero-arg) (id 141)))
+                     ((id ((name fold-zero-arg) (id 157)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))
                  (ArrayAsAtom
                   ((array
                     (Ref
-                     ((id ((name fold-array-arg) (id 143)))
+                     ((id ((name fold-array-arg) (id 159)))
                       (type' ((element (Literal IntLiteral)) (shape ()))))))
                    (type' (Literal IntLiteral))))))
                (type' (Literal IntLiteral)))))
@@ -2336,7 +2336,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name abc) (id 150)))
+       (((binding ((name abc) (id 166)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
@@ -2345,34 +2345,34 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 142)))
+          (((binding ((name f) (id 158)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name fold-f-arg) (id 144)))
+           ((binding ((name fold-f-arg) (id 160)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name fold-zero-arg) (id 151)))
+           ((binding ((name fold-zero-arg) (id 167)))
             (value
              (Ref
-              ((id ((name abc) (id 150)))
+              ((id ((name abc) (id 166)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
           (ArrayPrimitive
            (Fold
             (zeroArg
-             ((binding ((name fold-zero-arg) (id 152)))
+             ((binding ((name fold-zero-arg) (id 168)))
               (value
                (Ref
-                ((id ((name fold-zero-arg) (id 151)))
+                ((id ((name fold-zero-arg) (id 167)))
                  (type' ((element (Literal IntLiteral)) (shape ()))))))))
             (arrayArgs ())
             (body
              (Ref
-              ((id ((name fold-zero-arg) (id 152)))
+              ((id ((name fold-zero-arg) (id 168)))
                (type' ((element (Literal IntLiteral)) (shape ()))))))
             (reverse false) (d ((const 3) (refs ()))) (cellShape ())
             (character Fold) (type' ((element (Literal IntLiteral)) (shape ()))))))
@@ -2393,12 +2393,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name abc) (id 161)))
+       (((binding ((name abc) (id 177)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name abc) (id 166)))
+        ((binding ((name abc) (id 182)))
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
@@ -2407,51 +2407,51 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 147)))
+          (((binding ((name f) (id 163)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name fold-f-arg) (id 149)))
+           ((binding ((name fold-f-arg) (id 165)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name fold-zero-arg) (id 171)))
+           ((binding ((name fold-zero-arg) (id 187)))
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 10)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name fold-array-arg) (id 162)))
+           ((binding ((name fold-array-arg) (id 178)))
             (value
              (Frame
               ((dimensions (3))
                (elements
                 ((Ref
-                  ((id ((name abc) (id 161)))
+                  ((id ((name abc) (id 177)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name abc) (id 161)))
+                  ((id ((name abc) (id 177)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name abc) (id 161)))
+                  ((id ((name abc) (id 177)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 3) (refs ())))))))))))
-           ((binding ((name fold-array-arg) (id 167)))
+           ((binding ((name fold-array-arg) (id 183)))
             (value
              (Frame
               ((dimensions (3))
                (elements
                 ((Ref
-                  ((id ((name abc) (id 166)))
+                  ((id ((name abc) (id 182)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name abc) (id 166)))
+                  ((id ((name abc) (id 182)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))
                  (Ref
-                  ((id ((name abc) (id 166)))
+                  ((id ((name abc) (id 182)))
                    (type' ((element (Literal IntLiteral)) (shape ())))))))
                (type'
                 ((element (Literal IntLiteral))
@@ -2460,23 +2460,23 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Fold
             (zeroArg
-             ((binding ((name fold-zero-arg) (id 172)))
+             ((binding ((name fold-zero-arg) (id 188)))
               (value
                (Ref
-                ((id ((name fold-zero-arg) (id 171)))
+                ((id ((name fold-zero-arg) (id 187)))
                  (type' ((element (Literal IntLiteral)) (shape ()))))))))
             (arrayArgs
-             (((binding ((name fold-array-arg) (id 163)))
+             (((binding ((name fold-array-arg) (id 179)))
                (value
                 (Ref
-                 ((id ((name fold-array-arg) (id 162)))
+                 ((id ((name fold-array-arg) (id 178)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))
-              ((binding ((name fold-array-arg) (id 168)))
+              ((binding ((name fold-array-arg) (id 184)))
                (value
                 (Ref
-                 ((id ((name fold-array-arg) (id 167)))
+                 ((id ((name fold-array-arg) (id 183)))
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -2484,38 +2484,38 @@ let%expect_test "check inlining" =
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name a) (id 164)))
+                (((binding ((name a) (id 180)))
                   (value
                    (Ref
-                    ((id ((name fold-array-arg) (id 163)))
+                    ((id ((name fold-array-arg) (id 179)))
                      (type' ((element (Literal IntLiteral)) (shape ())))))))))
                (body
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name b) (id 169)))
+                   (((binding ((name b) (id 185)))
                      (value
                       (Ref
-                       ((id ((name fold-array-arg) (id 168)))
+                       ((id ((name fold-array-arg) (id 184)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name f) (id 160)))
+                      (((binding ((name f) (id 176)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
                            (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name +arg1) (id 165)))
+                       ((binding ((name +arg1) (id 181)))
                         (value
                          (Ref
-                          ((id ((name a) (id 164)))
+                          ((id ((name a) (id 180)))
                            (type' ((element (Literal IntLiteral)) (shape ())))))))
-                       ((binding ((name +arg2) (id 170)))
+                       ((binding ((name +arg2) (id 186)))
                         (value
                          (Ref
-                          ((id ((name b) (id 169)))
+                          ((id ((name b) (id 185)))
                            (type' ((element (Literal IntLiteral)) (shape ())))))))))
                      (body
                       (AtomAsArray
@@ -2526,14 +2526,14 @@ let%expect_test "check inlining" =
                             ((ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name +arg1) (id 165)))
+                                 ((id ((name +arg1) (id 181)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))
                              (ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name +arg2) (id 170)))
+                                 ((id ((name +arg2) (id 186)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))))
@@ -2560,17 +2560,17 @@ let%expect_test "check inlining" =
     Error: Polymorphic variables and function arguments must be a value type, got not-value:
     (Map
      ((args
-       (((binding ((name a) (id 138)))
+       (((binding ((name a) (id 154)))
          (value
           (TypeApplication
-           ((tFunc (Ref ((id ((name x) (id 136))))))
+           ((tFunc (Ref ((id ((name x) (id 152))))))
             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))
-      (body (Ref ((id ((name x) (id 136)))))) (frameShape ())
+      (body (Ref ((id ((name x) (id 152)))))) (frameShape ())
       (type'
        (Arr
         ((element
           (Forall
-           ((parameters (((binding ((name @t) (id 135))) (bound Array))))
+           ((parameters (((binding ((name @t) (id 151))) (bound Array))))
             (body (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (shape ())))))) |}];
   checkAndPrint {| (length{(Forall (@x) int) | 2 []} [(t-fn (@x) 5) (t-fn (@x) 5)]) |};
@@ -2579,7 +2579,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 138)))
+       (((binding ((name f) (id 154)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -2595,17 +2595,17 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 166)))
+       (((binding ((name f) (id 182)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name op) (id 252)))
+        ((binding ((name op) (id 268)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name arr) (id 262)))
+        ((binding ((name arr) (id 278)))
          (value
           (Frame
            ((dimensions (3))
@@ -2626,30 +2626,30 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 212)))
+          (((binding ((name f) (id 228)))
             (value
              (AtomAsArray
               ((element (Values ((elements ()) (type' ()))))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name f) (id 253)))
+           ((binding ((name f) (id 269)))
             (value
              (Ref
-              ((id ((name op) (id 252)))
+              ((id ((name op) (id 268)))
                (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name init) (id 299)))
+           ((binding ((name init) (id 315)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 290)))
+                (((binding ((name f) (id 306)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 296)))
+                 ((binding ((name arr) (id 312)))
                   (value
                    (Ref
-                    ((id ((name arr) (id 262)))
+                    ((id ((name arr) (id 278)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -2657,19 +2657,19 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 295)))
+                   (((binding ((name f) (id 311)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name contiguous-subarray-array) (id 297)))
+                    ((binding ((name contiguous-subarray-array) (id 313)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 296)))
+                       ((id ((name arr) (id 312)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name contiguous-subarray-index) (id 298)))
+                    ((binding ((name contiguous-subarray-index) (id 314)))
                      (value
                       (Frame
                        ((dimensions (1))
@@ -2685,13 +2685,13 @@ let%expect_test "check inlining" =
                     (ContiguousSubArray
                      (arrayArg
                       (Ref
-                       ((id ((name contiguous-subarray-array) (id 297)))
+                       ((id ((name contiguous-subarray-array) (id 313)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ()))))))))))
                      (indexArg
                       (Ref
-                       ((id ((name contiguous-subarray-index) (id 298)))
+                       ((id ((name contiguous-subarray-index) (id 314)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 1) (refs ()))))))))))
@@ -2700,20 +2700,20 @@ let%expect_test "check inlining" =
                      (type' ((element (Literal IntLiteral)) (shape ()))))))
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name arr) (id 266)))
+           ((binding ((name arr) (id 282)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 256)))
+                (((binding ((name f) (id 272)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 263)))
+                 ((binding ((name arr) (id 279)))
                   (value
                    (Ref
-                    ((id ((name arr) (id 262)))
+                    ((id ((name arr) (id 278)))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))))
@@ -2721,19 +2721,19 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 261)))
+                   (((binding ((name f) (id 277)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name contiguous-subarray-array) (id 264)))
+                    ((binding ((name contiguous-subarray-array) (id 280)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 263)))
+                       ((id ((name arr) (id 279)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name contiguous-subarray-index) (id 265)))
+                    ((binding ((name contiguous-subarray-index) (id 281)))
                      (value
                       (Frame
                        ((dimensions (1))
@@ -2749,13 +2749,13 @@ let%expect_test "check inlining" =
                     (ContiguousSubArray
                      (arrayArg
                       (Ref
-                       ((id ((name contiguous-subarray-array) (id 264)))
+                       ((id ((name contiguous-subarray-array) (id 280)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ()))))))))))
                      (indexArg
                       (Ref
-                       ((id ((name contiguous-subarray-index) (id 265)))
+                       ((id ((name contiguous-subarray-index) (id 281)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 1) (refs ()))))))))))
@@ -2775,16 +2775,16 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name init) (id 300)))
+             (((binding ((name init) (id 316)))
                (value
                 (Ref
-                 ((id ((name init) (id 299)))
+                 ((id ((name init) (id 315)))
                   (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name up-ranked-f) (id 240)))
+                (((binding ((name up-ranked-f) (id 256)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
@@ -2793,36 +2793,36 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 238)))
+                   (((binding ((name f) (id 254)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name scan-f-arg) (id 241)))
+                    ((binding ((name scan-f-arg) (id 257)))
                      (value
                       (Ref
-                       ((id ((name up-ranked-f) (id 240)))
+                       ((id ((name up-ranked-f) (id 256)))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name scan-zero-arg) (id 303)))
+                    ((binding ((name scan-zero-arg) (id 319)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 275)))
+                         (((binding ((name f) (id 291)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 301)))
+                          ((binding ((name v) (id 317)))
                            (value
                             (Ref
-                             ((id ((name init) (id 300)))
+                             ((id ((name init) (id 316)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name make) (id 285)))
+                            (((binding ((name make) (id 301)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
@@ -2831,15 +2831,15 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 286)))
+                               (((binding ((name f) (id 302)))
                                  (value
                                   (Ref
-                                   ((id ((name make) (id 285)))
+                                   ((id ((name make) (id 301)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name v) (id 302)))
+                                ((binding ((name v) (id 318)))
                                  (value
                                   (Ref
-                                   ((id ((name v) (id 301)))
+                                   ((id ((name v) (id 317)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ())))))))))
                               (body
@@ -2847,7 +2847,7 @@ let%expect_test "check inlining" =
                                 (Map (frameShape ()) (args ())
                                  (body
                                   (Ref
-                                   ((id ((name v) (id 302)))
+                                   ((id ((name v) (id 318)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ()))))))
                                  (type'
@@ -2855,10 +2855,10 @@ let%expect_test "check inlining" =
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name scan-array-arg) (id 267)))
+                    ((binding ((name scan-array-arg) (id 283)))
                      (value
                       (Ref
-                       ((id ((name arr) (id 266)))
+                       ((id ((name arr) (id 282)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 2) (refs ())))))))))))))
@@ -2866,51 +2866,51 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Reduce
                      (arg
-                      ((firstBinding ((name reduce-arg1) (id 268)))
-                       (secondBinding ((name reduce-arg2) (id 271)))
+                      ((firstBinding ((name reduce-arg1) (id 284)))
+                       (secondBinding ((name reduce-arg2) (id 287)))
                        (value
                         (Ref
-                         ((id ((name scan-array-arg) (id 267)))
+                         ((id ((name scan-array-arg) (id 283)))
                           (type'
                            ((element (Literal IntLiteral))
                             (shape ((Add ((const 2) (refs ()))))))))))))
                      (zero
                       (Ref
-                       ((id ((name scan-zero-arg) (id 303)))
+                       ((id ((name scan-zero-arg) (id 319)))
                         (type' ((element (Literal IntLiteral)) (shape ()))))))
                      (body
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 254)))
+                         (((binding ((name f) (id 270)))
                            (value
                             (Ref
-                             ((id ((name f) (id 253)))
+                             ((id ((name f) (id 269)))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name arg0) (id 269)))
+                          ((binding ((name arg0) (id 285)))
                            (value
                             (Ref
-                             ((id ((name reduce-arg1) (id 268)))
+                             ((id ((name reduce-arg1) (id 284)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))
-                          ((binding ((name arg1) (id 272)))
+                          ((binding ((name arg1) (id 288)))
                            (value
                             (Ref
-                             ((id ((name reduce-arg2) (id 271)))
+                             ((id ((name reduce-arg2) (id 287)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name arg0) (id 270)))
+                            (((binding ((name arg0) (id 286)))
                               (value
                                (Ref
-                                ((id ((name arg0) (id 269)))
+                                ((id ((name arg0) (id 285)))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))
-                             ((binding ((name arg1) (id 273)))
+                             ((binding ((name arg1) (id 289)))
                               (value
                                (Ref
-                                ((id ((name arg1) (id 272)))
+                                ((id ((name arg1) (id 288)))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))))
                            (body
@@ -2922,7 +2922,7 @@ let%expect_test "check inlining" =
                                   ((ArrayAsAtom
                                     ((array
                                       (Ref
-                                       ((id ((name arg0) (id 270)))
+                                       ((id ((name arg0) (id 286)))
                                         (type'
                                          ((element (Literal IntLiteral))
                                           (shape ()))))))
@@ -2930,7 +2930,7 @@ let%expect_test "check inlining" =
                                    (ArrayAsAtom
                                     ((array
                                       (Ref
-                                       ((id ((name arg1) (id 273)))
+                                       ((id ((name arg1) (id 289)))
                                         (type'
                                          ((element (Literal IntLiteral))
                                           (shape ()))))))
@@ -2962,12 +2962,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 200)))
+       (((binding ((name f) (id 216)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name arr) (id 291)))
+        ((binding ((name arr) (id 307)))
          (value
           (Frame
            ((dimensions (3))
@@ -2984,7 +2984,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name flags) (id 294)))
+        ((binding ((name flags) (id 310)))
          (value
           (Frame
            ((dimensions (3))
@@ -3005,50 +3005,50 @@ let%expect_test "check inlining" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name locs-raw) (id 427)))
+          (((binding ((name locs-raw) (id 443)))
             (value
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 297)))
+                (((binding ((name f) (id 313)))
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name -arg1) (id 424)))
+                 ((binding ((name -arg1) (id 440)))
                   (value
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name f) (id 299)))
+                      (((binding ((name f) (id 315)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
                            (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name op) (id 386)))
+                       ((binding ((name op) (id 402)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
                            (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name init) (id 416)))
+                       ((binding ((name init) (id 432)))
                         (value
                          (AtomAsArray
                           ((element (Literal (IntLiteral 0)))
                            (type' ((element (Literal IntLiteral)) (shape ())))))))
-                       ((binding ((name arr) (id 392)))
+                       ((binding ((name arr) (id 408)))
                         (value
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name f) (id 389)))
+                            (((binding ((name f) (id 405)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
                                  (type' ((element (Tuple ())) (shape ())))))))
-                             ((binding ((name boolToIntArg) (id 390)))
+                             ((binding ((name boolToIntArg) (id 406)))
                               (value
                                (Ref
-                                ((id ((name flags) (id 294)))
+                                ((id ((name flags) (id 310)))
                                  (type'
                                   ((element (Literal BooleanLiteral))
                                    (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3056,10 +3056,10 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ((Add ((const 3) (refs ())))))
                               (args
-                               (((binding ((name boolToIntArg) (id 391)))
+                               (((binding ((name boolToIntArg) (id 407)))
                                  (value
                                   (Ref
-                                   ((id ((name boolToIntArg) (id 390)))
+                                   ((id ((name boolToIntArg) (id 406)))
                                     (type'
                                      ((element (Literal BooleanLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3072,7 +3072,7 @@ let%expect_test "check inlining" =
                                      ((ArrayAsAtom
                                        ((array
                                          (Ref
-                                          ((id ((name boolToIntArg) (id 391)))
+                                          ((id ((name boolToIntArg) (id 407)))
                                            (type'
                                             ((element (Literal BooleanLiteral))
                                              (shape ()))))))
@@ -3090,36 +3090,36 @@ let%expect_test "check inlining" =
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 339)))
+                         (((binding ((name f) (id 355)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name arr) (id 421)))
+                          ((binding ((name arr) (id 437)))
                            (value
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 346)))
+                               (((binding ((name f) (id 362)))
                                  (value
                                   (AtomAsArray
                                    ((element (Values ((elements ()) (type' ()))))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name f) (id 387)))
+                                ((binding ((name f) (id 403)))
                                  (value
                                   (Ref
-                                   ((id ((name op) (id 386)))
+                                   ((id ((name op) (id 402)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name init) (id 417)))
+                                ((binding ((name init) (id 433)))
                                  (value
                                   (Ref
-                                   ((id ((name init) (id 416)))
+                                   ((id ((name init) (id 432)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ())))))))
-                                ((binding ((name arr) (id 393)))
+                                ((binding ((name arr) (id 409)))
                                  (value
                                   (Ref
-                                   ((id ((name arr) (id 392)))
+                                   ((id ((name arr) (id 408)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3127,7 +3127,7 @@ let%expect_test "check inlining" =
                                (ArrayPrimitive
                                 (Map (frameShape ())
                                  (args
-                                  (((binding ((name up-ranked-f) (id 374)))
+                                  (((binding ((name up-ranked-f) (id 390)))
                                     (value
                                      (AtomAsArray
                                       ((element
@@ -3137,25 +3137,25 @@ let%expect_test "check inlining" =
                                   (ArrayPrimitive
                                    (Map (frameShape ())
                                     (args
-                                     (((binding ((name f) (id 372)))
+                                     (((binding ((name f) (id 388)))
                                        (value
                                         (AtomAsArray
                                          ((element
                                            (Values ((elements ()) (type' ()))))
                                           (type'
                                            ((element (Tuple ())) (shape ())))))))
-                                      ((binding ((name scan-f-arg) (id 375)))
+                                      ((binding ((name scan-f-arg) (id 391)))
                                        (value
                                         (Ref
-                                         ((id ((name up-ranked-f) (id 374)))
+                                         ((id ((name up-ranked-f) (id 390)))
                                           (type'
                                            ((element (Tuple ())) (shape ())))))))
-                                      ((binding ((name scan-zero-arg) (id 420)))
+                                      ((binding ((name scan-zero-arg) (id 436)))
                                        (value
                                         (ArrayPrimitive
                                          (Map (frameShape ())
                                           (args
-                                           (((binding ((name f) (id 402)))
+                                           (((binding ((name f) (id 418)))
                                              (value
                                               (AtomAsArray
                                                ((element
@@ -3164,10 +3164,10 @@ let%expect_test "check inlining" =
                                                 (type'
                                                  ((element (Tuple ()))
                                                   (shape ())))))))
-                                            ((binding ((name v) (id 418)))
+                                            ((binding ((name v) (id 434)))
                                              (value
                                               (Ref
-                                               ((id ((name init) (id 417)))
+                                               ((id ((name init) (id 433)))
                                                 (type'
                                                  ((element (Literal IntLiteral))
                                                   (shape ())))))))))
@@ -3175,7 +3175,7 @@ let%expect_test "check inlining" =
                                            (ArrayPrimitive
                                             (Map (frameShape ())
                                              (args
-                                              (((binding ((name make) (id 412)))
+                                              (((binding ((name make) (id 428)))
                                                 (value
                                                  (AtomAsArray
                                                   ((element
@@ -3188,17 +3188,17 @@ let%expect_test "check inlining" =
                                               (ArrayPrimitive
                                                (Map (frameShape ())
                                                 (args
-                                                 (((binding ((name f) (id 413)))
+                                                 (((binding ((name f) (id 429)))
                                                    (value
                                                     (Ref
-                                                     ((id ((name make) (id 412)))
+                                                     ((id ((name make) (id 428)))
                                                       (type'
                                                        ((element (Tuple ()))
                                                         (shape ())))))))
-                                                  ((binding ((name v) (id 419)))
+                                                  ((binding ((name v) (id 435)))
                                                    (value
                                                     (Ref
-                                                     ((id ((name v) (id 418)))
+                                                     ((id ((name v) (id 434)))
                                                       (type'
                                                        ((element
                                                          (Literal IntLiteral))
@@ -3208,7 +3208,7 @@ let%expect_test "check inlining" =
                                                   (Map (frameShape ()) (args ())
                                                    (body
                                                     (Ref
-                                                     ((id ((name v) (id 419)))
+                                                     ((id ((name v) (id 435)))
                                                       (type'
                                                        ((element
                                                          (Literal IntLiteral))
@@ -3226,10 +3226,10 @@ let%expect_test "check inlining" =
                                           (type'
                                            ((element (Literal IntLiteral))
                                             (shape ())))))))
-                                      ((binding ((name scan-array-arg) (id 394)))
+                                      ((binding ((name scan-array-arg) (id 410)))
                                        (value
                                         (Ref
-                                         ((id ((name arr) (id 393)))
+                                         ((id ((name arr) (id 409)))
                                           (type'
                                            ((element (Literal IntLiteral))
                                             (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3238,19 +3238,19 @@ let%expect_test "check inlining" =
                                       (Reduce
                                        (arg
                                         ((firstBinding
-                                          ((name reduce-arg1) (id 395)))
+                                          ((name reduce-arg1) (id 411)))
                                          (secondBinding
-                                          ((name reduce-arg2) (id 398)))
+                                          ((name reduce-arg2) (id 414)))
                                          (value
                                           (Ref
-                                           ((id ((name scan-array-arg) (id 394)))
+                                           ((id ((name scan-array-arg) (id 410)))
                                             (type'
                                              ((element (Literal IntLiteral))
                                               (shape
                                                ((Add ((const 3) (refs ()))))))))))))
                                        (zero
                                         (Ref
-                                         ((id ((name scan-zero-arg) (id 420)))
+                                         ((id ((name scan-zero-arg) (id 436)))
                                           (type'
                                            ((element (Literal IntLiteral))
                                             (shape ()))))))
@@ -3258,26 +3258,26 @@ let%expect_test "check inlining" =
                                         (ArrayPrimitive
                                          (Map (frameShape ())
                                           (args
-                                           (((binding ((name f) (id 388)))
+                                           (((binding ((name f) (id 404)))
                                              (value
                                               (Ref
-                                               ((id ((name f) (id 387)))
+                                               ((id ((name f) (id 403)))
                                                 (type'
                                                  ((element (Tuple ()))
                                                   (shape ())))))))
-                                            ((binding ((name arg0) (id 396)))
+                                            ((binding ((name arg0) (id 412)))
                                              (value
                                               (Ref
                                                ((id
-                                                 ((name reduce-arg1) (id 395)))
+                                                 ((name reduce-arg1) (id 411)))
                                                 (type'
                                                  ((element (Literal IntLiteral))
                                                   (shape ())))))))
-                                            ((binding ((name arg1) (id 399)))
+                                            ((binding ((name arg1) (id 415)))
                                              (value
                                               (Ref
                                                ((id
-                                                 ((name reduce-arg2) (id 398)))
+                                                 ((name reduce-arg2) (id 414)))
                                                 (type'
                                                  ((element (Literal IntLiteral))
                                                   (shape ())))))))))
@@ -3285,18 +3285,18 @@ let%expect_test "check inlining" =
                                            (ArrayPrimitive
                                             (Map (frameShape ())
                                              (args
-                                              (((binding ((name arg0) (id 397)))
+                                              (((binding ((name arg0) (id 413)))
                                                 (value
                                                  (Ref
-                                                  ((id ((name arg0) (id 396)))
+                                                  ((id ((name arg0) (id 412)))
                                                    (type'
                                                     ((element
                                                       (Literal IntLiteral))
                                                      (shape ())))))))
-                                               ((binding ((name arg1) (id 400)))
+                                               ((binding ((name arg1) (id 416)))
                                                 (value
                                                  (Ref
-                                                  ((id ((name arg1) (id 399)))
+                                                  ((id ((name arg1) (id 415)))
                                                    (type'
                                                     ((element
                                                       (Literal IntLiteral))
@@ -3311,7 +3311,7 @@ let%expect_test "check inlining" =
                                                       ((array
                                                         (Ref
                                                          ((id
-                                                           ((name arg0) (id 397)))
+                                                           ((name arg0) (id 413)))
                                                           (type'
                                                            ((element
                                                              (Literal IntLiteral))
@@ -3322,7 +3322,7 @@ let%expect_test "check inlining" =
                                                       ((array
                                                         (Ref
                                                          ((id
-                                                           ((name arg1) (id 400)))
+                                                           ((name arg1) (id 416)))
                                                           (type'
                                                            ((element
                                                              (Literal IntLiteral))
@@ -3357,21 +3357,21 @@ let%expect_test "check inlining" =
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name f) (id 344)))
+                            (((binding ((name f) (id 360)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
                                  (type' ((element (Tuple ())) (shape ())))))))
                              ((binding
-                               ((name contiguous-subarray-array) (id 422)))
+                               ((name contiguous-subarray-array) (id 438)))
                               (value
                                (Ref
-                                ((id ((name arr) (id 421)))
+                                ((id ((name arr) (id 437)))
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 4) (refs ())))))))))))
                              ((binding
-                               ((name contiguous-subarray-index) (id 423)))
+                               ((name contiguous-subarray-index) (id 439)))
                               (value
                                (Frame
                                 ((dimensions (1))
@@ -3388,13 +3388,13 @@ let%expect_test "check inlining" =
                              (ContiguousSubArray
                               (arrayArg
                                (Ref
-                                ((id ((name contiguous-subarray-array) (id 422)))
+                                ((id ((name contiguous-subarray-array) (id 438)))
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 4) (refs ()))))))))))
                               (indexArg
                                (Ref
-                                ((id ((name contiguous-subarray-index) (id 423)))
+                                ((id ((name contiguous-subarray-index) (id 439)))
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 1) (refs ()))))))))))
@@ -3413,7 +3413,7 @@ let%expect_test "check inlining" =
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 3) (refs ())))))))))))
-                 ((binding ((name -arg2) (id 426)))
+                 ((binding ((name -arg2) (id 442)))
                   (value
                    (AtomAsArray
                     ((element (Literal (IntLiteral 1)))
@@ -3422,10 +3422,10 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ((Add ((const 3) (refs ())))))
                   (args
-                   (((binding ((name -arg1) (id 425)))
+                   (((binding ((name -arg1) (id 441)))
                      (value
                       (Ref
-                       ((id ((name -arg1) (id 424)))
+                       ((id ((name -arg1) (id 440)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3438,14 +3438,14 @@ let%expect_test "check inlining" =
                          ((ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name -arg1) (id 425)))
+                              ((id ((name -arg1) (id 441)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))
                           (ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name -arg2) (id 426)))
+                              ((id ((name -arg2) (id 442)))
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))))
@@ -3461,41 +3461,41 @@ let%expect_test "check inlining" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name locs) (id 449)))
+             (((binding ((name locs) (id 465)))
                (value
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 293)))
+                   (((binding ((name f) (id 309)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name if-cond) (id 295)))
+                    ((binding ((name if-cond) (id 311)))
                      (value
                       (Ref
-                       ((id ((name flags) (id 294)))
+                       ((id ((name flags) (id 310)))
                         (type'
                          ((element (Literal BooleanLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name then-branch) (id 428)))
+                    ((binding ((name then-branch) (id 444)))
                      (value
                       (Ref
-                       ((id ((name locs-raw) (id 427)))
+                       ((id ((name locs-raw) (id 443)))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape ((Add ((const 3) (refs ())))))))))))
-                    ((binding ((name else-branch) (id 447)))
+                    ((binding ((name else-branch) (id 463)))
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 431)))
+                         (((binding ((name f) (id 447)))
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 445)))
+                          ((binding ((name v) (id 461)))
                            (value
                             (AtomAsArray
                              ((element (Literal (IntLiteral -1)))
@@ -3504,7 +3504,7 @@ let%expect_test "check inlining" =
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name make) (id 441)))
+                            (((binding ((name make) (id 457)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
@@ -3513,15 +3513,15 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 442)))
+                               (((binding ((name f) (id 458)))
                                  (value
                                   (Ref
-                                   ((id ((name make) (id 441)))
+                                   ((id ((name make) (id 457)))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name v) (id 446)))
+                                ((binding ((name v) (id 462)))
                                  (value
                                   (Ref
-                                   ((id ((name v) (id 445)))
+                                   ((id ((name v) (id 461)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ())))))))))
                               (body
@@ -3530,7 +3530,7 @@ let%expect_test "check inlining" =
                                  (args ())
                                  (body
                                   (Ref
-                                   ((id ((name v) (id 446)))
+                                   ((id ((name v) (id 462)))
                                     (type'
                                      ((element (Literal IntLiteral)) (shape ()))))))
                                  (type'
@@ -3549,24 +3549,24 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Map (frameShape ((Add ((const 3) (refs ())))))
                      (args
-                      (((binding ((name if-cond) (id 296)))
+                      (((binding ((name if-cond) (id 312)))
                         (value
                          (Ref
-                          ((id ((name if-cond) (id 295)))
+                          ((id ((name if-cond) (id 311)))
                            (type'
                             ((element (Literal BooleanLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))
-                       ((binding ((name then-branch) (id 429)))
+                       ((binding ((name then-branch) (id 445)))
                         (value
                          (Ref
-                          ((id ((name then-branch) (id 428)))
+                          ((id ((name then-branch) (id 444)))
                            (type'
                             ((element (Literal IntLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))
-                       ((binding ((name else-branch) (id 448)))
+                       ((binding ((name else-branch) (id 464)))
                         (value
                          (Ref
-                          ((id ((name else-branch) (id 447)))
+                          ((id ((name else-branch) (id 463)))
                            (type'
                             ((element (Literal IntLiteral))
                              (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3579,7 +3579,7 @@ let%expect_test "check inlining" =
                             ((ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name if-cond) (id 296)))
+                                 ((id ((name if-cond) (id 312)))
                                   (type'
                                    ((element (Literal BooleanLiteral))
                                     (shape ()))))))
@@ -3587,14 +3587,14 @@ let%expect_test "check inlining" =
                              (ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name then-branch) (id 429)))
+                                 ((id ((name then-branch) (id 445)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))
                              (ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name else-branch) (id 448)))
+                                 ((id ((name else-branch) (id 464)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))))
@@ -3610,39 +3610,39 @@ let%expect_test "check inlining" =
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name result-size) (id 469)))
+                (((binding ((name result-size) (id 485)))
                   (value
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name f) (id 451)))
+                      (((binding ((name f) (id 467)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
                            (type' ((element (Tuple ())) (shape ())))))))
-                       ((binding ((name +arg1) (id 452)))
+                       ((binding ((name +arg1) (id 468)))
                         (value
                          (AtomAsArray
                           ((element (Literal (IntLiteral 1)))
                            (type' ((element (Literal IntLiteral)) (shape ())))))))
-                       ((binding ((name +arg2) (id 468)))
+                       ((binding ((name +arg2) (id 484)))
                         (value
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name f) (id 454)))
+                            (((binding ((name f) (id 470)))
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
                                  (type' ((element (Tuple ())) (shape ())))))))
-                             ((binding ((name arr) (id 461)))
+                             ((binding ((name arr) (id 477)))
                               (value
                                (Ref
-                                ((id ((name locs-raw) (id 427)))
+                                ((id ((name locs-raw) (id 443)))
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 3) (refs ())))))))))))
-                             ((binding ((name index) (id 466)))
+                             ((binding ((name index) (id 482)))
                               (value
                                (Frame
                                 ((dimensions (1))
@@ -3650,14 +3650,14 @@ let%expect_test "check inlining" =
                                   ((ArrayPrimitive
                                     (Map (frameShape ())
                                      (args
-                                      (((binding ((name f) (id 463)))
+                                      (((binding ((name f) (id 479)))
                                         (value
                                          (AtomAsArray
                                           ((element
                                             (Values ((elements ()) (type' ()))))
                                            (type'
                                             ((element (Tuple ())) (shape ())))))))
-                                       ((binding ((name -arg1) (id 464)))
+                                       ((binding ((name -arg1) (id 480)))
                                         (value
                                          (ReifyIndex
                                           ((index
@@ -3665,7 +3665,7 @@ let%expect_test "check inlining" =
                                            (type'
                                             ((element (Literal IntLiteral))
                                              (shape ())))))))
-                                       ((binding ((name -arg2) (id 465)))
+                                       ((binding ((name -arg2) (id 481)))
                                         (value
                                          (AtomAsArray
                                           ((element (Literal (IntLiteral 1)))
@@ -3681,7 +3681,7 @@ let%expect_test "check inlining" =
                                             ((ArrayAsAtom
                                               ((array
                                                 (Ref
-                                                 ((id ((name -arg1) (id 464)))
+                                                 ((id ((name -arg1) (id 480)))
                                                   (type'
                                                    ((element
                                                      (Literal IntLiteral))
@@ -3690,7 +3690,7 @@ let%expect_test "check inlining" =
                                              (ArrayAsAtom
                                               ((array
                                                 (Ref
-                                                 ((id ((name -arg2) (id 465)))
+                                                 ((id ((name -arg2) (id 481)))
                                                   (type'
                                                    ((element
                                                      (Literal IntLiteral))
@@ -3709,24 +3709,24 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 460)))
+                               (((binding ((name f) (id 476)))
                                  (value
                                   (AtomAsArray
                                    ((element (Values ((elements ()) (type' ()))))
                                     (type' ((element (Tuple ())) (shape ())))))))
                                 ((binding
-                                  ((name contiguous-subarray-array) (id 462)))
+                                  ((name contiguous-subarray-array) (id 478)))
                                  (value
                                   (Ref
-                                   ((id ((name arr) (id 461)))
+                                   ((id ((name arr) (id 477)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))
                                 ((binding
-                                  ((name contiguous-subarray-index) (id 467)))
+                                  ((name contiguous-subarray-index) (id 483)))
                                  (value
                                   (Ref
-                                   ((id ((name index) (id 466)))
+                                   ((id ((name index) (id 482)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 1) (refs ())))))))))))))
@@ -3736,14 +3736,14 @@ let%expect_test "check inlining" =
                                  (arrayArg
                                   (Ref
                                    ((id
-                                     ((name contiguous-subarray-array) (id 462)))
+                                     ((name contiguous-subarray-array) (id 478)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ()))))))))))
                                  (indexArg
                                   (Ref
                                    ((id
-                                     ((name contiguous-subarray-index) (id 467)))
+                                     ((name contiguous-subarray-index) (id 483)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 1) (refs ()))))))))))
@@ -3763,14 +3763,14 @@ let%expect_test "check inlining" =
                             ((ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name +arg1) (id 452)))
+                                 ((id ((name +arg1) (id 468)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))
                              (ArrayAsAtom
                               ((array
                                 (Ref
-                                 ((id ((name +arg2) (id 468)))
+                                 ((id ((name +arg2) (id 484)))
                                   (type'
                                    ((element (Literal IntLiteral)) (shape ()))))))
                                (type' (Literal IntLiteral))))))
@@ -3781,10 +3781,10 @@ let%expect_test "check inlining" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name index-value) (id 470)))
+                   (((binding ((name index-value) (id 486)))
                      (value
                       (Ref
-                       ((id ((name result-size) (id 469)))
+                       ((id ((name result-size) (id 485)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
                    (IndexLet
@@ -3793,7 +3793,7 @@ let%expect_test "check inlining" =
                         (indexValue
                          (Runtime
                           (Ref
-                           ((id ((name index-value) (id 470)))
+                           ((id ((name index-value) (id 486)))
                             (type' ((element (Literal IntLiteral)) (shape ())))))))
                         (sort Dim))))
                      (body
@@ -3807,22 +3807,22 @@ let%expect_test "check inlining" =
                             (ArrayPrimitive
                              (Map (frameShape ())
                               (args
-                               (((binding ((name f) (id 290)))
+                               (((binding ((name f) (id 306)))
                                  (value
                                   (AtomAsArray
                                    ((element (Values ((elements ()) (type' ()))))
                                     (type' ((element (Tuple ())) (shape ())))))))
-                                ((binding ((name scatter-values) (id 292)))
+                                ((binding ((name scatter-values) (id 308)))
                                  (value
                                   (Ref
-                                   ((id ((name arr) (id 291)))
+                                   ((id ((name arr) (id 307)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))
-                                ((binding ((name scatter-indices) (id 450)))
+                                ((binding ((name scatter-indices) (id 466)))
                                  (value
                                   (Ref
-                                   ((id ((name locs) (id 449)))
+                                   ((id ((name locs) (id 465)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ())))))))))))))
@@ -3831,13 +3831,13 @@ let%expect_test "check inlining" =
                                 (Scatter
                                  (valuesArg
                                   (Ref
-                                   ((id ((name scatter-values) (id 292)))
+                                   ((id ((name scatter-values) (id 308)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ()))))))))))
                                  (indicesArg
                                   (Ref
-                                   ((id ((name scatter-indices) (id 450)))
+                                   ((id ((name scatter-indices) (id 466)))
                                     (type'
                                      ((element (Literal IntLiteral))
                                       (shape ((Add ((const 3) (refs ()))))))))))
@@ -3937,12 +3937,12 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 135)))
+       (((binding ((name f) (id 151)))
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name append-arg1) (id 136)))
+        ((binding ((name append-arg1) (id 152)))
          (value
           (Frame
            ((dimensions (3))
@@ -3959,7 +3959,7 @@ let%expect_test "check inlining" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ())))))))))))
-        ((binding ((name append-arg2) (id 137)))
+        ((binding ((name append-arg2) (id 153)))
          (value
           (Frame
            ((dimensions (2))
@@ -3978,13 +3978,13 @@ let%expect_test "check inlining" =
         (Append
          (arg1
           (Ref
-           ((id ((name append-arg1) (id 136)))
+           ((id ((name append-arg1) (id 152)))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 3) (refs ()))))))))))
          (arg2
           (Ref
-           ((id ((name append-arg2) (id 137)))
+           ((id ((name append-arg2) (id 153)))
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ()))))))))))
@@ -3999,7 +3999,7 @@ let%expect_test "check inlining" =
         (let [x 5]
           (fn () x)))
       (foo) |};
-  [%expect {| Error: Lambda captures variable x.133, which escapes its definition |}];
+  [%expect {| Error: Lambda captures variable x.149, which escapes its definition |}];
   checkAndPrint {|
     (lift [i [1 2 3]]
       (replicate{int | [i] []} 5))
@@ -4009,7 +4009,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ((Add ((const 3) (refs ())))))
       (args
-       (((binding ((name index-value) (id 157)))
+       (((binding ((name index-value) (id 173)))
          (value
           (Frame
            ((dimensions (3))
@@ -4029,11 +4029,11 @@ let%expect_test "check inlining" =
       (body
        (IndexLet
         ((indexArgs
-          (((indexBinding ((name i) (id 132)))
+          (((indexBinding ((name i) (id 148)))
             (indexValue
              (Runtime
               (Ref
-               ((id ((name index-value) (id 157)))
+               ((id ((name index-value) (id 173)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (sort Dim))))
          (body
@@ -4041,17 +4041,17 @@ let%expect_test "check inlining" =
            ((element
              (Box
               ((indices
-                ((Dimension ((const 0) (refs ((((name i) (id 132)) 1)))))))
+                ((Dimension ((const 0) (refs ((((name i) (id 148)) 1)))))))
                (body
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 141)))
+                   (((binding ((name f) (id 157)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name v) (id 155)))
+                    ((binding ((name v) (id 171)))
                      (value
                       (AtomAsArray
                        ((element (Literal (IntLiteral 5)))
@@ -4060,7 +4060,7 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name make) (id 151)))
+                      (((binding ((name make) (id 167)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
@@ -4069,72 +4069,72 @@ let%expect_test "check inlining" =
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 152)))
+                         (((binding ((name f) (id 168)))
                            (value
                             (Ref
-                             ((id ((name make) (id 151)))
+                             ((id ((name make) (id 167)))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 156)))
+                          ((binding ((name v) (id 172)))
                            (value
                             (Ref
-                             ((id ((name v) (id 155)))
+                             ((id ((name v) (id 171)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
                           (Map
                            (frameShape
-                            ((Add ((const 0) (refs ((((name i) (id 132)) 1)))))))
+                            ((Add ((const 0) (refs ((((name i) (id 148)) 1)))))))
                            (args ())
                            (body
                             (Ref
-                             ((id ((name v) (id 156)))
+                             ((id ((name v) (id 172)))
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type'
                             ((element (Literal IntLiteral))
                              (shape
-                              ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+                              ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
                         (type'
                          ((element (Literal IntLiteral))
                           (shape
-                           ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+                           ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
                      (type'
                       ((element (Literal IntLiteral))
                        (shape
-                        ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+                        ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
                   (type'
                    ((element (Literal IntLiteral))
-                    (shape ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+                    (shape ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
                (bodyType
                 ((element (Literal IntLiteral))
-                 (shape ((Add ((const 0) (refs ((((name i) (id 132)) 1)))))))))
+                 (shape ((Add ((const 0) (refs ((((name i) (id 148)) 1)))))))))
                (type'
-                ((parameters (((binding ((name i) (id 132))) (bound Dim))))
+                ((parameters (((binding ((name i) (id 148))) (bound Dim))))
                  (body
                   ((element (Literal IntLiteral))
-                   (shape ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))))
             (type'
              ((element
                (Sigma
-                ((parameters (((binding ((name i) (id 132))) (bound Dim))))
+                ((parameters (((binding ((name i) (id 148))) (bound Dim))))
                  (body
                   ((element (Literal IntLiteral))
-                   (shape ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+                   (shape ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
               (shape ()))))))
          (type'
           ((element
             (Sigma
-             ((parameters (((binding ((name i) (id 132))) (bound Dim))))
+             ((parameters (((binding ((name i) (id 148))) (bound Dim))))
               (body
                ((element (Literal IntLiteral))
-                (shape ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+                (shape ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
            (shape ()))))))
       (type'
        ((element
          (Sigma
-          ((parameters (((binding ((name i) (id 132))) (bound Dim))))
+          ((parameters (((binding ((name i) (id 148))) (bound Dim))))
            (body
             ((element (Literal IntLiteral))
-             (shape ((Add ((const 0) (refs ((((name i) (id 132)) 1))))))))))))
+             (shape ((Add ((const 0) (refs ((((name i) (id 148)) 1))))))))))))
         (shape ((Add ((const 3) (refs ()))))))))) |}];
   checkAndPrint {|
     (lift [@i [1 2 3]]
@@ -4145,7 +4145,7 @@ let%expect_test "check inlining" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name index-value) (id 157)))
+       (((binding ((name index-value) (id 173)))
          (value
           (Frame
            ((dimensions (3))
@@ -4165,28 +4165,28 @@ let%expect_test "check inlining" =
       (body
        (IndexLet
         ((indexArgs
-          (((indexBinding ((name @i) (id 132)))
+          (((indexBinding ((name @i) (id 148)))
             (indexValue
              (Runtime
               (Ref
-               ((id ((name index-value) (id 157)))
+               ((id ((name index-value) (id 173)))
                 (type' ((element (Literal IntLiteral)) (shape ())))))))
             (sort Shape))))
          (body
           (AtomAsArray
            ((element
              (Box
-              ((indices ((Shape ((ShapeRef ((name @i) (id 132)))))))
+              ((indices ((Shape ((ShapeRef ((name @i) (id 148)))))))
                (body
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 141)))
+                   (((binding ((name f) (id 157)))
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name v) (id 155)))
+                    ((binding ((name v) (id 171)))
                      (value
                       (AtomAsArray
                        ((element (Literal (IntLiteral 5)))
@@ -4195,7 +4195,7 @@ let%expect_test "check inlining" =
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name make) (id 151)))
+                      (((binding ((name make) (id 167)))
                         (value
                          (AtomAsArray
                           ((element (Values ((elements ()) (type' ()))))
@@ -4204,66 +4204,66 @@ let%expect_test "check inlining" =
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 152)))
+                         (((binding ((name f) (id 168)))
                            (value
                             (Ref
-                             ((id ((name make) (id 151)))
+                             ((id ((name make) (id 167)))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name v) (id 156)))
+                          ((binding ((name v) (id 172)))
                            (value
                             (Ref
-                             ((id ((name v) (id 155)))
+                             ((id ((name v) (id 171)))
                               (type' ((element (Literal IntLiteral)) (shape ())))))))))
                         (body
                          (ArrayPrimitive
-                          (Map (frameShape ((ShapeRef ((name @i) (id 132)))))
+                          (Map (frameShape ((ShapeRef ((name @i) (id 148)))))
                            (args ())
                            (body
                             (Ref
-                             ((id ((name v) (id 156)))
+                             ((id ((name v) (id 172)))
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type'
                             ((element (Literal IntLiteral))
-                             (shape ((ShapeRef ((name @i) (id 132))))))))))
+                             (shape ((ShapeRef ((name @i) (id 148))))))))))
                         (type'
                          ((element (Literal IntLiteral))
-                          (shape ((ShapeRef ((name @i) (id 132))))))))))
+                          (shape ((ShapeRef ((name @i) (id 148))))))))))
                      (type'
                       ((element (Literal IntLiteral))
-                       (shape ((ShapeRef ((name @i) (id 132))))))))))
+                       (shape ((ShapeRef ((name @i) (id 148))))))))))
                   (type'
                    ((element (Literal IntLiteral))
-                    (shape ((ShapeRef ((name @i) (id 132))))))))))
+                    (shape ((ShapeRef ((name @i) (id 148))))))))))
                (bodyType
                 ((element (Literal IntLiteral))
-                 (shape ((ShapeRef ((name @i) (id 132)))))))
+                 (shape ((ShapeRef ((name @i) (id 148)))))))
                (type'
-                ((parameters (((binding ((name @i) (id 132))) (bound Shape))))
+                ((parameters (((binding ((name @i) (id 148))) (bound Shape))))
                  (body
                   ((element (Literal IntLiteral))
-                   (shape ((ShapeRef ((name @i) (id 132))))))))))))
+                   (shape ((ShapeRef ((name @i) (id 148))))))))))))
             (type'
              ((element
                (Sigma
-                ((parameters (((binding ((name @i) (id 132))) (bound Shape))))
+                ((parameters (((binding ((name @i) (id 148))) (bound Shape))))
                  (body
                   ((element (Literal IntLiteral))
-                   (shape ((ShapeRef ((name @i) (id 132))))))))))
+                   (shape ((ShapeRef ((name @i) (id 148))))))))))
               (shape ()))))))
          (type'
           ((element
             (Sigma
-             ((parameters (((binding ((name @i) (id 132))) (bound Shape))))
+             ((parameters (((binding ((name @i) (id 148))) (bound Shape))))
               (body
                ((element (Literal IntLiteral))
-                (shape ((ShapeRef ((name @i) (id 132))))))))))
+                (shape ((ShapeRef ((name @i) (id 148))))))))))
            (shape ()))))))
       (type'
        ((element
          (Sigma
-          ((parameters (((binding ((name @i) (id 132))) (bound Shape))))
+          ((parameters (((binding ((name @i) (id 148))) (bound Shape))))
            (body
             ((element (Literal IntLiteral))
-             (shape ((ShapeRef ((name @i) (id 132))))))))))
+             (shape ((ShapeRef ((name @i) (id 148))))))))))
         (shape ()))))) |}]
 ;;
