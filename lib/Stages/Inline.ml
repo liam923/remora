@@ -234,6 +234,7 @@ let assertValueRestriction value =
       | ReifyIndex _ -> true
       | Primitive _ -> true
       | Map _ -> false
+      | ContiguousSubArray _ -> false
     and isValueAtom = function
       | TermLambda _ -> true
       | TypeLambda _ -> true
@@ -316,6 +317,13 @@ let rec genNewBindingsArray env (expr : Explicit.Expr.array) =
     let _, args = List.unzip oldAndNewArgs in
     let%bind body = genNewBindingsArray extendedEnv body in
     return @@ Expr.Map { frameShape; args; body; type' }
+  | ContiguousSubArray
+      { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+    let%bind arrayArg = genNewBindingsArray env arrayArg
+    and indexArg = genNewBindingsArray env indexArg in
+    return
+    @@ Expr.ContiguousSubArray
+         { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' }
 
 and genNewBindingsAtom env (expr : Explicit.Expr.atom) =
   let open Explicit in
@@ -494,6 +502,22 @@ let rec inlineArray indexEnv (appStack : appStack) (array : Explicit.Expr.array)
            ; type' = inlineArrayTypeWithStack appStack type'
            })
     , functions )
+  | ContiguousSubArray
+      { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+    assert (List.is_empty appStack);
+    let%bind arrayArg, functions = inlineArray indexEnv [] arrayArg in
+    let%map indexArg, _ = inlineArray indexEnv [] indexArg in
+    ( I.ArrayPrimitive
+        (ContiguousSubArray
+           { arrayArg
+           ; indexArg
+           ; originalShape
+           ; resultShape
+           ; cellShape
+           ; l
+           ; type' = inlineArrayTypeWithStack [] type'
+           })
+    , functions )
 
 and inlineAtom indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
   : (Nucleus.Expr.array * FunctionSet.t) InlineState.u
@@ -564,6 +588,23 @@ and inlineAtom indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
           Set.diff variablesUsed variablesDeclared
         | E.ReifyIndex { index; type' = _ } -> indexCaptures index
         | E.Primitive { name = _; type' = _ } -> Set.empty (module Identifier)
+        | E.ContiguousSubArray
+            { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' = _ } ->
+          let arrayArgCaptures = arrayCaptures arrayArg
+          and indexArgCaptures = arrayCaptures indexArg
+          and originalShapeCaptures = indexCaptures @@ Shape originalShape
+          and resultShapeCaptures = indexCaptures @@ Shape resultShape
+          and cellShapeCaptures = indexCaptures @@ Shape cellShape
+          and lCaptures = indexCaptures @@ Dimension l in
+          Set.union_list
+            (module Identifier)
+            [ arrayArgCaptures
+            ; indexArgCaptures
+            ; originalShapeCaptures
+            ; resultShapeCaptures
+            ; cellShapeCaptures
+            ; lCaptures
+            ]
       and atomCaptures = function
         | E.TermLambda { params; body; type' = _ } ->
           let variablesUsed = arrayCaptures body in

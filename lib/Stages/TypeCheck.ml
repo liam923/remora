@@ -1356,7 +1356,24 @@ module TypeCheck = struct
           { elem = IncompatibleShapes { originalShape = oldShape; newShape }; source }
       in
       let%map () = verifyShapeCompatibility oldShape newShape in
-      T.Array (T.replaceTypeOfArray value newType)
+      T.Array
+        (ContiguousSubArray
+           { arrayArg = value
+           ; indexArg =
+               Frame
+                 { elements = []
+                 ; dimensions = [ 0 ]
+                 ; type' =
+                     { element = Literal IntLiteral
+                     ; shape = [ Add (Typed.Index.dimensionConstant 0) ]
+                     }
+                 }
+           ; originalShape = oldShape
+           ; resultShape = newShape
+           ; cellShape = []
+           ; l = Typed.Index.dimensionConstant 0
+           ; type' = Arr newType
+           })
     | U.ReifyDimension dimension ->
       let%map dimension = SortChecker.checkAndExpectDim env dimension in
       T.Array

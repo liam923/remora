@@ -1542,21 +1542,29 @@ let%expect_test "check type" =
   [%expect
     {|
     (Array
-     (Frame
-      ((dimensions (2))
-       (elements
-        ((Frame
-          ((dimensions (3))
-           (elements
-            ((Scalar ((element (Literal (IntLiteral 1)))))
-             (Scalar ((element (Literal (IntLiteral 2)))))
-             (Scalar ((element (Literal (IntLiteral 3)))))))))
-         (Frame
-          ((dimensions (3))
-           (elements
-            ((Scalar ((element (Literal (IntLiteral 4)))))
-             (Scalar ((element (Literal (IntLiteral 5)))))
-             (Scalar ((element (Literal (IntLiteral 6))))))))))))))
+     (ContiguousSubArray
+      ((arrayArg
+        (Frame
+         ((dimensions (2))
+          (elements
+           ((Frame
+             ((dimensions (3))
+              (elements
+               ((Scalar ((element (Literal (IntLiteral 1)))))
+                (Scalar ((element (Literal (IntLiteral 2)))))
+                (Scalar ((element (Literal (IntLiteral 3)))))))))
+            (Frame
+             ((dimensions (3))
+              (elements
+               ((Scalar ((element (Literal (IntLiteral 4)))))
+                (Scalar ((element (Literal (IntLiteral 5)))))
+                (Scalar ((element (Literal (IntLiteral 6))))))))))))))
+       (indexArg (Frame ((dimensions (0)) (elements ()))))
+       (originalShape ((Add ((const 2) (refs ()))) (Add ((const 3) (refs ())))))
+       (resultShape
+        ((Add ((const 1) (refs ()))) (Add ((const 2) (refs ())))
+         (Add ((const 3) (refs ())))))
+       (cellShape ()) (l ((const 0) (refs ()))))))
     Type:
     (Array
      (Arr
@@ -1586,7 +1594,19 @@ let%expect_test "check type" =
                     ((Add ((const 4) (refs ())))
                      (Add ((const 0) (refs ((((name l) (id 148)) 1)))))
                      (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))))))
-             (body (Ref ((id ((name x) (id 149)))))))))))))))
+             (body
+              (ContiguousSubArray
+               ((arrayArg (Ref ((id ((name x) (id 149))))))
+                (indexArg (Frame ((dimensions (0)) (elements ()))))
+                (originalShape
+                 ((Add ((const 4) (refs ())))
+                  (Add ((const 0) (refs ((((name l) (id 148)) 1)))))
+                  (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))
+                (resultShape
+                 ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))
+                  (Add ((const 0) (refs ((((name l) (id 148)) 1)))))
+                  (Add ((const 4) (refs ())))))
+                (cellShape ()) (l ((const 0) (refs ())))))))))))))))
     Type:
     (Atom
      (Pi
@@ -1628,7 +1648,17 @@ let%expect_test "check type" =
                    (shape
                     ((Add ((const 4) (refs ()))) (ShapeRef ((name @l) (id 148)))
                      (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))))))))
-             (body (Ref ((id ((name x) (id 149)))))))))))))))
+             (body
+              (ContiguousSubArray
+               ((arrayArg (Ref ((id ((name x) (id 149))))))
+                (indexArg (Frame ((dimensions (0)) (elements ()))))
+                (originalShape
+                 ((Add ((const 4) (refs ()))) (ShapeRef ((name @l) (id 148)))
+                  (Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))))
+                (resultShape
+                 ((Add ((const 2) (refs ()))) (Add ((const 2) (refs ())))
+                  (ShapeRef ((name @l) (id 148))) (Add ((const 4) (refs ())))))
+                (cellShape ()) (l ((const 0) (refs ())))))))))))))))
     Type:
     (Atom
      (Pi

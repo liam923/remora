@@ -257,6 +257,16 @@ module Expr = struct
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
+  and contiguousSubArray =
+    { arrayArg : array
+    ; indexArg : array
+    ; originalShape : Index.shape
+    ; resultShape : Index.shape
+    ; cellShape : Index.shape
+    ; l : Index.dimension
+    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    }
+
   and literal =
     | IntLiteral of int
     | FloatLiteral of float
@@ -275,6 +285,7 @@ module Expr = struct
     | Let of let'
     | Primitive of primitive
     | Lift of lift
+    | ContiguousSubArray of contiguousSubArray
 
   and atom =
     | TermLambda of termLambda
@@ -311,27 +322,12 @@ module Expr = struct
     | Let let' -> let'.type'
     | Primitive primitive -> primitive.type'
     | Lift lift -> lift.type'
+    | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
   ;;
 
   let type' : t -> Type.t = function
     | Array array -> Array (arrayType array)
     | Atom atom -> Atom (atomType atom)
-  ;;
-
-  let replaceTypeOfArray array type' =
-    match array with
-    | Ref ref -> Ref { ref with type' = Arr type' }
-    | Scalar scalar -> Scalar { scalar with type' }
-    | Frame frame -> Frame { frame with type' }
-    | TermApplication termApplication -> TermApplication { termApplication with type' }
-    | TypeApplication typeApplication -> TypeApplication { typeApplication with type' }
-    | IndexApplication indexApplication ->
-      IndexApplication { indexApplication with type' }
-    | Unbox unbox -> Unbox { unbox with type' }
-    | ReifyIndex reifyIndex -> ReifyIndex { reifyIndex with type' }
-    | Let let' -> Let { let' with type' = Arr type' }
-    | Primitive primitive -> Primitive { primitive with type' = Arr type' }
-    | Lift lift -> Lift { lift with type' = Arr type' }
   ;;
 end
 
@@ -742,6 +738,17 @@ module Substitute = struct
           ; body = subTypesIntoArray types body
           ; type' = Type.subTypesIntoArray types type'
           }
+      | ContiguousSubArray
+          { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+        ContiguousSubArray
+          { arrayArg = subTypesIntoArray types arrayArg
+          ; indexArg = subTypesIntoArray types indexArg
+          ; originalShape
+          ; resultShape
+          ; cellShape
+          ; l
+          ; type' = Type.subTypesIntoArray types type'
+          }
 
     and subTypesIntoAtom types = function
       | TermLambda lambda -> TermLambda (subTypesIntoTermLambda types lambda)
@@ -837,6 +844,17 @@ module Substitute = struct
           ; sort
           ; frameShape = Index.subIndicesIntoShape indices frameShape
           ; body = subIndicesIntoArray indices body
+          ; type' = Type.subIndicesIntoArray indices type'
+          }
+      | ContiguousSubArray
+          { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+        ContiguousSubArray
+          { arrayArg = subIndicesIntoArray indices arrayArg
+          ; indexArg = subIndicesIntoArray indices indexArg
+          ; originalShape = Index.subIndicesIntoShape indices originalShape
+          ; resultShape = Index.subIndicesIntoShape indices resultShape
+          ; cellShape = Index.subIndicesIntoShape indices cellShape
+          ; l = Index.subIndicesIntoDim indices l
           ; type' = Type.subIndicesIntoArray indices type'
           }
 

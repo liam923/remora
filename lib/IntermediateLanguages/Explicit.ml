@@ -104,6 +104,16 @@ module Expr = struct
   and primitive = Typed.Expr.primitive
   and literal = Typed.Expr.literal
 
+  and contiguousSubArray =
+    { arrayArg : array
+    ; indexArg : array
+    ; originalShape : Index.shape
+    ; resultShape : Index.shape
+    ; cellShape : Index.shape
+    ; l : Index.dimension
+    ; type' : Type.array [@sexp_drop_if fun _ -> true]
+    }
+
   and map =
     { args : mapArg list
     ; body : array
@@ -122,6 +132,7 @@ module Expr = struct
     | IndexLet of indexLet
     | ReifyIndex of reifyIndex
     | Primitive of primitive
+    | ContiguousSubArray of contiguousSubArray
     | Map of map
 
   and atom =
@@ -158,6 +169,7 @@ module Expr = struct
     | IndexLet indexLet -> indexLet.type'
     | ReifyIndex reifyIndex -> Arr reifyIndex.type'
     | Primitive primitive -> primitive.type'
+    | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
     | Map map -> map.type'
   ;;
 end
@@ -231,6 +243,17 @@ module Substitute = struct
                 { binding; value = subTypesIntoArray types value })
           ; body = subTypesIntoArray types body
           ; frameShape
+          ; type' = Type.subTypesIntoArray types type'
+          }
+      | ContiguousSubArray
+          { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+        ContiguousSubArray
+          { arrayArg = subTypesIntoArray types arrayArg
+          ; indexArg = subTypesIntoArray types indexArg
+          ; originalShape
+          ; resultShape
+          ; cellShape
+          ; l
           ; type' = Type.subTypesIntoArray types type'
           }
 
@@ -329,6 +352,17 @@ module Substitute = struct
           }
       | Primitive { name; type' } ->
         Primitive { name; type' = Type.subIndicesIntoArray indices type' }
+      | ContiguousSubArray
+          { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+        ContiguousSubArray
+          { arrayArg = subIndicesIntoArray indices arrayArg
+          ; indexArg = subIndicesIntoArray indices indexArg
+          ; originalShape = Index.subIndicesIntoShape indices originalShape
+          ; resultShape = Index.subIndicesIntoShape indices resultShape
+          ; cellShape = Index.subIndicesIntoShape indices cellShape
+          ; l = Index.subIndicesIntoDim indices l
+          ; type' = Type.subIndicesIntoArray indices type'
+          }
       | Map { args; body; frameShape; type' } ->
         Map
           { args =
@@ -411,6 +445,17 @@ module Substitute = struct
           }
       | ReifyIndex { index; type' } -> ReifyIndex { index; type' }
       | Primitive { name; type' } -> Primitive { name; type' }
+      | ContiguousSubArray
+          { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+        ContiguousSubArray
+          { arrayArg = subRefsIntoArray refs arrayArg
+          ; indexArg = subRefsIntoArray refs indexArg
+          ; originalShape
+          ; resultShape
+          ; cellShape
+          ; l
+          ; type'
+          }
       | Map { args; body; frameShape; type' } ->
         Map
           { args =

@@ -28,6 +28,8 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
   | IndexApplication app -> funcParamNamesArray env app.iFunc
   | Unbox unbox -> funcParamNamesArray env unbox.body
   | Lift lift -> funcParamNamesArray env lift.body
+  | ContiguousSubArray contiguousSubArray ->
+    funcParamNamesArray env contiguousSubArray.arrayArg
   | ReifyIndex _ -> None
   | Let l ->
     let env = Map.set env ~key:l.binding ~data:(funcParamNamesArray env l.value) in
@@ -227,6 +229,12 @@ let rec explicitizeArray paramNamesEnv array
       ; type'
       }
   | T.ReifyIndex { index; type' } -> ExplicitState.return (E.ReifyIndex { index; type' })
+  | T.ContiguousSubArray
+      { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' } ->
+    let%map arrayArg = explicitizeArray paramNamesEnv arrayArg
+    and indexArg = explicitizeArray paramNamesEnv indexArg in
+    E.ContiguousSubArray
+      { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' }
   | T.Let { binding; value; body; type' } ->
     let extendedParamNamesEnv =
       Map.set paramNamesEnv ~key:binding ~data:(funcParamNamesArray paramNamesEnv value)
