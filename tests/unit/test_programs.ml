@@ -70,32 +70,31 @@ let%expect_test "simple addition" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 150))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 148)))
+       (((binding f.150) (value (Primitive ((name (Func Add))))))
+        ((binding +arg1.148)
          (value (Scalar ((element (Literal (IntLiteral 1)))))))
-        ((binding ((name +arg2) (id 149)))
+        ((binding +arg2.149)
          (value (Scalar ((element (Literal (IntLiteral 2)))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name f) (id 150))))))
-         (args (((id ((name +arg1) (id 148)))) ((id ((name +arg2) (id 149))))))
+        ((func (Ref ((id f.150)))) (args (((id +arg1.148)) ((id +arg2.149))))
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
       (frameShape ()) (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))
     Result of stage Inline and Monomorphize:
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 151)))
+       (((binding f.151)
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 152)))
+        ((binding +arg1.152)
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 1)))
             (type' ((element (Literal IntLiteral)) (shape ())))))))
-        ((binding ((name +arg2) (id 153)))
+        ((binding +arg2.153)
          (value
           (AtomAsArray
            ((element (Literal (IntLiteral 2)))
@@ -109,13 +108,13 @@ let%expect_test "simple addition" =
              ((ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg1) (id 152)))
+                  ((id +arg1.152)
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))
               (ArrayAsAtom
                ((array
                  (Ref
-                  ((id ((name +arg2) (id 153)))
+                  ((id +arg2.153)
                    (type' ((element (Literal IntLiteral)) (shape ()))))))
                 (type' (Literal IntLiteral))))))
             (type' (Literal IntLiteral)))))
@@ -144,72 +143,63 @@ let%expect_test "simple function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name add) (id 148)))
+     ((binding add.148)
       (value
        (Scalar
         ((element
           (TermLambda
            ((params
-             (((binding ((name x) (id 149)))
+             (((binding x.149)
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-              ((binding ((name y) (id 150)))
+              ((binding y.150)
                (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (body
              (TermApplication
               ((func (Primitive ((name (Func Add)))))
-               (args
-                ((Ref ((id ((name x) (id 149)))))
-                 (Ref ((id ((name y) (id 150))))))))))))))))
+               (args ((Ref ((id x.149))) (Ref ((id y.150))))))))))))))
       (body
        (TermApplication
-        ((func (Ref ((id ((name add) (id 148))))))
+        ((func (Ref ((id add.148))))
          (args
           ((Scalar ((element (Literal (IntLiteral 5)))))
            (Scalar ((element (Literal (IntLiteral 10))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name add) (id 148)))
+       (((binding add.148)
          (value
           (Scalar
            ((element
              (TermLambda
               ((params
-                (((binding ((name x) (id 149)))
+                (((binding x.149)
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))
-                 ((binding ((name y) (id 150)))
+                 ((binding y.150)
                   (bound (Arr ((element (Literal IntLiteral)) (shape ())))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 153)))
-                     (value (Primitive ((name (Func Add))))))
-                    ((binding ((name +arg1) (id 151)))
-                     (value (Ref ((id ((name x) (id 149)))))))
-                    ((binding ((name +arg2) (id 152)))
-                     (value (Ref ((id ((name y) (id 150)))))))))
+                   (((binding f.153) (value (Primitive ((name (Func Add))))))
+                    ((binding +arg1.151) (value (Ref ((id x.149)))))
+                    ((binding +arg2.152) (value (Ref ((id y.150)))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 153))))))
-                     (args
-                      (((id ((name +arg1) (id 151))))
-                       ((id ((name +arg2) (id 152))))))
+                    ((func (Ref ((id f.153))))
+                     (args (((id +arg1.151)) ((id +arg2.152))))
                      (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
                   (frameShape ())
                   (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 156)))
-            (value (Ref ((id ((name add) (id 148)))))))
-           ((binding ((name x) (id 154)))
+          (((binding f.156) (value (Ref ((id add.148)))))
+           ((binding x.154)
             (value (Scalar ((element (Literal (IntLiteral 5)))))))
-           ((binding ((name y) (id 155)))
+           ((binding y.155)
             (value (Scalar ((element (Literal (IntLiteral 10)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 156))))))
-            (args (((id ((name x) (id 154)))) ((id ((name y) (id 155))))))
+           ((func (Ref ((id f.156)))) (args (((id x.154)) ((id y.155))))
             (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -218,7 +208,7 @@ let%expect_test "simple function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name add) (id 158)))
+       (((binding add.158)
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -227,17 +217,15 @@ let%expect_test "simple function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 159)))
+          (((binding f.159)
             (value
-             (Ref
-              ((id ((name add) (id 158)))
-               (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name x) (id 166)))
+             (Ref ((id add.158) (type' ((element (Tuple ())) (shape ())))))))
+           ((binding x.166)
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))
-           ((binding ((name y) (id 168)))
+           ((binding y.168)
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 10)))
@@ -246,21 +234,19 @@ let%expect_test "simple function definition and call" =
           (ArrayPrimitive
            (Map (frameShape ())
             (args
-             (((binding ((name f) (id 165)))
+             (((binding f.165)
                (value
                 (AtomAsArray
                  ((element (Values ((elements ()) (type' ()))))
                   (type' ((element (Tuple ())) (shape ())))))))
-              ((binding ((name +arg1) (id 167)))
+              ((binding +arg1.167)
                (value
                 (Ref
-                 ((id ((name x) (id 166)))
-                  (type' ((element (Literal IntLiteral)) (shape ())))))))
-              ((binding ((name +arg2) (id 169)))
+                 ((id x.166) (type' ((element (Literal IntLiteral)) (shape ())))))))
+              ((binding +arg2.169)
                (value
                 (Ref
-                 ((id ((name y) (id 168)))
-                  (type' ((element (Literal IntLiteral)) (shape ())))))))))
+                 ((id y.168) (type' ((element (Literal IntLiteral)) (shape ())))))))))
             (body
              (AtomAsArray
               ((element
@@ -270,13 +256,13 @@ let%expect_test "simple function definition and call" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 167)))
+                        ((id +arg1.167)
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 169)))
+                        ((id +arg2.169)
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -311,58 +297,53 @@ let%expect_test "polymorphic function definition and call" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name id) (id 148)))
+     ((binding id.148)
       (value
        (Scalar
         ((element
           (TypeLambda
-           ((params (((binding ((name @t) (id 149))) (bound Array))))
+           ((params (((binding @t.149) (bound Array))))
             (body
              (Scalar
               ((element
                 (TermLambda
-                 ((params
-                   (((binding ((name e) (id 150)))
-                     (bound (ArrayRef ((name @t) (id 149)))))))
-                  (body (Ref ((id ((name e) (id 150))))))))))))))))))
+                 ((params (((binding e.150) (bound (ArrayRef @t.149)))))
+                  (body (Ref ((id e.150))))))))))))))))
       (body
        (TermApplication
         ((func
           (TypeApplication
-           ((tFunc (Ref ((id ((name id) (id 148))))))
+           ((tFunc (Ref ((id id.148))))
             (args ((Array (Arr ((element (Literal IntLiteral)) (shape ())))))))))
          (args ((Scalar ((element (Literal (IntLiteral 5))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name id) (id 148)))
+       (((binding id.148)
          (value
           (Scalar
            ((element
              (TypeLambda
-              ((params (((binding ((name @t) (id 149))) (bound Array))))
+              ((params (((binding @t.149) (bound Array))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
-                    ((params
-                      (((binding ((name e) (id 150)))
-                        (bound (ArrayRef ((name @t) (id 149)))))))
-                     (body (Ref ((id ((name e) (id 150)))))))))))))))))))))
+                    ((params (((binding e.150) (bound (ArrayRef @t.149)))))
+                     (body (Ref ((id e.150)))))))))))))))))))
       (body
        (Map
         ((args
-          (((binding ((name f) (id 152)))
+          (((binding f.152)
             (value
              (TypeApplication
-              ((tFunc (Ref ((id ((name id) (id 148))))))
+              ((tFunc (Ref ((id id.148))))
                (args ((Array (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
-           ((binding ((name e) (id 151)))
+           ((binding e.151)
             (value (Scalar ((element (Literal (IntLiteral 5)))))))))
          (body
           (TermApplication
-           ((func (Ref ((id ((name f) (id 152))))))
-            (args (((id ((name e) (id 151))))))
+           ((func (Ref ((id f.152)))) (args (((id e.151))))
             (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
          (frameShape ())
          (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
@@ -371,7 +352,7 @@ let%expect_test "polymorphic function definition and call" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name id) (id 154)))
+       (((binding id.154)
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -380,20 +361,15 @@ let%expect_test "polymorphic function definition and call" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 155)))
-            (value
-             (Ref
-              ((id ((name id) (id 154)))
-               (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name e) (id 157)))
+          (((binding f.155)
+            (value (Ref ((id id.154) (type' ((element (Tuple ())) (shape ())))))))
+           ((binding e.157)
             (value
              (AtomAsArray
               ((element (Literal (IntLiteral 5)))
                (type' ((element (Literal IntLiteral)) (shape ())))))))))
          (body
-          (Ref
-           ((id ((name e) (id 157)))
-            (type' ((element (Literal IntLiteral)) (shape ()))))))
+          (Ref ((id e.157) (type' ((element (Literal IntLiteral)) (shape ()))))))
          (type' ((element (Literal IntLiteral)) (shape ()))))))
       (type' ((element (Literal IntLiteral)) (shape ())))))
     Result of stage Nest:
@@ -441,15 +417,15 @@ let%expect_test "function call with implicit map" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name f) (id 150))) (value (Primitive ((name (Func Add))))))
-        ((binding ((name +arg1) (id 148)))
+       (((binding f.150) (value (Primitive ((name (Func Add))))))
+        ((binding +arg1.148)
          (value
           (Frame
            ((dimensions (2))
             (elements
              ((Scalar ((element (Literal (IntLiteral 1)))))
               (Scalar ((element (Literal (IntLiteral 2)))))))))))
-        ((binding ((name +arg2) (id 149)))
+        ((binding +arg2.149)
          (value
           (Frame
            ((dimensions (2))
@@ -469,20 +445,15 @@ let%expect_test "function call with implicit map" =
       (body
        (Map
         ((args
-          (((binding ((name +arg1) (id 151)))
-            (value (Ref ((id ((name +arg1) (id 148)))))))
-           ((binding ((name +arg2) (id 152)))
-            (value (Ref ((id ((name +arg2) (id 149)))))))))
+          (((binding +arg1.151) (value (Ref ((id +arg1.148)))))
+           ((binding +arg2.152) (value (Ref ((id +arg2.149)))))))
          (body
           (Map
-           ((args
-             (((binding ((name +arg2) (id 153)))
-               (value (Ref ((id ((name +arg2) (id 152)))))))))
+           ((args (((binding +arg2.153) (value (Ref ((id +arg2.152)))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 150))))))
-               (args
-                (((id ((name +arg1) (id 151)))) ((id ((name +arg2) (id 153))))))
+              ((func (Ref ((id f.150))))
+               (args (((id +arg1.151)) ((id +arg2.153))))
                (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (frameShape ((Add ((const 3) (refs ())))))
             (type'
@@ -503,12 +474,12 @@ let%expect_test "function call with implicit map" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name f) (id 154)))
+       (((binding f.154)
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
             (type' ((element (Tuple ())) (shape ())))))))
-        ((binding ((name +arg1) (id 155)))
+        ((binding +arg1.155)
          (value
           (Frame
            ((dimensions (2))
@@ -522,7 +493,7 @@ let%expect_test "function call with implicit map" =
             (type'
              ((element (Literal IntLiteral))
               (shape ((Add ((const 2) (refs ())))))))))))
-        ((binding ((name +arg2) (id 157)))
+        ((binding +arg2.157)
          (value
           (Frame
            ((dimensions (2))
@@ -564,17 +535,17 @@ let%expect_test "function call with implicit map" =
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name +arg1) (id 156)))
+          (((binding +arg1.156)
             (value
              (Ref
-              ((id ((name +arg1) (id 155)))
+              ((id +arg1.155)
                (type'
                 ((element (Literal IntLiteral))
                  (shape ((Add ((const 2) (refs ())))))))))))
-           ((binding ((name +arg2) (id 158)))
+           ((binding +arg2.158)
             (value
              (Ref
-              ((id ((name +arg2) (id 157)))
+              ((id +arg2.157)
                (type'
                 ((element (Literal IntLiteral))
                  (shape
@@ -583,10 +554,10 @@ let%expect_test "function call with implicit map" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 3) (refs ())))))
             (args
-             (((binding ((name +arg2) (id 159)))
+             (((binding +arg2.159)
                (value
                 (Ref
-                 ((id ((name +arg2) (id 158)))
+                 ((id +arg2.158)
                   (type'
                    ((element (Literal IntLiteral))
                     (shape ((Add ((const 3) (refs ())))))))))))))
@@ -599,13 +570,13 @@ let%expect_test "function call with implicit map" =
                    ((ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg1) (id 156)))
+                        ((id +arg1.156)
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))
                     (ArrayAsAtom
                      ((array
                        (Ref
-                        ((id ((name +arg2) (id 159)))
+                        ((id +arg2.159)
                          (type' ((element (Literal IntLiteral)) (shape ()))))))
                       (type' (Literal IntLiteral))))))
                   (type' (Literal IntLiteral)))))
@@ -843,7 +814,7 @@ let%expect_test "box and unbox" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name words) (id 148)))
+     ((binding words.148)
       (value
        (Frame
         ((dimensions (2))
@@ -862,7 +833,7 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 149)) 1)))))))))))))))
+                   (shape ((Add ((const 0) (refs ((len.149 1)))))))))))))))
            (Scalar
             ((element
               (Box
@@ -876,12 +847,11 @@ let%expect_test "box and unbox" =
                 (bodyType
                  (Arr
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))))))))))
+                   (shape ((Add ((const 0) (refs ((len.149 1))))))))))))))))))))
       (body
        (Unbox
-        ((indexBindings ((((name len) (id 150)) Dim)))
-         (valueBinding ((name word) (id 151)))
-         (box (Ref ((id ((name words) (id 148))))))
+        ((indexBindings ((len.150 Dim))) (valueBinding word.151)
+         (box (Ref ((id words.148))))
          (body
           (TermApplication
            ((func (Primitive ((name (Func Equal)))))
@@ -897,47 +867,39 @@ let%expect_test "box and unbox" =
                         ((element
                           (IndexLambda
                            ((params
-                             (((binding ((name d) (id 1))) (bound Dim))
-                              ((binding ((name @cell-shape) (id 2)))
-                               (bound Shape))))
+                             (((binding d.1) (bound Dim))
+                              ((binding @cell-shape.2) (bound Shape))))
                             (body
                              (Scalar
                               ((element
                                 (TypeLambda
-                                 ((params
-                                   (((binding ((name t) (id 3))) (bound Atom))))
+                                 ((params (((binding t.3) (bound Atom))))
                                   (body
                                    (Scalar
                                     ((element
                                       (TermLambda
                                        ((params
-                                         (((binding ((name arr) (id 4)))
+                                         (((binding arr.4)
                                            (bound
                                             (Arr
-                                             ((element
-                                               (AtomRef ((name t) (id 3))))
+                                             ((element (AtomRef t.3))
                                               (shape
                                                ((Add
-                                                 ((const 0)
-                                                  (refs ((((name d) (id 1)) 1)))))
-                                                (ShapeRef
-                                                 ((name @cell-shape) (id 2)))))))))))
+                                                 ((const 0) (refs ((d.1 1)))))
+                                                (ShapeRef @cell-shape.2)))))))))
                                         (body
                                          (ReifyIndex
                                           ((index
                                             (Dimension
-                                             ((const 0)
-                                              (refs ((((name d) (id 1)) 1)))))))))))))))))))))))))))
+                                             ((const 0) (refs ((d.1 1)))))))))))))))))))))))))))
                       (args
-                       ((Dimension
-                         ((const 0) (refs ((((name len) (id 150)) 1)))))
-                        (Shape ()))))))
+                       ((Dimension ((const 0) (refs ((len.150 1))))) (Shape ()))))))
                    (args ((Atom (Literal CharacterLiteral)))))))
-                (args ((Ref ((id ((name word) (id 151)))))))))))))))))))
+                (args ((Ref ((id word.151)))))))))))))))))
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name words) (id 148)))
+       (((binding words.148)
          (value
           (Frame
            ((dimensions (2))
@@ -956,8 +918,7 @@ let%expect_test "box and unbox" =
                    (bodyType
                     (Arr
                      ((element (Literal CharacterLiteral))
-                      (shape
-                       ((Add ((const 0) (refs ((((name len) (id 149)) 1)))))))))))))))
+                      (shape ((Add ((const 0) (refs ((len.149 1)))))))))))))))
               (Scalar
                ((element
                  (Box
@@ -971,37 +932,32 @@ let%expect_test "box and unbox" =
                    (bodyType
                     (Arr
                      ((element (Literal CharacterLiteral))
-                      (shape
-                       ((Add ((const 0) (refs ((((name len) (id 149)) 1)))))))))))))))))))))))
+                      (shape ((Add ((const 0) (refs ((len.149 1)))))))))))))))))))))))
       (body
        (Map
-        ((args
-          (((binding ((name box) (id 157)))
-            (value (Ref ((id ((name words) (id 148)))))))))
+        ((args (((binding box.157) (value (Ref ((id words.148)))))))
          (body
           (IndexLet
            ((indexArgs
-             (((indexBinding ((name len) (id 150)))
-               (indexValue
-                (FromBox (box (Ref ((id ((name box) (id 157)))))) (i 0)))
+             (((indexBinding len.150)
+               (indexValue (FromBox (box (Ref ((id box.157)))) (i 0)))
                (sort Dim))))
             (body
              (Map
               ((args
-                (((binding ((name word) (id 151)))
-                  (value (BoxValue ((box (Ref ((id ((name box) (id 157))))))))))))
+                (((binding word.151)
+                  (value (BoxValue ((box (Ref ((id box.157))))))))))
                (body
                 (Map
                  ((args
-                   (((binding ((name f) (id 156)))
-                     (value (Primitive ((name (Func Equal))))))
-                    ((binding ((name =arg1) (id 152)))
+                   (((binding f.156) (value (Primitive ((name (Func Equal))))))
+                    ((binding =arg1.152)
                      (value (Scalar ((element (Literal (IntLiteral 3)))))))
-                    ((binding ((name =arg2) (id 155)))
+                    ((binding =arg2.155)
                      (value
                       (Map
                        ((args
-                         (((binding ((name f) (id 154)))
+                         (((binding f.154)
                            (value
                             (TypeApplication
                              ((tFunc
@@ -1011,67 +967,51 @@ let%expect_test "box and unbox" =
                                    ((element
                                      (IndexLambda
                                       ((params
-                                        (((binding ((name d) (id 1)))
-                                          (bound Dim))
-                                         ((binding ((name @cell-shape) (id 2)))
-                                          (bound Shape))))
+                                        (((binding d.1) (bound Dim))
+                                         ((binding @cell-shape.2) (bound Shape))))
                                        (body
                                         (Scalar
                                          ((element
                                            (TypeLambda
                                             ((params
-                                              (((binding ((name t) (id 3)))
-                                                (bound Atom))))
+                                              (((binding t.3) (bound Atom))))
                                              (body
                                               (Scalar
                                                ((element
                                                  (TermLambda
                                                   ((params
-                                                    (((binding
-                                                       ((name arr) (id 4)))
+                                                    (((binding arr.4)
                                                       (bound
                                                        (Arr
-                                                        ((element
-                                                          (AtomRef
-                                                           ((name t) (id 3))))
+                                                        ((element (AtomRef t.3))
                                                          (shape
                                                           ((Add
                                                             ((const 0)
-                                                             (refs
-                                                              ((((name d) (id 1))
-                                                                1)))))
+                                                             (refs ((d.1 1)))))
                                                            (ShapeRef
-                                                            ((name @cell-shape)
-                                                             (id 2)))))))))))
+                                                            @cell-shape.2)))))))))
                                                    (body
                                                     (ReifyIndex
                                                      ((index
                                                        (Dimension
                                                         ((const 0)
-                                                         (refs
-                                                          ((((name d) (id 1)) 1)))))))))))))))))))))))))))
+                                                         (refs ((d.1 1)))))))))))))))))))))))))))
                                  (args
-                                  ((Dimension
-                                    ((const 0)
-                                     (refs ((((name len) (id 150)) 1)))))
+                                  ((Dimension ((const 0) (refs ((len.150 1)))))
                                    (Shape ()))))))
                               (args ((Atom (Literal CharacterLiteral))))))))
-                          ((binding ((name arr) (id 153)))
-                           (value (Ref ((id ((name word) (id 151)))))))))
+                          ((binding arr.153) (value (Ref ((id word.151)))))))
                         (body
                          (TermApplication
-                          ((func (Ref ((id ((name f) (id 154))))))
-                           (args (((id ((name arr) (id 153))))))
+                          ((func (Ref ((id f.154)))) (args (((id arr.153))))
                            (type'
                             (Arr ((element (Literal IntLiteral)) (shape ())))))))
                         (frameShape ())
                         (type' (Arr ((element (Literal IntLiteral)) (shape ()))))))))))
                   (body
                    (TermApplication
-                    ((func (Ref ((id ((name f) (id 156))))))
-                     (args
-                      (((id ((name =arg1) (id 152))))
-                       ((id ((name =arg2) (id 155))))))
+                    ((func (Ref ((id f.156))))
+                     (args (((id =arg1.152)) ((id =arg2.155))))
                      (type'
                       (Arr ((element (Literal BooleanLiteral)) (shape ())))))))
                   (frameShape ())
@@ -1092,7 +1032,7 @@ let%expect_test "box and unbox" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name words) (id 164)))
+       (((binding words.164)
          (value
           (Frame
            ((dimensions (2))
@@ -1122,22 +1062,19 @@ let%expect_test "box and unbox" =
                         (shape ((Add ((const 3) (refs ()))))))))))
                    (bodyType
                     ((element (Literal CharacterLiteral))
-                     (shape
-                      ((Add ((const 0) (refs ((((name len) (id 149)) 1)))))))))
+                     (shape ((Add ((const 0) (refs ((len.149 1)))))))))
                    (type'
-                    ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+                    ((parameters (((binding len.149) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
-                       (shape
-                        ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))))
+                       (shape ((Add ((const 0) (refs ((len.149 1))))))))))))))
                 (type'
                  ((element
                    (Sigma
-                    ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+                    ((parameters (((binding len.149) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
-                       (shape
-                        ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))
+                       (shape ((Add ((const 0) (refs ((len.149 1))))))))))))
                   (shape ())))))
               (AtomAsArray
                ((element
@@ -1160,66 +1097,60 @@ let%expect_test "box and unbox" =
                         (shape ((Add ((const 2) (refs ()))))))))))
                    (bodyType
                     ((element (Literal CharacterLiteral))
-                     (shape
-                      ((Add ((const 0) (refs ((((name len) (id 149)) 1)))))))))
+                     (shape ((Add ((const 0) (refs ((len.149 1)))))))))
                    (type'
-                    ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+                    ((parameters (((binding len.149) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
-                       (shape
-                        ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))))
+                       (shape ((Add ((const 0) (refs ((len.149 1))))))))))))))
                 (type'
                  ((element
                    (Sigma
-                    ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+                    ((parameters (((binding len.149) (bound Dim))))
                      (body
                       ((element (Literal CharacterLiteral))
-                       (shape
-                        ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))
+                       (shape ((Add ((const 0) (refs ((len.149 1))))))))))))
                   (shape ())))))))
             (type'
              ((element
                (Sigma
-                ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+                ((parameters (((binding len.149) (bound Dim))))
                  (body
                   ((element (Literal CharacterLiteral))
-                   (shape ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))
+                   (shape ((Add ((const 0) (refs ((len.149 1))))))))))))
               (shape ((Add ((const 2) (refs ())))))))))))))
       (body
        (ArrayPrimitive
         (Map (frameShape ((Add ((const 2) (refs ())))))
          (args
-          (((binding ((name box) (id 165)))
+          (((binding box.165)
             (value
              (Ref
-              ((id ((name words) (id 164)))
+              ((id words.164)
                (type'
                 ((element
                   (Sigma
-                   ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+                   ((parameters (((binding len.149) (bound Dim))))
                     (body
                      ((element (Literal CharacterLiteral))
-                      (shape
-                       ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))
+                      (shape ((Add ((const 0) (refs ((len.149 1))))))))))))
                  (shape ((Add ((const 2) (refs ())))))))))))))
          (body
           (IndexLet
            ((indexArgs
-             (((indexBinding ((name len) (id 150)))
+             (((indexBinding len.150)
                (indexValue
                 (FromBox
                  (box
                   (Ref
-                   ((id ((name box) (id 165)))
+                   ((id box.165)
                     (type'
                      ((element
                        (Sigma
-                        ((parameters
-                          (((binding ((name len) (id 149))) (bound Dim))))
+                        ((parameters (((binding len.149) (bound Dim))))
                          (body
                           ((element (Literal CharacterLiteral))
-                           (shape
-                            ((Add ((const 0) (refs ((((name len) (id 149)) 1))))))))))))
+                           (shape ((Add ((const 0) (refs ((len.149 1))))))))))))
                       (shape ()))))))
                  (i 0)))
                (sort Dim))))
@@ -1230,31 +1161,29 @@ let%expect_test "box and unbox" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 158)))
+                   (((binding f.158)
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name =arg1) (id 159)))
+                    ((binding =arg1.159)
                      (value
                       (AtomAsArray
                        ((element (Literal (IntLiteral 3)))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name =arg2) (id 163)))
+                    ((binding =arg2.163)
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 161)))
+                         (((binding f.161)
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))))
                         (body
                          (ReifyIndex
-                          ((index
-                            (Dimension
-                             ((const 0) (refs ((((name len) (id 150)) 1))))))
+                          ((index (Dimension ((const 0) (refs ((len.150 1))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))))
                   (body
@@ -1266,14 +1195,14 @@ let%expect_test "box and unbox" =
                          ((ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name =arg1) (id 159)))
+                              ((id =arg1.159)
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))
                           (ArrayAsAtom
                            ((array
                              (Ref
-                              ((id ((name =arg2) (id 163)))
+                              ((id =arg2.163)
                                (type'
                                 ((element (Literal IntLiteral)) (shape ()))))))
                             (type' (Literal IntLiteral))))))
@@ -1341,7 +1270,7 @@ let%expect_test "box and unbox" =
        (Array
         ((element
           (Sigma
-           ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+           ((parameters (((binding len.149) (bound Dim))))
             (body
              (Array
               ((element (Literal CharacterLiteral)) (shape (shape len.149))))))))
@@ -1369,7 +1298,7 @@ let%expect_test "box and unbox" =
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+               ((parameters (((binding len.149) (bound Dim))))
                 (body
                  (Array
                   ((element (Literal CharacterLiteral)) (shape (shape len.149)))))))))))
@@ -1388,7 +1317,7 @@ let%expect_test "box and unbox" =
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+               ((parameters (((binding len.149) (bound Dim))))
                 (body
                  (Array
                   ((element (Literal CharacterLiteral)) (shape (shape len.149))))))))))))
@@ -1414,7 +1343,7 @@ let%expect_test "box and unbox" =
        (Array
         ((element
           (Sigma
-           ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+           ((parameters (((binding len.149) (bound Dim))))
             (body
              (Array
               ((element (Literal CharacterLiteral)) (shape (shape len.149))))))))
@@ -1442,7 +1371,7 @@ let%expect_test "box and unbox" =
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+               ((parameters (((binding len.149) (bound Dim))))
                 (body
                  (Array
                   ((element (Literal CharacterLiteral)) (shape (shape len.149)))))))))))
@@ -1461,7 +1390,7 @@ let%expect_test "box and unbox" =
             (type'
              (Atom
               (Sigma
-               ((parameters (((binding ((name len) (id 149))) (bound Dim))))
+               ((parameters (((binding len.149) (bound Dim))))
                 (body
                  (Array
                   ((element (Literal CharacterLiteral)) (shape (shape len.149))))))))))))
@@ -1488,23 +1417,22 @@ let%expect_test "sum rows" =
     {|
     Result of stage Type Check:
     (Let
-     ((binding ((name sum-row) (id 148)))
+     ((binding sum-row.148)
       (value
        (Scalar
         ((element
           (IndexLambda
-           ((params (((binding ((name d-1) (id 149))) (bound Dim))))
+           ((params (((binding d-1.149) (bound Dim))))
             (body
              (Scalar
               ((element
                 (TermLambda
                  ((params
-                   (((binding ((name row) (id 150)))
+                   (((binding row.150)
                      (bound
                       (Arr
                        ((element (Literal IntLiteral))
-                        (shape
-                         ((Add ((const 1) (refs ((((name d-1) (id 149)) 1)))))))))))))
+                        (shape ((Add ((const 1) (refs ((d-1.149 1)))))))))))))
                   (body
                    (TermApplication
                     ((func
@@ -1516,24 +1444,20 @@ let%expect_test "sum rows" =
                              ((element
                                (IndexLambda
                                 ((params
-                                  (((binding ((name d-1) (id 64))) (bound Dim))
-                                   ((binding ((name @item-pad) (id 65)))
-                                    (bound Shape))
-                                   ((binding ((name @cell-shape) (id 66)))
-                                    (bound Shape))))
+                                  (((binding d-1.64) (bound Dim))
+                                   ((binding @item-pad.65) (bound Shape))
+                                   ((binding @cell-shape.66) (bound Shape))))
                                  (body
                                   (Scalar
                                    ((element
                                      (TypeLambda
-                                      ((params
-                                        (((binding ((name t) (id 67)))
-                                          (bound Atom))))
+                                      ((params (((binding t.67) (bound Atom))))
                                        (body
                                         (Scalar
                                          ((element
                                            (TermLambda
                                             ((params
-                                              (((binding ((name op) (id 68)))
+                                              (((binding op.68)
                                                 (bound
                                                  (Arr
                                                   ((element
@@ -1541,45 +1465,33 @@ let%expect_test "sum rows" =
                                                      ((parameters
                                                        ((Arr
                                                          ((element
-                                                           (AtomRef
-                                                            ((name t) (id 67))))
+                                                           (AtomRef t.67))
                                                           (shape
                                                            ((ShapeRef
-                                                             ((name @cell-shape)
-                                                              (id 66)))))))
+                                                             @cell-shape.66)))))
                                                         (Arr
                                                          ((element
-                                                           (AtomRef
-                                                            ((name t) (id 67))))
+                                                           (AtomRef t.67))
                                                           (shape
                                                            ((ShapeRef
-                                                             ((name @cell-shape)
-                                                              (id 66)))))))))
+                                                             @cell-shape.66)))))))
                                                       (return
                                                        (Arr
-                                                        ((element
-                                                          (AtomRef
-                                                           ((name t) (id 67))))
+                                                        ((element (AtomRef t.67))
                                                          (shape
                                                           ((ShapeRef
-                                                            ((name @cell-shape)
-                                                             (id 66)))))))))))
+                                                            @cell-shape.66)))))))))
                                                    (shape ())))))
-                                               ((binding ((name arr) (id 69)))
+                                               ((binding arr.69)
                                                 (bound
                                                  (Arr
-                                                  ((element
-                                                    (AtomRef ((name t) (id 67))))
+                                                  ((element (AtomRef t.67))
                                                    (shape
                                                     ((Add
                                                       ((const 1)
-                                                       (refs
-                                                        ((((name d-1) (id 64)) 1)))))
-                                                     (ShapeRef
-                                                      ((name @item-pad) (id 65)))
-                                                     (ShapeRef
-                                                      ((name @cell-shape)
-                                                       (id 66)))))))))))
+                                                       (refs ((d-1.64 1)))))
+                                                     (ShapeRef @item-pad.65)
+                                                     (ShapeRef @cell-shape.66)))))))))
                                              (body
                                               (TermApplication
                                                ((func
@@ -1591,18 +1503,13 @@ let%expect_test "sum rows" =
                                                         ((element
                                                           (IndexLambda
                                                            ((params
-                                                             (((binding
-                                                                ((name d)
-                                                                 (id 54)))
+                                                             (((binding d.54)
                                                                (bound Dim))
                                                               ((binding
-                                                                ((name @item-pad)
-                                                                 (id 55)))
+                                                                @item-pad.55)
                                                                (bound Shape))
                                                               ((binding
-                                                                ((name
-                                                                  @cell-shape)
-                                                                 (id 56)))
+                                                                @cell-shape.56)
                                                                (bound Shape))))
                                                             (body
                                                              (Scalar
@@ -1610,8 +1517,7 @@ let%expect_test "sum rows" =
                                                                 (TypeLambda
                                                                  ((params
                                                                    (((binding
-                                                                      ((name t)
-                                                                       (id 57)))
+                                                                      t.57)
                                                                      (bound Atom))))
                                                                   (body
                                                                    (Scalar
@@ -1619,8 +1525,7 @@ let%expect_test "sum rows" =
                                                                       (TermLambda
                                                                        ((params
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 58)))
+                                                                        f.58)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
@@ -1629,141 +1534,100 @@ let%expect_test "sum rows" =
                                                                         ((Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))
+                                                                        @cell-shape.56)))))
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))
+                                                                        @cell-shape.56)))))))
                                                                         (return
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (shape
                                                                         ())))))
                                                                         ((binding
-                                                                        ((name
-                                                                        init)
-                                                                        (id 59)))
+                                                                        init.59)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))
+                                                                        @cell-shape.56)))))))
                                                                         ((binding
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 60)))
+                                                                        arr.60)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d)
-                                                                        (id 54))
-                                                                        1)))))
+                                                                        ((d.54 1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (body
                                                                         (Let
                                                                         ((binding
-                                                                        ((name
-                                                                        up-ranked-f)
-                                                                        (id 61)))
+                                                                        up-ranked-f.61)
                                                                         (value
                                                                         (Scalar
                                                                         ((element
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name a)
-                                                                        (id 62)))
+                                                                        a.62)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))
+                                                                        @cell-shape.56)))))))
                                                                         ((binding
-                                                                        ((name b)
-                                                                        (id 63)))
+                                                                        b.63)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 58))))))
+                                                                        f.58))))
                                                                         (args
                                                                         ((Ref
                                                                         ((id
-                                                                        ((name a)
-                                                                        (id 62)))))
+                                                                        a.62)))
                                                                         (Ref
                                                                         ((id
-                                                                        ((name b)
-                                                                        (id 63))))))))))))))))
+                                                                        b.63))))))))))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
@@ -1782,30 +1646,20 @@ let%expect_test "sum rows" =
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d)
-                                                                        (id 54))
-                                                                        1)))))
+                                                                        ((d.54 1)))))
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        @cell-shape.56))))))))
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57)))))))))
+                                                                        t.57)))))))
                                                                         (args
                                                                         ((Ref
                                                                         ((id
-                                                                        ((name
-                                                                        up-ranked-f)
-                                                                        (id 61)))))
+                                                                        up-ranked-f.61)))
                                                                         (TermApplication
                                                                         ((func
                                                                         (TypeApplication
@@ -1817,15 +1671,11 @@ let%expect_test "sum rows" =
                                                                         (IndexLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))
+                                                                        @s.6)
                                                                         (bound
                                                                         Shape))
                                                                         ((binding
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))
+                                                                        @cell-shape.7)
                                                                         (bound
                                                                         Shape))))
                                                                         (body
@@ -1834,8 +1684,7 @@ let%expect_test "sum rows" =
                                                                         (TypeLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name t)
-                                                                        (id 8)))
+                                                                        t.8)
                                                                         (bound
                                                                         Atom))))
                                                                         (body
@@ -1844,34 +1693,26 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name v)
-                                                                        (id 9)))
+                                                                        v.9)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (body
                                                                         (Let
                                                                         ((binding
-                                                                        ((name
-                                                                        make)
-                                                                        (id 10)))
+                                                                        make.10)
                                                                         (value
                                                                         (Scalar
                                                                         ((element
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        foo)
-                                                                        (id 11)))
+                                                                        foo.11)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
@@ -1880,32 +1721,25 @@ let%expect_test "sum rows" =
                                                                         (shape
                                                                         ())))))
                                                                         ((binding
-                                                                        ((name v)
-                                                                        (id 12)))
+                                                                        v.12)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (body
                                                                         (Ref
                                                                         ((id
-                                                                        ((name v)
-                                                                        (id 12))))))))))))
+                                                                        v.12))))))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        make)
-                                                                        (id 10))))))
+                                                                        make.10))))
                                                                         (args
                                                                         ((IndexApplication
                                                                         ((iFunc
@@ -1916,61 +1750,39 @@ let%expect_test "sum rows" =
                                                                         (args
                                                                         ((Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))))))))
+                                                                        @s.6)))))))
                                                                         (Ref
-                                                                        ((id
-                                                                        ((name v)
-                                                                        (id 9)))))))))))))))))))))))))))))))
+                                                                        ((id v.9)))))))))))))))))))))))))))))
                                                                         (args
                                                                         ((Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))))
+                                                                        @item-pad.55)))
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        @cell-shape.56))))))))
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57)))))))))
+                                                                        t.57)))))))
                                                                         (args
                                                                         ((Ref
                                                                         ((id
-                                                                        ((name
-                                                                        init)
-                                                                        (id 59)))))))))
+                                                                        init.59)))))))
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 60)))))))))))))))))))))))))))))))
+                                                                        arr.60)))))))))))))))))))))))))))))
                                                       (args
                                                        ((Dimension
                                                          ((const 0)
-                                                          (refs
-                                                           ((((name d-1) (id 64))
-                                                             1)))))
+                                                          (refs ((d-1.64 1)))))
+                                                        (Shape
+                                                         ((ShapeRef @item-pad.65)))
                                                         (Shape
                                                          ((ShapeRef
-                                                           ((name @item-pad)
-                                                            (id 65)))))
-                                                        (Shape
-                                                         ((ShapeRef
-                                                           ((name @cell-shape)
-                                                            (id 66))))))))))
-                                                   (args
-                                                    ((Atom
-                                                      (AtomRef
-                                                       ((name t) (id 67)))))))))
+                                                           @cell-shape.66))))))))
+                                                   (args ((Atom (AtomRef t.67)))))))
                                                 (args
-                                                 ((Ref
-                                                   ((id ((name op) (id 68)))))
+                                                 ((Ref ((id op.68)))
                                                   (TermApplication
                                                    ((func
                                                      (TypeApplication
@@ -1982,13 +1794,10 @@ let%expect_test "sum rows" =
                                                               (IndexLambda
                                                                ((params
                                                                  (((binding
-                                                                    ((name d-1)
-                                                                     (id 24)))
+                                                                    d-1.24)
                                                                    (bound Dim))
                                                                   ((binding
-                                                                    ((name
-                                                                      @cell-shape)
-                                                                     (id 25)))
+                                                                    @cell-shape.25)
                                                                    (bound Shape))))
                                                                 (body
                                                                  (Scalar
@@ -1996,8 +1805,7 @@ let%expect_test "sum rows" =
                                                                     (TypeLambda
                                                                      ((params
                                                                        (((binding
-                                                                        ((name t)
-                                                                        (id 26)))
+                                                                        t.26)
                                                                         (bound
                                                                         Atom))))
                                                                       (body
@@ -2006,28 +1814,21 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 27)))
+                                                                        arr.27)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 26))))
+                                                                        t.26))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 24))
+                                                                        ((d-1.24
                                                                         1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))))))))))
+                                                                        @cell-shape.25)))))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
@@ -2045,17 +1846,13 @@ let%expect_test "sum rows" =
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 24))
+                                                                        ((d-1.24
                                                                         1)))))))
                                                                         (Shape
                                                                         ())
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))))
+                                                                        @cell-shape.25)))
                                                                         (Dimension
                                                                         ((const
                                                                         1)
@@ -2063,14 +1860,11 @@ let%expect_test "sum rows" =
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 26)))))))))
+                                                                        t.26)))))))
                                                                         (args
                                                                         ((Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 27)))))
+                                                                        arr.27)))
                                                                         (Frame
                                                                         ((dimensions
                                                                         (1))
@@ -2083,25 +1877,15 @@ let%expect_test "sum rows" =
                                                           (args
                                                            ((Dimension
                                                              ((const 0)
-                                                              (refs
-                                                               ((((name d-1)
-                                                                  (id 64))
-                                                                 1)))))
+                                                              (refs ((d-1.64 1)))))
                                                             (Shape
                                                              ((ShapeRef
-                                                               ((name @item-pad)
-                                                                (id 65)))
+                                                               @item-pad.65)
                                                               (ShapeRef
-                                                               ((name
-                                                                 @cell-shape)
-                                                                (id 66))))))))))
+                                                               @cell-shape.66))))))))
                                                        (args
-                                                        ((Atom
-                                                          (AtomRef
-                                                           ((name t) (id 67)))))))))
-                                                    (args
-                                                     ((Ref
-                                                       ((id ((name arr) (id 69)))))))))
+                                                        ((Atom (AtomRef t.67)))))))
+                                                    (args ((Ref ((id arr.69)))))))
                                                   (TermApplication
                                                    ((func
                                                      (TypeApplication
@@ -2113,13 +1897,10 @@ let%expect_test "sum rows" =
                                                               (IndexLambda
                                                                ((params
                                                                  (((binding
-                                                                    ((name d-1)
-                                                                     (id 28)))
+                                                                    d-1.28)
                                                                    (bound Dim))
                                                                   ((binding
-                                                                    ((name
-                                                                      @cell-shape)
-                                                                     (id 29)))
+                                                                    @cell-shape.29)
                                                                    (bound Shape))))
                                                                 (body
                                                                  (Scalar
@@ -2127,8 +1908,7 @@ let%expect_test "sum rows" =
                                                                     (TypeLambda
                                                                      ((params
                                                                        (((binding
-                                                                        ((name t)
-                                                                        (id 30)))
+                                                                        t.30)
                                                                         (bound
                                                                         Atom))))
                                                                       (body
@@ -2137,28 +1917,21 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 31)))
+                                                                        arr.31)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 30))))
+                                                                        t.30))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))))))))))
+                                                                        @cell-shape.29)))))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
@@ -2176,24 +1949,18 @@ let%expect_test "sum rows" =
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))))
                                                                         (Shape
                                                                         ((Add
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))))
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))))
+                                                                        @cell-shape.29)))
                                                                         (Dimension
                                                                         ((const
                                                                         1)
@@ -2201,14 +1968,11 @@ let%expect_test "sum rows" =
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 30)))))))))
+                                                                        t.30)))))))
                                                                         (args
                                                                         ((Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 31)))))
+                                                                        arr.31)))
                                                                         (Frame
                                                                         ((dimensions
                                                                         (1))
@@ -2221,38 +1985,26 @@ let%expect_test "sum rows" =
                                                           (args
                                                            ((Dimension
                                                              ((const 0)
-                                                              (refs
-                                                               ((((name d-1)
-                                                                  (id 64))
-                                                                 1)))))
+                                                              (refs ((d-1.64 1)))))
                                                             (Shape
                                                              ((ShapeRef
-                                                               ((name @item-pad)
-                                                                (id 65)))
+                                                               @item-pad.65)
                                                               (ShapeRef
-                                                               ((name
-                                                                 @cell-shape)
-                                                                (id 66))))))))))
+                                                               @cell-shape.66))))))))
                                                        (args
-                                                        ((Atom
-                                                          (AtomRef
-                                                           ((name t) (id 67)))))))))
-                                                    (args
-                                                     ((Ref
-                                                       ((id ((name arr) (id 69))))))))))))))))))))))))))))))))
+                                                        ((Atom (AtomRef t.67)))))))
+                                                    (args ((Ref ((id arr.69))))))))))))))))))))))))))))))
                            (args
-                            ((Dimension
-                              ((const 0) (refs ((((name d-1) (id 149)) 1)))))
+                            ((Dimension ((const 0) (refs ((d-1.149 1)))))
                              (Shape ()) (Shape ()))))))
                         (args ((Atom (Literal IntLiteral)))))))
                      (args
-                      ((Primitive ((name (Func Add))))
-                       (Ref ((id ((name row) (id 150))))))))))))))))))))))
+                      ((Primitive ((name (Func Add)))) (Ref ((id row.150))))))))))))))))))))
       (body
        (TermApplication
         ((func
           (IndexApplication
-           ((iFunc (Ref ((id ((name sum-row) (id 148))))))
+           ((iFunc (Ref ((id sum-row.148))))
             (args ((Dimension ((const 9) (refs ()))))))))
          (args
           ((IndexApplication
@@ -2263,27 +2015,26 @@ let%expect_test "sum rows" =
     Result of stage Explicitize:
     (Map
      ((args
-       (((binding ((name sum-row) (id 148)))
+       (((binding sum-row.148)
          (value
           (Scalar
            ((element
              (IndexLambda
-              ((params (((binding ((name d-1) (id 149))) (bound Dim))))
+              ((params (((binding d-1.149) (bound Dim))))
                (body
                 (Scalar
                  ((element
                    (TermLambda
                     ((params
-                      (((binding ((name row) (id 150)))
+                      (((binding row.150)
                         (bound
                          (Arr
                           ((element (Literal IntLiteral))
-                           (shape
-                            ((Add ((const 1) (refs ((((name d-1) (id 149)) 1)))))))))))))
+                           (shape ((Add ((const 1) (refs ((d-1.149 1)))))))))))))
                      (body
                       (Map
                        ((args
-                         (((binding ((name f) (id 183)))
+                         (((binding f.183)
                            (value
                             (TypeApplication
                              ((tFunc
@@ -2293,26 +2044,21 @@ let%expect_test "sum rows" =
                                    ((element
                                      (IndexLambda
                                       ((params
-                                        (((binding ((name d-1) (id 64)))
-                                          (bound Dim))
-                                         ((binding ((name @item-pad) (id 65)))
-                                          (bound Shape))
-                                         ((binding ((name @cell-shape) (id 66)))
-                                          (bound Shape))))
+                                        (((binding d-1.64) (bound Dim))
+                                         ((binding @item-pad.65) (bound Shape))
+                                         ((binding @cell-shape.66) (bound Shape))))
                                        (body
                                         (Scalar
                                          ((element
                                            (TypeLambda
                                             ((params
-                                              (((binding ((name t) (id 67)))
-                                                (bound Atom))))
+                                              (((binding t.67) (bound Atom))))
                                              (body
                                               (Scalar
                                                ((element
                                                  (TermLambda
                                                   ((params
-                                                    (((binding
-                                                       ((name op) (id 68)))
+                                                    (((binding op.68)
                                                       (bound
                                                        (Arr
                                                         ((element
@@ -2320,61 +2066,40 @@ let%expect_test "sum rows" =
                                                            ((parameters
                                                              ((Arr
                                                                ((element
-                                                                 (AtomRef
-                                                                  ((name t)
-                                                                   (id 67))))
+                                                                 (AtomRef t.67))
                                                                 (shape
                                                                  ((ShapeRef
-                                                                   ((name
-                                                                     @cell-shape)
-                                                                    (id 66)))))))
+                                                                   @cell-shape.66)))))
                                                               (Arr
                                                                ((element
-                                                                 (AtomRef
-                                                                  ((name t)
-                                                                   (id 67))))
+                                                                 (AtomRef t.67))
                                                                 (shape
                                                                  ((ShapeRef
-                                                                   ((name
-                                                                     @cell-shape)
-                                                                    (id 66)))))))))
+                                                                   @cell-shape.66)))))))
                                                             (return
                                                              (Arr
                                                               ((element
-                                                                (AtomRef
-                                                                 ((name t)
-                                                                  (id 67))))
+                                                                (AtomRef t.67))
                                                                (shape
                                                                 ((ShapeRef
-                                                                  ((name
-                                                                    @cell-shape)
-                                                                   (id 66)))))))))))
+                                                                  @cell-shape.66)))))))))
                                                          (shape ())))))
-                                                     ((binding
-                                                       ((name arr) (id 69)))
+                                                     ((binding arr.69)
                                                       (bound
                                                        (Arr
-                                                        ((element
-                                                          (AtomRef
-                                                           ((name t) (id 67))))
+                                                        ((element (AtomRef t.67))
                                                          (shape
                                                           ((Add
                                                             ((const 1)
-                                                             (refs
-                                                              ((((name d-1)
-                                                                 (id 64))
-                                                                1)))))
+                                                             (refs ((d-1.64 1)))))
                                                            (ShapeRef
-                                                            ((name @item-pad)
-                                                             (id 65)))
+                                                            @item-pad.65)
                                                            (ShapeRef
-                                                            ((name @cell-shape)
-                                                             (id 66)))))))))))
+                                                            @cell-shape.66)))))))))
                                                    (body
                                                     (Map
                                                      ((args
-                                                       (((binding
-                                                          ((name f) (id 181)))
+                                                       (((binding f.181)
                                                          (value
                                                           (TypeApplication
                                                            ((tFunc
@@ -2385,20 +2110,15 @@ let%expect_test "sum rows" =
                                                                    (IndexLambda
                                                                     ((params
                                                                       (((binding
-                                                                        ((name d)
-                                                                        (id 54)))
+                                                                        d.54)
                                                                         (bound
                                                                         Dim))
                                                                        ((binding
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (bound
                                                                         Shape))
                                                                        ((binding
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))
+                                                                        @cell-shape.56)
                                                                         (bound
                                                                         Shape))))
                                                                      (body
@@ -2407,8 +2127,7 @@ let%expect_test "sum rows" =
                                                                         (TypeLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name t)
-                                                                        (id 57)))
+                                                                        t.57)
                                                                         (bound
                                                                         Atom))))
                                                                         (body
@@ -2417,8 +2136,7 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 58)))
+                                                                        f.58)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
@@ -2427,248 +2145,173 @@ let%expect_test "sum rows" =
                                                                         ((Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))
+                                                                        @cell-shape.56)))))
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))
+                                                                        @cell-shape.56)))))))
                                                                         (return
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (shape
                                                                         ())))))
                                                                         ((binding
-                                                                        ((name
-                                                                        init)
-                                                                        (id 59)))
+                                                                        init.59)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))
+                                                                        @cell-shape.56)))))))
                                                                         ((binding
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 60)))
+                                                                        arr.60)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d)
-                                                                        (id 54))
-                                                                        1)))))
+                                                                        ((d.54 1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name
-                                                                        up-ranked-f)
-                                                                        (id 61)))
+                                                                        up-ranked-f.61)
                                                                         (value
                                                                         (Scalar
                                                                         ((element
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name a)
-                                                                        (id 62)))
+                                                                        a.62)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))
+                                                                        @cell-shape.56)))))))
                                                                         ((binding
-                                                                        ((name b)
-                                                                        (id 63)))
+                                                                        b.63)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 168)))
+                                                                        f.168)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 58)))))))
+                                                                        f.58)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        arg0)
-                                                                        (id 166)))
+                                                                        arg0.166)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name a)
-                                                                        (id 62)))))))
+                                                                        a.62)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        arg1)
-                                                                        (id 167)))
+                                                                        arg1.167)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name b)
-                                                                        (id 63)))))))))
+                                                                        b.63)))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name
-                                                                        arg0)
-                                                                        (id 169)))
+                                                                        arg0.169)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arg0)
-                                                                        (id 166)))))))
+                                                                        arg0.166)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        arg1)
-                                                                        (id 170)))
+                                                                        arg1.170)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arg1)
-                                                                        (id 167)))))))))
+                                                                        arg1.167)))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 168))))))
+                                                                        f.168))))
                                                                         (args
                                                                         (((id
-                                                                        ((name
-                                                                        arg0)
-                                                                        (id 169))))
+                                                                        arg0.169))
                                                                         ((id
-                                                                        ((name
-                                                                        arg1)
-                                                                        (id 170))))))
+                                                                        arg1.170))))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (frameShape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))))
+                                                                        @item-pad.55)))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56))))))))))))))))))))
+                                                                        @cell-shape.56))))))))))))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 180)))
+                                                                        f.180)
                                                                         (value
                                                                         (TypeApplication
                                                                         ((tFunc
@@ -2685,44 +2328,29 @@ let%expect_test "sum rows" =
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d)
-                                                                        (id 54))
-                                                                        1)))))
+                                                                        ((d.54 1)))))
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        @cell-shape.56))))))))
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))))))))
+                                                                        t.57))))))))
                                                                         ((binding
-                                                                        ((name
-                                                                        reduce-f-arg)
-                                                                        (id 171)))
+                                                                        reduce-f-arg.171)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        up-ranked-f)
-                                                                        (id 61)))))))
+                                                                        up-ranked-f.61)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        reduce-zero-arg)
-                                                                        (id 178)))
+                                                                        reduce-zero-arg.178)
                                                                         (value
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 177)))
+                                                                        f.177)
                                                                         (value
                                                                         (TypeApplication
                                                                         ((tFunc
@@ -2733,15 +2361,11 @@ let%expect_test "sum rows" =
                                                                         (IndexLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))
+                                                                        @s.6)
                                                                         (bound
                                                                         Shape))
                                                                         ((binding
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))
+                                                                        @cell-shape.7)
                                                                         (bound
                                                                         Shape))))
                                                                         (body
@@ -2750,8 +2374,7 @@ let%expect_test "sum rows" =
                                                                         (TypeLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name t)
-                                                                        (id 8)))
+                                                                        t.8)
                                                                         (bound
                                                                         Atom))))
                                                                         (body
@@ -2760,35 +2383,27 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name v)
-                                                                        (id 9)))
+                                                                        v.9)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name
-                                                                        make)
-                                                                        (id 10)))
+                                                                        make.10)
                                                                         (value
                                                                         (Scalar
                                                                         ((element
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        foo)
-                                                                        (id 11)))
+                                                                        foo.11)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
@@ -2797,40 +2412,30 @@ let%expect_test "sum rows" =
                                                                         (shape
                                                                         ())))))
                                                                         ((binding
-                                                                        ((name v)
-                                                                        (id 12)))
+                                                                        v.12)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (body
                                                                         (Ref
                                                                         ((id
-                                                                        ((name v)
-                                                                        (id 12)))))))))))))))
+                                                                        v.12)))))))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 175)))
+                                                                        f.175)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        make)
-                                                                        (id 10)))))))
+                                                                        make.10)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        foo)
-                                                                        (id 173)))
+                                                                        foo.173)
                                                                         (value
                                                                         (IndexApplication
                                                                         ((iFunc
@@ -2841,293 +2446,200 @@ let%expect_test "sum rows" =
                                                                         (args
                                                                         ((Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))))))))))
+                                                                        @s.6)))))))))
                                                                         ((binding
-                                                                        ((name v)
-                                                                        (id 174)))
+                                                                        v.174)
                                                                         (value
                                                                         (Ref
-                                                                        ((id
-                                                                        ((name v)
-                                                                        (id 9)))))))))
+                                                                        ((id v.9)))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name
-                                                                        foo)
-                                                                        (id 176)))
+                                                                        foo.176)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        foo)
-                                                                        (id 173)))))))))
+                                                                        foo.173)))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 175))))))
+                                                                        f.175))))
                                                                         (args
                                                                         (((id
-                                                                        ((name
-                                                                        foo)
-                                                                        (id 176))))
+                                                                        foo.176))
                                                                         ((id
-                                                                        ((name v)
-                                                                        (id 174))))))
+                                                                        v.174))))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (frameShape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))))
+                                                                        @s.6)))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))
+                                                                        @s.6)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))
+                                                                        @s.6)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))
+                                                                        @cell-shape.7)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 8))))
+                                                                        t.8))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @s)
-                                                                        (id 6)))
+                                                                        @s.6)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 7)))))))))))))))))))))))))))))
+                                                                        @cell-shape.7)))))))))))))))))))))))))))
                                                                         (args
                                                                         ((Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))))
+                                                                        @item-pad.55)))
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56))))))))))
+                                                                        @cell-shape.56))))))))
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))))))))
+                                                                        t.57))))))))
                                                                         ((binding
-                                                                        ((name v)
-                                                                        (id 172)))
+                                                                        v.172)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        init)
-                                                                        (id 59)))))))))
+                                                                        init.59)))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 177))))))
+                                                                        f.177))))
                                                                         (args
                                                                         (((id
-                                                                        ((name v)
-                                                                        (id 172))))))
+                                                                        v.172))))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56))))))))))))
+                                                                        @cell-shape.56))))))))))
                                                                         ((binding
-                                                                        ((name
-                                                                        reduce-array-arg)
-                                                                        (id 179)))
+                                                                        reduce-array-arg.179)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 60)))))))))
+                                                                        arr.60)))))))
                                                                         (body
                                                                         (TermApplication
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 180))))))
+                                                                        f.180))))
                                                                         (args
                                                                         (((id
-                                                                        ((name
-                                                                        reduce-f-arg)
-                                                                        (id 171))))
+                                                                        reduce-f-arg.171))
                                                                         ((id
-                                                                        ((name
-                                                                        reduce-zero-arg)
-                                                                        (id 178))))
+                                                                        reduce-zero-arg.178))
                                                                         ((id
-                                                                        ((name
-                                                                        reduce-array-arg)
-                                                                        (id 179))))))
+                                                                        reduce-array-arg.179))))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))
+                                                                        @cell-shape.56)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 57))))
+                                                                        t.57))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 55)))
+                                                                        @item-pad.55)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 56)))))))))))))))))))))))))))))
+                                                                        @cell-shape.56)))))))))))))))))))))))))))
                                                                (args
                                                                 ((Dimension
                                                                   ((const 0)
                                                                    (refs
-                                                                    ((((name d-1)
-                                                                       (id 64))
-                                                                      1)))))
+                                                                    ((d-1.64 1)))))
                                                                  (Shape
                                                                   ((ShapeRef
-                                                                    ((name
-                                                                      @item-pad)
-                                                                     (id 65)))))
+                                                                    @item-pad.65)))
                                                                  (Shape
                                                                   ((ShapeRef
-                                                                    ((name
-                                                                      @cell-shape)
-                                                                     (id 66))))))))))
+                                                                    @cell-shape.66))))))))
                                                             (args
                                                              ((Atom
-                                                               (AtomRef
-                                                                ((name t)
-                                                                 (id 67))))))))))
-                                                        ((binding
-                                                          ((name f) (id 153)))
+                                                               (AtomRef t.67))))))))
+                                                        ((binding f.153)
                                                          (value
-                                                          (Ref
-                                                           ((id
-                                                             ((name op) (id 68)))))))
-                                                        ((binding
-                                                          ((name init) (id 159)))
+                                                          (Ref ((id op.68)))))
+                                                        ((binding init.159)
                                                          (value
                                                           (Map
                                                            ((args
-                                                             (((binding
-                                                                ((name f)
-                                                                 (id 158)))
+                                                             (((binding f.158)
                                                                (value
                                                                 (TypeApplication
                                                                  ((tFunc
@@ -3138,15 +2650,11 @@ let%expect_test "sum rows" =
                                                                         (IndexLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        d-1)
-                                                                        (id 24)))
+                                                                        d-1.24)
                                                                         (bound
                                                                         Dim))
                                                                         ((binding
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))
+                                                                        @cell-shape.25)
                                                                         (bound
                                                                         Shape))))
                                                                         (body
@@ -3155,8 +2663,7 @@ let%expect_test "sum rows" =
                                                                         (TypeLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name t)
-                                                                        (id 26)))
+                                                                        t.26)
                                                                         (bound
                                                                         Atom))))
                                                                         (body
@@ -3165,34 +2672,26 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 27)))
+                                                                        arr.27)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 26))))
+                                                                        t.26))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 24))
+                                                                        ((d-1.24
                                                                         1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))))))))))
+                                                                        @cell-shape.25)))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 157)))
+                                                                        f.157)
                                                                         (value
                                                                         (TypeApplication
                                                                         ((tFunc
@@ -3208,17 +2707,13 @@ let%expect_test "sum rows" =
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 24))
+                                                                        ((d-1.24
                                                                         1)))))))
                                                                         (Shape
                                                                         ())
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))))
+                                                                        @cell-shape.25)))
                                                                         (Dimension
                                                                         ((const
                                                                         1)
@@ -3226,22 +2721,15 @@ let%expect_test "sum rows" =
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 26))))))))))
+                                                                        t.26))))))))
                                                                         ((binding
-                                                                        ((name
-                                                                        contiguous-subarray-array)
-                                                                        (id 155)))
+                                                                        contiguous-subarray-array.155)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 27)))))))
+                                                                        arr.27)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        contiguous-subarray-index)
-                                                                        (id 156)))
+                                                                        contiguous-subarray-index.156)
                                                                         (value
                                                                         (Frame
                                                                         ((dimensions
@@ -3257,122 +2745,81 @@ let%expect_test "sum rows" =
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 157))))))
+                                                                        f.157))))
                                                                         (args
                                                                         (((id
-                                                                        ((name
-                                                                        contiguous-subarray-array)
-                                                                        (id 155))))
+                                                                        contiguous-subarray-array.155))
                                                                         ((id
-                                                                        ((name
-                                                                        contiguous-subarray-index)
-                                                                        (id 156))))))
+                                                                        contiguous-subarray-index.156))))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 26))))
+                                                                        t.26))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))))))))))
+                                                                        @cell-shape.25)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 26))))
+                                                                        t.26))
                                                                         (shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 25)))))))))))))))))))))))))))))
+                                                                        @cell-shape.25)))))))))))))))))))))))))))
                                                                      (args
                                                                       ((Dimension
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 64))
+                                                                        ((d-1.64
                                                                         1)))))
                                                                        (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 65)))
+                                                                        @item-pad.65)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 66))))))))))
+                                                                        @cell-shape.66))))))))
                                                                   (args
                                                                    ((Atom
                                                                      (AtomRef
-                                                                      ((name t)
-                                                                       (id 67))))))))))
-                                                              ((binding
-                                                                ((name arr)
-                                                                 (id 154)))
+                                                                      t.67))))))))
+                                                              ((binding arr.154)
                                                                (value
                                                                 (Ref
-                                                                 ((id
-                                                                   ((name arr)
-                                                                    (id 69)))))))))
+                                                                 ((id arr.69)))))))
                                                             (body
                                                              (TermApplication
                                                               ((func
                                                                 (Ref
-                                                                 ((id
-                                                                   ((name f)
-                                                                    (id 158))))))
+                                                                 ((id f.158))))
                                                                (args
-                                                                (((id
-                                                                   ((name arr)
-                                                                    (id 154))))))
+                                                                (((id arr.154))))
                                                                (type'
                                                                 (Arr
                                                                  ((element
-                                                                   (AtomRef
-                                                                    ((name t)
-                                                                     (id 67))))
+                                                                   (AtomRef t.67))
                                                                   (shape
                                                                    ((ShapeRef
-                                                                     ((name
-                                                                       @item-pad)
-                                                                      (id 65)))
+                                                                     @item-pad.65)
                                                                     (ShapeRef
-                                                                     ((name
-                                                                       @cell-shape)
-                                                                      (id 66)))))))))))
+                                                                     @cell-shape.66)))))))))
                                                             (frameShape ())
                                                             (type'
                                                              (Arr
                                                               ((element
-                                                                (AtomRef
-                                                                 ((name t)
-                                                                  (id 67))))
+                                                                (AtomRef t.67))
                                                                (shape
                                                                 ((ShapeRef
-                                                                  ((name
-                                                                    @item-pad)
-                                                                   (id 65)))
+                                                                  @item-pad.65)
                                                                  (ShapeRef
-                                                                  ((name
-                                                                    @cell-shape)
-                                                                   (id 66))))))))))))
-                                                        ((binding
-                                                          ((name arr) (id 165)))
+                                                                  @cell-shape.66))))))))))
+                                                        ((binding arr.165)
                                                          (value
                                                           (Map
                                                            ((args
-                                                             (((binding
-                                                                ((name f)
-                                                                 (id 164)))
+                                                             (((binding f.164)
                                                                (value
                                                                 (TypeApplication
                                                                  ((tFunc
@@ -3383,15 +2830,11 @@ let%expect_test "sum rows" =
                                                                         (IndexLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        d-1)
-                                                                        (id 28)))
+                                                                        d-1.28)
                                                                         (bound
                                                                         Dim))
                                                                         ((binding
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))
+                                                                        @cell-shape.29)
                                                                         (bound
                                                                         Shape))))
                                                                         (body
@@ -3400,8 +2843,7 @@ let%expect_test "sum rows" =
                                                                         (TypeLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name t)
-                                                                        (id 30)))
+                                                                        t.30)
                                                                         (bound
                                                                         Atom))))
                                                                         (body
@@ -3410,34 +2852,26 @@ let%expect_test "sum rows" =
                                                                         (TermLambda
                                                                         ((params
                                                                         (((binding
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 31)))
+                                                                        arr.31)
                                                                         (bound
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 30))))
+                                                                        t.30))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))))))))))
+                                                                        @cell-shape.29)))))))))
                                                                         (body
                                                                         (Map
                                                                         ((args
                                                                         (((binding
-                                                                        ((name f)
-                                                                        (id 163)))
+                                                                        f.163)
                                                                         (value
                                                                         (TypeApplication
                                                                         ((tFunc
@@ -3453,24 +2887,18 @@ let%expect_test "sum rows" =
                                                                         ((const
                                                                         1)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))))
                                                                         (Shape
                                                                         ((Add
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))))
                                                                         (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))))
+                                                                        @cell-shape.29)))
                                                                         (Dimension
                                                                         ((const
                                                                         1)
@@ -3478,22 +2906,15 @@ let%expect_test "sum rows" =
                                                                         (args
                                                                         ((Atom
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 30))))))))))
+                                                                        t.30))))))))
                                                                         ((binding
-                                                                        ((name
-                                                                        contiguous-subarray-array)
-                                                                        (id 161)))
+                                                                        contiguous-subarray-array.161)
                                                                         (value
                                                                         (Ref
                                                                         ((id
-                                                                        ((name
-                                                                        arr)
-                                                                        (id 31)))))))
+                                                                        arr.31)))))
                                                                         ((binding
-                                                                        ((name
-                                                                        contiguous-subarray-index)
-                                                                        (id 162)))
+                                                                        contiguous-subarray-index.162)
                                                                         (value
                                                                         (Frame
                                                                         ((dimensions
@@ -3509,238 +2930,157 @@ let%expect_test "sum rows" =
                                                                         ((func
                                                                         (Ref
                                                                         ((id
-                                                                        ((name f)
-                                                                        (id 163))))))
+                                                                        f.163))))
                                                                         (args
                                                                         (((id
-                                                                        ((name
-                                                                        contiguous-subarray-array)
-                                                                        (id 161))))
+                                                                        contiguous-subarray-array.161))
                                                                         ((id
-                                                                        ((name
-                                                                        contiguous-subarray-index)
-                                                                        (id 162))))))
+                                                                        contiguous-subarray-index.162))))
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 30))))
+                                                                        t.30))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))))))))))
+                                                                        @cell-shape.29)))))))))
                                                                         (frameShape
                                                                         ())
                                                                         (type'
                                                                         (Arr
                                                                         ((element
                                                                         (AtomRef
-                                                                        ((name t)
-                                                                        (id 30))))
+                                                                        t.30))
                                                                         (shape
                                                                         ((Add
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 28))
+                                                                        ((d-1.28
                                                                         1)))))
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 29)))))))))))))))))))))))))))))
+                                                                        @cell-shape.29)))))))))))))))))))))))))))
                                                                      (args
                                                                       ((Dimension
                                                                         ((const
                                                                         0)
                                                                         (refs
-                                                                        ((((name
-                                                                        d-1)
-                                                                        (id 64))
+                                                                        ((d-1.64
                                                                         1)))))
                                                                        (Shape
                                                                         ((ShapeRef
-                                                                        ((name
-                                                                        @item-pad)
-                                                                        (id 65)))
+                                                                        @item-pad.65)
                                                                         (ShapeRef
-                                                                        ((name
-                                                                        @cell-shape)
-                                                                        (id 66))))))))))
+                                                                        @cell-shape.66))))))))
                                                                   (args
                                                                    ((Atom
                                                                      (AtomRef
-                                                                      ((name t)
-                                                                       (id 67))))))))))
-                                                              ((binding
-                                                                ((name arr)
-                                                                 (id 160)))
+                                                                      t.67))))))))
+                                                              ((binding arr.160)
                                                                (value
                                                                 (Ref
-                                                                 ((id
-                                                                   ((name arr)
-                                                                    (id 69)))))))))
+                                                                 ((id arr.69)))))))
                                                             (body
                                                              (TermApplication
                                                               ((func
                                                                 (Ref
-                                                                 ((id
-                                                                   ((name f)
-                                                                    (id 164))))))
+                                                                 ((id f.164))))
                                                                (args
-                                                                (((id
-                                                                   ((name arr)
-                                                                    (id 160))))))
+                                                                (((id arr.160))))
                                                                (type'
                                                                 (Arr
                                                                  ((element
-                                                                   (AtomRef
-                                                                    ((name t)
-                                                                     (id 67))))
+                                                                   (AtomRef t.67))
                                                                   (shape
                                                                    ((Add
                                                                      ((const 0)
                                                                       (refs
-                                                                       ((((name
-                                                                        d-1)
-                                                                        (id 64))
+                                                                       ((d-1.64
                                                                         1)))))
                                                                     (ShapeRef
-                                                                     ((name
-                                                                       @item-pad)
-                                                                      (id 65)))
+                                                                     @item-pad.65)
                                                                     (ShapeRef
-                                                                     ((name
-                                                                       @cell-shape)
-                                                                      (id 66)))))))))))
+                                                                     @cell-shape.66)))))))))
                                                             (frameShape ())
                                                             (type'
                                                              (Arr
                                                               ((element
-                                                                (AtomRef
-                                                                 ((name t)
-                                                                  (id 67))))
+                                                                (AtomRef t.67))
                                                                (shape
                                                                 ((Add
                                                                   ((const 0)
                                                                    (refs
-                                                                    ((((name d-1)
-                                                                       (id 64))
-                                                                      1)))))
+                                                                    ((d-1.64 1)))))
                                                                  (ShapeRef
-                                                                  ((name
-                                                                    @item-pad)
-                                                                   (id 65)))
+                                                                  @item-pad.65)
                                                                  (ShapeRef
-                                                                  ((name
-                                                                    @cell-shape)
-                                                                   (id 66))))))))))))))
+                                                                  @cell-shape.66))))))))))))
                                                       (body
                                                        (Map
                                                         ((args
-                                                          (((binding
-                                                             ((name init)
-                                                              (id 182)))
+                                                          (((binding init.182)
                                                             (value
                                                              (Ref
-                                                              ((id
-                                                                ((name init)
-                                                                 (id 159)))))))))
+                                                              ((id init.159)))))))
                                                          (body
                                                           (TermApplication
                                                            ((func
-                                                             (Ref
-                                                              ((id
-                                                                ((name f)
-                                                                 (id 181))))))
+                                                             (Ref ((id f.181))))
                                                             (args
-                                                             (((id
-                                                                ((name f)
-                                                                 (id 153))))
-                                                              ((id
-                                                                ((name init)
-                                                                 (id 182))))
-                                                              ((id
-                                                                ((name arr)
-                                                                 (id 165))))))
+                                                             (((id f.153))
+                                                              ((id init.182))
+                                                              ((id arr.165))))
                                                             (type'
                                                              (Arr
                                                               ((element
-                                                                (AtomRef
-                                                                 ((name t)
-                                                                  (id 67))))
+                                                                (AtomRef t.67))
                                                                (shape
                                                                 ((ShapeRef
-                                                                  ((name
-                                                                    @item-pad)
-                                                                   (id 65)))
+                                                                  @item-pad.65)
                                                                  (ShapeRef
-                                                                  ((name
-                                                                    @cell-shape)
-                                                                   (id 66)))))))))))
+                                                                  @cell-shape.66)))))))))
                                                          (frameShape
                                                           ((ShapeRef
-                                                            ((name @item-pad)
-                                                             (id 65)))))
+                                                            @item-pad.65)))
                                                          (type'
                                                           (Arr
                                                            ((element
-                                                             (AtomRef
-                                                              ((name t) (id 67))))
+                                                             (AtomRef t.67))
                                                             (shape
                                                              ((ShapeRef
-                                                               ((name @item-pad)
-                                                                (id 65)))
+                                                               @item-pad.65)
                                                               (ShapeRef
-                                                               ((name @item-pad)
-                                                                (id 65)))
+                                                               @item-pad.65)
                                                               (ShapeRef
-                                                               ((name
-                                                                 @cell-shape)
-                                                                (id 66)))))))))))
+                                                               @cell-shape.66)))))))))
                                                       (frameShape ())
                                                       (type'
                                                        (Arr
-                                                        ((element
-                                                          (AtomRef
-                                                           ((name t) (id 67))))
+                                                        ((element (AtomRef t.67))
                                                          (shape
                                                           ((ShapeRef
-                                                            ((name @item-pad)
-                                                             (id 65)))
+                                                            @item-pad.65)
                                                            (ShapeRef
-                                                            ((name @item-pad)
-                                                             (id 65)))
+                                                            @item-pad.65)
                                                            (ShapeRef
-                                                            ((name @cell-shape)
-                                                             (id 66)))))))))))))))))))))))))))))
+                                                            @cell-shape.66)))))))))))))))))))))))))))
                                  (args
-                                  ((Dimension
-                                    ((const 0)
-                                     (refs ((((name d-1) (id 149)) 1)))))
+                                  ((Dimension ((const 0) (refs ((d-1.149 1)))))
                                    (Shape ()) (Shape ()))))))
                               (args ((Atom (Literal IntLiteral))))))))
-                          ((binding ((name op) (id 151)))
+                          ((binding op.151)
                            (value (Primitive ((name (Func Add))))))
-                          ((binding ((name arr) (id 152)))
-                           (value (Ref ((id ((name row) (id 150)))))))))
+                          ((binding arr.152) (value (Ref ((id row.150)))))))
                         (body
                          (TermApplication
-                          ((func (Ref ((id ((name f) (id 183))))))
-                           (args
-                            (((id ((name op) (id 151))))
-                             ((id ((name arr) (id 152))))))
+                          ((func (Ref ((id f.183))))
+                           (args (((id op.151)) ((id arr.152))))
                            (type'
                             (Arr ((element (Literal IntLiteral)) (shape ())))))))
                         (frameShape ())
@@ -3748,12 +3088,12 @@ let%expect_test "sum rows" =
       (body
        (Map
         ((args
-          (((binding ((name f) (id 185)))
+          (((binding f.185)
             (value
              (IndexApplication
-              ((iFunc (Ref ((id ((name sum-row) (id 148))))))
+              ((iFunc (Ref ((id sum-row.148))))
                (args ((Dimension ((const 9) (refs ())))))))))
-           ((binding ((name row) (id 184)))
+           ((binding row.184)
             (value
              (IndexApplication
               ((iFunc (Primitive ((name (Val Iota)))))
@@ -3763,13 +3103,10 @@ let%expect_test "sum rows" =
                    (Add ((const 10) (refs ())))))))))))))
          (body
           (Map
-           ((args
-             (((binding ((name row) (id 186)))
-               (value (Ref ((id ((name row) (id 184)))))))))
+           ((args (((binding row.186) (value (Ref ((id row.184)))))))
             (body
              (TermApplication
-              ((func (Ref ((id ((name f) (id 185))))))
-               (args (((id ((name row) (id 186))))))
+              ((func (Ref ((id f.185)))) (args (((id row.186))))
                (type' (Arr ((element (Literal IntLiteral)) (shape ())))))))
             (frameShape ((Add ((const 1000000) (refs ())))))
             (type'
@@ -3790,7 +3127,7 @@ let%expect_test "sum rows" =
     (ArrayPrimitive
      (Map (frameShape ())
       (args
-       (((binding ((name sum-row) (id 188)))
+       (((binding sum-row.188)
          (value
           (AtomAsArray
            ((element (Values ((elements ()) (type' ()))))
@@ -3799,21 +3136,19 @@ let%expect_test "sum rows" =
        (ArrayPrimitive
         (Map (frameShape ())
          (args
-          (((binding ((name f) (id 189)))
+          (((binding f.189)
             (value
-             (Ref
-              ((id ((name sum-row) (id 188)))
-               (type' ((element (Tuple ())) (shape ())))))))
-           ((binding ((name row) (id 336)))
+             (Ref ((id sum-row.188) (type' ((element (Tuple ())) (shape ())))))))
+           ((binding row.336)
             (value
              (ArrayPrimitive
               (Map
                (frameShape
                 ((Add ((const 1000000) (refs ()))) (Add ((const 10) (refs ())))))
-               (args ()) (iotaVar (((name iota) (id 335))))
+               (args ()) (iotaVar (iota.335))
                (body
                 (Ref
-                 ((id ((name iota) (id 335)))
+                 ((id iota.335)
                   (type' ((element (Literal IntLiteral)) (shape ()))))))
                (type'
                 ((element (Literal IntLiteral))
@@ -3824,10 +3159,10 @@ let%expect_test "sum rows" =
           (ArrayPrimitive
            (Map (frameShape ((Add ((const 1000000) (refs ())))))
             (args
-             (((binding ((name row) (id 337)))
+             (((binding row.337)
                (value
                 (Ref
-                 ((id ((name row) (id 336)))
+                 ((id row.336)
                   (type'
                    ((element (Literal IntLiteral))
                     (shape
@@ -3837,20 +3172,20 @@ let%expect_test "sum rows" =
              (ArrayPrimitive
               (Map (frameShape ())
                (args
-                (((binding ((name f) (id 239)))
+                (((binding f.239)
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name op) (id 325)))
+                 ((binding op.325)
                   (value
                    (AtomAsArray
                     ((element (Values ((elements ()) (type' ()))))
                      (type' ((element (Tuple ())) (shape ())))))))
-                 ((binding ((name arr) (id 338)))
+                 ((binding arr.338)
                   (value
                    (Ref
-                    ((id ((name row) (id 337)))
+                    ((id row.337)
                      (type'
                       ((element (Literal IntLiteral))
                        (shape ((Add ((const 10) (refs ())))))))))))))
@@ -3858,30 +3193,29 @@ let%expect_test "sum rows" =
                 (ArrayPrimitive
                  (Map (frameShape ())
                   (args
-                   (((binding ((name f) (id 285)))
+                   (((binding f.285)
                      (value
                       (AtomAsArray
                        ((element (Values ((elements ()) (type' ()))))
                         (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name f) (id 326)))
+                    ((binding f.326)
                      (value
                       (Ref
-                       ((id ((name op) (id 325)))
-                        (type' ((element (Tuple ())) (shape ())))))))
-                    ((binding ((name init) (id 375)))
+                       ((id op.325) (type' ((element (Tuple ())) (shape ())))))))
+                    ((binding init.375)
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 366)))
+                         (((binding f.366)
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name arr) (id 372)))
+                          ((binding arr.372)
                            (value
                             (Ref
-                             ((id ((name arr) (id 338)))
+                             ((id arr.338)
                               (type'
                                ((element (Literal IntLiteral))
                                 (shape ((Add ((const 10) (refs ())))))))))))))
@@ -3889,21 +3223,19 @@ let%expect_test "sum rows" =
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name f) (id 371)))
+                            (((binding f.371)
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
                                  (type' ((element (Tuple ())) (shape ())))))))
-                             ((binding
-                               ((name contiguous-subarray-array) (id 373)))
+                             ((binding contiguous-subarray-array.373)
                               (value
                                (Ref
-                                ((id ((name arr) (id 372)))
+                                ((id arr.372)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 10) (refs ())))))))))))
-                             ((binding
-                               ((name contiguous-subarray-index) (id 374)))
+                             ((binding contiguous-subarray-index.374)
                               (value
                                (Frame
                                 ((dimensions (1))
@@ -3920,13 +3252,13 @@ let%expect_test "sum rows" =
                              (ContiguousSubArray
                               (arrayArg
                                (Ref
-                                ((id ((name contiguous-subarray-array) (id 373)))
+                                ((id contiguous-subarray-array.373)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 10) (refs ()))))))))))
                               (indexArg
                                (Ref
-                                ((id ((name contiguous-subarray-index) (id 374)))
+                                ((id contiguous-subarray-index.374)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 1) (refs ()))))))))))
@@ -3936,20 +3268,20 @@ let%expect_test "sum rows" =
                               (type' ((element (Literal IntLiteral)) (shape ()))))))
                            (type' ((element (Literal IntLiteral)) (shape ()))))))
                         (type' ((element (Literal IntLiteral)) (shape ())))))))
-                    ((binding ((name arr) (id 342)))
+                    ((binding arr.342)
                      (value
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name f) (id 329)))
+                         (((binding f.329)
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
                               (type' ((element (Tuple ())) (shape ())))))))
-                          ((binding ((name arr) (id 339)))
+                          ((binding arr.339)
                            (value
                             (Ref
-                             ((id ((name arr) (id 338)))
+                             ((id arr.338)
                               (type'
                                ((element (Literal IntLiteral))
                                 (shape ((Add ((const 10) (refs ())))))))))))))
@@ -3957,21 +3289,19 @@ let%expect_test "sum rows" =
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name f) (id 334)))
+                            (((binding f.334)
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
                                  (type' ((element (Tuple ())) (shape ())))))))
-                             ((binding
-                               ((name contiguous-subarray-array) (id 340)))
+                             ((binding contiguous-subarray-array.340)
                               (value
                                (Ref
-                                ((id ((name arr) (id 339)))
+                                ((id arr.339)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 10) (refs ())))))))))))
-                             ((binding
-                               ((name contiguous-subarray-index) (id 341)))
+                             ((binding contiguous-subarray-index.341)
                               (value
                                (Frame
                                 ((dimensions (1))
@@ -3988,13 +3318,13 @@ let%expect_test "sum rows" =
                              (ContiguousSubArray
                               (arrayArg
                                (Ref
-                                ((id ((name contiguous-subarray-array) (id 340)))
+                                ((id contiguous-subarray-array.340)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 10) (refs ()))))))))))
                               (indexArg
                                (Ref
-                                ((id ((name contiguous-subarray-index) (id 341)))
+                                ((id contiguous-subarray-index.341)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 1) (refs ()))))))))))
@@ -4014,16 +3344,16 @@ let%expect_test "sum rows" =
                    (ArrayPrimitive
                     (Map (frameShape ())
                      (args
-                      (((binding ((name init) (id 376)))
+                      (((binding init.376)
                         (value
                          (Ref
-                          ((id ((name init) (id 375)))
+                          ((id init.375)
                            (type' ((element (Literal IntLiteral)) (shape ())))))))))
                      (body
                       (ArrayPrimitive
                        (Map (frameShape ())
                         (args
-                         (((binding ((name up-ranked-f) (id 313)))
+                         (((binding up-ranked-f.313)
                            (value
                             (AtomAsArray
                              ((element (Values ((elements ()) (type' ()))))
@@ -4032,31 +3362,31 @@ let%expect_test "sum rows" =
                          (ArrayPrimitive
                           (Map (frameShape ())
                            (args
-                            (((binding ((name f) (id 311)))
+                            (((binding f.311)
                               (value
                                (AtomAsArray
                                 ((element (Values ((elements ()) (type' ()))))
                                  (type' ((element (Tuple ())) (shape ())))))))
-                             ((binding ((name reduce-f-arg) (id 314)))
+                             ((binding reduce-f-arg.314)
                               (value
                                (Ref
-                                ((id ((name up-ranked-f) (id 313)))
+                                ((id up-ranked-f.313)
                                  (type' ((element (Tuple ())) (shape ())))))))
-                             ((binding ((name reduce-zero-arg) (id 379)))
+                             ((binding reduce-zero-arg.379)
                               (value
                                (ArrayPrimitive
                                 (Map (frameShape ())
                                  (args
-                                  (((binding ((name f) (id 351)))
+                                  (((binding f.351)
                                     (value
                                      (AtomAsArray
                                       ((element
                                         (Values ((elements ()) (type' ()))))
                                        (type' ((element (Tuple ())) (shape ())))))))
-                                   ((binding ((name v) (id 377)))
+                                   ((binding v.377)
                                     (value
                                      (Ref
-                                      ((id ((name init) (id 376)))
+                                      ((id init.376)
                                        (type'
                                         ((element (Literal IntLiteral))
                                          (shape ())))))))))
@@ -4064,7 +3394,7 @@ let%expect_test "sum rows" =
                                   (ArrayPrimitive
                                    (Map (frameShape ())
                                     (args
-                                     (((binding ((name make) (id 361)))
+                                     (((binding make.361)
                                        (value
                                         (AtomAsArray
                                          ((element
@@ -4075,16 +3405,16 @@ let%expect_test "sum rows" =
                                      (ArrayPrimitive
                                       (Map (frameShape ())
                                        (args
-                                        (((binding ((name f) (id 362)))
+                                        (((binding f.362)
                                           (value
                                            (Ref
-                                            ((id ((name make) (id 361)))
+                                            ((id make.361)
                                              (type'
                                               ((element (Tuple ())) (shape ())))))))
-                                         ((binding ((name v) (id 378)))
+                                         ((binding v.378)
                                           (value
                                            (Ref
-                                            ((id ((name v) (id 377)))
+                                            ((id v.377)
                                              (type'
                                               ((element (Literal IntLiteral))
                                                (shape ())))))))))
@@ -4093,7 +3423,7 @@ let%expect_test "sum rows" =
                                          (Map (frameShape ()) (args ())
                                           (body
                                            (Ref
-                                            ((id ((name v) (id 378)))
+                                            ((id v.378)
                                              (type'
                                               ((element (Literal IntLiteral))
                                                (shape ()))))))
@@ -4107,10 +3437,10 @@ let%expect_test "sum rows" =
                                      ((element (Literal IntLiteral)) (shape ()))))))
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ())))))))
-                             ((binding ((name reduce-array-arg) (id 343)))
+                             ((binding reduce-array-arg.343)
                               (value
                                (Ref
-                                ((id ((name arr) (id 342)))
+                                ((id arr.342)
                                  (type'
                                   ((element (Literal IntLiteral))
                                    (shape ((Add ((const 9) (refs ())))))))))))))
@@ -4118,39 +3448,39 @@ let%expect_test "sum rows" =
                             (ArrayPrimitive
                              (Reduce
                               (arg
-                               ((firstBinding ((name reduce-arg1) (id 344)))
-                                (secondBinding ((name reduce-arg2) (id 347)))
+                               ((firstBinding reduce-arg1.344)
+                                (secondBinding reduce-arg2.347)
                                 (value
                                  (Ref
-                                  ((id ((name reduce-array-arg) (id 343)))
+                                  ((id reduce-array-arg.343)
                                    (type'
                                     ((element (Literal IntLiteral))
                                      (shape ((Add ((const 9) (refs ()))))))))))))
                               (zero
                                (Ref
-                                ((id ((name reduce-zero-arg) (id 379)))
+                                ((id reduce-zero-arg.379)
                                  (type'
                                   ((element (Literal IntLiteral)) (shape ()))))))
                               (body
                                (ArrayPrimitive
                                 (Map (frameShape ())
                                  (args
-                                  (((binding ((name f) (id 327)))
+                                  (((binding f.327)
                                     (value
                                      (Ref
-                                      ((id ((name f) (id 326)))
+                                      ((id f.326)
                                        (type' ((element (Tuple ())) (shape ())))))))
-                                   ((binding ((name arg0) (id 345)))
+                                   ((binding arg0.345)
                                     (value
                                      (Ref
-                                      ((id ((name reduce-arg1) (id 344)))
+                                      ((id reduce-arg1.344)
                                        (type'
                                         ((element (Literal IntLiteral))
                                          (shape ())))))))
-                                   ((binding ((name arg1) (id 348)))
+                                   ((binding arg1.348)
                                     (value
                                      (Ref
-                                      ((id ((name reduce-arg2) (id 347)))
+                                      ((id reduce-arg2.347)
                                        (type'
                                         ((element (Literal IntLiteral))
                                          (shape ())))))))))
@@ -4158,17 +3488,17 @@ let%expect_test "sum rows" =
                                   (ArrayPrimitive
                                    (Map (frameShape ())
                                     (args
-                                     (((binding ((name arg0) (id 346)))
+                                     (((binding arg0.346)
                                        (value
                                         (Ref
-                                         ((id ((name arg0) (id 345)))
+                                         ((id arg0.345)
                                           (type'
                                            ((element (Literal IntLiteral))
                                             (shape ())))))))
-                                      ((binding ((name arg1) (id 349)))
+                                      ((binding arg1.349)
                                        (value
                                         (Ref
-                                         ((id ((name arg1) (id 348)))
+                                         ((id arg1.348)
                                           (type'
                                            ((element (Literal IntLiteral))
                                             (shape ())))))))))
@@ -4181,7 +3511,7 @@ let%expect_test "sum rows" =
                                            ((ArrayAsAtom
                                              ((array
                                                (Ref
-                                                ((id ((name arg0) (id 346)))
+                                                ((id arg0.346)
                                                  (type'
                                                   ((element (Literal IntLiteral))
                                                    (shape ()))))))
@@ -4189,7 +3519,7 @@ let%expect_test "sum rows" =
                                             (ArrayAsAtom
                                              ((array
                                                (Ref
-                                                ((id ((name arg1) (id 349)))
+                                                ((id arg1.349)
                                                  (type'
                                                   ((element (Literal IntLiteral))
                                                    (shape ()))))))
@@ -4492,18 +3822,18 @@ let%expect_test "sum rows" =
         (kernel
          (captures
           ((expr-captures
-            ((((name contiguous-subarray-index) (id 399))
+            ((contiguous-subarray-index.399
               (Array ((element (Literal IntLiteral)) (shape (shape 1)))))
-             (((name contiguous-subarray-index) (id 405))
+             (contiguous-subarray-index.405
               (Array ((element (Literal IntLiteral)) (shape (shape 1)))))))
            (mem-captures
-            ((((name map-mem) (id 477))
+            ((map-mem.477
               (Tuple
                ((Array ((element (Literal IntLiteral)) (shape (shape 1000000)))))))
-             (((name map-mem) (id 479))
+             (map-mem.479
               (Tuple
                ((Array ((element (Literal IntLiteral)) (shape (shape 10)))))))
-             (((name map-mem) (id 483)) (Tuple ()))))
+             (map-mem.483 (Tuple ()))))
            (index-captures ())))
          (blocks 20) (threads 512)
          ((map

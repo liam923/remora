@@ -22,7 +22,10 @@ module Make () = struct
       { name : string
       ; id : int
       }
-    [@@deriving compare, sexp, equal]
+    [@@deriving compare, of_sexp, equal]
+
+    let show { name; id } = [%string "%{name}.%{id#Int}"]
+    let sexp_of_t id = Sexp.Atom (show id)
   end
 
   include T
@@ -30,7 +33,6 @@ module Make () = struct
 
   let name { name; id = _ } = name
   let uniqueNum { name = _; id } = id
-  let show { name; id } = [%string "%{name}.%{id#Int}"]
 
   let create name ~getCounter ~setCounter =
     let open State.Let_syntax in
