@@ -875,14 +875,9 @@ let rec genMax ~store l ~default =
     storeIfRequested @@ Cx.(ternary ~cond:(head > maxRest) ~then':head ~else':maxRest)
 ;;
 
-let genIota ~loopVar ~loopSize ({ iota; nestIn } : Expr.mapIota) =
-  let value =
-    match nestIn with
-    | None -> loopVar
-    | Some parentIota -> Cx.((refId parentIota * loopSize) + loopVar)
-  in
+let genIota ~loopVar iota =
   GenState.write
-  @@ Define { name = UniqueName iota; type' = Some Int64; value = Some value }
+  @@ Define { name = UniqueName iota; type' = Some Int64; value = Some loopVar }
 ;;
 
 let rec genMatchMapBody (matcher : Expr.tupleMatch) res =
@@ -951,7 +946,7 @@ let rec genStmnt
         { frameShapeSize : hostAndDeviceExpr
         ; mapArgs : Expr.mapArg list
         ; mapMemArgs : Expr.memArg list
-        ; mapIotas : Expr.mapIota list
+        ; mapIotas : Identifier.t list
         ; mapBody : body
         ; bodySize : hostAndDeviceExpr
         }
@@ -1016,14 +1011,7 @@ let rec genStmnt
       GenState.writeIte
         ~cond:Cx.(loopVar < frameShapeSize.device)
         ~thenBranch:
-          (let%bind () =
-             genMapBodySetup
-               ~loopVar
-               ~loopSize:frameShapeSize.device
-               ~mapArgs
-               ~mapIotas
-               ~mapMemArgs
-           in
+          (let%bind () = genMapBodySetup ~loopVar ~mapArgs ~mapIotas ~mapMemArgs in
            match mapBody with
            | Statement statement -> genStmnt ~hostOrDevice:Device statement
            | SubMaps { subMaps; maxBodySize } ->
@@ -1510,9 +1498,7 @@ and genExpr
         |> GenState.all_unit
       in
       let%bind () =
-        mapIotas
-        |> List.map ~f:(genIota ~loopVar:(VarRef loopVar) ~loopSize:steps)
-        |> GenState.all_unit
+        mapIotas |> List.map ~f:(genIota ~loopVar:(VarRef loopVar)) |> GenState.all_unit
       in
       let%bind mapRes = genExpr ~hostOrDevice ~store:true mapBody in
       let%bind () = genMatchMapBody mapBodyMatcher mapRes in
@@ -1631,7 +1617,6 @@ and genExpr
                   let%bind () =
                     genMapBodyOnDevice
                       ~loopVar
-                      ~loopSize:dIn
                       ~mapArgs
                       ~mapIotas
                       ~mapMemArgs
@@ -1880,7 +1865,6 @@ and genExpr
                              let%bind () =
                                genMapBodyOnDevice
                                  ~loopVar:index
-                                 ~loopSize:dDevice
                                  ~mapArgs
                                  ~mapIotas
                                  ~mapMemArgs
@@ -2244,18 +2228,12 @@ and genExpr
                 in
                 return (C.VarRef name, ({ name; type' } : C.funParam))
               in
-              let getInputElementOrDoMap
-                ~dDevice
-                ~mapResultMemInterim
-                ~inputDerefer
-                ~loopVar
-                =
+              let getInputElementOrDoMap ~mapResultMemInterim ~inputDerefer ~loopVar =
                 if includeMaps
                 then (
                   let%bind () =
                     genMapBodyOnDevice
                       ~loopVar
-                      ~loopSize:dDevice
                       ~mapArgs
                       ~mapIotas
                       ~mapMemArgs
@@ -2322,7 +2300,6 @@ and genExpr
                       let%bind bankOffsetB =
                         GenState.createVarAuto "bankOffsetB" @@ conflictFreeOffsetC bi
                       in
-                      let%bind dDevice = GenState.createVarAuto "d" @@ genDim d in
                       let%bind inputDerefer =
                         genArrayDeref ~arrayType:scanType ~isMem:false input
                       in
@@ -2338,7 +2315,6 @@ and genExpr
                           @@
                           let%bind scanArg =
                             getInputElementOrDoMap
-                              ~dDevice
                               ~inputDerefer
                               ~mapResultMemInterim
                               ~loopVar:
@@ -2510,7 +2486,6 @@ and genExpr
                              in
                              let%bind b =
                                getInputElementOrDoMap
-                                 ~dDevice
                                  ~inputDerefer
                                  ~mapResultMemInterim
                                  ~loopVar:
@@ -2652,7 +2627,6 @@ and genExpr
                           "This is exclusive scan, so shift right by one and set first \
                            element to 0"
                       in
-                      let%bind dDevice = GenState.createVarAuto "d" @@ genDim d in
                       let%bind inputDerefer =
                         genArrayDeref ~arrayType:scanType ~isMem:false input
                       in
@@ -2662,7 +2636,6 @@ and genExpr
                           ~thenBranch:
                             (let%bind value =
                                getInputElementOrDoMap
-                                 ~dDevice
                                  ~inputDerefer
                                  ~mapResultMemInterim
                                  ~loopVar:Cx.(chunkOffset + threadIndex - intLit 1)
@@ -2722,7 +2695,6 @@ and genExpr
                         ~thenBranch:
                           (let%bind scanArg =
                              getInputElementOrDoMap
-                               ~dDevice
                                ~inputDerefer
                                ~mapResultMemInterim
                                ~loopVar:Cx.(chunkOffset + n - intLit 1)
@@ -3159,9 +3131,8 @@ and genMallocLet
 
 and genMapBodySetup
   ~(loopVar : C.expr)
-  ~(loopSize : C.expr)
   ~(mapArgs : Expr.mapArg list)
-  ~(mapIotas : Expr.mapIota list)
+  ~(mapIotas : Identifier.t list)
   ~(mapMemArgs : Expr.memArg list)
   : (unit, _) GenState.u
   =
@@ -3187,16 +3158,13 @@ and genMapBodySetup
            { name = UniqueName memBinding; type' = None; value = Some (derefer loopVar) })
     |> GenState.all_unit
   in
-  let%bind () =
-    mapIotas |> List.map ~f:(genIota ~loopVar ~loopSize) |> GenState.all_unit
-  in
+  let%bind () = mapIotas |> List.map ~f:(genIota ~loopVar) |> GenState.all_unit in
   return ()
 
 and genMapBodyOnDevice
   ~(loopVar : C.expr)
-  ~(loopSize : C.expr)
   ~(mapArgs : Expr.mapArg list)
-  ~(mapIotas : Expr.mapIota list)
+  ~(mapIotas : Identifier.t list)
   ~(mapMemArgs : Expr.memArg list)
   ~(mapBody : device Expr.withCaptures)
   ~(mapBodyMatcher : Expr.tupleMatch)
@@ -3207,7 +3175,7 @@ and genMapBodyOnDevice
   =
   let open GenState.Let_syntax in
   (* perform the map body *)
-  let%bind () = genMapBodySetup ~loopVar ~loopSize ~mapArgs ~mapIotas ~mapMemArgs in
+  let%bind () = genMapBodySetup ~loopVar ~mapArgs ~mapIotas ~mapMemArgs in
   let%bind mapResult = genExpr ~hostOrDevice:Device ~store:true mapBody in
   let%bind () = genMatchMapBody mapBodyMatcher mapResult in
   (* write the results of the map *)

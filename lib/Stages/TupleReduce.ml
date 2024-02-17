@@ -1006,7 +1006,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
       let argUnpackers = List.concat argUnpackerss in
       let iotaUnpackers =
         mapIotas
-        |> List.map ~f:(fun { iota; nestIn = _ } ->
+        |> List.map ~f:(fun iota ->
           Map.find caches iota
           |> Option.map ~f:(fun cache ->
             createUnpackersFromCache cache [] ~insideWhole:false
@@ -1019,8 +1019,7 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
       (* Remove the caches for variables bound only in the map *)
       let%map () =
         ReduceTupleState.updateCaches ~f:(fun caches ->
-          List.map mapArgs ~f:(fun arg -> arg.binding)
-          @ List.map mapIotas ~f:(fun i -> i.iota)
+          List.map mapArgs ~f:(fun arg -> arg.binding) @ mapIotas
           |> List.fold ~init:caches ~f:Map.remove)
       in
       args, Expr.let' ~args:unpackers ~body, blockUnpackers

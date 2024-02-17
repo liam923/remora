@@ -126,44 +126,71 @@ let rec nestArray : Nucleus.Expr.array -> (Nested.t, _) NestState.u =
             ( { binding = newBinding; ref }
             , { binding; ref = { id = newBinding; type' = valueElementType } } ))
           |> NestState.all
-        and mapIota =
+        and mapIota, newParent, loopWrapper, mapBodyWrapper =
           match iotaVar with
           | Some iotaVar ->
-            let%map newIota = NestState.createId (Identifier.name iotaVar) in
-            Some { iota = newIota; nestIn = parentIota }
-          | None -> return None
+            let%bind newIota = NestState.createId (Identifier.name iotaVar) in
+            (match parentIota with
+             | None ->
+               return (Some newIota, Some newIota, (fun loop -> loop), fun body -> body)
+             | Some parentIota ->
+               let%bind newIotaChild = NestState.createId (Identifier.name iotaVar) in
+               let%bind parentChunkedIota = NestState.createId "iota-offset" in
+               return
+                 ( Some newIota
+                 , Some newIotaChild
+                 , (fun loop ->
+                     Nested.Expr.let'
+                       ~args:
+                         [ { binding = parentChunkedIota
+                           ; value =
+                               Ref { id = parentIota; type' = Literal IntLiteral }
+                               * ShapeProd [ shapeElement ]
+                           }
+                         ]
+                       ~body:loop)
+                 , fun body ->
+                     Nested.Expr.(
+                       let'
+                         ~args:
+                           [ { binding = newIotaChild
+                             ; value =
+                                 Ref
+                                   { id = parentChunkedIota; type' = Literal IntLiteral }
+                                 + Ref { id = newIota; type' = Literal IntLiteral }
+                             }
+                           ]
+                         ~body) ))
+          | None -> return (None, None, (fun loop -> loop), fun body -> body)
         in
         let mapArgs, nextArgs = List.unzip mapArgsAndNextArgs in
-        let%map mapBody =
-          decompose
-            nextArgs
-            (Option.map mapIota ~f:(fun iota -> iota.iota))
-            restFrameShape
-        in
-        Nested.Expr.tupleDeref
-          ~tuple:
-            (Nested.Expr.tupleDeref
-               ~tuple:
-                 (LoopBlock
-                    { frameShape = shapeElement
-                    ; mapArgs
-                    ; mapIotas = Option.to_list mapIota
-                    ; mapBody
-                    ; mapBodyMatcher = Binding reusltBinding
-                    ; mapResults = [ reusltBinding ]
-                    ; consumer = None
-                    ; type' =
-                        [ Tuple
-                            [ Array
-                                { element = Nested.Expr.type' mapBody
-                                ; size = shapeElement
-                                }
-                            ]
-                        ; Tuple []
-                        ]
-                    })
-               ~index:0)
-          ~index:0
+        let%map mapBodyUnwrapped = decompose nextArgs newParent restFrameShape in
+        let mapBody = mapBodyWrapper mapBodyUnwrapped in
+        loopWrapper
+        @@ Nested.Expr.tupleDeref
+             ~tuple:
+               (Nested.Expr.tupleDeref
+                  ~tuple:
+                    (LoopBlock
+                       { frameShape = shapeElement
+                       ; mapArgs
+                       ; mapIotas = Option.to_list mapIota
+                       ; mapBody
+                       ; mapBodyMatcher = Binding reusltBinding
+                       ; mapResults = [ reusltBinding ]
+                       ; consumer = None
+                       ; type' =
+                           [ Tuple
+                               [ Array
+                                   { element = Nested.Expr.type' mapBody
+                                   ; size = shapeElement
+                                   }
+                               ]
+                           ; Tuple []
+                           ]
+                       })
+                  ~index:0)
+             ~index:0
     in
     let%bind letAndMapArgs =
       args

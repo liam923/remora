@@ -22,7 +22,7 @@ module Make (SB : Source.BuilderT) = struct
       @> (module Inline.Stage (SB))
       (* @> (module Show.Passthrough.Stage (Nucleus) (SB)) *)
       @> (module Nest.Stage (SB))
-      (* @> (module Show.Passthrough.Stage (Nucleus) (SB)) *)
+      (* @> (module Show.Passthrough.Stage (Nested) (SB)) *)
       @> (module FuseAndSimplify.Stage (SB))
       (* @> (module Show.Passthrough.Stage (Nested) (SB)) *)
       @> (module Kernelize.Stage (SB))

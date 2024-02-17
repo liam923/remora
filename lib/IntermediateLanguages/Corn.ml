@@ -73,13 +73,12 @@ module Expr = struct
 
   and tupleMatch = Nested.Expr.tupleMatch
   and mapArg = Nested.Expr.mapArg
-  and mapIota = Nested.Expr.mapIota
 
   (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
   and ('lOuter, 'lInner, 'p, 'e) loopBlock =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
-    ; mapIotas : mapIota list
+    ; mapIotas : Identifier.t list
     ; mapBody : 'lInner t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
@@ -153,7 +152,7 @@ module Expr = struct
   and mapKernel =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
-    ; mapIotas : mapIota list
+    ; mapIotas : Identifier.t list
     ; mapBody : mapBody
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
@@ -461,7 +460,6 @@ module Expr = struct
       | Scatter scatter -> sexp_of_scatter scatter
 
     and sexp_of_mapArg = [%sexp_of: Nested.Expr.mapArg]
-    and sexp_of_mapIota = [%sexp_of: Nested.Expr.mapIota]
 
     and sexp_of_loopBlock
       : type a b p e x.
@@ -494,7 +492,9 @@ module Expr = struct
             ([ Sexp.Atom "map"; Sexp.List (List.map mapArgs ~f:sexp_of_mapArg) ]
              @ (if List.length mapIotas > 0
                 then
-                  [ Sexp.List (Sexp.Atom "iota" :: List.map mapIotas ~f:sexp_of_mapIota) ]
+                  [ Sexp.List
+                      (Sexp.Atom "iota" :: List.map mapIotas ~f:[%sexp_of: Identifier.t])
+                  ]
                 else [])
              @ [ sexp_of_t sexp_of_b mapBody ])
         ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]
@@ -543,15 +543,7 @@ module Expr = struct
          @ (if List.length mapIotas > 0
             then
               [ Sexp.List
-                  (Sexp.Atom "iota"
-                   :: List.map mapIotas ~f:(function
-                     | { iota; nestIn = None } -> Sexp.Atom (Identifier.show iota)
-                     | { iota; nestIn = Some parent } ->
-                       Sexp.List
-                         [ Sexp.Atom (Identifier.show iota)
-                         ; Sexp.Atom ":"
-                         ; Sexp.Atom (Identifier.show parent)
-                         ]))
+                  (Sexp.Atom "iota" :: List.map mapIotas ~f:[%sexp_of: Identifier.t])
               ]
             else [])
          @ (Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]

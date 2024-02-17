@@ -136,16 +136,11 @@ module Expr = struct
     ; ref : ref
     }
 
-  and mapIota =
-    { iota : Identifier.t
-    ; nestIn : Identifier.t option
-    }
-
   (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
   and loopBlock =
     { frameShape : Index.shapeElement
     ; mapArgs : mapArg list
-    ; mapIotas : mapIota list
+    ; mapIotas : Identifier.t list
     ; mapBody : t
     ; mapBodyMatcher : tupleMatch
     ; mapResults : Identifier.t list
@@ -304,6 +299,14 @@ module Expr = struct
 
   let values elements = Values { elements; type' = List.map elements ~f:type' }
   let let' ~args ~body = Let { args; body; type' = type' body }
+
+  let ( + ) a b =
+    ScalarPrimitive { op = Add; args = [ a; b ]; type' = Literal IntLiteral }
+  ;;
+
+  let ( * ) a b =
+    ScalarPrimitive { op = Mul; args = [ a; b ]; type' = Literal IntLiteral }
+  ;;
 
   let tupleDeref ~tuple ~index =
     TupleDeref
@@ -480,15 +483,6 @@ module Expr = struct
       Sexp.List
         [ Sexp.Atom (Identifier.show binding); Sexp.Atom (Identifier.show ref.id) ]
 
-    and sexp_of_mapIota = function
-      | { iota; nestIn = None } -> Sexp.Atom (Identifier.show iota)
-      | { iota; nestIn = Some parent } ->
-        Sexp.List
-          [ Sexp.Atom (Identifier.show iota)
-          ; Sexp.Atom ":"
-          ; Sexp.Atom (Identifier.show parent)
-          ]
-
     and sexp_of_loopBlock
       { frameShape
       ; mapArgs
@@ -507,7 +501,9 @@ module Expr = struct
             ([ Sexp.Atom "map"; Sexp.List (List.map mapArgs ~f:sexp_of_mapArg) ]
              @ (if List.length mapIotas > 0
                 then
-                  [ Sexp.List (Sexp.Atom "iota" :: List.map mapIotas ~f:sexp_of_mapIota) ]
+                  [ Sexp.List
+                      (Sexp.Atom "iota" :: List.map mapIotas ~f:[%sexp_of: Identifier.t])
+                  ]
                 else [])
              @ [ sexp_of_t mapBody ])
         ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]

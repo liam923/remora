@@ -137,17 +137,10 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
       |> List.map ~f:(fun arg -> getUsesInExpr (Ref arg.ref))
       |> Set.union_list (module Identifier)
     in
-    let iotaUsages =
-      mapIotas
-      |> List.bind ~f:(fun iota -> Option.to_list iota.nestIn)
-      |> Set.of_list (module Identifier)
-    in
     let argBindings =
       mapArgs |> List.map ~f:(fun arg -> arg.binding) |> Set.of_list (module Identifier)
     in
-    let iotaBindings =
-      mapIotas |> List.map ~f:(fun arg -> arg.iota) |> Set.of_list (module Identifier)
-    in
+    let iotaBindings = Set.of_list (module Identifier) mapIotas in
     let bodyUsages =
       Set.diff (getUsesInExpr mapBody) (Set.union argBindings iotaBindings)
     in
@@ -155,7 +148,7 @@ let rec getUsesInExpr : Expr.t -> Set.M(Identifier).t = function
     let typeUsages = getUsesInTuple type' in
     Set.union_list
       (module Identifier)
-      [ frameShapeUsages; argsUsages; iotaUsages; bodyUsages; consumerUsages; typeUsages ]
+      [ frameShapeUsages; argsUsages; bodyUsages; consumerUsages; typeUsages ]
   | Box { indices; body; bodyType; type' } ->
     let indicesUsages = List.map indices ~f:getUsesInIndex in
     let bodyUsages = getUsesInExpr body in
@@ -281,7 +274,7 @@ type extraction =
   { captures : Set.M(Identifier).t
   ; addLifts : Expr.t -> Expr.t
   ; liftedArgs : Expr.mapArg list
-  ; liftedIotas : Expr.mapIota list
+  ; liftedIotas : Identifier.t list
   ; liftedBody : Expr.t
   ; liftedBodyMatcher : Expr.tupleMatch
   ; liftedResults : Identifier.t list
@@ -451,10 +444,7 @@ let rec liftFrom
           | Some (Value derefs) -> `Snd (arg, derefs)
           | Some (Tuple _) | None -> `Trd ()))
     in
-    let bindings =
-      List.map mapArgs ~f:(fun arg -> arg.binding)
-      @ List.map mapIotas ~f:(fun iota -> iota.iota)
-    in
+    let bindings = List.map mapArgs ~f:(fun arg -> arg.binding) @ mapIotas in
     let bodyCaptures =
       Set.diff (getUsesInExpr mapBody) (Set.of_list (module Identifier) bindings)
     in
@@ -1089,7 +1079,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                                                    (Expr.tupleDeref
                                                       ~tuple:blockResult
                                                       ~index:0)
-                                                 ~index:(index + indexOffset))))
+                                                 ~index:Int.(index + indexOffset))))
                                      }
                                    ]
                                    @ (liftedConsumer

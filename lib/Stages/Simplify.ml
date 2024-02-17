@@ -131,7 +131,7 @@ let getCounts =
     | LoopBlock
         { frameShape
         ; mapArgs
-        ; mapIotas
+        ; mapIotas = _
         ; mapBody
         ; mapBodyMatcher = _
         ; mapResults
@@ -141,13 +141,6 @@ let getCounts =
       let argsCounts =
         mapArgs
         |> List.map ~f:(fun { binding = _; ref } -> getCountsExpr inLoop (Ref ref))
-        |> Counts.merge
-      and iotaCounts =
-        mapIotas
-        |> List.map ~f:(fun { iota = _; nestIn } ->
-          match nestIn with
-          | Some nestIn -> Counts.one nestIn ~inLoop
-          | None -> Counts.empty)
         |> Counts.merge
       and bodyCounts = getCountsExpr true mapBody
       and frameShapeCounts = getCountsIndex inLoop (Shape [ frameShape ])
@@ -183,13 +176,7 @@ let getCounts =
             ]
       in
       Counts.merge
-        [ argsCounts
-        ; iotaCounts
-        ; bodyCounts
-        ; frameShapeCounts
-        ; mapResultsCounts
-        ; consumerCounts
-        ]
+        [ argsCounts; bodyCounts; frameShapeCounts; mapResultsCounts; consumerCounts ]
     | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
       Counts.empty
     | Box { indices; body; bodyType = _; type' = _ } ->
@@ -409,7 +396,7 @@ let rec optimize : Expr.t -> Expr.t =
       | Add { const; refs } -> if Map.is_empty refs then Some const else None)
     |> Option.all
     |> Option.value_map ~default:(ShapeProd shape) ~f:(fun elems ->
-      Literal (IntLiteral (List.fold elems ~init:1 ~f:( * ))))
+      Literal (IntLiteral (List.fold elems ~init:1 ~f:Int.( * ))))
   | Append { args; type' } ->
     let args = List.map args ~f:optimize in
     let elementType =
@@ -422,12 +409,12 @@ let rec optimize : Expr.t -> Expr.t =
       | Frame f1 :: Frame f2 :: restArgs ->
         let mergedArg =
           Frame
-            { dimension = f1.dimension + f2.dimension
+            { dimension = Int.(f1.dimension + f2.dimension)
             ; elements = f1.elements @ f2.elements
             ; type' =
                 Array
                   { element = elementType
-                  ; size = Add (Index.dimensionConstant (f1.dimension + f2.dimension))
+                  ; size = Add (Index.dimensionConstant Int.(f1.dimension + f2.dimension))
                   }
             }
         in
@@ -493,7 +480,7 @@ let rec optimize : Expr.t -> Expr.t =
         (Counts.get mapBodyCounts arg.binding).count > 0)
     in
     let mapIotas =
-      List.filter mapIotas ~f:(fun iota -> (Counts.get mapBodyCounts iota.iota).count > 0)
+      List.filter mapIotas ~f:(fun iota -> (Counts.get mapBodyCounts iota).count > 0)
     in
     let consumer =
       match consumer with
@@ -539,14 +526,14 @@ let rec optimize : Expr.t -> Expr.t =
     (* Do constant folding: *)
     (match op, args with
      | Add, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
-       Literal (IntLiteral (a + b))
+       Literal (IntLiteral Int.(a + b))
      | Add, [ Literal (IntLiteral 0); value ] | Add, [ value; Literal (IntLiteral 0) ] ->
        value
      | Sub, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
        Literal (IntLiteral (a - b))
      | Sub, [ value; Literal (IntLiteral 0) ] -> value
      | Mul, [ Literal (IntLiteral a); Literal (IntLiteral b) ] ->
-       Literal (IntLiteral (a * b))
+       Literal (IntLiteral Int.(a * b))
      | Mul, [ Literal (IntLiteral 1); value ] | Mul, [ value; Literal (IntLiteral 1) ] ->
        value
      | Mul, [ Literal (IntLiteral 0); _ ] | Mul, [ _; Literal (IntLiteral 0) ] ->
@@ -712,8 +699,7 @@ let rec hoistDeclarations : Expr.t -> Expr.t * hoisting list = function
         (* The loop will be run at least once, so hoisting out of the loop
            is ok *)
         let argBindings = List.map mapArgs ~f:(fun arg -> arg.binding) in
-        let iotaBindings = List.map mapIotas ~f:(fun iota -> iota.iota) in
-        argBindings @ iotaBindings |> BindingSet.of_list)
+        argBindings @ mapIotas |> BindingSet.of_list)
       else
         (* The loop could be run 0 times, so nothing can be hoisted out *)
         BindingSet.All
@@ -969,8 +955,7 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
           (* The loop will be run at least once, so hoisting out of the loop
              is ok *)
           let argBindings = List.map mapArgs ~f:(fun arg -> arg.binding) in
-          let iotaBindings = List.map mapIotas ~f:(fun iota -> iota.iota) in
-          argBindings @ iotaBindings |> BindingSet.of_list)
+          argBindings @ mapIotas |> BindingSet.of_list)
         else
           (* The loop could be run 0 times, so nothing can be hoisted out *)
           BindingSet.All
@@ -1078,7 +1063,7 @@ and hoistExpressionsInBody loopBarrier body ~bindings =
      beyond this body *)
   let%map hoistingsToDeclare, moreHoistingsToPropogate =
     hoistExpressionsMap hoistingsToDeclare ~f:(fun { binding; value } ->
-      let%map value, hoistings = hoistExpressions loopBarrier value in
+      let%map value, hoistings = hoistExpressions extendedLoopBarrier value in
       Expr.{ binding; value }, hoistings)
   in
   (* Declare the hoistings that need to be declared. *)

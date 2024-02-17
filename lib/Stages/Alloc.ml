@@ -859,8 +859,7 @@ let rec allocRequest
         Expr.{ binding; ref = { id = ref.id; type' = canonicalizeType ref.type' } })
     in
     let bindingsForMapBody =
-      List.map mapArgs ~f:(fun arg -> arg.binding)
-      @ List.map mapIotas ~f:(fun iota -> iota.iota)
+      List.map mapArgs ~f:(fun arg -> arg.binding) @ mapIotas
       |> Set.of_list (module Identifier)
     in
     let rec createTargetAddrMapArgs type' = function
@@ -1247,8 +1246,7 @@ let rec allocRequest
           Expr.{ binding; ref = { id = ref.id; type' = canonicalizeType ref.type' } })
       in
       let innerBindingsForMapBody =
-        List.map mapArgs ~f:(fun arg -> arg.binding)
-        @ List.map mapIotas ~f:(fun iota -> iota.iota)
+        List.map mapArgs ~f:(fun arg -> arg.binding) @ mapIotas
         |> Set.of_list (module Identifier)
       in
       let bindingsForMapBody =

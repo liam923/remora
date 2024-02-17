@@ -348,18 +348,20 @@ let%expect_test "check simplifying" =
      (#0
       (loop-block (frame-shape 1)
        (map () (iota iota.150)
-        (#0
+        (let ((iota-offset.154 (* iota.150 2)))
          (#0
-          (loop-block (frame-shape 2)
-           (map () (iota (iota.152 : iota.150))
-            (#0
-             (#0
-              (loop-block (frame-shape 3)
-               (map () (iota (iota.154 : iota.152)) iota.154)
-               (body-matcher map-result.153) (map-result (map-result.153))
-               (consumer (values))))))
-           (body-matcher map-result.151) (map-result (map-result.151))
-           (consumer (values))))))
+          (#0
+           (loop-block (frame-shape 2)
+            (map () (iota iota.152)
+             (let ((iota-offset.158 (* (+ iota-offset.154 iota.152) 3)))
+              (#0
+               (#0
+                (loop-block (frame-shape 3)
+                 (map () (iota iota.156) (+ iota-offset.158 iota.156))
+                 (body-matcher map-result.155) (map-result (map-result.155))
+                 (consumer (values)))))))
+            (body-matcher map-result.151) (map-result (map-result.151))
+            (consumer (values)))))))
        (body-matcher map-result.149) (map-result (map-result.149))
        (consumer (values))))) |}];
   checkAndPrint "(index{int | [1 2 3] [4 5] 3} iota{| [1 2 3 4 5]} [0 1 0])";
@@ -370,30 +372,35 @@ let%expect_test "check simplifying" =
       (#0
        (loop-block (frame-shape 1)
         (map () (iota iota.169)
-         (#0
+         (let ((iota-offset.173 (* iota.169 2)))
           (#0
-           (loop-block (frame-shape 2)
-            (map () (iota (iota.171 : iota.169))
-             (#0
-              (#0
-               (loop-block (frame-shape 3)
-                (map () (iota (iota.173 : iota.171))
-                 (#0
-                  (#0
-                   (loop-block (frame-shape 4)
-                    (map () (iota (iota.175 : iota.173))
+           (#0
+            (loop-block (frame-shape 2)
+             (map () (iota iota.171)
+              (let ((iota-offset.177 (* (+ iota-offset.173 iota.171) 3)))
+               (#0
+                (#0
+                 (loop-block (frame-shape 3)
+                  (map () (iota iota.175)
+                   (let ((iota-offset.181 (* (+ iota-offset.177 iota.175) 4)))
+                    (#0
                      (#0
-                      (#0
-                       (loop-block (frame-shape 5)
-                        (map () (iota (iota.177 : iota.175)) iota.177)
-                        (body-matcher map-result.176)
-                        (map-result (map-result.176)) (consumer (values))))))
-                    (body-matcher map-result.174) (map-result (map-result.174))
-                    (consumer (values))))))
-                (body-matcher map-result.172) (map-result (map-result.172))
-                (consumer (values))))))
-            (body-matcher map-result.170) (map-result (map-result.170))
-            (consumer (values))))))
+                      (loop-block (frame-shape 4)
+                       (map () (iota iota.179)
+                        (let
+                         ((iota-offset.185 (* (+ iota-offset.181 iota.179) 5)))
+                         (#0
+                          (#0
+                           (loop-block (frame-shape 5)
+                            (map () (iota iota.183) (+ iota-offset.185 iota.183))
+                            (body-matcher map-result.182)
+                            (map-result (map-result.182)) (consumer (values)))))))
+                       (body-matcher map-result.178)
+                       (map-result (map-result.178)) (consumer (values)))))))
+                  (body-matcher map-result.174) (map-result (map-result.174))
+                  (consumer (values)))))))
+             (body-matcher map-result.170) (map-result (map-result.170))
+             (consumer (values)))))))
         (body-matcher map-result.168) (map-result (map-result.168))
         (consumer (values)))))
      (frame 0 1 0) (shape 1 2 3) (shape)) |}];
