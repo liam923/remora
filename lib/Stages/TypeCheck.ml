@@ -58,6 +58,10 @@ type error =
       ; ref : Identifier.t
       }
   | LiftIndexValueNotInteger of Typed.Type.atom
+  | WrongFunctionBodyType of
+      { expected : Typed.Type.t
+      ; actual : Typed.Type.t
+      }
 
 module Show : sig
   val sort : Sort.t -> string
@@ -223,6 +227,10 @@ let errorMessage = function
        ref}`, but lifting to a shape requires ending in a dimension"]
   | LiftIndexValueNotInteger t ->
     [%string "Lifted index must have integer elements, got `%{Show.type' (Atom t)}`"]
+  | WrongFunctionBodyType { expected; actual } ->
+    [%string
+      "Function was declared to have return type `%{Show.type' expected}`,got \
+       `%{Show.type' actual}` instead"]
 ;;
 
 let errorType = function
@@ -256,6 +264,7 @@ let errorType = function
   | PrincipalFrameDisagreement _
   | IncompatibleShapes _
   | LiftShapeGotRef _
+  | WrongFunctionBodyType _
   | LiftShapeGotScalar
   | LiftIndexValueNotInteger _ -> `Type
 ;;
@@ -1181,7 +1190,7 @@ module TypeCheck = struct
       in
       T.Array
         (Lift { indexBinding = id; indexValue; sort = sort.elem; frameShape; body; type' })
-    | U.TermLambda { params; body } ->
+    | U.TermLambda { params; body; returnTypeOpt } ->
       let%bind kindedParams =
         params.elem
         |> List.map ~f:(fun { elem = { binding; bound }; source } ->
@@ -1198,13 +1207,29 @@ module TypeCheck = struct
           ~boundToEnvEntry:typeBoundToEnvEntry
       in
       let extendedEnv = { env with types = extendedTypesEnv } in
-      let%map body = checkAndExpectArray extendedEnv body in
+      let bodySource = body.source in
+      let%bind returnTypeTyped =
+        returnTypeOpt
+        |> Option.map ~f:(fun returnType ->
+          KindChecker.checkAndExpectArray extendedEnv returnType)
+        |> CheckerState.traverseOpt
+      and body = checkAndExpectArray extendedEnv body in
+      let%bind _ =
+        match returnTypeTyped with
+        | Some returnType ->
+          requireType
+            ~expected:(Typed.Type.Array returnType)
+            ~actual:(Typed.Type.Array (T.arrayType body))
+            ~makeError:(fun { expected; actual } ->
+              { source = bodySource; elem = WrongFunctionBodyType { expected; actual } })
+        | None -> CheckerState.ok ()
+      in
       let type' : Typed.Type.func =
         { parameters = List.map typedParams ~f:(fun p -> p.bound)
         ; return = T.arrayType body
         }
       in
-      T.Atom (T.TermLambda { params = typedParams; body; type' })
+      ok (T.Atom (T.TermLambda { params = typedParams; body; type' }))
     | U.TypeLambda { params; body } ->
       let params =
         (* The parameter's have source-annotated bounds; remove the source annotations *)

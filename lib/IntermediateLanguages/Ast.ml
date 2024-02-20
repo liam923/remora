@@ -113,6 +113,7 @@ module Expr = struct
   and 's termLambda =
     { params : ('s, 's Type.t) paramList
     ; body : 's t
+    ; returnTypeOpt : 's Type.t option
     }
 
   and 's typeLambda =
