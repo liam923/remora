@@ -135,6 +135,7 @@ module Expr = struct
     { binding : Identifier.t
     ; ref : ref
     }
+  [@@deriving compare]
 
   (** returns a tuple of (map results (tuple of arrays, not array of tuples), consumer result (unit if None)) *)
   and loopBlock =

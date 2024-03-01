@@ -1,0 +1,133 @@
+;; ---------------------------- UTILITIES ---------------------------------------------
+(define (indices-of/2{| d1 d2}): [int d1 d2 2]
+((fn ([id [int]]) [(/ id (reify-dimension d1)) (% id (reify-dimension d1))]) iota{| [d1 d2]}))
+  ; (let [d1-val (reify-dimension d1)]
+  ;   ((fn ([id [int]]) [(/ id d1-val) (% id d1-val)]) iota{| [d1 d2]})))
+
+(define (subarray/2{t | in1 in2 out1 out2} [arr [t in1 in2]] [offset [int 2]])
+  (index{t | [in1 in2] [] 2} arr (+ (indices-of/2{| out1 out2}) 
+                                    (replicate{int | [out1 out2] [2]} offset))))
+
+;; ---------------------------- CONVOLUTION ---------------------------------------------
+;;(define (conv1d{| n-1 k-1 o} [data [float (+ n-1 1)]] [kernel [float (+ k-1 1)]]) : [float o]
+;;  (reduce{float | k-1 [] []} +. (*. (replicate{float | [o] [(+ k-1 1)]} kernel) (subvector{float | (+ n-1 1) (+ k-1 1) []} data iota{| [o]}))))
+;;(define (conv2d{| n-1 k-1 pad stride o} [data [float (+ n-1 1) (+ n-1 1)]]
+;;                             [kernel [float (+ k-1 1) (+ k-1 1)]])
+;;  (subarray/fill data (- indices-of/2{| [o o]} (reify-dimension pad)) [(reify-dimension (+ k-1 1)) (reify-dimension (+ k-1 1))] 0))
+;;  (reduce{float | k-1 [] []} +. (reduce{float | k-1 [] []} +. (*. (replicate{float | [(+ out-1 1) (+ in-1 1)] [(+ in-1 1)]} input) weights)))
+
+; (define (conv-2d{| n-1 k-1 o} [data [float (+ n-1 1) (+ n-1 1)]] 
+;                                          [kernel [float (+ k-1 1) (+ k-1 1)]]
+;                                          [bias [float]]) ;: [float o o]
+;   (let [windows (subarray/2{float | (+ 1 n-1) (+ 1 n-1) (+ 1 k-1) (+ 1 k-1)} 
+;                            data (indices-of/2{| o o}))]
+;     (let [repl-kernel (replicate{float | [o o] [(+ k-1 1) (+ k-1 1)]} kernel)]
+;       windows)))
+      ;(*. repl-kernel (replicate{float | [o o] [(+ k-1 1) (+ k-1 1)]} (int->float iota{| [(+ 1 k-1) (+ 1 k-1)]}))))))
+      ;(*. windows repl-kernel))))
+    ;(*. windows
+    ;    (replicate{float | [o o] [(+ k-1 1) (+ k-1 1)]} kernel))))
+
+;; ---------------------------- FULLY CONNECTED ---------------------------------------------
+; (define (fc-2d-fwd{| in-1 out-1} [input [float (+ in-1 1)]] 
+;                                  [weights [float (+ out-1 1) (+ in-1 1)]] 
+;                                  [bias [float (+ out-1 1)]]) : [float (+ out-1 1)]
+;   (+. bias 
+;     (reduce{float | in-1 [] []} 
+;       +. 
+;       (*. (replicate{float | [(+ out-1 1)] [(+ in-1 1)]} input) 
+;           weights))))
+
+; (define (fc-2d-bwd-dx{| dy-dim-1 input-dim-1 } 
+;           [dy [float (+ 1 dy-dim-1)]] 
+;           [w  [float (+ 1 dy-dim-1) (+ 1 input-dim-1)]]) : [float (+ 1 input-dim-1)]
+;   (reduce{float | dy-dim-1 [] [(+ 1 input-dim-1)] } 
+;     (fn ([a [float (+ 1 input-dim-1)]] 
+;          [b [float (+ 1 input-dim-1)]]) : [float (+ 1 input-dim-1)]
+;       (+. a b)) 
+;     (*. dy w)))
+
+; (define (fc-2d-bwd-dw{| input-dim dy-dim } 
+;           [input [float input-dim]] 
+;           [dy [float dy-dim]]) : [float dy-dim input-dim]
+;   (*. (replicate{float | [input-dim] []} dy) 
+;       (replicate{float | [dy-dim] [input-dim]} input)))
+
+; (define (fc-2d-bwd-db{| input-dim-1 } [dy [float (+ 1 input-dim-1)]]) : [float]
+;   (reduce{float | input-dim-1 [] []} +. dy))
+
+;;(conv1d{| 4 2 3} [1.0 2.0 3.0 4.0 5.0] [[0.5 1.0 1.5] [1.0 1.0 1.0]])
+;;(fc-2d{| 2 1} [1.0 2.0 3.0] [[1.0 2.0 3.0] [0.1 0.2 0.3]] [0.5 0.3])
+
+;; ---------------------------- [MAX] POOLING ---------------------------------------------
+;; this one assumes the AD backprop so we don't need to return indices and such
+;;(define (max-pool-2d{| in-1 stride pad k-1 out} [input [float (+ in-1 1) (+ in-1 1)]]): [float out out]
+;;  (reduce{float | k-1 [] []} max. (reduce{float | k-1 [] []} max-float (subarray/fill input indices-of/2{| [out out]} [(reify-dimension (+ k-1 1)) (reify-dimension (+ k-1 1))]))))
+
+;; for any pooling layer
+;;(define (pool-2d{| in-1 stride pad k-1 out cell-elt-count} [input [float (+ in-1 1) (+ in-1 1)]] [reducer (-> (float float) float)])
+;;  (reduce-n{| } reducer (reshape [] (subarray/fill input indices-of/2{| [out out]} [(reify-dimension (+ k-1 1)) (reify-dimension (+ k-1 1))])))
+
+;; ---------------------------- DROPOUT ---------------------------------------------
+
+;; ---------------------------- BATCH NORMALIZATION -----------------------------------------
+
+;; ---------------------------- DETECTION ---------------------------------------------
+
+;; ---------------------------- ACTIVATIONS ---------------------------------------------
+
+; (define (leaky-relu [x [float]]) : float
+;   (select{float |} (>. x 0.0) x (*. 0.1 x)))
+
+; (define (leaky-relu-prime [x [float]]) : float
+;   (select{float |} (>. x 0.0) 1.0 0.1))
+
+; (define (linear [x [float]]) : float
+;   x)
+
+; (define (linear-prime [x [float]]) : float
+;   1.0)
+
+; (define (softmax{| in-1} [x [float (+ 1 in-1)]]) : [float (+ 1 in-1)]
+;   (let [e (exp x)]
+;     (/. e (reduce{float | in-1 [] []} +. e))))
+
+; ; truth is one-hot encoding vector - there can only be 1 1.0 value, everything else is 0.0
+; ; x is the output of softmax function
+; (define (softmax-prime{| in} [x [float in]] [truth [float in]]) : [float in]
+;   (-. x truth))
+
+; turns softmax output vector to one-hot encoded vector -
+; max value turns into 1, all others into 0
+;;(define (softmax->class-vector{| in-1} [e [float (+ 1 in-1)]]): [float (+ 1 in-1)]
+;;  (let ((max-val (reduce{float | in-1 [] []} max-float e)))
+;;    ((fn ([v [float]] (select (=. v max-val) 1.0 0.0))) e)))
+
+
+;; ---------------------------- FLATTEN (?) ---------------------------------------------
+;; Flatten layers are to feed data into fully connected layers 
+;; (since they require 1D input no matter what kind of data is pr;cessed)
+; (define (flatten-2d-fwd{| @in out} [input [float @in]]) : [float out]
+;   (reshape [out] input))
+
+; (define (flatten-2d-bwd{| @in out} [dy [float out]]) : [float @in]
+;   (reshape [@in] dy))
+
+
+
+;; ---------------------------- MAIN ---------------------------------------------
+
+;(flatten-2d-fwd{| [3 3 3 3] 81} (int->float iota{|[3 3 3 3]}))
+; (subarray/2{int | 5 5 3 3} iota{| [5 5]} [0 0])
+; (conv-2d{| 4 2 3} (int->float iota{| [5 5]})
+;                      (int->float iota{| [3 3]})
+;                      0.0)
+
+; (+. 1.0 (index{float | [5 5] [] 2} (int->float iota{| [5 5]}) (+ (replicate{int | [3 3] [3 3 2]} (indices-of/2{| 3 3})) 
+;                                     (replicate{int | [3 3] [2]} ((fn ([id [int]]) [(/ id 3) (% id 3)]) iota{| [3 3]})))))
+;(+. 1.0 (subarray/2{float | 5 5 3 3} (int->float iota{| [5 5]})
+;                                     ((fn ([id [int]]) [(/ id 3) (% id 3)]) iota{| [3 3]})))
+(+. 1.0 (subarray/2{float | 1000 1000 501 501} (int->float iota{| [1000 1000]})
+                                     ((fn ([id [int]]) [(/ id 500) (% id 500)]) iota{| [500 500]})))
+
+

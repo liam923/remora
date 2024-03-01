@@ -48,10 +48,10 @@ type error =
   | ArgumentTypeDisagreement of Typed.Type.t expectedActual
   | CellShapeDisagreement of Typed.Index.shape expectedActual
   | PrincipalFrameDisagreement of Typed.Index.shape expectedActual
-  | IncompatibleShapes of
+  (* | IncompatibleShapes of
       { originalShape : Typed.Index.shape
       ; newShape : Typed.Index.shape
-      }
+      } *)
   | LiftShapeGotScalar
   | LiftShapeGotRef of
       { shape : Typed.Index.shape
@@ -213,10 +213,10 @@ let errorMessage = function
     [%string
       "Function call has principal frame `%{Show.shape expected}`, got frame \
        `%{Show.shape actual}`"]
-  | IncompatibleShapes { originalShape; newShape } ->
+  (* | IncompatibleShapes { originalShape; newShape } ->
     [%string
       "Array has shape `%{Show.shape originalShape}`, which is not compatible with \
-       wanted shape `%{Show.shape newShape}`"]
+       wanted shape `%{Show.shape newShape}`"] *)
   | LiftShapeGotScalar ->
     [%string
       "Array has scalar shape `%{Show.shape []}`, but lifting to a shape requires it to \
@@ -262,7 +262,7 @@ let errorType = function
   | ArgumentTypeDisagreement _
   | CellShapeDisagreement _
   | PrincipalFrameDisagreement _
-  | IncompatibleShapes _
+  (* | IncompatibleShapes _ *)
   | LiftShapeGotRef _
   | WrongFunctionBodyType _
   | LiftShapeGotScalar
@@ -1357,7 +1357,7 @@ module TypeCheck = struct
       let%bind oldType = checkForArrType valueSource (T.arrayType value) in
       let newType = Typed.Type.{ element = oldType.element; shape = newShape } in
       let oldShape = oldType.shape in
-      let verifyShapeCompatibility oldShape newShape =
+      (* let verifyShapeCompatibility oldShape newShape =
         let multiplySequentials shape =
           let rec loop original collapsed =
             match original with
@@ -1380,8 +1380,8 @@ module TypeCheck = struct
           (Typed.Index.equal_shape oldShapeCollapsed newShapeCollapsed)
           { elem = IncompatibleShapes { originalShape = oldShape; newShape }; source }
       in
-      let%map () = verifyShapeCompatibility oldShape newShape in
-      T.Array
+      let%map () = verifyShapeCompatibility oldShape newShape in *)
+      ok (T.Array
         (ContiguousSubArray
            { arrayArg = value
            ; indexArg =
@@ -1398,7 +1398,7 @@ module TypeCheck = struct
            ; cellShape = []
            ; l = Typed.Index.dimensionConstant 0
            ; type' = Arr newType
-           })
+           }))
     | U.ReifyDimension dimension ->
       let%map dimension = SortChecker.checkAndExpectDim env dimension in
       T.Array

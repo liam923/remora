@@ -269,6 +269,14 @@ module Stdlib : S = struct
             ; type' = "(Forall (@t) (-> (bool @t @t) @t))"
             }
       }
+    ; { name = "select"
+        ; userVisible = true
+        ; value =
+            Intrinsic
+              { makeValue = (fun type' -> Expr.Primitive { name = Func If; type' })
+              ; type' = "(Forall (@t) (-> (bool @t @t) @t))"
+              }
+        }
     ; { name = "length"
       ; userVisible = true
       ; value =
@@ -630,6 +638,20 @@ module Stdlib : S = struct
                     (scatter{t | l d @cell-shape} arr locs)))))
             |}
       }
+      (*
+    ; { name = "subarray"
+      ; userVisible = true
+      ; value = 
+          Expression
+            {|
+            (i-fn (@subarr @in rank)
+              (t-fn (t)
+                (fn ([arr [t @in]] [offset [int rank]])
+                  (index arr (+ indices-of{ | @subarr rank} offset)))))
+            |}
+
+      }
+      *)
     ; { name = "sin"
       ; userVisible = true
       ; value =
@@ -665,6 +687,24 @@ module Stdlib : S = struct
       ; value =
           LibraryFunction
             { libName = "std::atan"; argTypes = [ "float" ]; retType = "float" }
+      }
+    ; { name = "sqrt"
+      ; userVisible = true
+      ; value = 
+          LibraryFunction
+            { libName = "sqrtf"; argTypes = [ "float" ]; retType = "float" }
+      }
+    ; { name = "exp"
+      ; userVisible = true
+      ; value = 
+          LibraryFunction
+            { libName = "expf"; argTypes = [ "float" ]; retType = "float" }
+      }
+    ; { name = "expt"
+      ; userVisible = true
+      ; value = 
+          LibraryFunction
+            { libName = "powf"; argTypes = [ "float"; "float" ]; retType = "float" }
       }
     ; { name = "abs"
       ; userVisible = true
