@@ -1091,10 +1091,19 @@ let simplify expr =
     if Expr.equal decHoisted optimized
     then (
       (* Hoist expressions that can be hoisted *)
-      let%bind exprHoisted, hoistings =
+      let%bind exprHoistedWithoutDecs, hoistings =
         hoistExpressionsInBody All optimized ~bindings:All |> HoistState.toSimplifyState
       in
-      assert (List.length hoistings = 0);
+      let exprHoisted =
+        match hoistings with
+        | [] -> exprHoistedWithoutDecs
+        | hoistings ->
+          Expr.Let
+            { args = List.map hoistings ~f:(fun h -> h.variableDeclaration)
+            ; body = exprHoistedWithoutDecs
+            ; type' = Expr.type' exprHoistedWithoutDecs
+            }
+      in
       (* Reduce tuples (remove unused elements) *)
       let%bind { res = reduced; droppedAny } = TupleReduce.reduceTuples exprHoisted in
       (* If reducing tuples did anything, loop. Otherwise, return *)
