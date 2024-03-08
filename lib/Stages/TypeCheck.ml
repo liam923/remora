@@ -1214,7 +1214,7 @@ module TypeCheck = struct
           KindChecker.checkAndExpectArray extendedEnv returnType)
         |> CheckerState.traverseOpt
       and body = checkAndExpectArray extendedEnv body in
-      let%bind _ =
+      let%bind () =
         match returnTypeTyped with
         | Some returnType ->
           requireType
