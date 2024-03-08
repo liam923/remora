@@ -44,7 +44,7 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
           | Mul | MulF -> [ "*arg1"; "*arg2" ]
           | Div | DivF -> [ "/arg1"; "/arg2" ]
           | Mod -> [ "%arg1"; "%arg2" ]
-          | Equal -> [ "=arg1"; "=arg2" ]
+          | Equal | EqualF -> [ "=arg1"; "=arg2" ]
           | Ne -> [ "!=arg1"; "!=arg2" ]
           | Gt | GtF -> [ ">arg1"; ">arg2" ]
           | GtEq | GtEqF -> [ ">=arg1"; ">=arg2" ]

@@ -66,34 +66,34 @@ module ConsumerCompatibility = struct
   ;;
 end
 
-let rec contains_loopblocks : Nested.Expr.t -> bool = function
-  | LoopBlock _ -> true
-  | Ref _ -> false
-  | Frame _ -> false
-  | BoxValue b -> contains_loopblocks b.box
-  | IndexLet i ->
-    contains_loopblocks i.body
-    || List.exists i.indexArgs ~f:(fun { indexValue; indexBinding = _; sort = _ } ->
-      match indexValue with
-      | Runtime r -> contains_loopblocks r
-      | FromBox { box; i = _ } -> contains_loopblocks box)
-  | ReifyIndex _ -> false
-  | ShapeProd _ -> false
-  | Let { args; body; type' = _ } ->
-    contains_loopblocks body
-    || List.exists args ~f:(fun { value; binding = _ } -> contains_loopblocks value)
-  | Box { body; bodyType = _; indices = _; type' = _ } -> contains_loopblocks body
-  | Literal _ -> false
-  | Values { elements; type' = _ } -> List.exists ~f:contains_loopblocks elements
-  | ScalarPrimitive _ -> false
-  | TupleDeref { tuple; index = _; type' = _ } -> contains_loopblocks tuple
-  | ContiguousSubArray
-      { arrayArg; indexArg; originalShape = _; resultShape = _; type' = _ } ->
-    contains_loopblocks arrayArg || contains_loopblocks indexArg
-  | Append { args; type' = _ } -> List.exists ~f:contains_loopblocks args
-  | Zip { zipArg; nestCount = _; type' = _ } -> contains_loopblocks zipArg
-  | Unzip { unzipArg; type' = _ } -> contains_loopblocks unzipArg
-;;
+(* let rec contains_loopblocks : Nested.Expr.t -> bool = function *)
+(*   | LoopBlock _ -> true *)
+(*   | Ref _ -> false *)
+(*   | Frame _ -> false *)
+(*   | BoxValue b -> contains_loopblocks b.box *)
+(*   | IndexLet i -> *)
+(*     contains_loopblocks i.body *)
+(*     || List.exists i.indexArgs ~f:(fun { indexValue; indexBinding = _; sort = _ } -> *)
+(*       match indexValue with *)
+(*       | Runtime r -> contains_loopblocks r *)
+(*       | FromBox { box; i = _ } -> contains_loopblocks box) *)
+(*   | ReifyIndex _ -> false *)
+(*   | ShapeProd _ -> false *)
+(*   | Let { args; body; type' = _ } -> *)
+(*     contains_loopblocks body *)
+(*     || List.exists args ~f:(fun { value; binding = _ } -> contains_loopblocks value) *)
+(*   | Box { body; bodyType = _; indices = _; type' = _ } -> contains_loopblocks body *)
+(*   | Literal _ -> false *)
+(*   | Values { elements; type' = _ } -> List.exists ~f:contains_loopblocks elements *)
+(*   | ScalarPrimitive _ -> false *)
+(*   | TupleDeref { tuple; index = _; type' = _ } -> contains_loopblocks tuple *)
+(*   | ContiguousSubArray *)
+(*       { arrayArg; indexArg; originalShape = _; resultShape = _; type' = _ } -> *)
+(*     contains_loopblocks arrayArg || contains_loopblocks indexArg *)
+(*   | Append { args; type' = _ } -> List.exists ~f:contains_loopblocks args *)
+(*   | Zip { zipArg; nestCount = _; type' = _ } -> contains_loopblocks zipArg *)
+(*   | Unzip { unzipArg; type' = _ } -> contains_loopblocks unzipArg *)
+(* ;; *)
 
 let rec getUsesInIndex : Index.t -> Set.M(Identifier).t = function
   | Shape elements ->
@@ -903,18 +903,14 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
               in
               { opp with addLifts })
           | LoopBlock loopBlock ->
-            if Option.is_none loopBlock.consumer
-               && not (contains_loopblocks loopBlock.mapBody)
-            then []
-            else
-              [ { argBinding
-                ; addLifts = (fun v -> v)
-                ; subForLoopBlockInArgValue = subBuilder
-                ; loopBlock
-                ; mapValueLocationBuilder =
-                    (fun l -> mapValueLocationBuilder (Tuple [ Some l; None ]))
-                }
-              ]
+            [ { argBinding
+              ; addLifts = (fun v -> v)
+              ; subForLoopBlockInArgValue = subBuilder
+              ; loopBlock
+              ; mapValueLocationBuilder =
+                  (fun l -> mapValueLocationBuilder (Tuple [ Some l; None ]))
+              }
+            ]
           | Values { elements; type' } ->
             let tupleSize = List.length elements in
             elements
@@ -1052,17 +1048,6 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
                 | Some consumer -> Expr.consumerOpType consumer)
              ]
            in
-           (* let () = *)
-           (*   Stdio.print_endline *)
-           (*     (Printf.sprintf *)
-           (*        "Lifted args: %s" *)
-           (*        (Sexp.to_string_hum *)
-           (*           (List.sexp_of_t *)
-           (*              (fun { binding; ref } -> *)
-           (*                Sexp.List *)
-           (*                  [ Identifier.sexp_of_t binding; Identifier.sexp_of_t ref.id ]) *)
-           (*              liftedArgs))) *)
-           (* in *)
            (*
               1. declare variables captured
               2. declare things from addLifts
@@ -1189,8 +1174,8 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
         (match%bind tryFusing opportunity with
          | Some result ->
            let%bind () = FuseState.markFusion in
-           return result
-           (* fuseLoops scope result *)
+           (* return result *)
+           fuseLoops scope result
          | None -> tryFusingList rest)
       | [] -> return (Let { args; body; type' })
     in

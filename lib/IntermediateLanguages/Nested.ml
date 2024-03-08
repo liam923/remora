@@ -374,6 +374,7 @@ module Expr = struct
          | IntToFloat -> "int->float"
          | FloatToInt -> "float->int"
          | Equal -> "="
+         | EqualF -> "=."
          | Ne -> "!="
          | Gt -> ">"
          | GtEq -> ">="

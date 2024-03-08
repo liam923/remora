@@ -118,6 +118,7 @@ module Expr = struct
     | IntToFloat
     | FloatToInt
     | Equal
+    | EqualF
     | Ne
     | Gt
     | GtEq

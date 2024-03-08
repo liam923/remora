@@ -136,6 +136,7 @@ module Expr = struct
     | IntToBool
     | BoolToInt
     | Equal
+    | EqualF
     | Ne
     | Gt
     | GtEq

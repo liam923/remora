@@ -786,6 +786,7 @@ and inlineTermApplication indexEnv appStack termApplication =
      | MulF -> scalarOp ~args:2 MulF
      | DivF -> scalarOp ~args:2 DivF
      | Equal -> scalarOp ~args:2 Equal
+     | EqualF -> scalarOp ~args:2 EqualF
      | Ne -> scalarOp ~args:2 Ne
      | Gt -> scalarOp ~args:2 Gt
      | GtEq -> scalarOp ~args:2 GtEq

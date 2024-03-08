@@ -173,6 +173,14 @@ module Stdlib : S = struct
             ; type' = "(-> (int int) bool)"
             }
       }
+    ; { name = "=."
+      ; userVisible = true
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func EqualF; type' })
+            ; type' = "(-> (float float) bool)"
+            }
+      }
     ; { name = ">."
       ; userVisible = true
       ; value =
@@ -270,13 +278,13 @@ module Stdlib : S = struct
             }
       }
     ; { name = "select"
-        ; userVisible = true
-        ; value =
-            Intrinsic
-              { makeValue = (fun type' -> Expr.Primitive { name = Func If; type' })
-              ; type' = "(Forall (@t) (-> (bool @t @t) @t))"
-              }
-        }
+      ; userVisible = true
+      ; value =
+          Intrinsic
+            { makeValue = (fun type' -> Expr.Primitive { name = Func If; type' })
+            ; type' = "(Forall (@t) (-> (bool @t @t) @t))"
+            }
+      }
     ; { name = "length"
       ; userVisible = true
       ; value =
@@ -639,7 +647,7 @@ module Stdlib : S = struct
             |}
       }
       (*
-    ; { name = "subarray"
+         ; { name = "subarray"
       ; userVisible = true
       ; value = 
           Expression
@@ -690,19 +698,17 @@ module Stdlib : S = struct
       }
     ; { name = "sqrt"
       ; userVisible = true
-      ; value = 
-          LibraryFunction
-            { libName = "sqrtf"; argTypes = [ "float" ]; retType = "float" }
+      ; value =
+          LibraryFunction { libName = "sqrtf"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "exp"
       ; userVisible = true
-      ; value = 
-          LibraryFunction
-            { libName = "expf"; argTypes = [ "float" ]; retType = "float" }
+      ; value =
+          LibraryFunction { libName = "expf"; argTypes = [ "float" ]; retType = "float" }
       }
     ; { name = "expt"
       ; userVisible = true
-      ; value = 
+      ; value =
           LibraryFunction
             { libName = "powf"; argTypes = [ "float"; "float" ]; retType = "float" }
       }

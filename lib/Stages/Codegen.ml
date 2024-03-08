@@ -1151,6 +1151,7 @@ and genExpr
      | IntToFloat -> genCast Float64
      | FloatToInt -> genCast Int64
      | Equal -> genBinop "=="
+     | EqualF -> genBinop "=="
      | Ne -> genBinop "!="
      | Gt | GtF -> genBinop ">"
      | GtEq | GtEqF -> genBinop ">="
