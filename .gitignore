@@ -32,3 +32,4 @@ _opam/
 .metals
 
 test.remora
+remora.code-workspace

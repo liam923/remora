@@ -246,7 +246,8 @@ let%expect_test "parse expression" =
        (TermLambda
         ((params
           (((binding x) (bound (Ref int))) ((binding y) (bound (Ref int)))))
-         (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y)))))))))
+         (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y))))))
+         (returnTypeOpt ()))))
       (body
        (TermApplication
         ((func (Ref foo)) (args ((IntLiteral 10) (IntLiteral 15)))))))) |}];
@@ -263,7 +264,8 @@ let%expect_test "parse expression" =
           (Let
            ((param ((binding z) (bound ())))
             (value (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y))))))
-            (body (Ref z))))))))
+            (body (Ref z)))))
+         (returnTypeOpt ()))))
       (body
        (TermApplication
         ((func (Ref foo)) (args ((IntLiteral 10) (IntLiteral 15)))))))) |}];
@@ -286,7 +288,8 @@ let%expect_test "parse expression" =
           (Let
            ((param ((binding z) (bound ((Ref int)))))
             (value (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y))))))
-            (body (Ref z))))))))
+            (body (Ref z)))))
+         (returnTypeOpt ()))))
       (body
        (TermApplication
         ((func (Ref foo)) (args ((IntLiteral 10) (IntLiteral 15)))))))) |}];
@@ -300,7 +303,8 @@ let%expect_test "parse expression" =
          (bound
           (Arr
            ((element (Ref int)) (shape (Slice ((Dimension 5) (Dimension 6))))))))))
-      (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y)))))))) |}];
+      (body (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y))))))
+      (returnTypeOpt ()))) |}];
   parseAndPrint "(fn ([x int] [y [int 5 6]]) (define foo (+ x y)) foo)";
   [%expect
     {|
@@ -315,7 +319,8 @@ let%expect_test "parse expression" =
        (Let
         ((param ((binding foo) (bound ())))
          (value (TermApplication ((func (Ref +)) (args ((Ref x) (Ref y))))))
-         (body (Ref foo))))))) |}];
+         (body (Ref foo)))))
+      (returnTypeOpt ()))) |}];
   parseAndPrint "(define (foo{@t|} [x @t]) x) foo";
   [%expect
     {|
@@ -325,7 +330,9 @@ let%expect_test "parse expression" =
        (TypeLambda
         ((params (((binding @t) (bound Array))))
          (body
-          (TermLambda ((params (((binding x) (bound (Ref @t))))) (body (Ref x))))))))
+          (TermLambda
+           ((params (((binding x) (bound (Ref @t))))) (body (Ref x))
+            (returnTypeOpt ())))))))
       (body (Ref foo)))) |}];
   parseAndPrint "(define (foo{t|} [x t]) x) foo";
   [%expect
@@ -336,7 +343,9 @@ let%expect_test "parse expression" =
        (TypeLambda
         ((params (((binding t) (bound Atom))))
          (body
-          (TermLambda ((params (((binding x) (bound (Ref t))))) (body (Ref x))))))))
+          (TermLambda
+           ((params (((binding x) (bound (Ref t))))) (body (Ref x))
+            (returnTypeOpt ())))))))
       (body (Ref foo)))) |}];
   parseAndPrint "(define (foo{|@i} [x [int @i]]) x) foo";
   [%expect
@@ -351,7 +360,7 @@ let%expect_test "parse expression" =
            ((params
              (((binding x)
                (bound (Arr ((element (Ref int)) (shape (Slice ((Ref @i))))))))))
-            (body (Ref x))))))))
+            (body (Ref x)) (returnTypeOpt ())))))))
       (body (Ref foo)))) |}];
   parseAndPrint "(define (foo{|i} [x [int i]]) x) foo";
   [%expect
@@ -366,7 +375,7 @@ let%expect_test "parse expression" =
            ((params
              (((binding x)
                (bound (Arr ((element (Ref int)) (shape (Slice ((Ref i))))))))))
-            (body (Ref x))))))))
+            (body (Ref x)) (returnTypeOpt ())))))))
       (body (Ref foo)))) |}];
   parseAndPrint "(define (foo{@t t|@i i} [x @t] [y [t i @i]]) x) foo";
   [%expect
@@ -386,7 +395,7 @@ let%expect_test "parse expression" =
                  ((binding y)
                   (bound
                    (Arr ((element (Ref t)) (shape (Slice ((Ref i) (Ref @i))))))))))
-               (body (Ref x)))))))))))
+               (body (Ref x)) (returnTypeOpt ()))))))))))
       (body (Ref foo)))) |}];
   parseAndPrint "(Tλ (@t) (λ ([x @t]) x))";
   [%expect
@@ -394,14 +403,18 @@ let%expect_test "parse expression" =
     (TypeLambda
      ((params (((binding @t) (bound Array))))
       (body
-       (TermLambda ((params (((binding x) (bound (Ref @t))))) (body (Ref x))))))) |}];
+       (TermLambda
+        ((params (((binding x) (bound (Ref @t))))) (body (Ref x))
+         (returnTypeOpt ())))))) |}];
   parseAndPrint "(t-fn (t) (λ ([x t]) x))";
   [%expect
     {|
     (TypeLambda
      ((params (((binding t) (bound Atom))))
       (body
-       (TermLambda ((params (((binding x) (bound (Ref t))))) (body (Ref x))))))) |}];
+       (TermLambda
+        ((params (((binding x) (bound (Ref t))))) (body (Ref x))
+         (returnTypeOpt ())))))) |}];
   parseAndPrint "(Iλ (@i) (λ ([x [int i]]) x))";
   [%expect
     {|
@@ -412,7 +425,7 @@ let%expect_test "parse expression" =
         ((params
           (((binding x)
             (bound (Arr ((element (Ref int)) (shape (Slice ((Ref i))))))))))
-         (body (Ref x))))))) |}];
+         (body (Ref x)) (returnTypeOpt ())))))) |}];
   parseAndPrint "(i-fn (i) (λ ([x [int i]]) x))";
   [%expect
     {|
@@ -423,7 +436,7 @@ let%expect_test "parse expression" =
         ((params
           (((binding x)
             (bound (Arr ((element (Ref int)) (shape (Slice ((Ref i))))))))))
-         (body (Ref x))))))) |}];
+         (body (Ref x)) (returnTypeOpt ())))))) |}];
   parseAndPrint "(t-app (t-fn (@t) @t) int)";
   [%expect
     {|
