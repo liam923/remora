@@ -636,6 +636,40 @@ let minShapeElementSize (se : Index.shapeElement) =
   | ShapeRef _ -> 0
 ;;
 
+(* Given a list of hoistings with dependencies on each other, resolve the dependencies
+   and wrap the body in lets declaring them *)
+let resolveDepsAndDeclareHoistings ~hoistings body =
+  let resolveHoistingDependencies hoistings =
+    let rec loop hoistings undeclared declared =
+      match hoistings with
+      | [] -> declared
+      | _ :: _ as hoistings ->
+        (* Hoistings can't depend on each other cyclicly, so there is always
+           going to be at least one declarable *)
+        let declarable, undeclarable =
+          List.partition_map hoistings ~f:(fun h ->
+            if Counts.usesAny h.counts (Bindings undeclared) then Second h else First h)
+        in
+        assert (not (List.is_empty declarable));
+        let newUndeclared =
+          List.fold declarable ~init:undeclared ~f:(fun undeclared declaration ->
+            Set.remove undeclared declaration.variableDeclaration.binding)
+        in
+        loop undeclarable newUndeclared (declarable :: declared)
+    in
+    loop
+      hoistings
+      (hoistings
+       |> List.map ~f:(fun h -> h.variableDeclaration.binding)
+       |> Set.of_list (module Identifier))
+      []
+  in
+  let hoistingsToDeclare = resolveHoistingDependencies hoistings in
+  (* Modify the body to declare the hoistings *)
+  List.fold hoistingsToDeclare ~init:body ~f:(fun body hoistings ->
+    Expr.let' ~args:(List.map hoistings ~f:(fun h -> h.variableDeclaration)) ~body)
+;;
+
 (* Hoist variables that can be hoisted. Maps are also cleaned up while doing
    this. (nested maps with empty frames that can be flattened are, and maps
    with empty frames and no args are removed) *)
@@ -812,44 +846,8 @@ and hoistDeclarationsInBody body ~bindings : Expr.t * hoisting list =
     loop ~toDeclare:[] ~queue:hoistings ~barrier:bindings
   in
   let hoistingsToDeclare, hoistingsToPropogate = findHoistingsToDeclare bodyHoistings in
-  (* Hoistings in hoistingsToDeclare can depend on each other.
-     resolveHoistingDependencies creates a list of lists of the hoistings,
-     where each list of hoistings depends only on the lists following it *)
-  let resolveHoistingDependencies hoistings =
-    let rec loop hoistings undeclared declared =
-      match hoistings with
-      | [] -> declared
-      | _ :: _ as hoistings ->
-        (* Hoistings can't depend on each other cyclicly, so there is always
-           going to be at least one declarable *)
-        let declarable, undeclarable =
-          List.partition_map hoistings ~f:(fun h ->
-            if Counts.usesAny h.counts (Bindings undeclared) then Second h else First h)
-        in
-        assert (not (List.is_empty declarable));
-        let newUndeclared =
-          List.fold declarable ~init:undeclared ~f:(fun undeclared declaration ->
-            Set.remove undeclared declaration.variableDeclaration.binding)
-        in
-        loop undeclarable newUndeclared (declarable :: declared)
-    in
-    loop
-      hoistings
-      (hoistings
-       |> List.map ~f:(fun h -> h.variableDeclaration.binding)
-       |> Set.of_list (module Identifier))
-      []
-  in
-  let hoistingsToDeclare = resolveHoistingDependencies hoistingsToDeclare in
   (* Modify the body to declare the hoistings *)
-  let body =
-    List.fold hoistingsToDeclare ~init:body ~f:(fun body hoistings ->
-      Let
-        { args = List.map hoistings ~f:(fun h -> h.variableDeclaration)
-        ; body
-        ; type' = Expr.type' body
-        })
-  in
+  let body = resolveDepsAndDeclareHoistings ~hoistings:hoistingsToDeclare body in
   body, hoistingsToPropogate
 ;;
 
@@ -1049,34 +1047,39 @@ let rec hoistExpressions loopBarrier (expr : Expr.t)
 
 and hoistExpressionsInBody loopBarrier body ~bindings =
   let open HoistState.Let_syntax in
-  (* Hoist from the body, and then determine which hoistings can be propogated
-     outside the body, and which need to be declared in the body *)
+  (* Hoist from the body *)
   let extendedLoopBarrier = BindingSet.union loopBarrier bindings in
   let%bind body, bodyHoistings = hoistExpressions extendedLoopBarrier body in
-  let hoistingsToDeclare, hoistingsToPropogate =
-    List.partition_map bodyHoistings ~f:(fun hoisting ->
-      if Counts.usesAny hoisting.counts bindings
-      then First hoisting.variableDeclaration
-      else Second hoisting)
+  (* determine which hoistings can be propogated outside the body and which need to be
+     declared in the body*)
+  let rec splitHoistingsToDeclareAndPropogate hoistings =
+    let toDeclareUnhoisted, toPropogate =
+      List.partition_map hoistings ~f:(fun hoisting ->
+        if Counts.usesAny hoisting.counts bindings
+        then First hoisting.variableDeclaration
+        else Second hoisting)
+    in
+    (* The hoistings' values may have expression of their own that can be hoisted
+       beyond this body *)
+    let%bind toDeclare, moreToPropogateUnsplit =
+      hoistExpressionsMap toDeclareUnhoisted ~f:(fun { binding; value } ->
+        let%map value, hoistings = hoistExpressions extendedLoopBarrier value in
+        { variableDeclaration = { binding; value }; counts = getCounts value }, hoistings)
+    in
+    (* moreToPropogateUnsplit needs to be checked to see what needs to be declared *)
+    let%map moreToDeclare, moreToPropogate =
+      match moreToPropogateUnsplit with
+      | [] -> return ([], [])
+      | _ :: _ -> splitHoistingsToDeclareAndPropogate moreToPropogateUnsplit
+    in
+    toDeclare @ moreToDeclare, toPropogate @ moreToPropogate
   in
-  (* The hoistings' values may have expression of their own that can be hoisted
-     beyond this body *)
-  let%map hoistingsToDeclare, moreHoistingsToPropogate =
-    hoistExpressionsMap hoistingsToDeclare ~f:(fun { binding; value } ->
-      let%map value, hoistings = hoistExpressions extendedLoopBarrier value in
-      Expr.{ binding; value }, hoistings)
+  let%map hoistingsToDeclare, hoistingsToPropogate =
+    splitHoistingsToDeclareAndPropogate bodyHoistings
   in
-  (* Declare the hoistings that need to be declared. *)
-  let body =
-    match hoistingsToDeclare with
-    | [] ->
-      (* None to declare *)
-      body
-    | _ :: _ as hoistingsToDeclare ->
-      (* There are some to be declared, so wrap the body in a map *)
-      Expr.Let { args = hoistingsToDeclare; body; type' = Expr.type' body }
-  in
-  body, moreHoistingsToPropogate @ hoistingsToPropogate
+  (* Modify the body to declare the hoistings *)
+  let body = resolveDepsAndDeclareHoistings ~hoistings:hoistingsToDeclare body in
+  body, hoistingsToPropogate
 ;;
 
 let simplify expr =
@@ -1098,11 +1101,9 @@ let simplify expr =
         match hoistings with
         | [] -> exprHoistedWithoutDecs
         | hoistings ->
-          Expr.Let
-            { args = List.map hoistings ~f:(fun h -> h.variableDeclaration)
-            ; body = exprHoistedWithoutDecs
-            ; type' = Expr.type' exprHoistedWithoutDecs
-            }
+          Expr.let'
+            ~args:(List.map hoistings ~f:(fun h -> h.variableDeclaration))
+            ~body:exprHoistedWithoutDecs
       in
       (* Reduce tuples (remove unused elements) *)
       let%bind { res = reduced; droppedAny } = TupleReduce.reduceTuples exprHoisted in
