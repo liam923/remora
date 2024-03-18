@@ -9,7 +9,7 @@
  (name remora)
  (public_name remora)
  (modules :standard EsexpParser EsexpLexer)
- (libraries base)
+ (libraries base re2)
  (preprocess
   (pps ppx_jane ppx_deriving.eq ppx_deriving.show ppx_deriving.ord)))
 

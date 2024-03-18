@@ -34,6 +34,7 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
   | Let l ->
     let env = Map.set env ~key:l.binding ~data:(funcParamNamesArray env l.value) in
     funcParamNamesArray env l.body
+  | TupleDeref { expr; position = _; type' = _ } -> funcParamNamesArray env expr
   | Primitive p ->
     (match p.name with
      | Func func ->
@@ -78,12 +79,22 @@ let rec funcParamNamesArray env : Typed.Expr.array -> string list option = funct
             List.init (List.length argTypes) ~f:(fun i -> [%string "%{name}-arg%{i#Int}"]))
      | Val _ -> None)
 
+and funcParamNamesTuple env : Typed.Expr.tuple -> string list option = function
+  | { elements; type' = _ } ->
+    Some
+      (elements
+       |> List.map ~f:(funcParamNamesAtom env)
+       |> List.bind ~f:(function
+         | None -> []
+         | Some list -> list))
+
 and funcParamNamesAtom env : Typed.Expr.atom -> string list option = function
   | TermLambda lambda ->
     Some (List.map lambda.params ~f:(fun p -> Identifier.name p.binding))
   | TypeLambda lambda -> funcParamNamesArray env lambda.body
   | IndexLambda lambda -> funcParamNamesArray env lambda.body
   | Box box -> funcParamNamesArray env box.body
+  | TupleExpr tuple -> funcParamNamesTuple env tuple
   | Literal _ -> None
 ;;
 
@@ -243,6 +254,37 @@ let rec explicitizeArray paramNamesEnv array
     let%map body = explicitizeArray extendedParamNamesEnv body in
     E.Map { body; args = [ { binding; value } ]; frameShape = []; type' }
   | T.Primitive { name; type' } -> return (E.Primitive { name; type' })
+  | T.TupleDeref { expr; position; type' } ->
+    let%map expr = explicitizeArray paramNamesEnv expr
+    and mapArg = ExplicitState.createId "tupleDerefMapArg" in
+    let exprType = E.arrayType expr in
+    let tupleType =
+      match exprType with
+      | Arr { element; shape = _ } -> Explicit.Type.Arr { element; shape = [] }
+      | ArrayRef _ -> raise Unreachable.default
+    in
+    let atomType, shape =
+      match type' with
+      | Arr { element; shape } -> Explicit.Type.Arr { element; shape = [] }, shape
+      | ArrayRef _ -> raise Unreachable.default
+    in
+    E.Map
+      { body =
+          (* E.Scalar *)
+          (*   { element = *)
+          E.TupleDeref
+            { expr = E.Ref { id = mapArg; type' = tupleType }
+            ; position
+            ; type' = atomType
+            }
+          (* ; type' = { element = atomType; shape = [] } *)
+          (* } *)
+      ; args = [ { binding = mapArg; value = expr } ]
+      ; frameShape = shape
+      ; type'
+      }
+(* let%bind expr = explicitizeArray paramNamesEnv expr in *)
+(* return (E.TupleDeref { expr; position; type' }) *)
 
 and explicitizeAtom paramNamesEnv atom
   : (CompilerState.state, Explicit.Expr.atom, _) ExplicitState.t
@@ -263,6 +305,11 @@ and explicitizeAtom paramNamesEnv atom
   | T.Box { indices; body; bodyType; type' } ->
     let%map body = explicitizeArray paramNamesEnv body in
     E.Box { indices; body; bodyType; type' }
+  | T.TupleExpr { elements; type' } ->
+    let%map elements =
+      elements |> List.map ~f:(explicitizeAtom paramNamesEnv) |> ExplicitState.all
+    in
+    E.TupleExpr { elements; type' }
   | T.Literal literal -> return (E.Literal literal)
 
 and explicitizeTermApplication

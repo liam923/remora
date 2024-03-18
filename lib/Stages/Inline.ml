@@ -137,6 +137,11 @@ let rec inlineAtomTypeWithStack appStack : Typed.Type.atom -> Nucleus.Type.array
   | Literal FloatLiteral -> { element = Literal FloatLiteral; shape = [] }
   | Literal BooleanLiteral -> { element = Literal BooleanLiteral; shape = [] }
   | Func _ -> { element = Tuple []; shape = [] }
+  | Tuple t ->
+    { element =
+        Tuple (List.map ~f:(fun e -> (inlineAtomTypeWithStack appStack e).element) t)
+    ; shape = []
+    }
   | Forall { parameters; body } ->
     (match appStack with
      | TypeApp types :: restStack ->
@@ -213,6 +218,7 @@ let assertValueRestriction value =
       | Forall _ -> true
       | Pi _ -> true
       | Sigma sigma -> isPolymorphicArray sigma.body
+      | Tuple elements -> List.for_all ~f:isPolymorphicAtom elements
       | Literal IntLiteral -> false
       | Literal FloatLiteral -> false
       | Literal CharacterLiteral -> false
@@ -235,11 +241,13 @@ let assertValueRestriction value =
       | Primitive _ -> true
       | Map _ -> false
       | ContiguousSubArray _ -> false
+      | TupleDeref tupleDeref -> isValueArray tupleDeref.expr
     and isValueAtom = function
       | TermLambda _ -> true
       | TypeLambda _ -> true
       | IndexLambda _ -> true
       | Box box -> isValueArray box.body
+      | TupleExpr { elements; type' = _ } -> List.for_all ~f:isValueAtom elements
       | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) ->
         true
     in
@@ -324,6 +332,9 @@ let rec genNewBindingsArray env (expr : Explicit.Expr.array) =
     return
     @@ Expr.ContiguousSubArray
          { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' }
+  | TupleDeref { expr; position; type' } ->
+    let%bind expr = genNewBindingsArray env expr in
+    return @@ Expr.TupleDeref { expr; position; type' }
 
 and genNewBindingsAtom env (expr : Explicit.Expr.atom) =
   let open Explicit in
@@ -341,6 +352,11 @@ and genNewBindingsAtom env (expr : Explicit.Expr.atom) =
   | Box { indices; bodyType; body; type' } ->
     let%bind body = genNewBindingsArray env body in
     return @@ Expr.Box { indices; bodyType; body; type' }
+  | TupleExpr { elements; type' } ->
+    let%bind elements =
+      elements |> List.map ~f:(genNewBindingsAtom env) |> InlineState.all
+    in
+    return @@ Expr.TupleExpr { elements; type' }
   | Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _) as lit
     -> return lit
 
@@ -518,6 +534,30 @@ let rec inlineArray indexEnv (appStack : appStack) (array : Explicit.Expr.array)
            ; type' = inlineArrayTypeWithStack [] type'
            })
     , functions )
+  | TupleDeref { expr; position; type' } ->
+    let arrayType = E.arrayType expr in
+    let atomArrayType =
+      match arrayType with
+      | Arr { element; shape = _ } -> element
+      | ArrayRef _ -> raise Unreachable.default
+    in
+    let inlineAtomArrayType = inlineAtomTypeWithStack [] atomArrayType in
+    let inlineType' = inlineArrayTypeWithStack [] type' in
+    assert (List.is_empty inlineAtomArrayType.shape);
+    assert (List.is_empty inlineType'.shape);
+    let%map expr, functions = inlineArray indexEnv appStack expr in
+    let newDeref =
+      I.TupleDeref
+        { tuple = I.ArrayAsAtom { array = expr; type' = inlineAtomArrayType.element }
+        ; index = position
+        ; type' = inlineType'.element
+        }
+    in
+    let newArrayDeref =
+      I.AtomAsArray
+        { element = newDeref; type' = { element = inlineType'.element; shape = [] } }
+    in
+    newArrayDeref, functions
 
 and inlineAtom indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
   : (Nucleus.Expr.array * FunctionSet.t) InlineState.u
@@ -588,6 +628,7 @@ and inlineAtom indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
           Set.diff variablesUsed variablesDeclared
         | E.ReifyIndex { index; type' = _ } -> indexCaptures index
         | E.Primitive { name = _; type' = _ } -> Set.empty (module Identifier)
+        | E.TupleDeref { expr; position = _; type' = _ } -> arrayCaptures expr
         | E.ContiguousSubArray
             { arrayArg; indexArg; originalShape; resultShape; cellShape; l; type' = _ } ->
           let arrayArgCaptures = arrayCaptures arrayArg
@@ -627,6 +668,8 @@ and inlineAtom indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
           let indexCaptures = List.map indices ~f:indexCaptures
           and bodyCaptures = arrayCaptures body in
           Set.union_list (module Identifier) (bodyCaptures :: indexCaptures)
+        | E.TupleExpr { elements; type' = _ } ->
+          Set.union_list (module Identifier) (List.map ~f:atomCaptures elements)
         | E.Literal (IntLiteral _ | FloatLiteral _ | CharacterLiteral _ | BooleanLiteral _)
           -> Set.empty (module Identifier)
       in
@@ -688,6 +731,21 @@ and inlineAtom indexEnv (appStack : appStack) (atom : Explicit.Expr.atom)
            ; type' = inlineSigmaTypeWithStack appStack type'
            })
     , functions )
+  | TupleExpr { elements; type' = _ } ->
+    let%bind elements, functions =
+      List.map ~f:(inlineAtom indexEnv appStack) elements
+      |> InlineState.all
+      |> InlineState.unzip
+    in
+    let functions = FunctionSet.merge functions in
+    let elements, type' =
+      elements
+      |> List.map ~f:(fun elt ->
+        let type' = (I.arrayType elt).element in
+        Nucleus.Expr.ArrayAsAtom { array = elt; type' }, type')
+      |> List.unzip
+    in
+    return (scalar (I.Values { elements; type' }), functions)
   | Literal (CharacterLiteral c) ->
     return (scalar (I.Literal (CharacterLiteral c)), FunctionSet.Empty)
   | Literal (IntLiteral i) -> return (scalar (I.Literal (IntLiteral i)), FunctionSet.Empty)

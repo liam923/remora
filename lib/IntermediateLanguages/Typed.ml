@@ -82,6 +82,8 @@ module Type = struct
     | ArrayRef of Identifier.t
     | Arr of arr
 
+  and tuple = atom list
+
   and atom =
     | AtomRef of Identifier.t
     | Func of func
@@ -89,6 +91,7 @@ module Type = struct
     | Pi of pi
     | Sigma of sigma
     | Literal of literal
+    | Tuple of tuple
 
   and t =
     | Array of array
@@ -267,6 +270,12 @@ module Expr = struct
     ; type' : Type.array [@sexp_drop_if fun _ -> true]
     }
 
+  and tupleDeref =
+    { expr : array
+    ; position : int
+    ; type' : Type.array
+    }
+
   and literal =
     | IntLiteral of int
     | FloatLiteral of float
@@ -286,6 +295,12 @@ module Expr = struct
     | Primitive of primitive
     | Lift of lift
     | ContiguousSubArray of contiguousSubArray
+    | TupleDeref of tupleDeref
+
+  and tuple =
+    { elements : atom list
+    ; type' : Type.tuple
+    }
 
   and atom =
     | TermLambda of termLambda
@@ -293,6 +308,7 @@ module Expr = struct
     | IndexLambda of indexLambda
     | Box of box
     | Literal of literal
+    | TupleExpr of tuple
 
   and t =
     | Array of array
@@ -304,6 +320,7 @@ module Expr = struct
     | TypeLambda typeLambda -> Forall typeLambda.type'
     | IndexLambda indexLambda -> Pi indexLambda.type'
     | Box box -> Sigma box.type'
+    | TupleExpr tuple -> Tuple tuple.type'
     | Literal (IntLiteral _) -> Literal IntLiteral
     | Literal (FloatLiteral _) -> Literal FloatLiteral
     | Literal (CharacterLiteral _) -> Literal CharacterLiteral
@@ -323,6 +340,7 @@ module Expr = struct
     | Primitive primitive -> primitive.type'
     | Lift lift -> lift.type'
     | ContiguousSubArray contiguousSubArray -> contiguousSubArray.type'
+    | TupleDeref tupleDeref -> tupleDeref.type'
   ;;
 
   let type' : t -> Type.t = function
@@ -443,6 +461,8 @@ end = struct
         | ArrayRef of Ref.t
         | Arr of arr
 
+      and tuple = atom list
+
       and atom =
         | AtomRef of Ref.t
         | Func of func
@@ -450,6 +470,7 @@ end = struct
         | Pi of pi
         | Sigma of sigma
         | Literal of literal
+        | Tuple of tuple
 
       and t =
         | Array of array
@@ -505,6 +526,7 @@ end = struct
                let depth = depth + 1 in
                arrayFrom env depth body)
           }
+      | Type.Tuple tupleElements -> Tuple (List.map ~f:(atomFrom env depth) tupleElements)
       | Type.Literal IntLiteral -> Literal IntLiteral
       | Type.Literal FloatLiteral -> Literal FloatLiteral
       | Type.Literal CharacterLiteral -> Literal CharacterLiteral
@@ -592,6 +614,8 @@ module Substitute = struct
       | Forall forall -> Forall (subIndicesIntoForall indices forall)
       | Pi pi -> Pi (subIndicesIntoPi indices pi)
       | Sigma sigma -> Sigma (subIndicesIntoSigma indices sigma)
+      | Tuple tupleElements ->
+        Tuple (List.map ~f:(subIndicesIntoAtom indices) tupleElements)
       | Literal IntLiteral -> Literal IntLiteral
       | Literal FloatLiteral -> Literal FloatLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
@@ -648,6 +672,7 @@ module Substitute = struct
       | Forall forall -> Forall (subTypesIntoForall types forall)
       | Pi pi -> Pi (subTypesIntoPi types pi)
       | Sigma sigma -> Sigma (subTypesIntoSigma types sigma)
+      | Tuple tupleElements -> Tuple (List.map ~f:(subTypesIntoAtom types) tupleElements)
       | Literal IntLiteral -> Literal IntLiteral
       | Literal FloatLiteral -> Literal FloatLiteral
       | Literal CharacterLiteral -> Literal CharacterLiteral
@@ -749,6 +774,12 @@ module Substitute = struct
           ; l
           ; type' = Type.subTypesIntoArray types type'
           }
+      | TupleDeref { expr; position; type' } ->
+        TupleDeref
+          { expr = subTypesIntoArray types expr
+          ; position
+          ; type' = Type.subTypesIntoArray types type'
+          }
 
     and subTypesIntoAtom types = function
       | TermLambda lambda -> TermLambda (subTypesIntoTermLambda types lambda)
@@ -771,6 +802,8 @@ module Substitute = struct
           ; bodyType = Type.subTypesIntoArray types bodyType
           ; type' = Type.subTypesIntoSigma types type'
           }
+      | TupleExpr { elements; type' } ->
+        TupleExpr { elements = List.map ~f:(subTypesIntoAtom types) elements; type' }
       | Literal _ as literal -> literal
 
     and subTypesIntoTermLambda types { params; body; type' } =
@@ -857,6 +890,12 @@ module Substitute = struct
           ; l = Index.subIndicesIntoDim indices l
           ; type' = Type.subIndicesIntoArray indices type'
           }
+      | TupleDeref { expr; position; type' } ->
+        TupleDeref
+          { expr = subIndicesIntoArray indices expr
+          ; position
+          ; type' = Type.subIndicesIntoArray indices type'
+          }
 
     and subIndicesIntoAtom indices = function
       | TermLambda lambda -> TermLambda (subIndicesIntoTermLambda indices lambda)
@@ -878,6 +917,11 @@ module Substitute = struct
           ; body = subIndicesIntoArray indices body
           ; bodyType = Type.subIndicesIntoArray indices bodyType
           ; type' = Type.subIndicesIntoSigma indices type'
+          }
+      | TupleExpr { elements; type' } ->
+        TupleExpr
+          { elements = List.map ~f:(subIndicesIntoAtom indices) elements
+          ; type' = List.map ~f:(Type.subIndicesIntoAtom indices) type'
           }
       | Literal _ as literal -> literal
 

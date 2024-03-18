@@ -58,6 +58,15 @@ type error =
       ; ref : Identifier.t
       }
   | LiftIndexValueNotInteger of Typed.Type.atom
+  | TupleDerefNotTuple of Typed.Type.t
+  | TupleDerefTupleNotEnoughElements of
+      { tuple : Typed.Type.tuple
+      ; position : int
+      }
+(* | TupleDerefTupleExprAndTypeMismatch of *)
+(*     { tupleType : Typed.Type.tuple *)
+(*     ; elements : Typed.Expr.atom list *)
+(*     } *)
 
 module Show : sig
   val sort : Sort.t -> string
@@ -132,6 +141,9 @@ end = struct
     | Sigma { parameters; body } ->
       let paramsString = parameters |> showList showParam in
       [%string "(Σ (%{paramsString}) %{showArray body})"]
+    | Tuple elements ->
+      let elementsString = elements |> showList showAtom in
+      [%string "(Values %{elementsString})"]
     | Literal IntLiteral -> "int"
     | Literal FloatLiteral -> "float"
     | Literal CharacterLiteral -> "char"
@@ -223,6 +235,34 @@ let errorMessage = function
        ref}`, but lifting to a shape requires ending in a dimension"]
   | LiftIndexValueNotInteger t ->
     [%string "Lifted index must have integer elements, got `%{Show.type' (Atom t)}`"]
+  | TupleDerefNotTuple t ->
+    [%string
+      "Tried to dereference a type that is not a tuple or tuple array: `%{Show.type' t}`"]
+  (* | TupleDerefTupleExprAndTypeMismatch { elements; tupleType } -> *)
+  (*   let elementsString = *)
+  (*     String.concat *)
+  (*       ?sep:(Some ", ") *)
+  (*       (List.map *)
+  (*          ~f:(fun e -> [%string "%{Show.type' (Atom (Typed.Expr.atomType e))}"]) *)
+  (*          elements) *)
+  (*   in *)
+  (*   let tupleTypeString = *)
+  (*     String.concat *)
+  (*       ?sep:(Some ", ") *)
+  (*       (List.map ~f:(fun e -> [%string "%{Show.type' (Atom e)}"]) tupleType) *)
+  (*   in *)
+  (*   [%string *)
+  (*     "Mismatch between tuple expression elements and their types: elements: \ *)
+  (*      `%{elementsString}`; types: `%{tupleTypeString}`"] *)
+  | TupleDerefTupleNotEnoughElements { tuple; position } ->
+    let tupleStrings =
+      String.concat
+        ?sep:(Some ", ")
+        (List.map ~f:(fun e -> [%string "%{Show.type' (Atom e)}"]) tuple)
+    in
+    [%string
+      "Not enough elements in tuple to dereference: tuple `%{tupleStrings}`, position \
+       %{position#Int}"]
 ;;
 
 let errorType = function
@@ -257,6 +297,9 @@ let errorType = function
   | IncompatibleShapes _
   | LiftShapeGotRef _
   | LiftShapeGotScalar
+  | TupleDerefNotTuple _
+  (* | TupleDerefTupleExprAndTypeMismatch _ *)
+  | TupleDerefTupleNotEnoughElements _
   | LiftIndexValueNotInteger _ -> `Type
 ;;
 
@@ -519,6 +562,11 @@ module KindChecker = struct
       let extendedEnv = { env with sorts = extendeSorts } in
       let%map body = checkAndExpectArray extendedEnv body in
       T.Atom (T.Sigma { parameters; body })
+    | U.Tuple elements ->
+      let%map atoms =
+        elements.elem |> List.map ~f:(checkAndExpectAtom env) |> CompilerState.all
+      in
+      T.Atom (T.Tuple atoms)
 
   and checkAndExpectArray env type' =
     let open Typed.Type in
@@ -617,6 +665,12 @@ module TypeCheck = struct
     | Reshape _ -> ok ()
     | ReifyDimension _ -> ok ()
     | ReifyShape _ -> ok ()
+    | TupleExpr elements ->
+      elements.elem
+      |> List.map ~f:requireValue
+      |> CheckerState.all
+      |> CheckerState.ignore_m
+    | TupleDeref { tuple; position = _ } -> requireValue tuple
     | IntLiteral _ -> ok ()
     | FloatLiteral _ -> ok ()
     | CharacterLiteral _ -> ok ()
@@ -683,6 +737,8 @@ module TypeCheck = struct
           }
         in
         findInType extendedEnv (Array body)
+      | Atom (Tuple elements) ->
+        List.bind ~f:(fun elt -> findInType env (Atom elt)) elements
       | Atom (Literal IntLiteral) -> []
       | Atom (Literal FloatLiteral) -> []
       | Atom (Literal CharacterLiteral) -> []
@@ -1457,10 +1513,56 @@ module TypeCheck = struct
            ; body = bodyTyped
            ; type' = T.arrayType bodyTyped
            })
+    | U.TupleExpr t ->
+      let%bind elements =
+        t.elem |> List.map ~f:(checkAndExpectAtom env) |> CheckerState.all
+      in
+      let type' = List.map ~f:T.atomType elements in
+      CheckerState.return (T.Atom (TupleExpr { elements; type' }))
+    | U.TupleDeref { tuple; position } ->
+      (* type check tuple *)
+      (* if atom -> grab the nth type *)
+      (* if array -> find the 'frame', check that atom is tuple and grab its nth type *)
+      let%bind typedTuple = check env tuple in
+      let typedTuple =
+        match typedTuple with
+        | T.Atom a ->
+          T.Scalar
+            { element = a; type' = { element = Typed.Expr.atomType a; shape = [] } }
+        | T.Array a -> a
+      in
+      let%bind type' = extractTupleArray env typedTuple position tuple.source in
+      CompilerState.return (T.Array (T.TupleDeref { expr = typedTuple; position; type' }))
     | U.IntLiteral i -> CheckerState.return (T.Atom (Literal (IntLiteral i)))
     | U.FloatLiteral f -> CheckerState.return (T.Atom (Literal (FloatLiteral f)))
     | U.CharacterLiteral c -> CheckerState.return (T.Atom (Literal (CharacterLiteral c)))
     | U.BooleanLiteral b -> CheckerState.return (T.Atom (Literal (BooleanLiteral b)))
+
+  and extractTupleArrayType
+    (env : Environment.t)
+    (arrType : Typed.Type.array)
+    position
+    source
+    =
+    match arrType with
+    | ArrayRef id ->
+      let type' = Map.find_exn env.types (Identifier.name id) in
+      extractTupleArray env type' position source
+    | Arr { element = Typed.Type.Tuple elements; shape } ->
+      let%bind extractedAtom = extractTupleAtomType elements position source in
+      CheckerState.return (Typed.Type.Arr { element = extractedAtom; shape })
+    | Arr _ -> CheckerState.err { source; elem = TupleDerefNotTuple (Array arrType) }
+
+  and extractTupleArray env array position source =
+    let type' = Typed.Expr.arrayType array in
+    extractTupleArrayType env type' position source
+
+  and extractTupleAtomType atomType position source =
+    if List.length atomType <= position
+    then
+      CheckerState.err
+        { source; elem = TupleDerefTupleNotEnoughElements { tuple = atomType; position } }
+    else CheckerState.return (List.nth_exn atomType position)
 
   and checkAndExpectArray env expr =
     let open Typed.Expr in
