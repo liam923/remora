@@ -751,6 +751,37 @@ module Make (SB : Source.BuilderT) = struct
       when String.equal lambda "λ" || String.equal lambda "fn" ->
       (match components with
        | (ParenList { elements = params; braceSources = _ } as paramsExp)
+         :: Symbol (":", _)
+         :: returnType
+         :: bodyHead
+         :: bodyTail ->
+         let parseParam = function
+           | Esexp.SquareList { elements = [ binding; bound ]; braceSources = _ } as
+             paramExp ->
+             let%map parsedBinding = parseBinding binding
+             and parsedBound = parseType bound in
+             Source.
+               { elem = { binding = parsedBinding; bound = parsedBound }
+               ; source = esexpSource paramExp
+               }
+           | paramExp ->
+             MResult.err
+               ([%string "Bad `%{lambda}` syntax - bad parameter"], esexpSource paramExp)
+         in
+         let%map parsedParams =
+           parseList params ~f:parseParam ~source:(esexpSource paramsExp)
+         and parsedBody = parseExprBody (bodyHead :: bodyTail)
+         and parsedReturnType = parseType returnType in
+         Source.
+           { elem =
+               Expr.TermLambda
+                 { params = parsedParams
+                 ; body = parsedBody
+                 ; returnTypeOpt = Some parsedReturnType
+                 }
+           ; source = esexpSource lambdaExp
+           }
+       | (ParenList { elements = params; braceSources = _ } as paramsExp)
          :: bodyHead
          :: bodyTail ->
          let parseParam = function
@@ -770,7 +801,9 @@ module Make (SB : Source.BuilderT) = struct
            parseList params ~f:parseParam ~source:(esexpSource paramsExp)
          and parsedBody = parseExprBody (bodyHead :: bodyTail) in
          Source.
-           { elem = Expr.TermLambda { params = parsedParams; body = parsedBody }
+           { elem =
+               Expr.TermLambda
+                 { params = parsedParams; body = parsedBody; returnTypeOpt = None }
            ; source = esexpSource lambdaExp
            }
        | _ ->
@@ -954,6 +987,54 @@ module Make (SB : Source.BuilderT) = struct
             ; braceSources = _, defineRParenSource
             } as defineExp ->
           (match components with
+           (* Match a define for a function with a return type annotation *)
+           | ParenList { elements = funBinding :: params; braceSources = _, rParenSource }
+             :: Symbol (":", _)
+             :: functionReturnType
+             :: functionBodyHead
+             :: functionBodyTail ->
+             let%map parsedFunctionBody =
+               parseExprBody (functionBodyHead :: functionBodyTail)
+             and parsedReturnType = parseType functionReturnType
+             and parsedFunBinding, wrapFun = parseDefineBinding funBinding
+             and parsedParams =
+               parseInfixList
+                 params
+                 ~f:(function
+                   | SquareList { elements = [ binding; bound ]; braceSources = _ } as
+                     bracks ->
+                     let%map parsedBound = parseType bound
+                     and parsedBinding = parseBinding binding in
+                     Source.
+                       { elem = { binding = parsedBinding; bound = parsedBound }
+                       ; source = esexpSource bracks
+                       }
+                   | param -> MResult.err ("Bad parameter syntax", esexpSource param))
+                 ~before:(esexpSource funBinding)
+                 ~after:rParenSource
+             in
+             fun parsedBody ->
+               Source.
+                 { elem =
+                     Expr.Let
+                       { param =
+                           { elem = { binding = parsedFunBinding; bound = None }
+                           ; source = parsedFunBinding.source
+                           }
+                       ; value =
+                           wrapFun
+                             { elem =
+                                 TermLambda
+                                   { params = parsedParams
+                                   ; body = parsedFunctionBody
+                                   ; returnTypeOpt = Some parsedReturnType
+                                   }
+                             ; source = esexpSource defineExp
+                             }
+                       ; body = parsedBody
+                       }
+                 ; source = letSource
+                 }
            (* Match a define for a function *)
            | ParenList { elements = funBinding :: params; braceSources = _, rParenSource }
              :: functionBodyHead
@@ -989,7 +1070,10 @@ module Make (SB : Source.BuilderT) = struct
                            wrapFun
                              { elem =
                                  TermLambda
-                                   { params = parsedParams; body = parsedFunctionBody }
+                                   { params = parsedParams
+                                   ; body = parsedFunctionBody
+                                   ; returnTypeOpt = None
+                                   }
                              ; source = esexpSource defineExp
                              }
                        ; body = parsedBody

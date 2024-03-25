@@ -63,10 +63,10 @@ type error =
       { tuple : Typed.Type.tuple
       ; position : int
       }
-(* | TupleDerefTupleExprAndTypeMismatch of *)
-(*     { tupleType : Typed.Type.tuple *)
-(*     ; elements : Typed.Expr.atom list *)
-(*     } *)
+  | WrongFunctionBodyType of
+      { expected : Typed.Type.t
+      ; actual : Typed.Type.t
+      }
 
 module Show : sig
   val sort : Sort.t -> string
@@ -238,22 +238,6 @@ let errorMessage = function
   | TupleDerefNotTuple t ->
     [%string
       "Tried to dereference a type that is not a tuple or tuple array: `%{Show.type' t}`"]
-  (* | TupleDerefTupleExprAndTypeMismatch { elements; tupleType } -> *)
-  (*   let elementsString = *)
-  (*     String.concat *)
-  (*       ?sep:(Some ", ") *)
-  (*       (List.map *)
-  (*          ~f:(fun e -> [%string "%{Show.type' (Atom (Typed.Expr.atomType e))}"]) *)
-  (*          elements) *)
-  (*   in *)
-  (*   let tupleTypeString = *)
-  (*     String.concat *)
-  (*       ?sep:(Some ", ") *)
-  (*       (List.map ~f:(fun e -> [%string "%{Show.type' (Atom e)}"]) tupleType) *)
-  (*   in *)
-  (*   [%string *)
-  (*     "Mismatch between tuple expression elements and their types: elements: \ *)
-  (*      `%{elementsString}`; types: `%{tupleTypeString}`"] *)
   | TupleDerefTupleNotEnoughElements { tuple; position } ->
     let tupleStrings =
       String.concat
@@ -263,6 +247,10 @@ let errorMessage = function
     [%string
       "Not enough elements in tuple to dereference: tuple `%{tupleStrings}`, position \
        %{position#Int}"]
+  | WrongFunctionBodyType { expected; actual } ->
+    [%string
+      "Function was declared to have return type `%{Show.type' expected}`,got \
+       `%{Show.type' actual}` instead"]
 ;;
 
 let errorType = function
@@ -296,9 +284,9 @@ let errorType = function
   | PrincipalFrameDisagreement _
   | IncompatibleShapes _
   | LiftShapeGotRef _
+  | WrongFunctionBodyType _
   | LiftShapeGotScalar
   | TupleDerefNotTuple _
-  (* | TupleDerefTupleExprAndTypeMismatch _ *)
   | TupleDerefTupleNotEnoughElements _
   | LiftIndexValueNotInteger _ -> `Type
 ;;
@@ -1237,7 +1225,7 @@ module TypeCheck = struct
       in
       T.Array
         (Lift { indexBinding = id; indexValue; sort = sort.elem; frameShape; body; type' })
-    | U.TermLambda { params; body } ->
+    | U.TermLambda { params; body; returnTypeOpt } ->
       let%bind kindedParams =
         params.elem
         |> List.map ~f:(fun { elem = { binding; bound }; source } ->
@@ -1254,13 +1242,29 @@ module TypeCheck = struct
           ~boundToEnvEntry:typeBoundToEnvEntry
       in
       let extendedEnv = { env with types = extendedTypesEnv } in
-      let%map body = checkAndExpectArray extendedEnv body in
+      let bodySource = body.source in
+      let%bind returnTypeTyped =
+        returnTypeOpt
+        |> Option.map ~f:(fun returnType ->
+          KindChecker.checkAndExpectArray extendedEnv returnType)
+        |> CheckerState.traverseOpt
+      and body = checkAndExpectArray extendedEnv body in
+      let%bind () =
+        match returnTypeTyped with
+        | Some returnType ->
+          requireType
+            ~expected:(Typed.Type.Array returnType)
+            ~actual:(Typed.Type.Array (T.arrayType body))
+            ~makeError:(fun { expected; actual } ->
+              { source = bodySource; elem = WrongFunctionBodyType { expected; actual } })
+        | None -> CheckerState.ok ()
+      in
       let type' : Typed.Type.func =
         { parameters = List.map typedParams ~f:(fun p -> p.bound)
         ; return = T.arrayType body
         }
       in
-      T.Atom (T.TermLambda { params = typedParams; body; type' })
+      ok (T.Atom (T.TermLambda { params = typedParams; body; type' }))
     | U.TypeLambda { params; body } ->
       let params =
         (* The parameter's have source-annotated bounds; remove the source annotations *)
