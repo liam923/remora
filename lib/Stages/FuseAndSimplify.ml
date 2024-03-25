@@ -7,6 +7,8 @@ let rec fuseAndSimplify (prog : Nested.t) : (CompilerState.state, Nested.t, _) S
   if fusionResult.fusedAny then fuseAndSimplify fusionResult.result else return simplified
 ;;
 
+(* return simplified *)
+
 module Stage (SB : Source.BuilderT) = struct
   type state = CompilerState.state
   type input = Nested.t

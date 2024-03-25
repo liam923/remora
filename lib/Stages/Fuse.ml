@@ -1124,6 +1124,7 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
         (match%bind tryFusing opportunity with
          | Some result ->
            let%bind () = FuseState.markFusion in
+           (* return result *)
            fuseLoops scope result
          | None -> tryFusingList rest)
       | [] -> return (Let { args; body; type' })

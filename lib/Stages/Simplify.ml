@@ -594,8 +594,8 @@ let rec optimize : Expr.t -> Expr.t =
          |> List.mapi ~f:(fun i e -> i, e)
          |> List.for_all ~f:(fun (expectedIndex, e) ->
            match e with
-           | TupleDeref { tuple = Ref eRef; index = eI; type' = _ }
-             when Identifier.equal ref.id eRef.id && eI = expectedIndex -> true
+           | TupleDeref { tuple = Ref eRef; index = eI; type' = _ } ->
+             Identifier.equal ref.id eRef.id && eI = expectedIndex
            | _ -> false)
        in
        if sizesMatch && allSequentialDerefs then Ref ref else values

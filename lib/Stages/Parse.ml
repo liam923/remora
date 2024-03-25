@@ -248,6 +248,18 @@ module Make (SB : Source.BuilderT) = struct
               }
         ; source = esexpSource arrExp
         }
+    | ParenList
+        { elements = Symbol ("Values", _) :: tupleElements
+        ; braceSources = _, rParenSource
+        } as tupleExp ->
+      let%map parsedTuple =
+        parseInfixList
+          ~f:parseType
+          ~before:(esexpSource tupleExp)
+          ~after:rParenSource
+          tupleElements
+      in
+      Source.{ elem = Type.Tuple parsedTuple; source = esexpSource tupleExp }
     | type' -> MResult.err ("Bad type syntax", esexpSource type')
 
   and parseExpr : 's Esexp.t -> ('s Expr.t, error) MResult.t =
@@ -361,6 +373,30 @@ module Make (SB : Source.BuilderT) = struct
            ; source
            }
        | [] -> MResult.err ("[] sugar can only be used for non-empty frames", source))
+    | ParenList
+        { elements = Symbol ("values", _) :: tupleElements
+        ; braceSources = lParenSource, rParenSource
+        } as tupleExpr ->
+      let%bind tupleElements =
+        parseInfixList tupleElements ~f:parseExpr ~before:lParenSource ~after:rParenSource
+      in
+      MOk Source.{ elem = Expr.TupleExpr tupleElements; source = esexpSource tupleExpr }
+    | ParenList { elements = [ Symbol (accessor, _); tupleElt ]; braceSources = _, _ } as
+      derefExp
+      when Re2.matches (Re2.create_exn "#([0-9]+)") accessor ->
+      let index =
+        Int.of_string
+          (Re2.find_first_exn
+             ?sub:(Some (`Index 1))
+             (Re2.create_exn "#([0-9]+)")
+             accessor)
+      in
+      let%bind parsedExpr = parseExpr tupleElt in
+      MOk
+        Source.
+          { elem = Expr.TupleDeref { tuple = parsedExpr; position = index }
+          ; source = esexpSource derefExp
+          }
     | ParenList
         { elements = Symbol ("array", arrSource) :: components
         ; braceSources = _, rParenSource
