@@ -26,6 +26,7 @@
   dune
   base
   menhir
+  re2
   ppx_jane
   ppx_deriving
   (core_unix :with-test)
