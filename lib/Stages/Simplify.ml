@@ -1105,16 +1105,8 @@ let simplify expr =
             ~args:(List.map hoistings ~f:(fun h -> h.variableDeclaration))
             ~body:exprHoistedWithoutDecs
       in
-      (* Stdio.print_endline *)
-      (*   (Printf.sprintf *)
-      (*      "Before tuple reduce: %s" *)
-      (*      (Sexp.to_string_hum (Nested.sexp_of_t exprHoisted))); *)
       (* Reduce tuples (remove unused elements) *)
       let%bind { res = reduced; droppedAny } = TupleReduce.reduceTuples exprHoisted in
-      (* Stdio.print_endline *)
-      (*   (Printf.sprintf *)
-      (*      "After tuple reduce: %s" *)
-      (*      (Sexp.to_string_hum (Nested.sexp_of_t reduced))); *)
       (* If reducing tuples did anything, loop. Otherwise, return *)
       if droppedAny then loop reduced else return exprHoisted)
     else loop optimized

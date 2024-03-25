@@ -995,13 +995,14 @@ let rec reduceTuplesInExpr (request : TupleRequest.t) expr =
             in
             let%map value = reduceTuplesInExpr argRequest (Expr.Ref ref)
             and valueBinding = ReduceTupleState.createId (Identifier.name ref.id) in
-            let argRef = Expr.Ref { id = binding; type' = argArrayType.element } in
+            let valueType =
+              match Expr.type' value with
+              | Array array -> array
+              | _ -> raise @@ Unreachable.Error "expected array type"
+            in
+            let argRef = Expr.Ref { id = binding; type' = valueType.element } in
             let valueRef : Expr.ref = { id = valueBinding; type' = Expr.type' value } in
             let unpackers = List.map unpackersRaw ~f:(fun unpacker -> unpacker argRef) in
-            (* Stdio.print_endline *)
-            (*   (Printf.sprintf *)
-            (*      "unpackers: %s" *)
-            (*      (Sexp.to_string_hum (List.sexp_of_t Expr.sexp_of_letArg unpackers))); *)
             let valueUnpacker : Expr.letArg = { binding = valueBinding; value } in
             Expr.{ binding; ref = valueRef }, unpackers, valueUnpacker))
         |> List.filter_opt

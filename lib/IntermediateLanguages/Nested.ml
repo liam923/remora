@@ -412,11 +412,7 @@ module Expr = struct
         ]
 
     and sexp_of_letArg { binding; value } =
-      Sexp.List
-        [ Sexp.Atom (Identifier.show binding)
-        ; Type.sexp_of_t (type' value)
-        ; sexp_of_t value
-        ]
+      Sexp.List [ Sexp.Atom (Identifier.show binding); sexp_of_t value ]
 
     and sexp_of_let { args; body; type' = _ } =
       Sexp.List
@@ -485,10 +481,7 @@ module Expr = struct
 
     and sexp_of_mapArg { binding; ref } =
       Sexp.List
-        [ Sexp.Atom (Identifier.show binding)
-        ; Type.sexp_of_t ref.type'
-        ; Sexp.Atom (Identifier.show ref.id)
-        ]
+        [ Sexp.Atom (Identifier.show binding); Sexp.Atom (Identifier.show ref.id) ]
 
     and sexp_of_loopBlock
       { frameShape
@@ -512,7 +505,7 @@ module Expr = struct
                       (Sexp.Atom "iota" :: List.map mapIotas ~f:[%sexp_of: Identifier.t])
                   ]
                 else [])
-             @ [ sexp_of_t mapBody; Type.sexp_of_t (type' mapBody) ])
+             @ [ sexp_of_t mapBody ])
         ; Sexp.List [ Sexp.Atom "body-matcher"; sexp_of_tupleMatch mapBodyMatcher ]
         ; Sexp.List
             [ Sexp.Atom "map-result"
