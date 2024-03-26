@@ -3,12 +3,10 @@ open! Base
 let rec fuseAndSimplify (prog : Nested.t) : (CompilerState.state, Nested.t, _) State.t =
   let open State.Let_syntax in
   let%bind simplified = Simplify.simplify prog in
-  (* let () = *)
-  (*   Stdio.print_endline *)
-  (*     (Printf.sprintf *)
-  (*        "Before fusion: \n%s" *)
-  (*        (Sexp.to_string_hum (Nested.sexp_of_t simplified))) *)
-  (* in *)
+  let () =
+    Stdio.print_endline
+      (Printf.sprintf "Before fusion: \n%s" (Sexp.to_string_hum (Nested.sexp_of_t prog)))
+  in
   let%bind fusionResult = Fuse.fuse simplified in
   (* Stdio.print_endline "After fusion:"; *)
   (* let () = *)

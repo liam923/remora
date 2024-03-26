@@ -473,6 +473,10 @@ let rec liftFrom
           | Some (Value derefs) -> `Snd (arg, derefs)
           | Some (Tuple _) | None -> `Trd ()))
     in
+    Stdio.print_endline
+      (Printf.sprintf "loop block: \n%s" (Sexp.to_string_hum (Expr.sexp_of_t loopBlock)));
+    Stdio.print_endline
+      (Printf.sprintf "target: \n%s" (Sexp.to_string_hum (Expr.sexp_of_loopBlock target)));
     (* let () = *)
     (*   Stdio.print_endline *)
     (*     (Printf.sprintf *)
@@ -527,6 +531,13 @@ let rec liftFrom
                     Expr.tupleDeref ~tuple:(derefValue restDerefs value) ~index
                   | [] -> value
                 in
+                Stdio.print_endline
+                  (Printf.sprintf
+                     "ref %s of type %s\nderef stack is %s"
+                     (Sexp.to_string_hum
+                        (Identifier.sexp_of_t targetMapResultElementBinding))
+                     (Sexp.to_string_hum (Type.sexp_of_t (Expr.type' target.mapBody)))
+                     (Sexp.to_string_hum (List.sexp_of_t Int.sexp_of_t derefs)));
                 { binding
                 ; value =
                     derefValue
@@ -1174,6 +1185,10 @@ let rec fuseLoops (scope : Set.M(Identifier).t)
         (match%bind tryFusing opportunity with
          | Some result ->
            let%bind () = FuseState.markFusion in
+           (* Stdio.print_endline *)
+           (*   (Printf.sprintf *)
+           (*      "Fusion result: \n%s" *)
+           (*      (Sexp.to_string_hum (Expr.sexp_of_t result))); *)
            (* return result *)
            fuseLoops scope result
          | None -> tryFusingList rest)

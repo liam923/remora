@@ -1105,6 +1105,7 @@ let simplify expr =
             ~args:(List.map hoistings ~f:(fun h -> h.variableDeclaration))
             ~body:exprHoistedWithoutDecs
       in
+      (* return exprHoisted *)
       (* Reduce tuples (remove unused elements) *)
       let%bind { res = reduced; droppedAny } = TupleReduce.reduceTuples exprHoisted in
       (* If reducing tuples did anything, loop. Otherwise, return *)
